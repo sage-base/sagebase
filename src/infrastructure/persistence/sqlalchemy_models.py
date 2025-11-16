@@ -34,7 +34,7 @@ class ParliamentaryGroupMembershipModel(Base):
     end_date: Mapped[date | None] = mapped_column()
     role: Mapped[str | None] = mapped_column(String(100))
     created_by_user_id: Mapped[UUID | None] = mapped_column(
-        Uuid, ForeignKey("users.user_id")
+        Uuid, ForeignKey("users.user_id", use_alter=True, name="fk_pgm_user")
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
