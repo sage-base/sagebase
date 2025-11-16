@@ -1,12 +1,12 @@
-baseURL = 'https://polibase.example.org/'
+baseURL = 'https://sagebase.example.org/'
 languageCode = 'ja'
-title = 'Polibase - 政治活動追跡アプリケーション'
+title = 'Sagebase - 政治活動追跡アプリケーション'
 theme = 'PaperMod'
 
 # PaperMod テーマの設定
 [params]
   description = '日本の政治活動を追跡・分析するアプリケーション'
-  author = 'Polibase Team'
+  author = 'Sagebase Team'
 
   # 表示設定
   ShowReadingTime = true
@@ -27,10 +27,10 @@ theme = 'PaperMod'
   # プロフィール設定
   [params.profileMode]
     enabled = true
-    title = 'Polibase'
+    title = 'Sagebase'
     subtitle = '政治活動追跡アプリケーション'
     imageUrl = ''
-    imageTitle = 'Polibase Logo'
+    imageTitle = 'Sagebase Logo'
 
     [[params.profileMode.buttons]]
       name = '概要'
