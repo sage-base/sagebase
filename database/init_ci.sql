@@ -169,7 +169,6 @@ CREATE INDEX idx_conferences_governing_body ON conferences(governing_body_id);
 CREATE INDEX idx_meetings_conference ON meetings(conference_id);
 CREATE INDEX idx_minutes_meeting ON minutes(meeting_id);
 CREATE INDEX idx_politicians_political_party ON politicians(political_party_id);
-CREATE INDEX idx_politicians_speaker ON politicians(speaker_id);
 CREATE INDEX idx_pledges_politician ON pledges(politician_id);
 CREATE INDEX idx_party_membership_politician ON party_membership_history(politician_id);
 CREATE INDEX idx_party_membership_party ON party_membership_history(political_party_id);
