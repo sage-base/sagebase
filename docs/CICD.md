@@ -197,10 +197,14 @@ on:
 | `PORT` | `8080` | Streamlitポート |
 | `HEALTH_CHECK_PORT` | `8081` | ヘルスチェックポート |
 | `LOG_LEVEL` | `INFO` | ログレベル |
+| `USE_VERTEX_AI` | `true` | Vertex AI使用フラグ |
+| `GOOGLE_CLOUD_PROJECT` | プロジェクトID | Vertex AI用GCPプロジェクト |
+| `VERTEX_AI_LOCATION` | リージョン | Vertex AIのロケーション |
 
 Secret Managerから注入：
-- `GOOGLE_API_KEY`: Gemini APIキー
 - `DB_PASSWORD`: データベースパスワード
+
+**注意**: Vertex AI経由でGeminiを使用するため、API Keyは不要です。サービスアカウント認証を使用します。
 
 ---
 
@@ -501,24 +505,45 @@ gcloud run services update-traffic sagebase-streamlit \
   --region=asia-northeast1
 ```
 
-### Secret Managerのシークレットが見つからない
+### Vertex AI APIにアクセスできない
 
 #### 症状
 ```
-Error: Secret 'google-api-key' not found
+Error: Permission denied on Vertex AI API
 ```
 
 #### 解決方法
 
 ```bash
-# シークレットを作成
-echo -n "YOUR_API_KEY" | gcloud secrets create google-api-key \
+# Vertex AI APIを有効化
+gcloud services enable aiplatform.googleapis.com --project=YOUR_PROJECT_ID
+
+# Cloud RunサービスアカウントにVertex AI権限を付与
+PROJECT_NUMBER=$(gcloud projects describe YOUR_PROJECT_ID --format='value(projectNumber)')
+
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/aiplatform.user"
+```
+
+### Secret Managerのシークレットが見つからない
+
+#### 症状
+```
+Error: Secret 'database-password' not found
+```
+
+#### 解決方法
+
+```bash
+# データベースパスワードのシークレットを作成
+echo -n "YOUR_DB_PASSWORD" | gcloud secrets create database-password \
   --data-file=- \
   --replication-policy=automatic \
   --project=YOUR_PROJECT_ID
 
 # サービスアカウントにアクセス権限を付与
-gcloud secrets add-iam-policy-binding google-api-key \
+gcloud secrets add-iam-policy-binding database-password \
   --member="serviceAccount:SERVICE_ACCOUNT_EMAIL" \
   --role="roles/secretmanager.secretAccessor" \
   --project=YOUR_PROJECT_ID

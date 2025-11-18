@@ -13,32 +13,32 @@
 
 ### 1.1 必要なツールの確認
 
-- [ ] **gcloud CLIのインストール確認**
+- [x] **gcloud CLIのインストール確認**
   ```bash
   gcloud --version
   # インストールされていない場合: https://cloud.google.com/sdk/docs/install
   ```
 
-- [ ] **gcloud認証**
+- [x] **gcloud認証**
   ```bash
   gcloud auth login
   gcloud auth application-default login
   ```
 
-- [ ] **GitHub CLIのインストール確認**
+- [x] **GitHub CLIのインストール確認**
   ```bash
   gh --version
   # インストールされていない場合: https://cli.github.com/
   ```
 
-- [ ] **Dockerのインストール確認**
+- [x] **Dockerのインストール確認**
   ```bash
   docker --version
   ```
 
 ### 1.2 GCPプロジェクトの設定
 
-- [ ] **プロジェクトIDを決定**
+- [x] **プロジェクトIDを決定**
   ```bash
   # 既存プロジェクトを使用する場合
   export PROJECT_ID="your-existing-project-id"
@@ -48,7 +48,7 @@
   gcloud projects create $PROJECT_ID --name="Sagebase Production"
   ```
 
-- [ ] **プロジェクトIDを環境変数に保存**
+- [x] **プロジェクトIDを環境変数に保存**
   ```bash
   # ~/.bashrc または ~/.zshrc に追加
   echo "export PROJECT_ID=\"$PROJECT_ID\"" >> ~/.bashrc
@@ -56,12 +56,12 @@
   source ~/.bashrc
   ```
 
-- [ ] **プロジェクトを設定**
+- [x] **プロジェクトを設定**
   ```bash
   gcloud config set project $PROJECT_ID
   ```
 
-- [ ] **課金アカウントの確認・設定**
+- [x] **課金アカウントの確認・設定**
   ```bash
   # 課金アカウント一覧
   gcloud billing accounts list
@@ -73,34 +73,39 @@
 
 ### 1.3 必要なAPIの有効化
 
-- [ ] **Cloud Run API**
+- [x] **Cloud Run API**
   ```bash
   gcloud services enable run.googleapis.com --project=$PROJECT_ID
   ```
 
-- [ ] **Cloud SQL Admin API**
+- [x] **Cloud SQL Admin API**
   ```bash
   gcloud services enable sqladmin.googleapis.com --project=$PROJECT_ID
   ```
 
-- [ ] **Artifact Registry API**
+- [x] **Artifact Registry API**
   ```bash
   gcloud services enable artifactregistry.googleapis.com --project=$PROJECT_ID
   ```
 
-- [ ] **Secret Manager API**
+- [x] **Secret Manager API**
   ```bash
   gcloud services enable secretmanager.googleapis.com --project=$PROJECT_ID
   ```
 
-- [ ] **Cloud Build API**（オプション）
+- [x] **Cloud Build API**（オプション）
   ```bash
   gcloud services enable cloudbuild.googleapis.com --project=$PROJECT_ID
   ```
 
-- [ ] **API有効化の確認**
+- [ ] **Vertex AI API**（Gemini使用のため必須）
   ```bash
-  gcloud services list --enabled --project=$PROJECT_ID | grep -E "(run|sqladmin|artifactregistry|secretmanager)"
+  gcloud services enable aiplatform.googleapis.com --project=$PROJECT_ID
+  ```
+
+- [x] **API有効化の確認**
+  ```bash
+  gcloud services list --enabled --project=$PROJECT_ID | grep -E "(run|sqladmin|artifactregistry|secretmanager|aiplatform)"
   ```
 
 ---
@@ -114,32 +119,31 @@
   export INSTANCE_NAME="sagebase-db"
   ```
 
-- [ ] **Cloud SQLインスタンスを作成**
+- [x] **Cloud SQLインスタンスを作成**
   ```bash
-  gcloud sql instances create $INSTANCE_NAME \
+  gcloud sql instances create sagebase-db \
     --database-version=POSTGRES_15 \
     --tier=db-f1-micro \
-    --region=$REGION \
+    --region=asia-northeast1 \
     --root-password="CHANGE_THIS_PASSWORD" \
     --backup-start-time=03:00 \
-    --backup-location=asia \
     --enable-bin-log \
     --retained-backups-count=7 \
-    --project=$PROJECT_ID
+    --project=trust-chain-828ad
 
   # 注意: --root-password は安全なパスワードに変更してください
   ```
 
   **所要時間**: 約5-10分
 
-- [ ] **インスタンスの作成完了を確認**
+- [x] **インスタンスの作成完了を確認**
   ```bash
   gcloud sql instances describe $INSTANCE_NAME --project=$PROJECT_ID
   ```
 
 ### 2.2 データベースとユーザーの作成
 
-- [ ] **データベースパスワードを決定**
+- [x] **データベースパスワードを決定**
   ```bash
   # 安全なパスワードを生成
   export DB_PASSWORD=$(openssl rand -base64 32)
@@ -147,62 +151,71 @@
   # このパスワードを安全に保存してください！
   ```
 
-- [ ] **データベースユーザーを作成**
+- [x] **データベースユーザーを作成**
   ```bash
   gcloud sql users create sagebase_user \
-    --instance=$INSTANCE_NAME \
+    --instance=sagebase-db \
     --password="$DB_PASSWORD" \
-    --project=$PROJECT_ID
+    --project=trust-chain-828ad
   ```
 
-- [ ] **データベースを作成**
+- [x] **データベースを作成**
   ```bash
   gcloud sql databases create sagebase_db \
-    --instance=$INSTANCE_NAME \
-    --project=$PROJECT_ID
+    --instance=sagebase-db \
+    --project=trust-chain-828ad
   ```
 
 ### 2.3 Cloud SQL接続名の取得
 
-- [ ] **接続名を取得して保存**
+- [x] **接続名を取得して保存**
   ```bash
-  export CLOUD_SQL_CONNECTION_NAME=$(gcloud sql instances describe $INSTANCE_NAME \
-    --project=$PROJECT_ID \
+  export CLOUD_SQL_CONNECTION_NAME=$(gcloud sql instances describe sagebase-db \
+    --project=trust-chain-828ad \
     --format='value(connectionName)')
 
   echo "CLOUD_SQL_CONNECTION_NAME: $CLOUD_SQL_CONNECTION_NAME"
   # 形式: PROJECT_ID:REGION:INSTANCE_NAME
 
   # 環境変数に保存
-  echo "export CLOUD_SQL_CONNECTION_NAME=\"$CLOUD_SQL_CONNECTION_NAME\"" >> ~/.bashrc
-  source ~/.bashrc
+  echo "export CLOUD_SQL_CONNECTION_NAME=\"$CLOUD_SQL_CONNECTION_NAME\"" >> ~/.zshrc
+  source ~/.zshrc
   ```
 
 ---
 
 ## ✅ Phase 3: Secret Managerのセットアップ
 
-### 3.1 Google API Keyの登録
+### 3.1 Vertex AI権限の設定（Gemini使用）
 
-- [ ] **Gemini API Keyを準備**
-  - Google AI Studio (https://aistudio.google.com/apikey) でAPIキーを取得
-  - または既存のAPIキーを使用
+**注意**: Vertex AI経由でGeminiを使用するため、API Keyは不要です。代わりにService Accountに権限を付与します。
 
-- [ ] **Secret Managerに登録**
+- [ ] **Vertex AI APIが有効化されていることを確認**
   ```bash
-  # APIキーを環境変数に設定（セキュアな方法で）
-  export GOOGLE_API_KEY="your-gemini-api-key-here"
-
-  # Secret Managerに登録
-  echo -n "$GOOGLE_API_KEY" | gcloud secrets create google-api-key \
-    --data-file=- \
-    --replication-policy=automatic \
-    --project=$PROJECT_ID
+  gcloud services list --enabled --project=$PROJECT_ID | grep aiplatform
   ```
 
-- [ ] **登録確認**
+- [ ] **Cloud RunサービスアカウントにVertex AI権限を付与**
   ```bash
-  gcloud secrets describe google-api-key --project=$PROJECT_ID
+  # プロジェクト番号を取得
+  export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+
+  # Vertex AI User権限を付与
+  gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    --role="roles/aiplatform.user"
+
+  echo "Vertex AI権限を付与しました: ${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+  ```
+
+- [ ] **権限付与の確認**
+  ```bash
+  gcloud projects get-iam-policy $PROJECT_ID \
+    --flatten="bindings[].members" \
+    --format="table(bindings.role)" \
+    --filter="bindings.members:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+
+  # roles/aiplatform.user が表示されることを確認
   ```
 
 ### 3.2 データベースパスワードの登録
@@ -222,17 +235,12 @@
 
 ### 3.3 Secret Managerへのアクセス権限設定
 
-- [ ] **Cloud Runサービスアカウントに権限付与**
+- [ ] **Cloud RunサービスアカウントにSecret Manager権限付与**
   ```bash
-  # プロジェクト番号を取得
+  # プロジェクト番号を取得（上記で取得済みの場合はスキップ可）
   export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
 
-  # Compute Engine default service accountに権限付与
-  gcloud secrets add-iam-policy-binding google-api-key \
-    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
-    --role="roles/secretmanager.secretAccessor" \
-    --project=$PROJECT_ID
-
+  # データベースパスワードへのアクセス権限を付与
   gcloud secrets add-iam-policy-binding database-password \
     --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
     --role="roles/secretmanager.secretAccessor" \
@@ -241,8 +249,11 @@
 
 - [ ] **権限設定の確認**
   ```bash
-  gcloud secrets get-iam-policy google-api-key --project=$PROJECT_ID
   gcloud secrets get-iam-policy database-password --project=$PROJECT_ID
+
+  # 以下が表示されることを確認:
+  # - serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com
+  # - role: roles/secretmanager.secretAccessor
   ```
 
 ---

@@ -140,13 +140,14 @@ jobs:
           )
 
           # Secret Managerからのシークレット設定
-          if gcloud secrets describe google-api-key --project=${{ env.PROJECT_ID }} > /dev/null 2>&1; then
-            DEPLOY_ARGS+=("--set-secrets=GOOGLE_API_KEY=google-api-key:latest")
-          fi
-
           if gcloud secrets describe database-password --project=${{ env.PROJECT_ID }} > /dev/null 2>&1; then
             DEPLOY_ARGS+=("--set-secrets=DB_PASSWORD=database-password:latest")
           fi
+
+          # Vertex AI用の環境変数設定
+          DEPLOY_ARGS+=("--set-env-vars=USE_VERTEX_AI=true")
+          DEPLOY_ARGS+=("--set-env-vars=GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}")
+          DEPLOY_ARGS+=("--set-env-vars=VERTEX_AI_LOCATION=${{ env.REGION }}")
 
           # Cloud SQL接続設定
           if [ -n "${{ secrets.CLOUD_SQL_INSTANCE }}" ]; then
