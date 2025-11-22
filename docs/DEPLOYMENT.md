@@ -925,6 +925,162 @@ gsutil cp backup.sql.gz gs://sagebase-backups/
 
 ---
 
+---
+
+## Cloud Monitoring設定
+
+本番環境では、Cloud Monitoringによる監視とアラート設定が重要です。
+
+### Terraformによる監視設定
+
+#### 監視モジュールのデプロイ
+
+Terraformで自動的に以下が設定されます：
+
+```bash
+cd terraform
+terraform apply
+```
+
+**作成されるリソース**:
+
+1. **Uptimeチェック**: `/_stcore/health`エンドポイント（60秒間隔）
+2. **アラートポリシー**:
+   - Service Availability（サービス停止）
+   - High Error Rate（5xxエラー率 > 5%）
+   - High Response Time（p95レスポンスタイム > 3秒）
+   - High CPU Usage（CPU使用率 > 80%）
+   - High Memory Usage（メモリ使用率 > 85%）
+   - Database Connection Failures（DB接続失敗）
+3. **カスタムダッシュボード**: Sagebase Monitoring Dashboard
+
+#### ダッシュボードの確認
+
+1. [Google Cloud Console](https://console.cloud.google.com/) にアクセス
+2. **Monitoring** → **Dashboards** を開く
+3. "Sagebase Monitoring Dashboard - {environment}" を選択
+
+**ダッシュボードに含まれるウィジェット**:
+- Cloud Run Request Count
+- Cloud Run Error Rate (5xx)
+- Cloud Run Response Latency (p50, p95, p99)
+- Cloud Run CPU Utilization
+- Cloud Run Memory Utilization
+- Cloud Run Instance Count
+- Cloud SQL Active Connections
+- Cloud SQL CPU Utilization
+
+#### アラート通知の設定
+
+Slack通知を設定する場合：
+
+```bash
+# Notification Channelの作成
+gcloud alpha monitoring channels create \
+  --display-name="Slack - Sagebase Alerts" \
+  --type=slack \
+  --channel-labels=url=YOUR_SLACK_WEBHOOK_URL \
+  --project=YOUR_PROJECT_ID
+
+# Notification ChannelのIDを取得
+CHANNEL_ID=$(gcloud alpha monitoring channels list \
+  --project=YOUR_PROJECT_ID \
+  --filter="displayName:'Slack - Sagebase Alerts'" \
+  --format="value(name)")
+
+# terraform.tfvarsに追加
+echo "notification_channels = [\"$CHANNEL_ID\"]" >> terraform.tfvars
+
+# 再適用
+terraform apply
+```
+
+### 手動での監視設定
+
+Terraformを使用しない場合の手動設定方法：
+
+#### Uptimeチェックの作成
+
+```bash
+gcloud monitoring uptime create UPTIME_CHECK_NAME \
+  --resource-type=uptime-url \
+  --display-name="Streamlit Health Check" \
+  --http-check-path="/_stcore/health" \
+  --monitored-resource=SERVICE_URL \
+  --period=60 \
+  --timeout=10 \
+  --project=YOUR_PROJECT_ID
+```
+
+#### アラートポリシーの作成例（High Error Rate）
+
+```bash
+gcloud alpha monitoring policies create \
+  --notification-channels=CHANNEL_ID \
+  --display-name="Sagebase High Error Rate" \
+  --condition-display-name="Error rate > 5%" \
+  --condition-threshold-value=0.05 \
+  --condition-threshold-duration=300s \
+  --condition-filter='resource.type="cloud_run_revision" AND metric.type="run.googleapis.com/request_count" AND metric.label.response_code_class="5xx"' \
+  --aggregation='{"alignmentPeriod":"60s","perSeriesAligner":"ALIGN_RATE"}' \
+  --project=YOUR_PROJECT_ID
+```
+
+### スモークテストの実行
+
+デプロイ後は、スモークテストで動作確認を行います：
+
+```bash
+# 環境変数設定
+export SERVICE_URL=$(gcloud run services describe sagebase-streamlit \
+  --region=asia-northeast1 \
+  --project=YOUR_PROJECT_ID \
+  --format="value(status.url)")
+export PROJECT_ID="your-project-id"
+export REGION="asia-northeast1"
+export CLOUD_SQL_INSTANCE="your-instance-name"
+export ENVIRONMENT="production"
+
+# スモークテスト実行
+./scripts/smoke_test.sh
+```
+
+### 統合テストの実行
+
+本番環境の統合テストを実行する場合：
+
+```bash
+# 環境変数設定
+export ENVIRONMENT="production"
+export RUN_PRODUCTION_TESTS="true"
+export SERVICE_URL=$(gcloud run services describe sagebase-streamlit \
+  --region=asia-northeast1 \
+  --project=YOUR_PROJECT_ID \
+  --format="value(status.url)")
+export GOOGLE_CLOUD_PROJECT="your-project-id"
+export USE_CLOUD_SQL_PROXY="true"
+export CLOUD_SQL_CONNECTION_NAME="PROJECT:REGION:INSTANCE"
+export DB_PASSWORD="your-db-password"
+
+# 統合テスト実行
+uv run pytest tests/integration/test_production_deployment.py -v -m production
+```
+
+**注意**: 本番環境のテストはコストが発生するため、必要な時のみ実行してください。
+
+---
+
+## 運用ドキュメント
+
+本番環境の運用については、以下のドキュメントを参照してください：
+
+- **[OPERATIONS.md](./OPERATIONS.md)**: 日常運用手順、監視、バックアップ、スケーリング
+- **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)**: よくある問題と解決方法
+- **[MONITORING.md](./MONITORING.md)**: 監視設定の詳細（TODO: 作成予定）
+
+---
+
 ## 更新履歴
 
 - 2024-01-XX: 初版作成（PBI-003対応）
+- 2024-01-XX: Cloud Monitoring設定セクション追加（PBI-007対応）
