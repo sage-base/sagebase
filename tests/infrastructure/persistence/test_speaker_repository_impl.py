@@ -481,12 +481,12 @@ class TestSpeakerRepositoryImpl:
 
         # Verify
         assert len(result) == 2
-        assert result[0].name == "山田太郎"
-        assert result[0].matched_by_user_id == test_user_id
-        assert result[0].updated_at == datetime(2024, 1, 15, 10, 30)
+        assert result[0].speaker.name == "山田太郎"
+        assert result[0].speaker.matched_by_user_id == test_user_id
+        assert result[0].speaker.updated_at == datetime(2024, 1, 15, 10, 30)
         assert result[0].politician is not None
         assert result[0].politician.name == "山田太郎政治家"
-        assert result[1].name == "鈴木花子"
+        assert result[1].speaker.name == "鈴木花子"
         assert result[1].politician is None
 
     @pytest.mark.asyncio
@@ -526,8 +526,8 @@ class TestSpeakerRepositoryImpl:
 
         # Verify
         assert len(result) == 1
-        assert result[0].name == "山田太郎"
-        assert result[0].matched_by_user_id == UUID(
+        assert result[0].speaker.name == "山田太郎"
+        assert result[0].speaker.matched_by_user_id == UUID(
             "11111111-1111-1111-1111-111111111111"
         )
 

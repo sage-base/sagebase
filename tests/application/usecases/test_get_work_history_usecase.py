@@ -96,12 +96,17 @@ async def test_get_work_history_filter_by_user_id():
     user_repo = MagicMock()
 
     # user_id_1のデータ
-    speaker1 = Speaker(id=1, name="Speaker 1", is_politician=True)
-    speaker1.politician = Politician(id=1, name="Politician 1")
-    speaker1.matched_by_user_id = user_id_1
-    speaker1.updated_at = datetime.now()
+    politician1 = Politician(id=1, name="Politician 1")
+    speaker1 = Speaker(
+        id=1,
+        name="Speaker 1",
+        is_politician=True,
+        matched_by_user_id=user_id_1,
+        updated_at=datetime.now(),
+    )
+    speaker1_dto = SpeakerWithPoliticianDTO(speaker=speaker1, politician=politician1)
 
-    speaker_repo.find_by_matched_user = AsyncMock(return_value=[speaker1])
+    speaker_repo.find_by_matched_user = AsyncMock(return_value=[speaker1_dto])
     membership_repo.find_by_created_user = AsyncMock(return_value=[])
 
     user = User(user_id=user_id_1, email="user1@example.com", name="User 1")
@@ -131,11 +136,16 @@ async def test_get_work_history_filter_by_work_type_speaker_matching():
     membership_repo = MagicMock()
     user_repo = MagicMock()
 
-    speaker = Speaker(id=1, name="Test Speaker", is_politician=True)
-    speaker.politician = Politician(id=1, name="Test Politician")
-    speaker.matched_by_user_id = user_id
-    speaker.updated_at = datetime.now()
-    speaker_repo.find_by_matched_user = AsyncMock(return_value=[speaker])
+    politician = Politician(id=1, name="Test Politician")
+    speaker = Speaker(
+        id=1,
+        name="Test Speaker",
+        is_politician=True,
+        matched_by_user_id=user_id,
+        updated_at=datetime.now(),
+    )
+    speaker_dto = SpeakerWithPoliticianDTO(speaker=speaker, politician=politician)
+    speaker_repo.find_by_matched_user = AsyncMock(return_value=[speaker_dto])
 
     membership_repo.find_by_created_user = AsyncMock(return_value=[])
 
@@ -169,17 +179,19 @@ async def test_get_work_history_filter_by_work_type_membership_creation():
     user_repo = MagicMock()
 
     group = ParliamentaryGroup(id=1, name="Test Group", conference_id=1)
+    politician = Politician(id=1, name="Test Politician")
     membership = ParliamentaryGroupMembership(
         id=1,
         politician_id=1,
         parliamentary_group_id=1,
         start_date=datetime.now().date(),
+        created_by_user_id=user_id,
+        created_at=datetime.now(),
     )
-    membership.politician = Politician(id=1, name="Test Politician")
-    membership.parliamentary_group = group
-    membership.created_by_user_id = user_id
-    membership.created_at = datetime.now()
-    membership_repo.find_by_created_user = AsyncMock(return_value=[membership])
+    membership_dto = ParliamentaryGroupMembershipWithRelationsDTO(
+        membership=membership, politician=politician, parliamentary_group=group
+    )
+    membership_repo.find_by_created_user = AsyncMock(return_value=[membership_dto])
 
     speaker_repo.find_by_matched_user = AsyncMock(return_value=[])
 
@@ -215,17 +227,29 @@ async def test_get_work_history_filter_by_date_range():
     user_repo = MagicMock()
 
     # Create speakers with different dates
-    speaker1 = Speaker(id=1, name="Speaker 1", is_politician=True)
-    speaker1.politician = Politician(id=1, name="Politician 1")
-    speaker1.matched_by_user_id = user_id
-    speaker1.updated_at = datetime(2024, 1, 10, 10, 0)  # Within range
+    politician1 = Politician(id=1, name="Politician 1")
+    speaker1 = Speaker(
+        id=1,
+        name="Speaker 1",
+        is_politician=True,
+        matched_by_user_id=user_id,
+        updated_at=datetime(2024, 1, 10, 10, 0),  # Within range
+    )
+    speaker1_dto = SpeakerWithPoliticianDTO(speaker=speaker1, politician=politician1)
 
-    speaker2 = Speaker(id=2, name="Speaker 2", is_politician=True)
-    speaker2.politician = Politician(id=2, name="Politician 2")
-    speaker2.matched_by_user_id = user_id
-    speaker2.updated_at = datetime(2024, 1, 20, 10, 0)  # Outside range
+    politician2 = Politician(id=2, name="Politician 2")
+    speaker2 = Speaker(
+        id=2,
+        name="Speaker 2",
+        is_politician=True,
+        matched_by_user_id=user_id,
+        updated_at=datetime(2024, 1, 20, 10, 0),  # Outside range
+    )
+    speaker2_dto = SpeakerWithPoliticianDTO(speaker=speaker2, politician=politician2)
 
-    speaker_repo.find_by_matched_user = AsyncMock(return_value=[speaker1, speaker2])
+    speaker_repo.find_by_matched_user = AsyncMock(
+        return_value=[speaker1_dto, speaker2_dto]
+    )
     membership_repo.find_by_created_user = AsyncMock(return_value=[])
 
     user = User(user_id=user_id, email="test@example.com", name="Test User")
@@ -257,16 +281,21 @@ async def test_get_work_history_pagination():
     membership_repo = MagicMock()
     user_repo = MagicMock()
 
-    # Create 5 speakers
-    speakers = []
+    # Create 5 speakers with DTOs
+    speaker_dtos = []
     for i in range(5):
-        speaker = Speaker(id=i, name=f"Speaker {i}", is_politician=True)
-        speaker.politician = Politician(id=i, name=f"Politician {i}")
-        speaker.matched_by_user_id = user_id
-        speaker.updated_at = datetime(2024, 1, i + 1, 10, 0)
-        speakers.append(speaker)
+        politician = Politician(id=i, name=f"Politician {i}")
+        speaker = Speaker(
+            id=i,
+            name=f"Speaker {i}",
+            is_politician=True,
+            matched_by_user_id=user_id,
+            updated_at=datetime(2024, 1, i + 1, 10, 0),
+        )
+        speaker_dto = SpeakerWithPoliticianDTO(speaker=speaker, politician=politician)
+        speaker_dtos.append(speaker_dto)
 
-    speaker_repo.find_by_matched_user = AsyncMock(return_value=speakers)
+    speaker_repo.find_by_matched_user = AsyncMock(return_value=speaker_dtos)
     membership_repo.find_by_created_user = AsyncMock(return_value=[])
 
     user = User(user_id=user_id, email="test@example.com", name="Test User")
@@ -329,18 +358,30 @@ async def test_get_work_history_speaker_without_updated_at():
     user_repo = MagicMock()
 
     # Speaker without updated_at
-    speaker1 = Speaker(id=1, name="Speaker 1", is_politician=True)
-    speaker1.politician = Politician(id=1, name="Politician 1")
-    speaker1.matched_by_user_id = user_id
-    speaker1.updated_at = None  # No timestamp
+    politician1 = Politician(id=1, name="Politician 1")
+    speaker1 = Speaker(
+        id=1,
+        name="Speaker 1",
+        is_politician=True,
+        matched_by_user_id=user_id,
+        updated_at=None,  # No timestamp
+    )
+    speaker1_dto = SpeakerWithPoliticianDTO(speaker=speaker1, politician=politician1)
 
     # Speaker with updated_at
-    speaker2 = Speaker(id=2, name="Speaker 2", is_politician=True)
-    speaker2.politician = Politician(id=2, name="Politician 2")
-    speaker2.matched_by_user_id = user_id
-    speaker2.updated_at = datetime.now()
+    politician2 = Politician(id=2, name="Politician 2")
+    speaker2 = Speaker(
+        id=2,
+        name="Speaker 2",
+        is_politician=True,
+        matched_by_user_id=user_id,
+        updated_at=datetime.now(),
+    )
+    speaker2_dto = SpeakerWithPoliticianDTO(speaker=speaker2, politician=politician2)
 
-    speaker_repo.find_by_matched_user = AsyncMock(return_value=[speaker1, speaker2])
+    speaker_repo.find_by_matched_user = AsyncMock(
+        return_value=[speaker1_dto, speaker2_dto]
+    )
     membership_repo.find_by_created_user = AsyncMock(return_value=[])
 
     user = User(user_id=user_id, email="test@example.com", name="Test User")
@@ -370,36 +411,42 @@ async def test_get_work_history_membership_without_created_at():
     user_repo = MagicMock()
 
     # Membership without created_at
+    politician1 = Politician(id=1, name="Politician 1")
+    parliamentary_group1 = ParliamentaryGroup(id=1, name="Group 1", conference_id=1)
     membership1 = ParliamentaryGroupMembership(
         id=1,
         politician_id=1,
         parliamentary_group_id=1,
         start_date=datetime.now().date(),
+        created_by_user_id=user_id,
+        created_at=None,  # No timestamp
     )
-    membership1.politician = Politician(id=1, name="Politician 1")
-    membership1.parliamentary_group = ParliamentaryGroup(
-        id=1, name="Group 1", conference_id=1
+    membership1_dto = ParliamentaryGroupMembershipWithRelationsDTO(
+        membership=membership1,
+        politician=politician1,
+        parliamentary_group=parliamentary_group1,
     )
-    membership1.created_by_user_id = user_id
-    membership1.created_at = None  # No timestamp
 
     # Membership with created_at
+    politician2 = Politician(id=2, name="Politician 2")
+    parliamentary_group2 = ParliamentaryGroup(id=2, name="Group 2", conference_id=1)
     membership2 = ParliamentaryGroupMembership(
         id=2,
         politician_id=2,
         parliamentary_group_id=2,
         start_date=datetime.now().date(),
+        created_by_user_id=user_id,
+        created_at=datetime.now(),
     )
-    membership2.politician = Politician(id=2, name="Politician 2")
-    membership2.parliamentary_group = ParliamentaryGroup(
-        id=2, name="Group 2", conference_id=1
+    membership2_dto = ParliamentaryGroupMembershipWithRelationsDTO(
+        membership=membership2,
+        politician=politician2,
+        parliamentary_group=parliamentary_group2,
     )
-    membership2.created_by_user_id = user_id
-    membership2.created_at = datetime.now()
 
     speaker_repo.find_by_matched_user = AsyncMock(return_value=[])
     membership_repo.find_by_created_user = AsyncMock(
-        return_value=[membership1, membership2]
+        return_value=[membership1_dto, membership2_dto]
     )
 
     user = User(user_id=user_id, email="test@example.com", name="Test User")
@@ -429,26 +476,34 @@ async def test_get_work_history_sorted_by_date_descending():
     user_repo = MagicMock()
 
     # Create data with different timestamps
-    speaker = Speaker(id=1, name="Speaker 1", is_politician=True)
-    speaker.politician = Politician(id=1, name="Politician 1")
-    speaker.matched_by_user_id = user_id
-    speaker.updated_at = datetime(2024, 1, 15, 10, 0)  # Later date
+    politician1 = Politician(id=1, name="Politician 1")
+    speaker = Speaker(
+        id=1,
+        name="Speaker 1",
+        is_politician=True,
+        matched_by_user_id=user_id,
+        updated_at=datetime(2024, 1, 15, 10, 0),  # Later date
+    )
+    speaker_dto = SpeakerWithPoliticianDTO(speaker=speaker, politician=politician1)
 
+    politician2 = Politician(id=2, name="Politician 2")
+    parliamentary_group = ParliamentaryGroup(id=1, name="Group 1", conference_id=1)
     membership = ParliamentaryGroupMembership(
         id=1,
         politician_id=2,
         parliamentary_group_id=1,
         start_date=datetime.now().date(),
+        created_by_user_id=user_id,
+        created_at=datetime(2024, 1, 10, 10, 0),  # Earlier date
     )
-    membership.politician = Politician(id=2, name="Politician 2")
-    membership.parliamentary_group = ParliamentaryGroup(
-        id=1, name="Group 1", conference_id=1
+    membership_dto = ParliamentaryGroupMembershipWithRelationsDTO(
+        membership=membership,
+        politician=politician2,
+        parliamentary_group=parliamentary_group,
     )
-    membership.created_by_user_id = user_id
-    membership.created_at = datetime(2024, 1, 10, 10, 0)  # Earlier date
 
-    speaker_repo.find_by_matched_user = AsyncMock(return_value=[speaker])
-    membership_repo.find_by_created_user = AsyncMock(return_value=[membership])
+    speaker_repo.find_by_matched_user = AsyncMock(return_value=[speaker_dto])
+    membership_repo.find_by_created_user = AsyncMock(return_value=[membership_dto])
 
     user = User(user_id=user_id, email="test@example.com", name="Test User")
     user_repo.get_by_id = AsyncMock(return_value=user)

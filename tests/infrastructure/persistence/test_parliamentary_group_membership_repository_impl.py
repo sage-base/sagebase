@@ -100,18 +100,18 @@ class TestParliamentaryGroupMembershipRepositoryImpl:
 
         # Verify
         assert len(result) == 2
-        assert result[0].politician_id == 100
-        assert result[0].parliamentary_group_id == 10
-        assert result[0].role == "代表"
-        assert result[0].created_by_user_id == test_user_id
-        assert result[0].created_at == datetime(2024, 1, 15, 10, 30)
-        assert result[0].updated_at == datetime(2024, 1, 15, 10, 30)
+        assert result[0].membership.politician_id == 100
+        assert result[0].membership.parliamentary_group_id == 10
+        assert result[0].membership.role == "代表"
+        assert result[0].membership.created_by_user_id == test_user_id
+        assert result[0].membership.created_at == datetime(2024, 1, 15, 10, 30)
+        assert result[0].membership.updated_at == datetime(2024, 1, 15, 10, 30)
         assert result[0].parliamentary_group is not None
         assert result[0].parliamentary_group.name == "自民党会派"
         assert result[0].politician is not None
         assert result[0].politician.name == "山田太郎"
 
-        assert result[1].politician_id == 101
+        assert result[1].membership.politician_id == 101
         assert result[1].parliamentary_group is not None
         assert result[1].parliamentary_group.name == "民主党会派"
         assert result[1].politician is None  # No politician name in mock data
@@ -153,8 +153,8 @@ class TestParliamentaryGroupMembershipRepositoryImpl:
 
         # Verify
         assert len(result) == 1
-        assert result[0].politician_id == 100
-        assert result[0].created_by_user_id == UUID(
+        assert result[0].membership.politician_id == 100
+        assert result[0].membership.created_by_user_id == UUID(
             "11111111-1111-1111-1111-111111111111"
         )
 
@@ -217,8 +217,8 @@ class TestParliamentaryGroupMembershipRepositoryImpl:
 
         # Verify
         assert len(result) == 1
-        assert result[0].politician_id == 100
-        assert result[0].parliamentary_group_id == 10
+        assert result[0].membership.politician_id == 100
+        assert result[0].membership.parliamentary_group_id == 10
         # No joins should be set
         assert result[0].parliamentary_group is None
         assert result[0].politician is None
