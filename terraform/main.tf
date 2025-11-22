@@ -158,3 +158,26 @@ module "app" {
     google_project_service.required_apis
   ]
 }
+
+# Monitoring Module - Cloud Monitoring Dashboards and Alerts
+module "monitoring" {
+  source = "./modules/monitoring"
+
+  project_id  = var.project_id
+  region      = var.region
+  environment = var.environment
+
+  # Extract hostname from URL (remove https://)
+  service_url = replace(module.app.streamlit_url, "https://", "")
+
+  # Enable alerts for staging and production
+  enable_alerts = var.environment != "development"
+
+  # Notification channels (configure via terraform.tfvars)
+  notification_channels = []
+
+  depends_on = [
+    module.app,
+    google_project_service.required_apis
+  ]
+}

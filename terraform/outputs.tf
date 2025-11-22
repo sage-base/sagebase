@@ -101,15 +101,32 @@ output "matcher_worker_url" {
   value       = module.app.matcher_worker_url
 }
 
+# Monitoring Outputs
+output "monitoring_dashboard_id" {
+  description = "ID of the Cloud Monitoring dashboard"
+  value       = module.monitoring.dashboard_id
+}
+
+output "uptime_check_id" {
+  description = "ID of the uptime check"
+  value       = module.monitoring.uptime_check_id
+}
+
+output "alert_policy_ids" {
+  description = "Map of alert policy names to their IDs"
+  value       = module.monitoring.alert_policy_ids
+}
+
 # Summary Output
 output "deployment_summary" {
   description = "Summary of deployed resources"
   value = {
-    project_id    = var.project_id
-    region        = var.region
-    environment   = var.environment
-    network_name  = module.network.network_name
-    database_name = module.database.instance_name
-    streamlit_url = module.app.streamlit_url
+    project_id         = var.project_id
+    region             = var.region
+    environment        = var.environment
+    network_name       = module.network.network_name
+    database_name      = module.database.instance_name
+    streamlit_url      = module.app.streamlit_url
+    monitoring_dashboard_id = module.monitoring.dashboard_id
   }
 }
