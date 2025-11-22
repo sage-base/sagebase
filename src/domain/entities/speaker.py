@@ -1,13 +1,9 @@
 """Speaker entity."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from src.domain.entities.base import BaseEntity
-
-if TYPE_CHECKING:
-    from src.domain.entities.politician import Politician
 
 
 class Speaker(BaseEntity):
@@ -36,8 +32,6 @@ class Speaker(BaseEntity):
         self.matched_by_user_id = matched_by_user_id
         self.created_at = created_at
         self.updated_at = updated_at
-        # リポジトリで動的に設定される関連エンティティ
-        self.politician: Politician | None = None
 
     def __str__(self) -> str:
         parts = [self.name]

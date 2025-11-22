@@ -8,6 +8,10 @@ import pytest
 
 from src.application.dtos.work_history_dto import WorkType
 from src.application.usecases.get_work_history_usecase import GetWorkHistoryUseCase
+from src.domain.dtos.parliamentary_group_membership_dto import (
+    ParliamentaryGroupMembershipWithRelationsDTO,
+)
+from src.domain.dtos.speaker_dto import SpeakerWithPoliticianDTO
 from src.domain.entities.parliamentary_group import ParliamentaryGroup
 from src.domain.entities.parliamentary_group_membership import (
     ParliamentaryGroupMembership,
@@ -35,13 +39,12 @@ async def test_get_work_history_all_types():
         id=1,
         name="Test Speaker",
         is_politician=True,
+        politician_id=1,
+        matched_by_user_id=user_id,
+        updated_at=datetime.now(),
     )
-    # 必要な属性を手動で設定
-    speaker.politician_id = 1
-    speaker.politician = politician
-    speaker.matched_by_user_id = user_id
-    speaker.updated_at = datetime.now()
-    speaker_repo.find_by_matched_user = AsyncMock(return_value=[speaker])
+    speaker_dto = SpeakerWithPoliticianDTO(speaker=speaker, politician=politician)
+    speaker_repo.find_by_matched_user = AsyncMock(return_value=[speaker_dto])
 
     # 議員団メンバー作成作業のテストデータ
     group = ParliamentaryGroup(id=1, name="Test Group", conference_id=1)
@@ -51,14 +54,13 @@ async def test_get_work_history_all_types():
         parliamentary_group_id=1,
         start_date=datetime.now().date(),
         role="Member",
+        created_by_user_id=user_id,
+        created_at=datetime.now(),
     )
-    # 必要な属性を手動で設定
-    membership.politician = politician
-    membership.parliamentary_group = group
-    membership.created_by_user_id = user_id
-    membership.created_at = datetime.now()
-    membership.updated_at = datetime.now()
-    membership_repo.find_by_created_user = AsyncMock(return_value=[membership])
+    membership_dto = ParliamentaryGroupMembershipWithRelationsDTO(
+        membership=membership, politician=politician, parliamentary_group=group
+    )
+    membership_repo.find_by_created_user = AsyncMock(return_value=[membership_dto])
 
     # ユーザーリポジトリのモック
     user_repo.get_by_id = AsyncMock(return_value=user)

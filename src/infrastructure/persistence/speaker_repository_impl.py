@@ -6,7 +6,11 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.domain.dtos.speaker_dto import SpeakerWithConversationCountDTO
+from src.domain.dtos.speaker_dto import (
+    SpeakerWithConversationCountDTO,
+    SpeakerWithPoliticianDTO,
+)
+from src.domain.entities.politician import Politician
 from src.domain.entities.speaker import Speaker
 from src.domain.repositories.session_adapter import ISessionAdapter
 from src.domain.repositories.speaker_repository import SpeakerRepository
@@ -490,14 +494,14 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
     async def find_by_matched_user(
         self, user_id: "UUID | None" = None
-    ) -> list[Speaker]:
-        """指定されたユーザーIDによってマッチングされた発言者を取得する
+    ) -> list[SpeakerWithPoliticianDTO]:
+        """指定されたユーザーIDによってマッチングされた発言者と政治家情報を取得する
 
         Args:
             user_id: フィルタリング対象のユーザーID（Noneの場合は全ユーザー）
 
         Returns:
-            マッチングされた発言者のリスト
+            発言者と紐付けられた政治家情報を含むDTOのリスト
         """
         # Build SQL query with optional user_id filter
         query_text = """
@@ -527,8 +531,8 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        # Convert rows to Speaker entities
-        speakers = []
+        # Convert rows to DTOs
+        results = []
         for row in rows:
             speaker = Speaker(
                 id=row.id,
@@ -541,14 +545,18 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 matched_by_user_id=row.matched_by_user_id,
                 updated_at=row.updated_at,
             )
-            # Add politician relationship if exists
-            if row.politician_id_from_join:
-                from src.domain.entities.politician import Politician
 
-                speaker.politician = Politician(
+            # Create politician entity if exists
+            politician = None
+            if row.politician_id_from_join:
+                politician = Politician(
                     id=row.politician_id_from_join,
                     name=row.politician_name,
                 )
-            speakers.append(speaker)
 
-        return speakers
+            # Create DTO with speaker and politician
+            results.append(
+                SpeakerWithPoliticianDTO(speaker=speaker, politician=politician)
+            )
+
+        return results

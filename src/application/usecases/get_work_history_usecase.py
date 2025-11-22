@@ -123,13 +123,16 @@ class GetWorkHistoryUseCase:
         Returns:
             発言者-政治家紐付け作業の履歴リスト
         """
-        # matched_by_user_idが設定されているspeakersを取得
-        speakers = await self.speaker_repo.find_by_matched_user(user_id)
+        # matched_by_user_idが設定されているspeakersとpolitician情報を取得
+        speaker_dtos = await self.speaker_repo.find_by_matched_user(user_id)
 
         histories: list[WorkHistoryDTO] = []
         user_cache: dict[UUID, tuple[str | None, str | None]] = {}
 
-        for speaker in speakers:
+        for dto in speaker_dtos:
+            speaker = dto.speaker
+            politician = dto.politician
+
             if speaker.matched_by_user_id is None:
                 continue
 
@@ -152,9 +155,7 @@ class GetWorkHistoryUseCase:
             user_name, user_email = user_cache[speaker.matched_by_user_id]
 
             # 対象データの説明を作成
-            politician_name = (
-                speaker.politician.name if speaker.politician else "不明な政治家"
-            )
+            politician_name = politician.name if politician else "不明な政治家"
             target_data = f"{speaker.name} → {politician_name}"
 
             histories.append(
@@ -186,13 +187,17 @@ class GetWorkHistoryUseCase:
         Returns:
             議員団メンバー作成作業の履歴リスト
         """
-        # created_by_user_idが設定されているmembershipsを取得
-        memberships = await self.membership_repo.find_by_created_user(user_id)
+        # created_by_user_idが設定されているmembershipsと関連情報を取得
+        membership_dtos = await self.membership_repo.find_by_created_user(user_id)
 
         histories: list[WorkHistoryDTO] = []
         user_cache: dict[UUID, tuple[str | None, str | None]] = {}
 
-        for membership in memberships:
+        for dto in membership_dtos:
+            membership = dto.membership
+            politician = dto.politician
+            parliamentary_group = dto.parliamentary_group
+
             if membership.created_by_user_id is None:
                 continue
 
@@ -216,13 +221,9 @@ class GetWorkHistoryUseCase:
 
             # 対象データの説明を作成
             group_name = (
-                membership.parliamentary_group.name
-                if membership.parliamentary_group
-                else "不明な議員団"
+                parliamentary_group.name if parliamentary_group else "不明な議員団"
             )
-            politician_name = (
-                membership.politician.name if membership.politician else "不明な政治家"
-            )
+            politician_name = politician.name if politician else "不明な政治家"
             role = membership.role if membership.role else "メンバー"
             target_data = f"{group_name}: {politician_name} ({role})"
 

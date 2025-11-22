@@ -7,9 +7,14 @@ from uuid import UUID
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.domain.dtos.parliamentary_group_membership_dto import (
+    ParliamentaryGroupMembershipWithRelationsDTO,
+)
+from src.domain.entities.parliamentary_group import ParliamentaryGroup
 from src.domain.entities.parliamentary_group_membership import (
     ParliamentaryGroupMembership as ParliamentaryGroupMembershipEntity,
 )
+from src.domain.entities.politician import Politician
 from src.domain.repositories.parliamentary_group_membership_repository import (
     ParliamentaryGroupMembershipRepository,
 )
@@ -261,14 +266,14 @@ class ParliamentaryGroupMembershipRepositoryImpl(
 
     async def find_by_created_user(
         self, user_id: "UUID | None" = None
-    ) -> list[ParliamentaryGroupMembershipEntity]:
-        """指定されたユーザーIDによって作成された議員団メンバーシップを取得する
+    ) -> list[ParliamentaryGroupMembershipWithRelationsDTO]:
+        """指定されたユーザーIDによって作成された議員団メンバーシップと関連情報を取得する
 
         Args:
             user_id: フィルタリング対象のユーザーID（Noneの場合は全ユーザー）
 
         Returns:
-            作成された議員団メンバーシップのリスト
+            議員団メンバーシップと関連エンティティ（政治家、議員団）を含むDTOのリスト
         """
         from sqlalchemy import text
 
@@ -301,8 +306,8 @@ class ParliamentaryGroupMembershipRepositoryImpl(
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        # Convert rows to ParliamentaryGroupMembership entities
-        memberships = []
+        # Convert rows to DTOs
+        results = []
         for row in rows:
             membership = ParliamentaryGroupMembershipEntity(
                 id=row.id,
@@ -315,22 +320,30 @@ class ParliamentaryGroupMembershipRepositoryImpl(
                 created_at=row.created_at,
                 updated_at=row.updated_at,
             )
-            # Add relationships if they exist
-            if row.parliamentary_group_name:
-                from src.domain.entities.parliamentary_group import ParliamentaryGroup
 
-                membership.parliamentary_group = ParliamentaryGroup(
+            # Create related entities if they exist
+            parliamentary_group = None
+            if row.parliamentary_group_name:
+                parliamentary_group = ParliamentaryGroup(
                     id=row.parliamentary_group_id,
                     name=row.parliamentary_group_name,
                     conference_id=0,  # Will be loaded if needed
                 )
-            if row.politician_name:
-                from src.domain.entities.politician import Politician
 
-                membership.politician = Politician(
+            politician = None
+            if row.politician_name:
+                politician = Politician(
                     id=row.politician_id,
                     name=row.politician_name,
                 )
-            memberships.append(membership)
 
-        return memberships
+            # Create DTO with membership and related entities
+            results.append(
+                ParliamentaryGroupMembershipWithRelationsDTO(
+                    membership=membership,
+                    politician=politician,
+                    parliamentary_group=parliamentary_group,
+                )
+            )
+
+        return results

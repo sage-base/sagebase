@@ -1,14 +1,9 @@
 """Parliamentary group membership domain entity"""
 
 from datetime import date, datetime
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from .base import BaseEntity
-
-if TYPE_CHECKING:
-    from src.domain.entities.parliamentary_group import ParliamentaryGroup
-    from src.domain.entities.politician import Politician
 
 
 class ParliamentaryGroupMembership(BaseEntity):
@@ -39,9 +34,6 @@ class ParliamentaryGroupMembership(BaseEntity):
         self.created_by_user_id = created_by_user_id
         self.created_at = created_at
         self.updated_at = updated_at
-        # リポジトリで動的に設定される関連エンティティ
-        self.politician: Politician | None = None
-        self.parliamentary_group: ParliamentaryGroup | None = None
 
     def is_active(self, as_of_date: date | None = None) -> bool:
         """Check if membership is active as of a specific date"""
