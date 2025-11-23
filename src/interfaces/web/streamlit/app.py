@@ -38,6 +38,9 @@ from src.interfaces.web.streamlit.views.political_parties_view import (
 from src.interfaces.web.streamlit.views.politicians_view import render_politicians_page
 from src.interfaces.web.streamlit.views.processes_view import render_processes_page
 from src.interfaces.web.streamlit.views.proposals_view import render_proposals_page
+from src.interfaces.web.streamlit.views.user_statistics_view import (
+    render_user_statistics_page,
+)
 from src.interfaces.web.streamlit.views.work_history_view import (
     render_work_history_page,
 )
@@ -126,6 +129,12 @@ def main():
             title="作業履歴",
             icon="📋",
             url_path="work_history",
+        ),
+        st.Page(
+            render_user_statistics_page,
+            title="作業統計",
+            icon="📊",
+            url_path="user_statistics",
         ),
     ]
 
