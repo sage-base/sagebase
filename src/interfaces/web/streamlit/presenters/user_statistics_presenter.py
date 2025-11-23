@@ -19,9 +19,7 @@ from src.application.usecases.get_user_statistics_usecase import (
     GetUserStatisticsUseCase,
 )
 from src.application.usecases.get_work_history_usecase import GetWorkHistoryUseCase
-from src.infrastructure.database.connection import (
-    get_async_session_context,  # type: ignore[import-untyped]
-)
+from src.infrastructure.di.container import Container
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +32,15 @@ class UserStatisticsPresenter:
 
     def __init__(self) -> None:
         """プレゼンターを初期化する"""
+        container = Container()
+        work_history_usecase = GetWorkHistoryUseCase(
+            speaker_repository=container.repositories.speaker_repository(),
+            parliamentary_group_membership_repository=container.repositories.parliamentary_group_membership_repository(),
+            user_repository=container.repositories.user_repository(),
+        )
+        self.user_statistics_usecase = GetUserStatisticsUseCase(
+            work_history_usecase=work_history_usecase
+        )
         self.logger = logger
 
     def load_data(self) -> None:
@@ -70,26 +77,15 @@ class UserStatisticsPresenter:
             ユーザー統計情報のDTO
         """
         try:
-
-            async def _execute() -> UserStatisticsDTO:
-                async with get_async_session_context() as (db, _):
-                    work_history_usecase = GetWorkHistoryUseCase(
-                        speaker_repository=db.speaker_repository,
-                        parliamentary_group_membership_repository=db.parliamentary_group_membership_repository,
-                        user_repository=db.user_repository,
-                    )
-                    user_statistics_usecase = GetUserStatisticsUseCase(
-                        work_history_usecase=work_history_usecase
-                    )
-                    return await user_statistics_usecase.execute(
-                        user_id=user_id,
-                        work_types=work_types,
-                        start_date=start_date,
-                        end_date=end_date,
-                        top_n=top_n,
-                    )
-
-            return asyncio.run(_execute())
+            return asyncio.run(
+                self.user_statistics_usecase.execute(
+                    user_id=user_id,
+                    work_types=work_types,
+                    start_date=start_date,
+                    end_date=end_date,
+                    top_n=top_n,
+                )
+            )
         except Exception as e:
             self.logger.error(f"統計情報の取得中にエラーが発生しました: {e}")
             st.error(f"統計情報の取得中にエラーが発生しました: {e}")
