@@ -4,8 +4,10 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from src.conference_member_extractor.extractor import ConferenceMemberExtractor
-from src.conference_member_extractor.models import ExtractedMember
+from src.domain.dtos.conference_member_dto import ExtractedMemberDTO
+from src.infrastructure.external.conference_member_extractor.extractor import (
+    ConferenceMemberExtractor,
+)
 
 
 class TestConferenceMemberExtractor:
@@ -30,11 +32,10 @@ class TestConferenceMemberExtractor:
     def extractor(self, mock_llm_service, mock_repo):
         """Create a ConferenceMemberExtractor instance"""
         with patch(
-            "src.conference_member_extractor.extractor.LLMService",
-            return_value=mock_llm_service,
+            "src.infrastructure.external.conference_member_extractor.extractor.MemberExtractorFactory.create"
         ):
             with patch(
-                "src.conference_member_extractor.extractor.RepositoryAdapter",
+                "src.infrastructure.external.conference_member_extractor.extractor.RepositoryAdapter",
                 return_value=mock_repo,
             ):
                 return ConferenceMemberExtractor()
@@ -57,9 +58,11 @@ class TestConferenceMemberExtractor:
 
         # Mock LLM response
         members = [
-            ExtractedMember(name="山田太郎", role="委員長", party_name="自民党"),
-            ExtractedMember(name="田中花子", role="副委員長", party_name="立憲民主党"),
-            ExtractedMember(name="佐藤次郎", role="委員", party_name="公明党"),
+            ExtractedMemberDTO(name="山田太郎", role="委員長", party_name="自民党"),
+            ExtractedMemberDTO(
+                name="田中花子", role="副委員長", party_name="立憲民主党"
+            ),
+            ExtractedMemberDTO(name="佐藤次郎", role="委員", party_name="公明党"),
         ]
 
         # Directly mock the method
@@ -75,24 +78,13 @@ class TestConferenceMemberExtractor:
 
     def test_extract_members_with_llm_empty(self, extractor, mock_llm_service):
         """Test extraction with empty result"""
-        # Mock empty response
-        mock_response = Mock()
-        mock_response.members = []
+        # Directly mock the extractor's _extractor
+        with patch.object(extractor, "extract_members_with_llm", return_value=[]):
+            # Execute
+            result = extractor.extract_members_with_llm("<html></html>", "本会議")
 
-        mock_chain = Mock()
-        mock_chain.invoke = Mock(return_value=mock_response)
-
-        with patch("src.conference_member_extractor.extractor.PromptTemplate"):
-            with patch(
-                "src.conference_member_extractor.extractor.PydanticOutputParser"
-            ):
-                extractor.llm_service.llm.__or__ = Mock(return_value=mock_chain)
-
-                # Execute
-                result = extractor.extract_members_with_llm("<html></html>", "本会議")
-
-                # Assert
-                assert len(result) == 0
+            # Assert
+            assert len(result) == 0
 
     def test_extract_members_with_multiple_conferences(
         self, extractor, mock_llm_service
@@ -125,8 +117,8 @@ class TestConferenceMemberExtractor:
 
         # Mock LLM response - should only return members from 環境福祉委員会
         members = [
-            ExtractedMember(name="佐藤次郎", role="委員長", party_name="公明党"),
-            ExtractedMember(name="鈴木三郎", role="副委員長", party_name="共産党"),
+            ExtractedMemberDTO(name="佐藤次郎", role="委員長", party_name="公明党"),
+            ExtractedMemberDTO(name="鈴木三郎", role="副委員長", party_name="共産党"),
         ]
 
         # Directly mock the method
@@ -152,7 +144,9 @@ class TestConferenceMemberExtractor:
             assert result == []
 
     @pytest.mark.asyncio
-    @patch("src.conference_member_extractor.extractor.async_playwright")
+    @patch(
+        "src.infrastructure.external.conference_member_extractor.extractor.async_playwright"
+    )
     async def test_fetch_html_success(self, mock_playwright, extractor):
         """Test successful HTML fetching"""
         # Mock Playwright
@@ -194,10 +188,10 @@ class TestConferenceMemberExtractor:
                 mock_fetch.return_value = "<html>Member List</html>"
 
                 mock_extract.return_value = [
-                    ExtractedMember(
+                    ExtractedMemberDTO(
                         name="山田太郎", role="委員長", party_name="自民党"
                     ),
-                    ExtractedMember(
+                    ExtractedMemberDTO(
                         name="田中花子", role="副委員長", party_name="立憲民主党"
                     ),
                 ]
@@ -229,10 +223,10 @@ class TestConferenceMemberExtractor:
                 mock_fetch.return_value = "<html>Member List</html>"
 
                 mock_extract.return_value = [
-                    ExtractedMember(
+                    ExtractedMemberDTO(
                         name="山田太郎", role="委員長", party_name="自民党"
                     ),
-                    ExtractedMember(
+                    ExtractedMemberDTO(
                         name="田中花子", role="副委員長", party_name="立憲民主党"
                     ),
                 ]

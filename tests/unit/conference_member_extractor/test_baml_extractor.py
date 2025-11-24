@@ -4,8 +4,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.conference_member_extractor.baml_extractor import BAMLMemberExtractor
-from src.conference_member_extractor.models import ExtractedMember
+from src.infrastructure.external.conference_member_extractor.baml_extractor import (
+    BAMLMemberExtractor,
+)
 
 
 class TestBAMLMemberExtractor:
@@ -35,7 +36,7 @@ class TestBAMLMemberExtractor:
         ]
 
         with patch(
-            "src.conference_member_extractor.baml_extractor.b.ExtractMembers",
+            "src.infrastructure.external.conference_member_extractor.baml_extractor.b.ExtractMembers",
             new_callable=AsyncMock,
         ) as mock_baml:
             mock_baml.return_value = mock_result
@@ -45,12 +46,12 @@ class TestBAMLMemberExtractor:
 
             # Assert
             assert len(result) == 3
-            assert isinstance(result[0], ExtractedMember)
-            assert result[0].name == "山田太郎"
-            assert result[0].role == "委員長"
-            assert result[0].party_name == "自民党"
-            assert result[1].name == "田中花子"
-            assert result[2].name == "佐藤次郎"
+            assert isinstance(result[0], dict)
+            assert result[0]["name"] == "山田太郎"
+            assert result[0]["role"] == "委員長"
+            assert result[0]["party_name"] == "自民党"
+            assert result[1]["name"] == "田中花子"
+            assert result[2]["name"] == "佐藤次郎"
 
             # Verify BAML was called with correct arguments
             mock_baml.assert_called_once_with("<html></html>", "本会議")
@@ -59,7 +60,7 @@ class TestBAMLMemberExtractor:
     async def test_extract_members_empty_result(self, extractor):
         """Test extraction with empty result"""
         with patch(
-            "src.conference_member_extractor.baml_extractor.b.ExtractMembers",
+            "src.infrastructure.external.conference_member_extractor.baml_extractor.b.ExtractMembers",
             new_callable=AsyncMock,
         ) as mock_baml:
             mock_baml.return_value = []
@@ -74,7 +75,7 @@ class TestBAMLMemberExtractor:
     async def test_extract_members_error_handling(self, extractor):
         """Test error handling in BAML extraction"""
         with patch(
-            "src.conference_member_extractor.baml_extractor.b.ExtractMembers",
+            "src.infrastructure.external.conference_member_extractor.baml_extractor.b.ExtractMembers",
             new_callable=AsyncMock,
         ) as mock_baml:
             mock_baml.side_effect = Exception("BAML error")
@@ -99,7 +100,7 @@ class TestBAMLMemberExtractor:
                 self.additional_info = additional_info
 
         with patch(
-            "src.conference_member_extractor.baml_extractor.b.ExtractMembers",
+            "src.infrastructure.external.conference_member_extractor.baml_extractor.b.ExtractMembers",
             new_callable=AsyncMock,
         ) as mock_baml:
             mock_baml.return_value = [MockMember("山田太郎", "委員", None, None)]
@@ -134,7 +135,7 @@ class TestBAMLMemberExtractor:
         ]
 
         with patch(
-            "src.conference_member_extractor.baml_extractor.b.ExtractMembers",
+            "src.infrastructure.external.conference_member_extractor.baml_extractor.b.ExtractMembers",
             new_callable=AsyncMock,
         ) as mock_baml:
             mock_baml.return_value = mock_result
@@ -144,9 +145,9 @@ class TestBAMLMemberExtractor:
 
             # Assert
             assert len(result) == 2
-            assert result[0].name == "山田太郎"
-            assert result[0].role is None
-            assert result[0].party_name is None
-            assert result[0].additional_info == "備考あり"
-            assert result[1].name == "田中花子"
-            assert result[1].role == "委員長"
+            assert result[0]["name"] == "山田太郎"
+            assert result[0]["role"] is None
+            assert result[0]["party_name"] is None
+            assert result[0]["additional_info"] == "備考あり"
+            assert result[1]["name"] == "田中花子"
+            assert result[1]["role"] == "委員長"
