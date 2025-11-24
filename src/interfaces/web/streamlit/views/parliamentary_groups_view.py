@@ -987,7 +987,7 @@ def render_create_memberships_subtab(
     )
 
     # Get user info from session (from Google Sign-In)
-    user_info: dict[str, Any] | None = google_sign_in.get_user_info()
+    user_info: dict[str, str] | None = google_sign_in.get_user_info()
     if not user_info:
         st.warning("ユーザー情報を取得できません。ログインしてください。")
         return

@@ -1,7 +1,6 @@
 """View for conversations and speakers management."""
 
 import asyncio
-from typing import Any
 
 import streamlit as st
 
@@ -56,7 +55,7 @@ def render_matching_tab() -> None:
     """)
 
     # Get user info
-    user_info: dict[str, Any] | None = google_sign_in.get_user_info()
+    user_info: dict[str, str] | None = google_sign_in.get_user_info()
     if not user_info:
         st.warning("ユーザー情報を取得できません。ログインしてください。")
         return
