@@ -525,3 +525,462 @@ async def test_get_work_history_sorted_by_date_descending():
     # Second result should be the older one (membership)
     assert histories[1].work_type == WorkType.PARLIAMENTARY_GROUP_MEMBERSHIP_CREATION
     assert histories[1].executed_at == datetime(2024, 1, 10, 10, 0)
+
+
+@pytest.mark.asyncio
+async def test_get_work_statistics_by_user_all_users():
+    """全ユーザーの作業統計を取得するテスト"""
+    # Arrange
+    user_id_1 = uuid4()
+    user_id_2 = uuid4()
+
+    speaker_repo = MagicMock()
+    membership_repo = MagicMock()
+    user_repo = MagicMock()
+
+    # Mock speaker statistics
+    speaker_stats = {
+        user_id_1: 10,
+        user_id_2: 5,
+    }
+    speaker_repo.get_speaker_matching_statistics_by_user = AsyncMock(
+        return_value=speaker_stats
+    )
+
+    # Mock membership statistics
+    membership_stats = {
+        user_id_1: 3,
+        user_id_2: 7,
+    }
+    membership_repo.get_membership_creation_statistics_by_user = AsyncMock(
+        return_value=membership_stats
+    )
+
+    usecase = GetWorkHistoryUseCase(
+        speaker_repository=speaker_repo,
+        parliamentary_group_membership_repository=membership_repo,
+        user_repository=user_repo,
+    )
+
+    # Act
+    result = await usecase.get_work_statistics_by_user()
+
+    # Assert
+    assert len(result) == 2
+    assert result[user_id_1]["SPEAKER_POLITICIAN_MATCHING"] == 10
+    assert result[user_id_1]["PARLIAMENTARY_GROUP_MEMBERSHIP_CREATION"] == 3
+    assert result[user_id_2]["SPEAKER_POLITICIAN_MATCHING"] == 5
+    assert result[user_id_2]["PARLIAMENTARY_GROUP_MEMBERSHIP_CREATION"] == 7
+
+
+@pytest.mark.asyncio
+async def test_get_work_statistics_by_user_specific_user():
+    """特定ユーザーの作業統計を取得するテスト"""
+    # Arrange
+    user_id = uuid4()
+
+    speaker_repo = MagicMock()
+    membership_repo = MagicMock()
+    user_repo = MagicMock()
+
+    # Mock speaker statistics
+    speaker_stats = {user_id: 15}
+    speaker_repo.get_speaker_matching_statistics_by_user = AsyncMock(
+        return_value=speaker_stats
+    )
+
+    # Mock membership statistics
+    membership_stats = {user_id: 8}
+    membership_repo.get_membership_creation_statistics_by_user = AsyncMock(
+        return_value=membership_stats
+    )
+
+    usecase = GetWorkHistoryUseCase(
+        speaker_repository=speaker_repo,
+        parliamentary_group_membership_repository=membership_repo,
+        user_repository=user_repo,
+    )
+
+    # Act
+    result = await usecase.get_work_statistics_by_user(user_id=user_id)
+
+    # Assert
+    assert len(result) == 1
+    assert user_id in result
+    assert result[user_id]["SPEAKER_POLITICIAN_MATCHING"] == 15
+    assert result[user_id]["PARLIAMENTARY_GROUP_MEMBERSHIP_CREATION"] == 8
+    speaker_repo.get_speaker_matching_statistics_by_user.assert_called_once_with(
+        user_id=user_id, start_date=None, end_date=None
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_work_statistics_by_user_filter_by_work_type():
+    """作業タイプでフィルタリングした統計取得のテスト"""
+    # Arrange
+    user_id = uuid4()
+
+    speaker_repo = MagicMock()
+    membership_repo = MagicMock()
+    user_repo = MagicMock()
+
+    # Mock speaker statistics
+    speaker_stats = {user_id: 20}
+    speaker_repo.get_speaker_matching_statistics_by_user = AsyncMock(
+        return_value=speaker_stats
+    )
+
+    usecase = GetWorkHistoryUseCase(
+        speaker_repository=speaker_repo,
+        parliamentary_group_membership_repository=membership_repo,
+        user_repository=user_repo,
+    )
+
+    # Act
+    result = await usecase.get_work_statistics_by_user(
+        work_types=[WorkType.SPEAKER_POLITICIAN_MATCHING]
+    )
+
+    # Assert
+    assert len(result) == 1
+    assert result[user_id]["SPEAKER_POLITICIAN_MATCHING"] == 20
+    assert "PARLIAMENTARY_GROUP_MEMBERSHIP_CREATION" not in result[user_id]
+    speaker_repo.get_speaker_matching_statistics_by_user.assert_called_once()
+    membership_repo.get_membership_creation_statistics_by_user.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_work_statistics_by_user_with_date_filter():
+    """日付フィルタ付きの統計取得のテスト"""
+    # Arrange
+    user_id = uuid4()
+    start_date = datetime(2024, 1, 1)
+    end_date = datetime(2024, 12, 31)
+
+    speaker_repo = MagicMock()
+    membership_repo = MagicMock()
+    user_repo = MagicMock()
+
+    # Mock speaker statistics
+    speaker_stats = {user_id: 5}
+    speaker_repo.get_speaker_matching_statistics_by_user = AsyncMock(
+        return_value=speaker_stats
+    )
+
+    # Mock membership statistics
+    membership_stats = {user_id: 2}
+    membership_repo.get_membership_creation_statistics_by_user = AsyncMock(
+        return_value=membership_stats
+    )
+
+    usecase = GetWorkHistoryUseCase(
+        speaker_repository=speaker_repo,
+        parliamentary_group_membership_repository=membership_repo,
+        user_repository=user_repo,
+    )
+
+    # Act
+    result = await usecase.get_work_statistics_by_user(
+        start_date=start_date, end_date=end_date
+    )
+
+    # Assert
+    assert len(result) == 1
+    assert result[user_id]["SPEAKER_POLITICIAN_MATCHING"] == 5
+    assert result[user_id]["PARLIAMENTARY_GROUP_MEMBERSHIP_CREATION"] == 2
+    speaker_repo.get_speaker_matching_statistics_by_user.assert_called_once_with(
+        user_id=None, start_date=start_date, end_date=end_date
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_work_statistics_by_user_no_results():
+    """統計結果がない場合のテスト"""
+    # Arrange
+    speaker_repo = MagicMock()
+    membership_repo = MagicMock()
+    user_repo = MagicMock()
+
+    speaker_repo.get_speaker_matching_statistics_by_user = AsyncMock(return_value={})
+    membership_repo.get_membership_creation_statistics_by_user = AsyncMock(
+        return_value={}
+    )
+
+    usecase = GetWorkHistoryUseCase(
+        speaker_repository=speaker_repo,
+        parliamentary_group_membership_repository=membership_repo,
+        user_repository=user_repo,
+    )
+
+    # Act
+    result = await usecase.get_work_statistics_by_user()
+
+    # Assert
+    assert len(result) == 0
+    assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_get_work_statistics_by_type():
+    """作業タイプ別の統計取得のテスト"""
+    # Arrange
+    user_id_1 = uuid4()
+    user_id_2 = uuid4()
+
+    speaker_repo = MagicMock()
+    membership_repo = MagicMock()
+    user_repo = MagicMock()
+
+    # Mock speaker statistics (total: 15)
+    speaker_stats = {
+        user_id_1: 10,
+        user_id_2: 5,
+    }
+    speaker_repo.get_speaker_matching_statistics_by_user = AsyncMock(
+        return_value=speaker_stats
+    )
+
+    # Mock membership statistics (total: 10)
+    membership_stats = {
+        user_id_1: 3,
+        user_id_2: 7,
+    }
+    membership_repo.get_membership_creation_statistics_by_user = AsyncMock(
+        return_value=membership_stats
+    )
+
+    usecase = GetWorkHistoryUseCase(
+        speaker_repository=speaker_repo,
+        parliamentary_group_membership_repository=membership_repo,
+        user_repository=user_repo,
+    )
+
+    # Act
+    result = await usecase.get_work_statistics_by_type()
+
+    # Assert
+    assert len(result) == 2
+    assert result["SPEAKER_POLITICIAN_MATCHING"] == 15
+    assert result["PARLIAMENTARY_GROUP_MEMBERSHIP_CREATION"] == 10
+
+
+@pytest.mark.asyncio
+async def test_get_timeline_statistics():
+    """時系列統計取得のテスト"""
+    # Arrange
+    user_id = uuid4()
+
+    speaker_repo = MagicMock()
+    membership_repo = MagicMock()
+    user_repo = MagicMock()
+
+    # Mock speaker timeline statistics
+    speaker_timeline = [
+        {"date": "2024-01-01", "count": 5},
+        {"date": "2024-01-02", "count": 3},
+    ]
+    speaker_repo.get_speaker_matching_timeline_statistics = AsyncMock(
+        return_value=speaker_timeline
+    )
+
+    # Mock membership timeline statistics
+    membership_timeline = [
+        {"date": "2024-01-01", "count": 2},
+        {"date": "2024-01-03", "count": 4},
+    ]
+    membership_repo.get_membership_creation_timeline_statistics = AsyncMock(
+        return_value=membership_timeline
+    )
+
+    usecase = GetWorkHistoryUseCase(
+        speaker_repository=speaker_repo,
+        parliamentary_group_membership_repository=membership_repo,
+        user_repository=user_repo,
+    )
+
+    # Act
+    result = await usecase.get_timeline_statistics(user_id=user_id)
+
+    # Assert
+    assert len(result) == 3  # Three unique dates
+    # Check 2024-01-01 (has both types)
+    date_2024_01_01 = next(r for r in result if r["date"] == "2024-01-01")
+    assert date_2024_01_01["SPEAKER_POLITICIAN_MATCHING"] == 5
+    assert date_2024_01_01["PARLIAMENTARY_GROUP_MEMBERSHIP_CREATION"] == 2
+    # Check 2024-01-02 (only speaker matching)
+    date_2024_01_02 = next(r for r in result if r["date"] == "2024-01-02")
+    assert date_2024_01_02["SPEAKER_POLITICIAN_MATCHING"] == 3
+    assert "PARLIAMENTARY_GROUP_MEMBERSHIP_CREATION" not in date_2024_01_02
+    # Check 2024-01-03 (only membership creation)
+    date_2024_01_03 = next(r for r in result if r["date"] == "2024-01-03")
+    assert date_2024_01_03["PARLIAMENTARY_GROUP_MEMBERSHIP_CREATION"] == 4
+    assert "SPEAKER_POLITICIAN_MATCHING" not in date_2024_01_03
+
+
+@pytest.mark.asyncio
+async def test_get_timeline_statistics_with_interval():
+    """interval指定での時系列統計取得のテスト"""
+    # Arrange
+    speaker_repo = MagicMock()
+    membership_repo = MagicMock()
+    user_repo = MagicMock()
+
+    # Mock speaker timeline statistics
+    speaker_timeline = [
+        {"date": "2024-01-01", "count": 10},
+    ]
+    speaker_repo.get_speaker_matching_timeline_statistics = AsyncMock(
+        return_value=speaker_timeline
+    )
+
+    # Mock membership timeline statistics
+    membership_timeline = [
+        {"date": "2024-01-01", "count": 5},
+    ]
+    membership_repo.get_membership_creation_timeline_statistics = AsyncMock(
+        return_value=membership_timeline
+    )
+
+    usecase = GetWorkHistoryUseCase(
+        speaker_repository=speaker_repo,
+        parliamentary_group_membership_repository=membership_repo,
+        user_repository=user_repo,
+    )
+
+    # Act
+    result = await usecase.get_timeline_statistics(interval="week")
+
+    # Assert
+    assert len(result) == 1
+    assert result[0]["date"] == "2024-01-01"
+    assert result[0]["SPEAKER_POLITICIAN_MATCHING"] == 10
+    assert result[0]["PARLIAMENTARY_GROUP_MEMBERSHIP_CREATION"] == 5
+    speaker_repo.get_speaker_matching_timeline_statistics.assert_called_once_with(
+        user_id=None, start_date=None, end_date=None, interval="week"
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_top_contributors():
+    """上位貢献者取得のテスト"""
+    # Arrange
+    user_id_1 = uuid4()
+    user_id_2 = uuid4()
+    user_id_3 = uuid4()
+
+    speaker_repo = MagicMock()
+    membership_repo = MagicMock()
+    user_repo = MagicMock()
+
+    # Mock speaker statistics
+    speaker_stats = {
+        user_id_1: 10,
+        user_id_2: 5,
+        user_id_3: 2,
+    }
+    speaker_repo.get_speaker_matching_statistics_by_user = AsyncMock(
+        return_value=speaker_stats
+    )
+
+    # Mock membership statistics
+    membership_stats = {
+        user_id_1: 3,  # Total: 13
+        user_id_2: 7,  # Total: 12
+        user_id_3: 1,  # Total: 3
+    }
+    membership_repo.get_membership_creation_statistics_by_user = AsyncMock(
+        return_value=membership_stats
+    )
+
+    # Mock user repository
+    async def get_user(uid):
+        users = {
+            user_id_1: User(
+                user_id=user_id_1, email="user1@example.com", name="User 1"
+            ),
+            user_id_2: User(
+                user_id=user_id_2, email="user2@example.com", name="User 2"
+            ),
+            user_id_3: User(
+                user_id=user_id_3, email="user3@example.com", name="User 3"
+            ),
+        }
+        return users.get(uid)
+
+    user_repo.get_by_id = AsyncMock(side_effect=get_user)
+
+    usecase = GetWorkHistoryUseCase(
+        speaker_repository=speaker_repo,
+        parliamentary_group_membership_repository=membership_repo,
+        user_repository=user_repo,
+    )
+
+    # Act
+    result = await usecase.get_top_contributors(limit=2)
+
+    # Assert
+    assert len(result) == 2
+    # First contributor should be user_id_1 (total: 13)
+    assert result[0]["user_id"] == user_id_1
+    assert result[0]["user_name"] == "User 1"
+    assert result[0]["total_count"] == 13
+    assert result[0]["by_type"]["SPEAKER_POLITICIAN_MATCHING"] == 10
+    assert result[0]["by_type"]["PARLIAMENTARY_GROUP_MEMBERSHIP_CREATION"] == 3
+    # Second contributor should be user_id_2 (total: 12)
+    assert result[1]["user_id"] == user_id_2
+    assert result[1]["user_name"] == "User 2"
+    assert result[1]["total_count"] == 12
+
+
+@pytest.mark.asyncio
+async def test_get_top_contributors_with_filter():
+    """フィルタ付きの上位貢献者取得のテスト"""
+    # Arrange
+    user_id_1 = uuid4()
+    user_id_2 = uuid4()
+
+    speaker_repo = MagicMock()
+    membership_repo = MagicMock()
+    user_repo = MagicMock()
+
+    # Mock speaker statistics (only this type is requested)
+    speaker_stats = {
+        user_id_1: 20,
+        user_id_2: 15,
+    }
+    speaker_repo.get_speaker_matching_statistics_by_user = AsyncMock(
+        return_value=speaker_stats
+    )
+
+    # Mock user repository
+    async def get_user(uid):
+        users = {
+            user_id_1: User(
+                user_id=user_id_1, email="user1@example.com", name="User 1"
+            ),
+            user_id_2: User(
+                user_id=user_id_2, email="user2@example.com", name="User 2"
+            ),
+        }
+        return users.get(uid)
+
+    user_repo.get_by_id = AsyncMock(side_effect=get_user)
+
+    usecase = GetWorkHistoryUseCase(
+        speaker_repository=speaker_repo,
+        parliamentary_group_membership_repository=membership_repo,
+        user_repository=user_repo,
+    )
+
+    # Act
+    result = await usecase.get_top_contributors(
+        work_types=[WorkType.SPEAKER_POLITICIAN_MATCHING],
+        limit=10,
+    )
+
+    # Assert
+    assert len(result) == 2
+    assert result[0]["user_id"] == user_id_1
+    assert result[0]["total_count"] == 20
+    assert "SPEAKER_POLITICIAN_MATCHING" in result[0]["by_type"]
+    assert "PARLIAMENTARY_GROUP_MEMBERSHIP_CREATION" not in result[0]["by_type"]
