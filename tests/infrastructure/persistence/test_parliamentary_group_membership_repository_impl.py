@@ -222,3 +222,340 @@ class TestParliamentaryGroupMembershipRepositoryImpl:
         # No joins should be set
         assert result[0].parliamentary_group is None
         assert result[0].politician is None
+
+    @pytest.mark.asyncio
+    async def test_get_membership_creation_statistics_by_user_specific_user(
+        self, repository, mock_session
+    ):
+        """Test get_membership_creation_statistics_by_user with specific user_id."""
+        # Setup
+        test_user_id = UUID("11111111-1111-1111-1111-111111111111")
+        mock_rows = [
+            MagicMock(),
+        ]
+
+        mock_rows[0]._mapping = {
+            "created_by_user_id": test_user_id,
+            "count": 10,
+        }
+        for key, value in mock_rows[0]._mapping.items():
+            setattr(mock_rows[0], key, value)
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = mock_rows
+
+        async def async_execute(query, params=None):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        # Execute
+        result = await repository.get_membership_creation_statistics_by_user(
+            user_id=test_user_id
+        )
+
+        # Verify
+        assert len(result) == 1
+        assert test_user_id in result
+        assert result[test_user_id] == 10
+
+    @pytest.mark.asyncio
+    async def test_get_membership_creation_statistics_by_user_all_users(
+        self, repository, mock_session
+    ):
+        """Test get_membership_creation_statistics_by_user with user_id=None."""
+        # Setup
+        user1 = UUID("11111111-1111-1111-1111-111111111111")
+        user2 = UUID("22222222-2222-2222-2222-222222222222")
+        mock_rows = [
+            MagicMock(),
+            MagicMock(),
+        ]
+
+        mock_rows[0]._mapping = {
+            "created_by_user_id": user1,
+            "count": 10,
+        }
+        for key, value in mock_rows[0]._mapping.items():
+            setattr(mock_rows[0], key, value)
+
+        mock_rows[1]._mapping = {
+            "created_by_user_id": user2,
+            "count": 5,
+        }
+        for key, value in mock_rows[1]._mapping.items():
+            setattr(mock_rows[1], key, value)
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = mock_rows
+
+        async def async_execute(query, params=None):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        # Execute
+        result = await repository.get_membership_creation_statistics_by_user(
+            user_id=None
+        )
+
+        # Verify
+        assert len(result) == 2
+        assert result[user1] == 10
+        assert result[user2] == 5
+
+    @pytest.mark.asyncio
+    async def test_get_membership_creation_statistics_by_user_with_date_filter(
+        self, repository, mock_session
+    ):
+        """Test get_membership_creation_statistics_by_user with date filters."""
+        # Setup
+        test_user_id = UUID("11111111-1111-1111-1111-111111111111")
+        start_date = datetime(2024, 1, 1)
+        end_date = datetime(2024, 12, 31)
+        mock_rows = [
+            MagicMock(),
+        ]
+
+        mock_rows[0]._mapping = {
+            "created_by_user_id": test_user_id,
+            "count": 3,
+        }
+        for key, value in mock_rows[0]._mapping.items():
+            setattr(mock_rows[0], key, value)
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = mock_rows
+
+        async def async_execute(query, params=None):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        # Execute
+        result = await repository.get_membership_creation_statistics_by_user(
+            user_id=test_user_id,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        # Verify
+        assert len(result) == 1
+        assert result[test_user_id] == 3
+
+    @pytest.mark.asyncio
+    async def test_get_membership_creation_statistics_by_user_no_results(
+        self, repository, mock_session
+    ):
+        """Test get_membership_creation_statistics_by_user with no matching results."""
+        # Setup
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = []
+
+        async def async_execute(query, params=None):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        # Execute
+        result = await repository.get_membership_creation_statistics_by_user(
+            user_id=UUID("99999999-9999-9999-9999-999999999999")
+        )
+
+        # Verify
+        assert len(result) == 0
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_get_membership_creation_timeline_statistics_day_interval(
+        self, repository, mock_session
+    ):
+        """Test get_membership_creation_timeline_statistics with day interval."""
+        # Setup
+        test_user_id = UUID("11111111-1111-1111-1111-111111111111")
+        mock_rows = [
+            MagicMock(),
+            MagicMock(),
+        ]
+
+        mock_rows[0]._mapping = {
+            "date": "2024-01-01",
+            "count": 5,
+        }
+        for key, value in mock_rows[0]._mapping.items():
+            setattr(mock_rows[0], key, value)
+
+        mock_rows[1]._mapping = {
+            "date": "2024-01-02",
+            "count": 3,
+        }
+        for key, value in mock_rows[1]._mapping.items():
+            setattr(mock_rows[1], key, value)
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = mock_rows
+
+        async def async_execute(query, params=None):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        # Execute
+        result = await repository.get_membership_creation_timeline_statistics(
+            user_id=test_user_id,
+            interval="day",
+        )
+
+        # Verify
+        assert len(result) == 2
+        assert result[0]["date"] == "2024-01-01"
+        assert result[0]["count"] == 5
+        assert result[1]["date"] == "2024-01-02"
+        assert result[1]["count"] == 3
+
+    @pytest.mark.asyncio
+    async def test_get_membership_creation_timeline_statistics_week_interval(
+        self, repository, mock_session
+    ):
+        """Test get_membership_creation_timeline_statistics with week interval."""
+        # Setup
+        mock_rows = [
+            MagicMock(),
+        ]
+
+        mock_rows[0]._mapping = {
+            "date": "2024-01-01",
+            "count": 15,
+        }
+        for key, value in mock_rows[0]._mapping.items():
+            setattr(mock_rows[0], key, value)
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = mock_rows
+
+        async def async_execute(query, params=None):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        # Execute
+        result = await repository.get_membership_creation_timeline_statistics(
+            interval="week",
+        )
+
+        # Verify
+        assert len(result) == 1
+        assert result[0]["date"] == "2024-01-01"
+        assert result[0]["count"] == 15
+
+    @pytest.mark.asyncio
+    async def test_get_membership_creation_timeline_statistics_month_interval(
+        self, repository, mock_session
+    ):
+        """Test get_membership_creation_timeline_statistics with month interval."""
+        # Setup
+        mock_rows = [
+            MagicMock(),
+        ]
+
+        mock_rows[0]._mapping = {
+            "date": "2024-01-01",
+            "count": 50,
+        }
+        for key, value in mock_rows[0]._mapping.items():
+            setattr(mock_rows[0], key, value)
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = mock_rows
+
+        async def async_execute(query, params=None):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        # Execute
+        result = await repository.get_membership_creation_timeline_statistics(
+            interval="month",
+        )
+
+        # Verify
+        assert len(result) == 1
+        assert result[0]["date"] == "2024-01-01"
+        assert result[0]["count"] == 50
+
+    @pytest.mark.asyncio
+    async def test_get_membership_creation_timeline_statistics_invalid_interval(
+        self, repository, mock_session
+    ):
+        """Test get_membership_creation_timeline_statistics with invalid interval."""
+        # Execute & Verify
+        with pytest.raises(ValueError) as exc_info:
+            await repository.get_membership_creation_timeline_statistics(
+                interval="invalid",
+            )
+
+        assert "Invalid interval" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_get_membership_creation_timeline_statistics_with_filters(
+        self, repository, mock_session
+    ):
+        """Test get_membership_creation_timeline_statistics with all filters."""
+        # Setup
+        test_user_id = UUID("11111111-1111-1111-1111-111111111111")
+        start_date = datetime(2024, 1, 1)
+        end_date = datetime(2024, 12, 31)
+        mock_rows = [
+            MagicMock(),
+        ]
+
+        mock_rows[0]._mapping = {
+            "date": "2024-01-15",
+            "count": 2,
+        }
+        for key, value in mock_rows[0]._mapping.items():
+            setattr(mock_rows[0], key, value)
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = mock_rows
+
+        async def async_execute(query, params=None):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        # Execute
+        result = await repository.get_membership_creation_timeline_statistics(
+            user_id=test_user_id,
+            start_date=start_date,
+            end_date=end_date,
+            interval="day",
+        )
+
+        # Verify
+        assert len(result) == 1
+        assert result[0]["date"] == "2024-01-15"
+        assert result[0]["count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_get_membership_creation_timeline_statistics_no_results(
+        self, repository, mock_session
+    ):
+        """Test get_membership_creation_timeline_statistics with no results."""
+        # Setup
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = []
+
+        async def async_execute(query, params=None):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        # Execute
+        result = await repository.get_membership_creation_timeline_statistics(
+            user_id=UUID("99999999-9999-9999-9999-999999999999"),
+        )
+
+        # Verify
+        assert len(result) == 0
+        assert result == []

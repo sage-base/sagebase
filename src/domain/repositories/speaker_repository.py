@@ -1,6 +1,7 @@
 """Speaker repository interface."""
 
 from abc import abstractmethod
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -106,5 +107,45 @@ class SpeakerRepository(BaseRepository[Speaker]):
 
         Returns:
             発言者と紐付けられた政治家情報を含むDTOのリスト
+        """
+        pass
+
+    @abstractmethod
+    async def get_speaker_matching_statistics_by_user(
+        self,
+        user_id: "UUID | None" = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[UUID, int]:
+        """ユーザー別の発言者紐付け件数を集計する（データベースレベルで集計）
+
+        Args:
+            user_id: フィルタリング対象のユーザーID（Noneの場合は全ユーザー）
+            start_date: 開始日時（この日時以降の作業を集計）
+            end_date: 終了日時（この日時以前の作業を集計）
+
+        Returns:
+            ユーザーIDと件数のマッピング（例: {UUID('...'): 10, UUID('...'): 5}）
+        """
+        pass
+
+    @abstractmethod
+    async def get_speaker_matching_timeline_statistics(
+        self,
+        user_id: "UUID | None" = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        interval: str = "day",
+    ) -> list[dict[str, Any]]:
+        """時系列の発言者紐付け件数を集計する（データベースレベルで集計）
+
+        Args:
+            user_id: フィルタリング対象のユーザーID（Noneの場合は全ユーザー）
+            start_date: 開始日時
+            end_date: 終了日時
+            interval: 集計間隔（"day", "week", "month"）
+
+        Returns:
+            時系列データのリスト（例: [{"date": "2024-01-01", "count": 5}, ...]）
         """
         pass
