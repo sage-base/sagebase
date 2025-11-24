@@ -529,6 +529,10 @@ class MeetingPresenter(CRUDPresenter[list[Meeting]]):
         Returns:
             Response with processing result
         """
+        # Import exceptions at method level for proper scope
+        from src.application.exceptions import AuthenticationFailedException
+        from src.infrastructure.exceptions import AuthenticationError
+
         try:
             # Get services from DI container
             import os
@@ -537,9 +541,20 @@ class MeetingPresenter(CRUDPresenter[list[Meeting]]):
 
             # Initialize services
             bucket_name = os.getenv("GCS_BUCKET_NAME", "sagebase-bucket")
-            storage_service: IStorageService = GCSStorageService(
-                bucket_name=bucket_name
-            )
+
+            # Initialize GCS Storage Service with proper error handling
+            try:
+                storage_service: IStorageService = GCSStorageService(
+                    bucket_name=bucket_name
+                )
+            except AuthenticationError as e:
+                # Convert Infrastructure exception to Application exception
+                raise AuthenticationFailedException(
+                    service=e.details.get("service", "Storage"),
+                    reason=e.details.get("reason", str(e)),
+                    solution=e.details.get("solution"),
+                ) from e
+
             llm_service = GeminiLLMService()  # Use concrete implementation
             minutes_processing_service: IMinutesProcessingService = (
                 MinutesProcessAgentService(llm_service=llm_service)
@@ -548,9 +563,14 @@ class MeetingPresenter(CRUDPresenter[list[Meeting]]):
 
             # Initialize Unit of Work
             from src.infrastructure.config.async_database import get_async_session
+            from src.infrastructure.persistence.sqlalchemy_session_adapter import (
+                SQLAlchemySessionAdapter,
+            )
 
             async with get_async_session() as session:
-                uow: IUnitOfWork = UnitOfWorkImpl(session=session)
+                # Wrap AsyncSession with adapter to satisfy ISessionAdapter interface
+                session_adapter = SQLAlchemySessionAdapter(session)
+                uow: IUnitOfWork = UnitOfWorkImpl(session=session_adapter)
 
                 # Initialize use case
                 minutes_usecase = ExecuteMinutesProcessingUseCase(
@@ -576,17 +596,15 @@ class MeetingPresenter(CRUDPresenter[list[Meeting]]):
                     f"会議 {meeting_id} の発言抽出が完了しました",
                 )
 
+        except AuthenticationFailedException as e:
+            # Application層の認証エラーをキャッチ
+            self.logger.error(
+                f"Authentication failed for meeting {meeting_id}: {e}",
+                exc_info=True,
+            )
+            return WebResponseDTO.error_response(str(e))
+
         except Exception as e:
-            from src.infrastructure.exceptions import AuthenticationError
-
-            # 認証エラーの場合は、ユーザーに分かりやすいメッセージを表示
-            if isinstance(e, AuthenticationError):
-                self.logger.error(
-                    f"Authentication failed for meeting {meeting_id}: {e}",
-                    exc_info=True,
-                )
-                return WebResponseDTO.error_response(str(e))
-
             # その他のエラー
             self.logger.error(
                 f"Error extracting minutes for meeting {meeting_id}: {e}",

@@ -4,8 +4,6 @@ This implementation provides transaction management for multiple repositories
 using SQLAlchemy's session, ensuring all operations share the same transaction.
 """
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.domain.repositories.conversation_repository import ConversationRepository
 from src.domain.repositories.meeting_repository import MeetingRepository
 from src.domain.repositories.minutes_repository import MinutesRepository
@@ -27,7 +25,7 @@ class UnitOfWorkImpl(IUnitOfWork):
     that all share this session, ensuring transactional consistency.
     """
 
-    def __init__(self, session: ISessionAdapter | AsyncSession):
+    def __init__(self, session: ISessionAdapter):
         """Initialize Unit of Work with a database session.
 
         Args:
