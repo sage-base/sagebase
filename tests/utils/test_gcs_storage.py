@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.infrastructure.exceptions import (
+    AuthenticationError,
     FileNotFoundException,
     PermissionError,
     StorageError,
@@ -122,6 +123,36 @@ class TestGCSStorageInit:
 
         with pytest.raises(StorageError, match="not installed"):
             GCSStorage("test-bucket")
+
+    @patch("src.utils.gcs_storage.storage.Client")
+    def test_init_authentication_error(self, mock_client_class):
+        """Test initialization handles authentication errors."""
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+        mock_bucket = MagicMock()
+
+        # Mock RefreshError from google.auth.exceptions
+        class MockRefreshError(Exception):
+            pass
+
+        mock_bucket.exists.side_effect = MockRefreshError(
+            "Reauthentication is needed. Please run "
+            "`gcloud auth application-default login` to reauthenticate."
+        )
+        mock_client.bucket.return_value = mock_bucket
+
+        from src.utils.gcs_storage import GCSStorage
+
+        with patch("src.utils.gcs_storage.RefreshError", MockRefreshError):
+            with pytest.raises(
+                AuthenticationError, match="認証に失敗しました"
+            ) as exc_info:
+                GCSStorage("test-bucket")
+
+            # エラーメッセージに再認証コマンドが含まれていることを確認
+            error_message = str(exc_info.value)
+            assert "gcloud auth application-default login" in error_message
+            assert "認証トークンの有効期限が切れています" in error_message
 
 
 class TestUploadFile:

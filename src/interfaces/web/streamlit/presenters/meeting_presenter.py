@@ -577,6 +577,17 @@ class MeetingPresenter(CRUDPresenter[list[Meeting]]):
                 )
 
         except Exception as e:
+            from src.infrastructure.exceptions import AuthenticationError
+
+            # 認証エラーの場合は、ユーザーに分かりやすいメッセージを表示
+            if isinstance(e, AuthenticationError):
+                self.logger.error(
+                    f"Authentication failed for meeting {meeting_id}: {e}",
+                    exc_info=True,
+                )
+                return WebResponseDTO.error_response(str(e))
+
+            # その他のエラー
             self.logger.error(
                 f"Error extracting minutes for meeting {meeting_id}: {e}",
                 exc_info=True,
