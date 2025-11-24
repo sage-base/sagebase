@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 try:
     from google.api_core.exceptions import Forbidden, NotFound
+    from google.auth.exceptions import RefreshError
     from google.cloud import storage
     from google.cloud.exceptions import GoogleCloudError
 
@@ -19,21 +20,24 @@ except ImportError:
     # Define dummy types for type checking
     if TYPE_CHECKING:
         from google.api_core.exceptions import Forbidden, NotFound
+        from google.auth.exceptions import RefreshError
         from google.cloud import storage
         from google.cloud.exceptions import GoogleCloudError
     else:
         GoogleCloudError = Exception  # Dummy for runtime
         Forbidden = Exception
         NotFound = Exception
+        RefreshError = Exception
         storage = None
 
 from src.infrastructure.exceptions import (
-    FileNotFoundException as PolibaseFileNotFoundError,
-)
-from src.infrastructure.exceptions import (
+    AuthenticationError,
     PermissionError,
     StorageError,
     UploadException,
+)
+from src.infrastructure.exceptions import (
+    FileNotFoundException as PolibaseFileNotFoundError,
 )
 
 logger = logging.getLogger(__name__)
@@ -86,6 +90,17 @@ class GCSStorage:
             raise PermissionError(
                 f"Permission denied accessing bucket '{bucket_name}'",
                 {"bucket_name": bucket_name, "error": str(e)},
+            ) from e
+        except RefreshError as e:
+            logger.error(f"GCS authentication failed: {e}")
+            raise AuthenticationError(
+                service="Google Cloud Storage",
+                reason="認証トークンの有効期限が切れています",
+                solution="以下のコマンドを実行して再認証してください:\n"
+                "  gcloud auth application-default login\n\n"
+                "Docker環境の場合:\n"
+                "  1. ホストで上記コマンドを実行\n"
+                "  2. コンテナを再起動",
             ) from e
         except Exception as e:
             logger.error(f"Failed to initialize GCS client: {e}")
