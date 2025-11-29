@@ -85,7 +85,8 @@ HTMLコンテンツ:
 
         try:
             # HTMLが長すぎる場合は切り詰める
-            max_length = 50000
+            # 注: HTMLは事前にクリーニングされているため、通常はこの制限に達しない
+            max_length = 100000
             if len(html_content) > max_length:
                 logger.warning(
                     f"HTML content too long ({len(html_content)} chars), "

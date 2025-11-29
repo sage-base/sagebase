@@ -1,14 +1,18 @@
 """View for conference management."""
 
 import asyncio
-from typing import cast
+from typing import Any, cast
 
+import pandas as pd
 import streamlit as st
 
 from src.application.usecases.manage_conferences_usecase import (
     ManageConferencesUseCase,
 )
 from src.domain.repositories import ConferenceRepository, GoverningBodyRepository
+from src.infrastructure.external.conference_member_extractor.extractor import (
+    ConferenceMemberExtractor,
+)
 from src.infrastructure.persistence.conference_repository_impl import (
     ConferenceRepositoryImpl,
 )
@@ -110,9 +114,34 @@ def render_conferences_list(
     with col3:
         st.metric("URL未登録", without_url_count)
 
-    # Display table
+    # Display table with selection checkbox
     if not df.empty:
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        # Add a selection column for extraction
+        df_with_selection = df.copy()
+        df_with_selection.insert(0, "抽出", False)
+
+        # Use data_editor to allow selection
+        edited_df = st.data_editor(
+            df_with_selection,
+            use_container_width=True,
+            hide_index=True,
+            disabled=[col for col in df_with_selection.columns if col != "抽出"],
+            column_config={
+                "抽出": st.column_config.CheckboxColumn(
+                    "抽出",
+                    help="議員情報を抽出する会議体を選択してください",
+                    default=False,
+                )
+            },
+        )
+
+        # Extract button
+        selected_rows = cast(pd.DataFrame, edited_df[edited_df["抽出"]])
+        if len(selected_rows) > 0:
+            st.info(f"{len(selected_rows)}件の会議体が選択されています")
+
+            if st.button("選択した会議体から議員情報を抽出", type="primary"):
+                extract_members_from_conferences(selected_rows)
     else:
         st.info("会議体が登録されていません。")
 
@@ -332,3 +361,105 @@ def render_seed_generator(presenter: ConferencePresenter):
             )
         else:
             st.error(f"生成に失敗しました: {error_message}")
+
+
+def extract_members_from_conferences(selected_rows: pd.DataFrame):
+    """選択された会議体から議員情報を抽出する
+
+    Args:
+        selected_rows: 選択された会議体のDataFrame
+    """
+    # 議員紹介URLがない会議体を除外
+    rows_with_url = selected_rows[
+        selected_rows["議員紹介URL"].notna() & (selected_rows["議員紹介URL"] != "")
+    ]
+
+    if len(rows_with_url) == 0:
+        st.warning("選択された会議体には議員紹介URLが登録されていません。")
+        return
+
+    # URLがない会議体がある場合は警告
+    rows_without_url = selected_rows[
+        selected_rows["議員紹介URL"].isna() | (selected_rows["議員紹介URL"] == "")
+    ]
+    if len(rows_without_url) > 0:
+        st.warning(
+            f"{len(rows_without_url)}件の会議体は議員紹介URLが未登録のためスキップされます。"
+        )
+
+    # 抽出処理を実行
+    st.info(f"{len(rows_with_url)}件の会議体から議員情報を抽出します...")
+
+    # プログレスバー
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+
+    # 結果を保存するリスト
+    results = []
+
+    # 各会議体に対して抽出処理を実行
+    extractor = ConferenceMemberExtractor()
+
+    try:
+        for idx, (_, row) in enumerate(rows_with_url.iterrows()):
+            row_data = cast(dict[str, Any], row)
+            conference_id = int(row_data["ID"])
+            conference_name = str(row_data["会議体名"])
+            url = str(row_data["議員紹介URL"])
+
+            status_text.text(
+                f"処理中: {conference_name} ({idx + 1}/{len(rows_with_url)})"
+            )
+
+            # 抽出処理を実行
+            result = asyncio.run(
+                extractor.extract_and_save_members(
+                    conference_id=conference_id,
+                    conference_name=conference_name,
+                    url=url,
+                )
+            )
+
+            results.append(result)
+
+            # プログレスバー更新
+            progress_bar.progress((idx + 1) / len(rows_with_url))
+
+        # 完了メッセージ
+        status_text.text("抽出処理が完了しました")
+        progress_bar.progress(1.0)
+
+        # 結果のサマリーを表示
+        st.success("議員情報の抽出が完了しました")
+
+        # 結果詳細
+        total_extracted = sum(r.get("extracted_count", 0) for r in results)
+        total_saved = sum(r.get("saved_count", 0) for r in results)
+        total_failed = sum(r.get("failed_count", 0) for r in results)
+        errors = [r for r in results if "error" in r]
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("抽出件数", total_extracted)
+        with col2:
+            st.metric("保存件数", total_saved)
+        with col3:
+            st.metric("失敗件数", total_failed)
+
+        # エラーがある場合は表示
+        if errors:
+            st.error(f"{len(errors)}件の会議体で抽出エラーが発生しました")
+            with st.expander("エラー詳細"):
+                for error_result in errors:
+                    error_msg = error_result.get("error", "Unknown error")
+                    st.write(f"- {error_result['conference_name']}: {error_msg}")
+
+        # 詳細結果を表形式で表示
+        with st.expander("詳細結果"):
+            result_df = pd.DataFrame(results)
+            st.dataframe(result_df, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"抽出処理中にエラーが発生しました: {str(e)}")
+    finally:
+        extractor.close()

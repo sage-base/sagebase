@@ -285,3 +285,232 @@ class TestConferenceMemberExtractor:
             assert "Network Error" in result["error"]
             assert result["extracted_count"] == 0
             assert result["saved_count"] == 0
+
+    def test_clean_html_removes_unwanted_tags(self, extractor):
+        """Test that unwanted tags are removed from HTML"""
+        html = """
+        <html>
+            <head>
+                <script>alert('test');</script>
+                <style>.test { color: red; }</style>
+            </head>
+            <body>
+                <nav>Navigation</nav>
+                <header>Header</header>
+                <main>
+                    <h1>委員会メンバー</h1>
+                    <ul>
+                        <li>山田太郎（委員長）</li>
+                        <li>田中花子（副委員長）</li>
+                    </ul>
+                </main>
+                <footer>Footer</footer>
+                <aside>Sidebar</aside>
+            </body>
+        </html>
+        """
+
+        # Execute
+        cleaned = extractor.clean_html(html)
+
+        # Assert - unwanted tags should be removed
+        assert "<script>" not in cleaned
+        assert "<style>" not in cleaned
+        assert "<nav>" not in cleaned
+        assert "<header>" not in cleaned
+        assert "<footer>" not in cleaned
+        assert "<aside>" not in cleaned
+
+        # Main content should be preserved
+        assert "委員会メンバー" in cleaned
+        assert "山田太郎" in cleaned
+        assert "田中花子" in cleaned
+
+    def test_clean_html_removes_comments(self, extractor):
+        """Test that HTML comments are removed"""
+        html = """
+        <html>
+            <body>
+                <!-- This is a comment -->
+                <main>
+                    <h1>メンバーリスト</h1>
+                    <!-- Another comment -->
+                    <p>山田太郎</p>
+                </main>
+            </body>
+        </html>
+        """
+
+        # Execute
+        cleaned = extractor.clean_html(html)
+
+        # Assert - comments should be removed
+        assert "<!--" not in cleaned
+        assert "This is a comment" not in cleaned
+        assert "Another comment" not in cleaned
+
+        # Content should be preserved
+        assert "メンバーリスト" in cleaned
+        assert "山田太郎" in cleaned
+
+    def test_clean_html_extracts_main_content(self, extractor):
+        """Test that main tag content is extracted when present"""
+        html = """
+        <html>
+            <body>
+                <nav>Navigation content that should be excluded</nav>
+                <main>
+                    <h1>Main Content</h1>
+                    <p>This should be included</p>
+                </main>
+                <footer>Footer content that should be excluded</footer>
+            </body>
+        </html>
+        """
+
+        # Execute
+        cleaned = extractor.clean_html(html)
+
+        # Assert - only main content should be present
+        assert "Main Content" in cleaned
+        assert "This should be included" in cleaned
+
+        # Navigation and footer should not be in main content
+        # (they are removed by tag filtering, not by main extraction)
+
+    def test_clean_html_without_main_tag(self, extractor):
+        """Test cleaning when no main tag is present"""
+        html = """
+        <html>
+            <body>
+                <div class="content">
+                    <h1>委員会名簿</h1>
+                    <ul>
+                        <li>委員長：山田太郎</li>
+                        <li>副委員長：田中花子</li>
+                    </ul>
+                </div>
+            </body>
+        </html>
+        """
+
+        # Execute
+        cleaned = extractor.clean_html(html)
+
+        # Assert - content should be preserved
+        assert "委員会名簿" in cleaned
+        assert "山田太郎" in cleaned
+        assert "田中花子" in cleaned
+
+    def test_clean_html_removes_extra_whitespace(self, extractor):
+        """Test that extra whitespace is removed"""
+        html = """
+        <html>
+            <body>
+
+
+                <main>
+                    <h1>   Title with spaces   </h1>
+
+
+                    <p>   Content   </p>
+                </main>
+
+
+            </body>
+        </html>
+        """
+
+        # Execute
+        cleaned = extractor.clean_html(html)
+
+        # Assert - multiple spaces should be reduced
+        assert "  " not in cleaned or cleaned.count("  ") < html.count("  ")
+        # Content should still be present
+        assert "Title with spaces" in cleaned
+        assert "Content" in cleaned
+
+    def test_clean_html_reduces_size(self, extractor):
+        """Test that HTML size is significantly reduced"""
+        html = """
+        <html>
+            <head>
+                <script type="text/javascript">
+                    function test() {
+                        console.log("This is a long script");
+                        // More script content
+                        var x = 1;
+                        var y = 2;
+                        var z = 3;
+                    }
+                </script>
+                <style>
+                    .class1 { color: red; font-size: 14px; }
+                    .class2 { color: blue; font-size: 16px; }
+                    .class3 { color: green; font-size: 18px; }
+                </style>
+            </head>
+            <body>
+                <nav>
+                    <ul>
+                        <li><a href="#">Link 1</a></li>
+                        <li><a href="#">Link 2</a></li>
+                        <li><a href="#">Link 3</a></li>
+                    </ul>
+                </nav>
+                <main>
+                    <h1>委員会メンバー</h1>
+                    <ul>
+                        <li>山田太郎</li>
+                    </ul>
+                </main>
+            </body>
+        </html>
+        """
+
+        # Execute
+        cleaned = extractor.clean_html(html)
+
+        # Assert - size should be significantly reduced
+        assert len(cleaned) < len(html)
+        # At least 30% reduction expected
+        reduction_percent = (1 - len(cleaned) / len(html)) * 100
+        assert reduction_percent > 30
+
+    def test_clean_html_handles_malformed_html(self, extractor):
+        """Test that cleaning handles malformed HTML gracefully"""
+        html = """
+        <html>
+            <body>
+                <main>
+                    <h1>Content</h1>
+                    <p>Unclosed paragraph
+                    <div>Nested div
+                </main>
+            </body>
+        """
+
+        # Execute - should not raise exception
+        cleaned = extractor.clean_html(html)
+
+        # Assert - should return some content
+        assert len(cleaned) > 0
+        assert "Content" in cleaned
+
+    def test_clean_html_error_returns_original(self, extractor):
+        """Test that errors return original HTML"""
+        # Create invalid input that will cause BeautifulSoup to fail
+        # (though BeautifulSoup is very forgiving, so this is hard to trigger)
+        html = "<html><body><main>Content</main></body></html>"
+
+        # Mock BeautifulSoup to raise an exception
+        with patch(
+            "src.infrastructure.external.conference_member_extractor.extractor.BeautifulSoup"
+        ) as mock_bs:
+            mock_bs.side_effect = Exception("Parsing error")
+
+            # Execute
+            cleaned = extractor.clean_html(html)
+
+            # Assert - should return original HTML
+            assert cleaned == html

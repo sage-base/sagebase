@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 
 from src.domain.dtos.conference_member_dto import ExtractedMemberDTO
@@ -41,6 +42,77 @@ class ConferenceMemberExtractor:
             finally:
                 await browser.close()
 
+    def clean_html(self, html_content: str) -> str:
+        """HTMLをクリーニングして不要な要素を削除
+
+        Args:
+            html_content: 元のHTMLコンテンツ
+
+        Returns:
+            クリーニングされたHTMLコンテンツ
+        """
+        logger.info(f"Cleaning HTML (original size: {len(html_content)} chars)")
+
+        try:
+            soup = BeautifulSoup(html_content, "html.parser")
+
+            # 不要なタグを削除
+            unwanted_tags = [
+                "script",
+                "style",
+                "nav",
+                "header",
+                "footer",
+                "aside",
+                "iframe",
+                "noscript",
+                "svg",
+                "canvas",
+                "video",
+                "audio",
+                "form",
+                "button",
+                "input",
+                "select",
+                "textarea",
+            ]
+
+            for tag in unwanted_tags:
+                for element in soup.find_all(tag):
+                    element.decompose()
+
+            # コメントを削除
+            from bs4 import Comment
+
+            for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+                comment.extract()
+
+            # メインコンテンツを抽出（mainタグがあれば優先）
+            main_content = soup.find("main")
+            if main_content:
+                cleaned_html = str(main_content)
+            else:
+                # mainタグがない場合は全体を使用
+                cleaned_html = str(soup)
+
+            # 余分な空白・改行を削除
+            import re
+
+            cleaned_html = re.sub(r"\s+", " ", cleaned_html)
+            cleaned_html = re.sub(r">\s+<", "><", cleaned_html)
+
+            logger.info(
+                f"HTML cleaned (new size: {len(cleaned_html)} chars, "
+                f"reduction: {len(html_content) - len(cleaned_html)} chars, "
+                f"{(1 - len(cleaned_html) / len(html_content)) * 100:.1f}%)"
+            )
+
+            return cleaned_html
+
+        except Exception as e:
+            logger.warning(f"Failed to clean HTML: {e}, using original content")
+            return html_content
+
     async def extract_members_with_llm(
         self, html_content: str, conference_name: str
     ) -> list[ExtractedMemberDTO]:
@@ -59,9 +131,12 @@ class ConferenceMemberExtractor:
         Note:
             この関数は非同期です。awaitして呼び出してください。
         """
+        # HTMLをクリーニング
+        cleaned_html = self.clean_html(html_content)
+
         # ファクトリーから取得したextractorを使用（非同期）
         result_dicts = await self._extractor.extract_members(
-            html_content, conference_name
+            cleaned_html, conference_name
         )
         # 辞書のリストをDTOのリストに変換
         return [ExtractedMemberDTO(**data) for data in result_dicts]
