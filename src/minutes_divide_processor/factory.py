@@ -29,9 +29,9 @@ class MinutesDividerFactory:
             MinutesDivider: 適切な実装（MinutesDivider or BAMLMinutesDivider）
 
         Environment Variables:
-            USE_BAML_MINUTES_DIVIDER: "true"でBAML実装を使用
+            USE_BAML_MINUTES_DIVIDER: "false"でPydantic実装を使用（デフォルトはBAML）
         """
-        use_baml = os.getenv("USE_BAML_MINUTES_DIVIDER", "false").lower() == "true"
+        use_baml = os.getenv("USE_BAML_MINUTES_DIVIDER", "true").lower() == "true"
 
         if use_baml:
             logger.info("Creating BAML MinutesDivider")

@@ -8,9 +8,9 @@ from src.minutes_divide_processor.factory import MinutesDividerFactory
 class TestMinutesDividerFactory:
     """Test cases for MinutesDividerFactory"""
 
-    def test_create_pydantic_implementation_default(self):
-        """Test that factory creates Pydantic implementation by default"""
-        # USE_BAML_MINUTES_DIVIDERが設定されていない場合、Pydantic実装を返す
+    def test_create_baml_implementation_default(self):
+        """Test that factory creates BAML implementation by default"""
+        # USE_BAML_MINUTES_DIVIDERが設定されていない場合、BAML実装を返す（新デフォルト）
         with patch.dict("os.environ", {}, clear=False):
             # USE_BAML_MINUTES_DIVIDERを削除（もし存在すれば）
             import os
@@ -18,8 +18,8 @@ class TestMinutesDividerFactory:
             os.environ.pop("USE_BAML_MINUTES_DIVIDER", None)
             divider = MinutesDividerFactory.create()
 
-            # Assert - should be MinutesDivider (Pydantic implementation)
-            assert divider.__class__.__name__ == "MinutesDivider"
+            # Assert - should be BAMLMinutesDivider (default)
+            assert divider.__class__.__name__ == "BAMLMinutesDivider"
 
     def test_create_pydantic_implementation_explicit_false(self):
         """Test that factory creates Pydantic implementation when explicitly disabled"""
