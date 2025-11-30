@@ -172,6 +172,41 @@ class ExternalServiceException(InfrastructureException):
         )
 
 
+class AuthenticationError(InfrastructureException):
+    """認証エラー
+
+    外部サービスへの認証に失敗した場合のエラー
+    """
+
+    def __init__(
+        self,
+        service: str,
+        reason: str | None = None,
+        solution: str | None = None,
+    ):
+        """
+        Args:
+            service: サービス名（Google Cloud Storage, AWS S3等）
+            reason: 認証失敗の理由
+            solution: 解決方法（再認証コマンドなど）
+        """
+        message = f"サービス '{service}' の認証に失敗しました"
+        if reason:
+            message += f": {reason}"
+        if solution:
+            message += f"\n\n解決方法: {solution}"
+
+        super().__init__(
+            message=message,
+            error_code="INF-AUTH",
+            details={
+                "service": service,
+                "reason": reason,
+                "solution": solution,
+            },
+        )
+
+
 class FileSystemException(InfrastructureException):
     """ファイルシステムエラー
 

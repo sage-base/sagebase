@@ -460,3 +460,32 @@ class ParsingException(DataProcessingException):
             reason=reason,
             input_data=raw_data,
         )
+
+
+class AuthenticationFailedException(ApplicationException):
+    """認証失敗例外
+
+    外部サービスへの認証に失敗した場合のApplication層表現
+    Infrastructure層のAuthenticationErrorをラップして使用
+    """
+
+    def __init__(self, service: str, reason: str, solution: str | None = None):
+        """
+        Args:
+            service: サービス名（Google Cloud Storage, AWS S3等）
+            reason: 認証失敗の理由
+            solution: 解決方法（再認証コマンドなど）
+        """
+        message = f"サービス '{service}' の認証に失敗しました: {reason}"
+        if solution:
+            message += f"\n\n解決方法:\n{solution}"
+
+        super().__init__(
+            message=message,
+            error_code="APP-010",
+            details={
+                "service": service,
+                "reason": reason,
+                "solution": solution,
+            },
+        )

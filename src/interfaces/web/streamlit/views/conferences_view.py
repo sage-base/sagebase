@@ -31,7 +31,7 @@ from src.interfaces.web.streamlit.presenters.conference_presenter import (
 logger = logging.getLogger(__name__)
 
 
-def render_conferences_page():
+def render_conferences_page() -> None:
     """Render conferences management page."""
     st.title("会議体管理")
 
@@ -77,7 +77,7 @@ def render_conferences_page():
 def render_conferences_list(
     presenter: ConferencePresenter,
     governing_body_repo: GoverningBodyRepository,
-):
+) -> None:
     """Render conferences list tab."""
     st.header("会議体一覧")
 
@@ -159,7 +159,7 @@ def render_conferences_list(
 def render_new_conference_form(
     presenter: ConferencePresenter,
     governing_body_repo: GoverningBodyRepository,
-):
+) -> None:
     """Render new conference registration form."""
     st.header("新規会議体登録")
 
@@ -235,7 +235,7 @@ def render_edit_delete_form(
     presenter: ConferencePresenter,
     conference_repo: ConferenceRepository,
     governing_body_repo: GoverningBodyRepository,
-):
+) -> None:
     """Render edit and delete form."""
     st.header("会議体の編集・削除")
 
@@ -347,7 +347,7 @@ def render_edit_delete_form(
                     st.error(f"削除に失敗しました: {error_message}")
 
 
-def render_seed_generator(presenter: ConferencePresenter):
+def render_seed_generator(presenter: ConferencePresenter) -> None:
     """Render seed file generator."""
     st.header("SEEDファイル生成")
 
