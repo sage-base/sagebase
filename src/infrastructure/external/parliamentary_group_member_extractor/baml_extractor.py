@@ -10,12 +10,12 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 
 import baml_client as b
+from src.domain.dtos.parliamentary_group_member_dto import (
+    ExtractedParliamentaryGroupMemberDTO,
+    ParliamentaryGroupMemberExtractionResultDTO,
+)
 from src.domain.interfaces.parliamentary_group_member_extractor_service import (
     IParliamentaryGroupMemberExtractorService,
-)
-from src.parliamentary_group_member_extractor.models import (
-    ExtractedMember,
-    MemberExtractionResult,
 )
 from src.party_member_extractor.html_fetcher import PartyMemberPageFetcher
 
@@ -31,7 +31,7 @@ class BAMLParliamentaryGroupMemberExtractor(IParliamentaryGroupMemberExtractorSe
 
     async def extract_members(
         self, parliamentary_group_id: int, url: str
-    ) -> MemberExtractionResult:
+    ) -> ParliamentaryGroupMemberExtractionResultDTO:
         """議員団URLからメンバー情報を抽出する
 
         Args:
@@ -39,13 +39,13 @@ class BAMLParliamentaryGroupMemberExtractor(IParliamentaryGroupMemberExtractorSe
             url: 議員団メンバー一覧のURL
 
         Returns:
-            抽出結果
+            抽出結果（DTO）
         """
         try:
             # HTMLを取得
             html_content = await self._fetch_html(url)
             if not html_content:
-                return MemberExtractionResult(
+                return ParliamentaryGroupMemberExtractionResultDTO(
                     parliamentary_group_id=parliamentary_group_id,
                     url=url,
                     extracted_members=[],
@@ -66,18 +66,19 @@ class BAMLParliamentaryGroupMemberExtractor(IParliamentaryGroupMemberExtractorSe
             text_content = "\n".join(chunk for chunk in chunks if chunk)
 
             # LLMで議員情報を抽出（BAML使用）
-            members = await self._extract_members_with_baml(text_content, str(soup))
+            members_dto = await self._extract_members_with_baml(text_content, str(soup))
 
-            return MemberExtractionResult(
+            return ParliamentaryGroupMemberExtractionResultDTO(
                 parliamentary_group_id=parliamentary_group_id,
                 url=url,
-                extracted_members=members,
+                extracted_members=members_dto,
                 extraction_date=datetime.now(),
+                error=None,
             )
 
         except Exception as e:
             logger.error(f"BAML extraction error: {e}", exc_info=True)
-            return MemberExtractionResult(
+            return ParliamentaryGroupMemberExtractionResultDTO(
                 parliamentary_group_id=parliamentary_group_id,
                 url=url,
                 extracted_members=[],
@@ -86,7 +87,7 @@ class BAMLParliamentaryGroupMemberExtractor(IParliamentaryGroupMemberExtractorSe
 
     async def _extract_members_with_baml(
         self, text_content: str, html_content: str
-    ) -> list[ExtractedMember]:
+    ) -> list[ExtractedParliamentaryGroupMemberDTO]:
         """BAMLを使用して議員情報を抽出する
 
         Args:
@@ -94,7 +95,7 @@ class BAMLParliamentaryGroupMemberExtractor(IParliamentaryGroupMemberExtractorSe
             html_content: HTMLコンテンツ
 
         Returns:
-            抽出された議員リスト
+            抽出された議員リスト（DTO）
         """
         try:
             # HTMLとテキストが長すぎる場合は切り詰める
@@ -121,9 +122,9 @@ class BAMLParliamentaryGroupMemberExtractor(IParliamentaryGroupMemberExtractorSe
                 html_content, text_content
             )
 
-            # BAMLの結果をPydanticモデルに変換
-            members = [
-                ExtractedMember(
+            # BAMLの結果をDTOに変換
+            members_dto = [
+                ExtractedParliamentaryGroupMemberDTO(
                     name=m.name,
                     role=m.role,
                     party_name=m.party_name,
@@ -133,8 +134,8 @@ class BAMLParliamentaryGroupMemberExtractor(IParliamentaryGroupMemberExtractorSe
                 for m in result
             ]
 
-            logger.info(f"BAML extracted {len(members)} members")
-            return members
+            logger.info(f"BAML extracted {len(members_dto)} members")
+            return members_dto
 
         except Exception as e:
             logger.error(f"BAML extraction failed: {e}", exc_info=True)

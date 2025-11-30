@@ -11,6 +11,10 @@ from bs4 import BeautifulSoup
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
 
+from src.domain.dtos.parliamentary_group_member_dto import (
+    ExtractedParliamentaryGroupMemberDTO,
+    ParliamentaryGroupMemberExtractionResultDTO,
+)
 from src.domain.interfaces.parliamentary_group_member_extractor_service import (
     IParliamentaryGroupMemberExtractorService,
 )
@@ -19,7 +23,6 @@ from src.infrastructure.external.llm_service import GeminiLLMService
 from src.parliamentary_group_member_extractor.models import (
     ExtractedMember,
     ExtractedMemberList,
-    MemberExtractionResult,
 )
 from src.party_member_extractor.html_fetcher import PartyMemberPageFetcher
 
@@ -34,7 +37,7 @@ class PydanticParliamentaryGroupMemberExtractor(
     PydanticOutputParserを使用してLLMから構造化データを抽出します。
     """
 
-    def __init__(self, llm_service: GeminiLLMService | ILLMService | None = None):
+    def __init__(self, llm_service: ILLMService | None = None):
         """初期化
 
         Args:
@@ -44,7 +47,7 @@ class PydanticParliamentaryGroupMemberExtractor(
 
     async def extract_members(
         self, parliamentary_group_id: int, url: str
-    ) -> MemberExtractionResult:
+    ) -> ParliamentaryGroupMemberExtractionResultDTO:
         """議員団URLからメンバー情報を抽出する
 
         Args:
@@ -52,13 +55,13 @@ class PydanticParliamentaryGroupMemberExtractor(
             url: 議員団メンバー一覧のURL
 
         Returns:
-            抽出結果
+            抽出結果（DTO）
         """
         try:
             # HTMLを取得
             html_content = await self._fetch_html(url)
             if not html_content:
-                return MemberExtractionResult(
+                return ParliamentaryGroupMemberExtractionResultDTO(
                     parliamentary_group_id=parliamentary_group_id,
                     url=url,
                     extracted_members=[],
@@ -81,15 +84,28 @@ class PydanticParliamentaryGroupMemberExtractor(
             # LLMで議員情報を抽出
             members = await self._extract_members_with_llm(text, str(soup))
 
-            return MemberExtractionResult(
+            # PydanticモデルをDTOに変換
+            members_dto = [
+                ExtractedParliamentaryGroupMemberDTO(
+                    name=m.name,
+                    role=m.role,
+                    party_name=m.party_name,
+                    district=m.district,
+                    additional_info=m.additional_info,
+                )
+                for m in members
+            ]
+
+            return ParliamentaryGroupMemberExtractionResultDTO(
                 parliamentary_group_id=parliamentary_group_id,
                 url=url,
-                extracted_members=members,
+                extracted_members=members_dto,
                 extraction_date=datetime.now(),
+                error=None,
             )
 
         except Exception as e:
-            return MemberExtractionResult(
+            return ParliamentaryGroupMemberExtractionResultDTO(
                 parliamentary_group_id=parliamentary_group_id,
                 url=url,
                 extracted_members=[],

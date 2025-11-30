@@ -6,7 +6,9 @@
 
 from abc import ABC, abstractmethod
 
-from src.parliamentary_group_member_extractor.models import MemberExtractionResult
+from src.domain.dtos.parliamentary_group_member_dto import (
+    ParliamentaryGroupMemberExtractionResultDTO,
+)
 
 
 class IParliamentaryGroupMemberExtractorService(ABC):
@@ -15,7 +17,7 @@ class IParliamentaryGroupMemberExtractorService(ABC):
     @abstractmethod
     async def extract_members(
         self, parliamentary_group_id: int, url: str
-    ) -> MemberExtractionResult:
+    ) -> ParliamentaryGroupMemberExtractionResultDTO:
         """議員団URLからメンバー情報を抽出する
 
         Args:
