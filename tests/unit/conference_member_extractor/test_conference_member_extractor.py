@@ -24,7 +24,7 @@ class TestConferenceMemberExtractor:
     def mock_repo(self):
         """Create a mock repository"""
         repo = Mock()
-        repo.create_extracted_member = Mock(return_value=1)
+        repo.create = AsyncMock(return_value=Mock(id=1))
         repo.delete_extracted_members = Mock(return_value=3)
         return repo
 
@@ -228,7 +228,7 @@ class TestConferenceMemberExtractor:
                 assert "error" not in result
 
                 # Check repository calls
-                assert mock_repo.create_extracted_member.call_count == 2
+                assert mock_repo.create.call_count == 2
 
     @pytest.mark.asyncio
     async def test_extract_and_save_members_with_errors(self, extractor, mock_repo):
@@ -250,7 +250,7 @@ class TestConferenceMemberExtractor:
                 ]
 
                 # Mock one success and one failure
-                mock_repo.create_extracted_member.side_effect = [1, None]
+                mock_repo.create.side_effect = [Mock(id=1), None]
 
                 # Execute
                 result = await extractor.extract_and_save_members(
