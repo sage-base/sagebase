@@ -8,7 +8,7 @@ from langgraph.store.memory import InMemoryStore
 from src.domain.services.interfaces.llm_service import ILLMService
 from src.infrastructure.external.instrumented_llm_service import InstrumentedLLMService
 
-from .minutes_divider import MinutesDivider
+from .factory import MinutesDividerFactory
 
 # Use relative import for modules within the same package
 from .models import (
@@ -32,8 +32,10 @@ class MinutesProcessAgent:
                 Can be ILLMService or InstrumentedLLMService
             k: Number of sections
         """
-        # 各種ジェネレータの初期化
-        self.minutes_divider = MinutesDivider(llm_service=llm_service, k=k or 5)
+        # 各種ジェネレータの初期化（Factoryパターンで実装を切り替え）
+        self.minutes_divider = MinutesDividerFactory.create(
+            llm_service=llm_service, k=k or 5
+        )
         self.in_memory_store = InMemoryStore()
         self.graph = self._create_graph()
 
