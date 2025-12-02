@@ -34,8 +34,8 @@ up-detached: _setup_worktree
 # Start containers and launch Streamlit (foreground mode with logs)
 up: _setup_worktree
 	#!/bin/bash
-	# Start containers in background first
-	docker compose {{compose_cmd}} up -d
+	# Start containers in background first (with automatic rebuild if needed)
+	docker compose {{compose_cmd}} up -d --build
 	# Wait for containers to be healthy
 	echo "Waiting for containers to be ready..."
 	sleep 3
@@ -137,7 +137,11 @@ process-minutes: _setup_worktree
 help: _setup_worktree
 	docker compose {{compose_cmd}} exec sagebase uv run sagebase --help
 
-# Rebuild containers
+# Build containers (with cache)
+build: _setup_worktree
+	docker compose {{compose_cmd}} build
+
+# Rebuild containers (no cache)
 rebuild: _setup_worktree
 	docker compose {{compose_cmd}} build --no-cache
 
