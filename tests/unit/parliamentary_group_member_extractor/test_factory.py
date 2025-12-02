@@ -10,10 +10,10 @@ from src.infrastructure.external.parliamentary_group_member_extractor.factory im
 class TestParliamentaryGroupMemberExtractorFactory:
     """Test cases for ParliamentaryGroupMemberExtractorFactory"""
 
-    def test_create_pydantic_implementation_default(self):
-        """Test that factory creates Pydantic implementation by default"""
+    def test_create_baml_implementation_default(self):
+        """Test that factory creates BAML implementation by default"""
         # USE_BAML_PARLIAMENTARY_GROUP_EXTRACTORが設定されていない場合、
-        # Pydantic実装を返す（デフォルト）
+        # BAML実装を返す（デフォルト）
         with patch.dict("os.environ", {}, clear=False):
             # USE_BAML_PARLIAMENTARY_GROUP_EXTRACTORを削除（もし存在すれば）
             import os
@@ -21,10 +21,9 @@ class TestParliamentaryGroupMemberExtractorFactory:
             os.environ.pop("USE_BAML_PARLIAMENTARY_GROUP_EXTRACTOR", None)
             extractor = ParliamentaryGroupMemberExtractorFactory.create()
 
-            # Assert - should be PydanticParliamentaryGroupMemberExtractor (default)
+            # Assert - should be BAMLParliamentaryGroupMemberExtractor (default)
             assert (
-                extractor.__class__.__name__
-                == "PydanticParliamentaryGroupMemberExtractor"
+                extractor.__class__.__name__ == "BAMLParliamentaryGroupMemberExtractor"
             )
 
     def test_create_pydantic_implementation_explicit_false(self):

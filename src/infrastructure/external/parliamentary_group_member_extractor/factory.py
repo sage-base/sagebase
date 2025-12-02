@@ -27,10 +27,11 @@ class ParliamentaryGroupMemberExtractorFactory:
             IParliamentaryGroupMemberExtractorService: 適切な実装
 
         Environment Variables:
-            USE_BAML_PARLIAMENTARY_GROUP_EXTRACTOR: "true"でBAML実装を使用
+            USE_BAML_PARLIAMENTARY_GROUP_EXTRACTOR: デフォルトで"true"（BAML実装）
+                "false"を設定するとPydantic実装を使用
         """
         use_baml = (
-            os.getenv("USE_BAML_PARLIAMENTARY_GROUP_EXTRACTOR", "false").lower()
+            os.getenv("USE_BAML_PARLIAMENTARY_GROUP_EXTRACTOR", "true").lower()
             == "true"
         )
 
