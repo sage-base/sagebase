@@ -492,7 +492,7 @@ just db              # Connect to database
 just reset-db        # Reset database
 
 # Application
-just streamlit       # Launch Streamlit UI
+just up       # Launch Streamlit UI
 just monitoring      # Launch monitoring dashboard
 just process-minutes # Process meeting minutes
 
@@ -558,7 +558,7 @@ just exec uv run sagebase extract-speakers
 just exec uv run sagebase update-speakers --use-llm
 
 # 5. View results in Streamlit
-just streamlit
+just up
 ```
 
 ### Conference Member Extraction Workflow
@@ -568,7 +568,7 @@ just streamlit
 just exec uv run sagebase extract-conference-members --conference-id 185
 
 # 2. Review extraction (optional - via Streamlit)
-just streamlit
+just up
 
 # 3. Match with politicians
 just exec uv run sagebase match-conference-members --conference-id 185
@@ -708,7 +708,7 @@ LOG_LEVEL=INFO
 just up
 
 # Run application
-just streamlit
+just up
 
 # Process minutes
 just exec uv run sagebase process-minutes

@@ -34,7 +34,7 @@ cp .env.example .env  # Configure GOOGLE_API_KEY
 just up               # Start environment
 
 # Run application
-just streamlit        # Launch web UI
+just up               # Start all services and launch Streamlit UI
 just bi-dashboard     # Launch BI Dashboard
 
 # Development

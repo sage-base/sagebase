@@ -26,7 +26,7 @@ just exec uv run python -c "from src.config.database import test_connection; tes
 just test
 
 # 7. Launch Streamlit UI
-just streamlit
+just up
 # Access at http://localhost:<port> (check with `just ports`)
 ```
 
@@ -75,7 +75,7 @@ just down
 just up
 
 # 2. Add meeting via Streamlit UI
-just streamlit
+just up
 # Navigate to "会議管理" and add meeting record with PDF path
 
 # 3. Process the PDF minutes (extract speeches)
@@ -100,7 +100,7 @@ just exec uv run sagebase update-speakers --use-llm
 # - Confidence scores calculated
 
 # 6. View results in Streamlit
-just streamlit
+just up
 # Navigate to "発言者管理" to see matched speakers
 
 # 7. (Optional) Export or analyze data
@@ -154,7 +154,7 @@ just exec uv run sagebase update-speakers --use-llm
 
 ```bash
 # 1. Add conference members URL via Streamlit
-just streamlit
+just up
 # Navigate to "議会管理"
 # Edit conference and set members_introduction_url
 
@@ -166,7 +166,7 @@ just exec uv run sagebase extract-conference-members --conference-id 185
 # - Status: 'pending'
 
 # 3. Review extraction (optional)
-just streamlit
+just up
 # Navigate to "議会委員抽出" to review extracted data
 
 # 4. Match with existing politicians
@@ -188,7 +188,7 @@ just exec uv run sagebase member-status --conference-id 185
 # No Match: 2 (3.3%)
 
 # 6. Review matches needing manual review (optional)
-just streamlit
+just up
 # Navigate to "議会委員抽出" and filter by "needs_review"
 
 # 7. Create affiliations (only for matched records)
@@ -215,7 +215,7 @@ ORDER BY p.name;
 
 ```bash
 # 1. Configure party URLs via Streamlit
-just streamlit
+just up
 # Navigate to "政党管理"
 # For each party, set members_list_url field
 
@@ -241,7 +241,7 @@ just exec uv run sagebase scrape-politicians --party-id 5 --hierarchical --max-d
 # - More comprehensive member discovery
 
 # 5. View results
-just streamlit
+just up
 # Navigate to "政治家管理" to see new politicians
 ```
 

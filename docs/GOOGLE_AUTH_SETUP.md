@@ -118,7 +118,7 @@ just up
 
 1. Streamlitアプリを起動：
    ```bash
-   just streamlit
+   just up
    ```
 
 2. ブラウザで表示されたURLにアクセス（例: `http://localhost:8521`）
