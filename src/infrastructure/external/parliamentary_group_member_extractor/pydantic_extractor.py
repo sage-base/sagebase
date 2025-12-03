@@ -65,6 +65,7 @@ class PydanticParliamentaryGroupMemberExtractor(
                     parliamentary_group_id=parliamentary_group_id,
                     url=url,
                     extracted_members=[],
+                    extraction_date=None,
                     error="URLからコンテンツを取得できませんでした。URLが正しいか、またはPlaywrightが正しくインストールされているか確認してください。",
                 )
 
@@ -109,6 +110,7 @@ class PydanticParliamentaryGroupMemberExtractor(
                 parliamentary_group_id=parliamentary_group_id,
                 url=url,
                 extracted_members=[],
+                extraction_date=None,
                 error=str(e),
             )
 

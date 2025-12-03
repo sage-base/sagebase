@@ -9,7 +9,7 @@ from datetime import datetime
 
 from bs4 import BeautifulSoup
 
-import baml_client as b
+from baml_client import b
 from src.domain.dtos.parliamentary_group_member_dto import (
     ExtractedParliamentaryGroupMemberDTO,
     ParliamentaryGroupMemberExtractionResultDTO,
@@ -49,6 +49,7 @@ class BAMLParliamentaryGroupMemberExtractor(IParliamentaryGroupMemberExtractorSe
                     parliamentary_group_id=parliamentary_group_id,
                     url=url,
                     extracted_members=[],
+                    extraction_date=None,
                     error="URLからコンテンツを取得できませんでした。URLが正しいか、またはPlaywrightが正しくインストールされているか確認してください。",
                 )
 
@@ -82,6 +83,7 @@ class BAMLParliamentaryGroupMemberExtractor(IParliamentaryGroupMemberExtractorSe
                 parliamentary_group_id=parliamentary_group_id,
                 url=url,
                 extracted_members=[],
+                extraction_date=None,
                 error=str(e),
             )
 

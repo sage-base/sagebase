@@ -13,9 +13,15 @@ from uuid import UUID
 from langchain_core.prompts import PromptTemplate
 from sqlalchemy import text
 
+from src.domain.dtos.parliamentary_group_member_dto import (
+    ExtractedParliamentaryGroupMemberDTO,
+)
 from src.domain.repositories.politician_repository import PoliticianRepository
 from src.domain.services.interfaces.llm_service import ILLMService
 from src.infrastructure.config.database import get_db_session
+from src.infrastructure.external.parliamentary_group_member_extractor.converters import (  # noqa: E501
+    dto_to_pydantic,
+)
 from src.infrastructure.persistence.parliamentary_group_repository_impl import (
     ParliamentaryGroupMembershipRepositoryImpl,
     ParliamentaryGroupRepositoryImpl,
@@ -97,13 +103,13 @@ class ParliamentaryGroupMembershipService:
 
     async def match_politicians(
         self,
-        extracted_members: list[ExtractedMember],
+        extracted_members: list[ExtractedParliamentaryGroupMemberDTO],
         conference_id: int | None = None,
     ) -> list[MatchingResult]:
         """抽出されたメンバーと既存の政治家をマッチング
 
         Args:
-            extracted_members: 抽出されたメンバーリスト
+            extracted_members: 抽出されたメンバーリスト（Domain DTO）
             conference_id: 会議体ID（検索範囲を絞る場合）
 
         Returns:
@@ -111,7 +117,9 @@ class ParliamentaryGroupMembershipService:
         """
         results: list[MatchingResult] = []
 
-        for member in extracted_members:
+        for member_dto in extracted_members:
+            # Domain DTO → Pydantic Model変換
+            member = dto_to_pydantic(member_dto)
             # 名前で政治家を検索
             candidates = self._search_politician_candidates(
                 member.name, member.party_name, conference_id

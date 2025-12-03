@@ -35,6 +35,13 @@ function ExtractParliamentaryGroupMembers(
         - 役職がない場合はnullとしてください
         - 所属政党が明記されていない場合はnullとしてください
 
+        **重要: 必ず以下の英語フィールド名でJSONを返してください:**
+        - name: 議員名
+        - role: 役職
+        - party_name: 所属政党名
+        - district: 選挙区
+        - additional_info: その他の情報
+
         テキストコンテンツ:
         {{ text_content }}
 
