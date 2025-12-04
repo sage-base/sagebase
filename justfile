@@ -34,8 +34,8 @@ up-detached: _setup_worktree
 # Start containers and launch Streamlit (foreground mode with logs)
 up: _setup_worktree
 	#!/bin/bash
-	# Start containers in background first
-	docker compose {{compose_cmd}} up -d
+	# Start containers in background first (with automatic rebuild if needed)
+	docker compose {{compose_cmd}} up -d --build
 	# Wait for containers to be healthy
 	echo "Waiting for containers to be ready..."
 	sleep 3
@@ -55,23 +55,21 @@ up: _setup_worktree
 	fi
 	# Check if Streamlit is already running in the container
 	if docker compose {{compose_cmd}} exec sagebase pgrep -f "streamlit run" > /dev/null 2>&1; then
-		echo "⚠️  Streamlit is already running in the container"
-		echo "   Access the app at: http://localhost:$HOST_PORT"
-		echo "   Run 'just logs' to view logs"
-		echo "   Run 'just down && just up' to restart"
+		echo "🔄 Streamlit is already running, restarting to apply changes..."
+		docker compose {{compose_cmd}} exec sagebase pkill -f "streamlit run" || true
+		sleep 2
+	fi
+	if [ -n "$HOST_PORT" ] && [ "$HOST_PORT" != "8501" ]; then
+		echo "Starting Streamlit on port $HOST_PORT..."
+		echo "Press Ctrl+C to stop the server"
+		echo ""
+		# Use exec without -d flag to keep logs flowing
+		docker compose {{compose_cmd}} exec -e STREAMLIT_HOST_PORT=$HOST_PORT sagebase uv run sagebase streamlit
 	else
-		if [ -n "$HOST_PORT" ] && [ "$HOST_PORT" != "8501" ]; then
-			echo "Starting Streamlit on port $HOST_PORT..."
-			echo "Press Ctrl+C to stop the server"
-			echo ""
-			# Use exec without -d flag to keep logs flowing
-			docker compose {{compose_cmd}} exec -e STREAMLIT_HOST_PORT=$HOST_PORT sagebase uv run sagebase streamlit
-		else
-			echo "Starting Streamlit..."
-			echo "Press Ctrl+C to stop the server"
-			echo ""
-			docker compose {{compose_cmd}} exec sagebase uv run sagebase streamlit
-		fi
+		echo "Starting Streamlit..."
+		echo "Press Ctrl+C to stop the server"
+		echo ""
+		docker compose {{compose_cmd}} exec sagebase uv run sagebase streamlit
 	fi
 
 # Connect to database
@@ -137,7 +135,11 @@ process-minutes: _setup_worktree
 help: _setup_worktree
 	docker compose {{compose_cmd}} exec sagebase uv run sagebase --help
 
-# Rebuild containers
+# Build containers (with cache)
+build: _setup_worktree
+	docker compose {{compose_cmd}} build
+
+# Rebuild containers (no cache)
 rebuild: _setup_worktree
 	docker compose {{compose_cmd}} build --no-cache
 

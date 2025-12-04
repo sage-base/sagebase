@@ -4,9 +4,15 @@ from dataclasses import dataclass
 from datetime import date
 
 from src.common.logging import get_logger
+from src.domain.dtos.parliamentary_group_member_dto import (
+    ExtractedParliamentaryGroupMemberDTO,
+)
 from src.domain.entities import ParliamentaryGroup
 from src.domain.entities.extracted_parliamentary_group_member import (
     ExtractedParliamentaryGroupMember,
+)
+from src.domain.interfaces.parliamentary_group_member_extractor_service import (
+    IParliamentaryGroupMemberExtractorService,
 )
 from src.domain.repositories.extracted_parliamentary_group_member_repository import (
     ExtractedParliamentaryGroupMemberRepository,
@@ -19,9 +25,6 @@ from src.domain.repositories.parliamentary_group_repository import (
 )
 from src.domain.repositories.politician_repository import PoliticianRepository
 from src.domain.services.interfaces.llm_service import ILLMService
-from src.parliamentary_group_member_extractor.extractor import (
-    ParliamentaryGroupMemberExtractor,
-)
 from src.parliamentary_group_member_extractor.service import (
     ParliamentaryGroupMembershipService,
 )
@@ -110,21 +113,10 @@ class ExtractMembersInputDto:
 
 
 @dataclass
-class ExtractedMember:
-    """Extracted member information."""
-
-    name: str
-    role: str | None = None
-    party_name: str | None = None
-    district: str | None = None
-    additional_info: str | None = None
-
-
-@dataclass
 class MemberMatchingResult:
     """Member matching result."""
 
-    extracted_member: ExtractedMember
+    extracted_member: ExtractedParliamentaryGroupMemberDTO
     politician_id: int | None = None
     politician_name: str | None = None
     confidence_score: float = 0.0
@@ -136,7 +128,7 @@ class ExtractMembersOutputDto:
     """Output DTO for extracting members."""
 
     success: bool
-    extracted_members: list[ExtractedMember] | None = None
+    extracted_members: list[ExtractedParliamentaryGroupMemberDTO] | None = None
     matching_results: list[MemberMatchingResult] | None = None
     created_count: int = 0
     skipped_count: int = 0
@@ -160,6 +152,7 @@ class ManageParliamentaryGroupsUseCase:
     def __init__(
         self,
         parliamentary_group_repository: ParliamentaryGroupRepository,
+        member_extractor: IParliamentaryGroupMemberExtractorService | None = None,
         politician_repository: PoliticianRepository | None = None,
         membership_repository: ParliamentaryGroupMembershipRepository | None = None,
         llm_service: ILLMService | None = None,
@@ -170,23 +163,20 @@ class ManageParliamentaryGroupsUseCase:
 
         Args:
             parliamentary_group_repository: Repository instance (can be sync or async)
+            member_extractor: Member extractor service instance (injected)
             politician_repository: Politician repository instance
             membership_repository: Membership repository instance
             llm_service: LLM service instance
             extracted_member_repository: Extracted member repository instance
         """
         self.parliamentary_group_repository = parliamentary_group_repository
+        self.extractor = member_extractor  # Injected instead of created by Factory
         self.politician_repository = politician_repository
         self.membership_repository = membership_repository
         self.llm_service = llm_service
         self.extracted_member_repository = extracted_member_repository
 
-        # Initialize extractor and service if all dependencies are available
-        if llm_service:
-            self.extractor = ParliamentaryGroupMemberExtractor(llm_service)
-        else:
-            self.extractor = None
-
+        # Initialize membership service if all dependencies are available
         if all(
             [
                 politician_repository,
@@ -342,18 +332,6 @@ class ManageParliamentaryGroupsUseCase:
                     error_message=f"メンバー抽出エラー: {extraction_result.error}",
                 )
 
-            # Convert extracted members to DTO format
-            extracted_members = [
-                ExtractedMember(
-                    name=member.name,
-                    role=member.role,
-                    party_name=member.party_name,
-                    district=member.district,
-                    additional_info=member.additional_info,
-                )
-                for member in extraction_result.extracted_members
-            ]
-
             # Save extracted members to database if repository is available
             if self.extracted_member_repository and not input_dto.dry_run:
                 # Create ExtractedParliamentaryGroupMember entities
@@ -388,12 +366,12 @@ class ManageParliamentaryGroupsUseCase:
                 # Dry run mode - just return extracted members without saving
                 return ExtractMembersOutputDto(
                     success=True,
-                    extracted_members=extracted_members,
+                    extracted_members=extraction_result.extracted_members,
                     created_count=0,
                     skipped_count=0,
                 )
 
-            # Match politicians with extracted members
+            # Match politicians with extracted members (Domain DTOを直接渡す)
             matching_results_from_service = (
                 await self.membership_service.match_politicians(
                     extracted_members=extraction_result.extracted_members,
@@ -426,22 +404,21 @@ class ManageParliamentaryGroupsUseCase:
                         skipped_count += 1
 
             # Convert service results to DTO format
-            matching_results = []
-            for idx, match in enumerate(matching_results_from_service):
-                extracted_member = extracted_members[idx]
-                matching_results.append(
-                    MemberMatchingResult(
-                        extracted_member=extracted_member,
-                        politician_id=match.politician_id,
-                        politician_name=match.politician_name,
-                        confidence_score=match.confidence_score,
-                        matching_reason=match.matching_reason,
-                    )
+            # (MatchingResult → MemberMatchingResult)
+            matching_results = [
+                MemberMatchingResult(
+                    extracted_member=extraction_result.extracted_members[idx],
+                    politician_id=match.politician_id,
+                    politician_name=match.politician_name,
+                    confidence_score=match.confidence_score,
+                    matching_reason=match.matching_reason,
                 )
+                for idx, match in enumerate(matching_results_from_service)
+            ]
 
             return ExtractMembersOutputDto(
                 success=True,
-                extracted_members=extracted_members,
+                extracted_members=extraction_result.extracted_members,
                 matching_results=matching_results,
                 created_count=created_count,
                 skipped_count=skipped_count,

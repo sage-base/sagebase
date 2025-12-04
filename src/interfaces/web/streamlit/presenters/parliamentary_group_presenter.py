@@ -17,6 +17,9 @@ from src.common.logging import get_logger
 from src.domain.entities import Conference, ParliamentaryGroup
 from src.infrastructure.di.container import Container
 from src.infrastructure.external.llm_service import GeminiLLMService
+from src.infrastructure.external.parliamentary_group_member_extractor.factory import (
+    ParliamentaryGroupMemberExtractorFactory,
+)
 from src.infrastructure.persistence.conference_repository_impl import (
     ConferenceRepositoryImpl,
 )
@@ -57,10 +60,15 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         )
         self.llm_service = GeminiLLMService()
 
+        # Initialize member extractor using Factory
+        self.member_extractor = ParliamentaryGroupMemberExtractorFactory.create()
+
         # Initialize use case with all required dependencies
+        # (including injected extractor)
         # Type: ignore - RepositoryAdapter duck-types as repository protocol
         self.use_case = ManageParliamentaryGroupsUseCase(
             parliamentary_group_repository=self.parliamentary_group_repo,  # type: ignore[arg-type]
+            member_extractor=self.member_extractor,  # Injected extractor
             politician_repository=self.politician_repo,  # type: ignore[arg-type]
             membership_repository=self.membership_repo,  # type: ignore[arg-type]
             llm_service=self.llm_service,

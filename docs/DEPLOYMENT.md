@@ -45,7 +45,7 @@ USE_CLOUD_SQL_PROXY=false  # または未設定
 just up
 
 # アプリケーション起動
-just streamlit
+just up
 ```
 
 **特徴**:
@@ -128,7 +128,7 @@ DB_NAME=sagebase_db
 ./scripts/cloud_sql_proxy_setup.sh
 
 # 2. アプリケーション起動
-just streamlit
+just up
 ```
 
 **使用ケース**:

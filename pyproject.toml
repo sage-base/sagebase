@@ -22,7 +22,7 @@ dependencies = [
     "selenium>=4.0.0,<5",
     "playwright>=1.40.0,<2",
     "beautifulsoup4>=4.12.0,<5",
-    "baml-py>=0.76.0,<1",
+    "baml-py==0.214.0",
     "aiohttp>=3.9.0,<4",
     "requests>=2.31.0,<3",
     "google-cloud-storage>=2.10.0,<3",
@@ -77,6 +77,12 @@ python_functions = ["test_*"]
 addopts = "-v --cov=src --cov-report=html --cov-report=xml --cov-report=term-missing"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "evaluation: marks tests as LLM evaluation tests (skipped in CI)",
+]
 
 [dependency-groups]
 dev = [
