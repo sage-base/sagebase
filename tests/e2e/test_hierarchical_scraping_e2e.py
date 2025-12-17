@@ -94,7 +94,7 @@ async def test_scrape_politicians_backward_compatibility():
     mock_extractor = MagicMock()
     mock_result = MagicMock()
     mock_result.members = []
-    mock_extractor.extract_from_pages.return_value = mock_result
+    mock_extractor.extract_from_pages = AsyncMock(return_value=mock_result)
 
     mock_fetcher = MagicMock()
     # Return at least one page so extract_from_pages is called
@@ -105,7 +105,7 @@ async def test_scrape_politicians_backward_compatibility():
     with (
         patch("src.infrastructure.config.database.get_db_engine") as mock_engine,
         patch(
-            "src.party_member_extractor.extractor.PartyMemberExtractor",
+            "src.interfaces.factories.party_member_extractor_factory.PartyMemberExtractorFactory.create",
             return_value=mock_extractor,
         ),
         patch(

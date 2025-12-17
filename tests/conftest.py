@@ -1,18 +1,46 @@
 """Shared pytest fixtures."""
 
+import os
+import sys
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.common.metrics import setup_metrics
-from tests.fixtures.dto_factories import (
+# Add project root to Python path to ensure baml_client can be imported
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Debug: Print sys.path during pytest startup
+if os.getenv("CI"):
+    print("\n" + "=" * 60)
+    print("DEBUG: pytest startup - sys.path contents:")
+    print("=" * 60)
+    for i, path in enumerate(sys.path):
+        print(f"{i}: {path}")
+    print("=" * 60)
+    print(f"DEBUG: project_root = {project_root}")
+    baml_client_path = os.path.join(project_root, "baml_client")
+    print(f"DEBUG: baml_client directory exists: {os.path.exists(baml_client_path)}")
+
+    # Try importing baml_client
+    try:
+        from baml_client.async_client import b  # noqa: F401
+
+        print("DEBUG: ✅ baml_client import SUCCESSFUL in conftest.py")
+    except Exception as e:
+        print(f"DEBUG: ❌ baml_client import FAILED in conftest.py: {e}")
+    print("=" * 60 + "\n")
+
+from src.common.metrics import setup_metrics  # noqa: E402
+from tests.fixtures.dto_factories import (  # noqa: E402
     create_extracted_speech_dto,
     create_politician_dto,
     create_process_minutes_dto,
     create_speaker_dto,
 )
-from tests.fixtures.entity_factories import (
+from tests.fixtures.entity_factories import (  # noqa: E402
     create_conference,
     create_conversation,
     create_governing_body,

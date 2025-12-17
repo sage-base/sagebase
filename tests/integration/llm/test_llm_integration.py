@@ -29,10 +29,16 @@ class TestLLMServiceIntegration:
     )
     def test_party_member_extractor_integration(self) -> None:
         """Test PartyMemberExtractor with LLMService"""
-        from src.party_member_extractor.extractor import PartyMemberExtractor
+        # Force Pydantic implementation for this test
+        # (LLMService mock only works with Pydantic)
+        import os
+
+        os.environ["USE_BAML_PARTY_MEMBER_EXTRACTOR"] = "false"
+
+        from src.party_member_extractor.factory import PartyMemberExtractorFactory
         from src.party_member_extractor.models import WebPageContent
 
-        extractor = PartyMemberExtractor()
+        extractor = PartyMemberExtractorFactory.create()
 
         # Test extraction
         page = WebPageContent(
@@ -41,7 +47,7 @@ class TestLLMServiceIntegration:
             page_number=1,
         )
 
-        result = extractor._extract_from_single_page(page, "テスト党")  # type: ignore[reportPrivateUsage]
+        result = extractor.extract_from_pages([page], "テスト党")
         assert result is not None
         assert len(result.members) == 1
         assert result.members[0].name == "田中太郎"

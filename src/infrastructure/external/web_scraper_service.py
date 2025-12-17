@@ -91,7 +91,9 @@ class PlaywrightScraperService(IWebScraperService):
         import asyncio
         import logging
 
-        from src.party_member_extractor.extractor import PartyMemberExtractor
+        from src.interfaces.factories.party_member_extractor_factory import (
+            PartyMemberExtractorFactory,
+        )
         from src.party_member_extractor.html_fetcher import PartyMemberPageFetcher
 
         logger = logging.getLogger(__name__)
@@ -160,10 +162,8 @@ class PlaywrightScraperService(IWebScraperService):
                 # Extract party members using LLM
                 logger.info("🤖 LLMで政治家情報を抽出中...")
 
-                extractor = PartyMemberExtractor(
-                    party_id=party_id, proc_logger=proc_logger
-                )
-                members_list = extractor.extract_from_pages(pages, party_name)
+                extractor = PartyMemberExtractorFactory.create()
+                members_list = await extractor.extract_from_pages(pages, party_name)
 
                 # Convert to expected format
                 result = []

@@ -30,3 +30,11 @@ repos:
         pass_filenames: true
         types: [python]
         files: ^src/
+
+      - id: pytest
+        name: pytest (unit tests only)
+        entry: uv run --frozen pytest --ignore=tests/integration --ignore=tests/database
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push] # プッシュ時のみ実行（コミット時は実行しない）

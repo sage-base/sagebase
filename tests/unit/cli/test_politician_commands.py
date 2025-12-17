@@ -81,7 +81,9 @@ class TestScrapePoliticiansCommand:
                     ),
                 )
             ]
-            mock_extractor.extract_from_pages.return_value = mock_member_result
+            mock_extractor.extract_from_pages = AsyncMock(
+                return_value=mock_member_result
+            )
 
             # Mock repository
             mock_repo = Mock()
@@ -97,7 +99,7 @@ class TestScrapePoliticiansCommand:
                 return_value=mock_fetcher,
             ):
                 with patch(
-                    "src.party_member_extractor.extractor.PartyMemberExtractor",
+                    "src.interfaces.factories.party_member_extractor_factory.PartyMemberExtractorFactory.create",
                     return_value=mock_extractor,
                 ):
                     with patch(
@@ -165,7 +167,9 @@ class TestScrapePoliticiansCommand:
                     model_dump=Mock(return_value={"name": "議員1"}),
                 )
             ]
-            mock_extractor.extract_from_pages.return_value = mock_member_result
+            mock_extractor.extract_from_pages = AsyncMock(
+                return_value=mock_member_result
+            )
 
             # Mock repository
             mock_repo = Mock()
@@ -181,7 +185,7 @@ class TestScrapePoliticiansCommand:
                 return_value=mock_fetcher,
             ):
                 with patch(
-                    "src.party_member_extractor.extractor.PartyMemberExtractor",
+                    "src.interfaces.factories.party_member_extractor_factory.PartyMemberExtractorFactory.create",
                     return_value=mock_extractor,
                 ):
                     with patch(
@@ -241,14 +245,16 @@ class TestScrapePoliticiansCommand:
                     party_position="幹事長",
                 )
             ]
-            mock_extractor.extract_from_pages.return_value = mock_member_result
+            mock_extractor.extract_from_pages = AsyncMock(
+                return_value=mock_member_result
+            )
 
             with patch(
                 "src.party_member_extractor.html_fetcher.PartyMemberPageFetcher",
                 return_value=mock_fetcher,
             ):
                 with patch(
-                    "src.party_member_extractor.extractor.PartyMemberExtractor",
+                    "src.interfaces.factories.party_member_extractor_factory.PartyMemberExtractorFactory.create",
                     return_value=mock_extractor,
                 ):
                     # Execute with dry-run flag
@@ -423,14 +429,16 @@ class TestScrapePoliticiansCommand:
             mock_extractor = Mock()
             mock_member_result = Mock()
             mock_member_result.members = []
-            mock_extractor.extract_from_pages.return_value = mock_member_result
+            mock_extractor.extract_from_pages = AsyncMock(
+                return_value=mock_member_result
+            )
 
             with patch(
                 "src.party_member_extractor.html_fetcher.PartyMemberPageFetcher",
                 return_value=mock_fetcher,
             ):
                 with patch(
-                    "src.party_member_extractor.extractor.PartyMemberExtractor",
+                    "src.interfaces.factories.party_member_extractor_factory.PartyMemberExtractorFactory.create",
                     return_value=mock_extractor,
                 ):
                     # Execute
@@ -485,7 +493,9 @@ class TestScrapePoliticiansCommand:
                     model_dump=Mock(return_value={"name": "山田太郎"}),
                 )
             ]
-            mock_extractor.extract_from_pages.return_value = mock_member_result
+            mock_extractor.extract_from_pages = AsyncMock(
+                return_value=mock_member_result
+            )
 
             # Mock repository to return errors
             mock_repo = Mock()
@@ -501,7 +511,7 @@ class TestScrapePoliticiansCommand:
                 return_value=mock_fetcher,
             ):
                 with patch(
-                    "src.party_member_extractor.extractor.PartyMemberExtractor",
+                    "src.interfaces.factories.party_member_extractor_factory.PartyMemberExtractorFactory.create",
                     return_value=mock_extractor,
                 ):
                     with patch(

@@ -7,7 +7,9 @@ from pathlib import Path
 from typing import Any
 
 from src.infrastructure.external.llm_service import GeminiLLMService
-from src.party_member_extractor.llm_extractor import PartyMemberExtractor
+from src.interfaces.factories.party_member_extractor_factory import (
+    PartyMemberExtractorFactory,
+)
 
 from .metrics import EvaluationMetrics, MetricsCalculator
 
@@ -217,7 +219,7 @@ JSON形式で、以下のような構造で返してください:
                 return {"members": []}
 
             # Use PartyMemberExtractor
-            extractor = PartyMemberExtractor(self.llm_service)
+            extractor = PartyMemberExtractorFactory.create(llm_service=self.llm_service)
             members = extractor.extract_from_html(html_content, party_name)
 
             # Format the result

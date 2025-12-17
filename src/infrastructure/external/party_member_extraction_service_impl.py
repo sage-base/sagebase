@@ -12,8 +12,9 @@ from src.domain.services.party_member_extraction_service import (
     IPartyMemberExtractionService,
     MemberExtractionResult,
 )
-from src.party_member_extractor.extractor import PartyMemberExtractor
-from src.party_member_extractor.models import WebPageContent
+from src.interfaces.factories.party_member_extractor_factory import (
+    PartyMemberExtractorFactory,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,26 +63,17 @@ class PartyMemberExtractionServiceImpl(IPartyMemberExtractionService):
         logger.debug(f"Extracting members from {source_url}")
 
         try:
-            # Create extractor instance (legacy module)
-            extractor = PartyMemberExtractor(
-                llm_service=self._llm_service,
-                party_id=self._party_id,
+            # Create extractor instance (BAML or Pydantic)
+            extractor = PartyMemberExtractorFactory.create(
+                llm_service=self._llm_service
             )
 
-            # Create WebPageContent for legacy extractor
-            page = WebPageContent(
-                url=source_url,
-                html_content=html_content,
-                page_number=1,
+            # Use new Clean Architecture extractor's extract_from_html method
+            result_dto = await extractor.extract_from_html(
+                html_content, source_url, party_name
             )
 
-            # Use legacy extractor's protected method
-            # This is acceptable within infrastructure adapter
-            result = extractor._extract_from_single_page(  # type: ignore[reportPrivateUsage]
-                page, party_name
-            )
-
-            if result is None or not result.members:
+            if result_dto.error or not result_dto.extracted_members:
                 logger.info(f"No members extracted from {source_url}")
                 return MemberExtractionResult(
                     members=[],
@@ -90,7 +82,7 @@ class PartyMemberExtractionServiceImpl(IPartyMemberExtractionService):
                     error_message=None,
                 )
 
-            # Convert to domain model
+            # Convert DTO to domain model
             extracted_members = [
                 ExtractedMember(
                     name=member.name,
@@ -100,7 +92,7 @@ class PartyMemberExtractionServiceImpl(IPartyMemberExtractionService):
                     profile_url=member.profile_url,
                     party_position=member.party_position,
                 )
-                for member in result.members
+                for member in result_dto.extracted_members
             ]
 
             logger.info(f"Extracted {len(extracted_members)} members from {source_url}")
