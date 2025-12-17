@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from src.party_member_extractor.extractor import PartyMemberExtractor
+from src.party_member_extractor.factory import PartyMemberExtractorFactory
 from src.party_member_extractor.models import (
     PartyMemberInfo,
     PartyMemberList,
@@ -18,6 +18,11 @@ class TestPartyMemberIntegration:
     @pytest.mark.asyncio
     async def test_full_scraping_flow(self):
         """完全なスクレイピングフローのテスト"""
+        # Force Pydantic implementation for this test
+        import os
+
+        os.environ["USE_BAML_PARTY_MEMBER_EXTRACTOR"] = "false"
+
         # HTMLフェッチャーのモック
         mock_pages = [
             WebPageContent(
@@ -70,7 +75,7 @@ class TestPartyMemberIntegration:
                 mock_factory.return_value.create_advanced.return_value = mock_service
 
                 # エクストラクター作成
-                extractor = PartyMemberExtractor()
+                extractor = PartyMemberExtractorFactory.create()
 
                 # フェッチとエクストラクト実行
                 # Note: We're mocking PartyMemberPageFetcher above, so we use the mock
@@ -85,6 +90,11 @@ class TestPartyMemberIntegration:
     @pytest.mark.asyncio
     async def test_error_recovery(self):
         """エラーリカバリーのテスト"""
+        # Force Pydantic implementation for this test
+        import os
+
+        os.environ["USE_BAML_PARTY_MEMBER_EXTRACTOR"] = "false"
+
         # 一部のページでエラーが発生
         mock_pages = [
             WebPageContent(
@@ -135,7 +145,7 @@ class TestPartyMemberIntegration:
             ]
             mock_factory.return_value.create_advanced.return_value = mock_service
 
-            extractor = PartyMemberExtractor()
+            extractor = PartyMemberExtractorFactory.create()
             result = extractor.extract_from_pages(mock_pages, "エラーテスト党")
 
             # アサーション（エラーページをスキップして続行）

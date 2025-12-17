@@ -22,6 +22,9 @@ type_map = {
     "types.ExtractedMember": types.ExtractedMember,
     "stream_types.ExtractedMember": stream_types.ExtractedMember,
 
+    "types.ExtractedPartyMember": types.ExtractedPartyMember,
+    "stream_types.ExtractedPartyMember": stream_types.ExtractedPartyMember,
+
     "types.MinutesBoundary": types.MinutesBoundary,
     "stream_types.MinutesBoundary": stream_types.MinutesBoundary,
 

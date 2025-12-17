@@ -70,11 +70,13 @@ build-backend = "hatchling.build"
 packages = ["src", "baml_client"]
 
 [tool.pytest.ini_options]
+minversion = "6.0"
+pythonpath = "."
+addopts = "-v --cov=src --cov-report=html --cov-report=xml --cov-report=term-missing"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --cov=src --cov-report=html --cov-report=xml --cov-report=term-missing"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 markers = [

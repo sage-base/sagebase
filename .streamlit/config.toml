@@ -15,4 +15,4 @@ enableWebsocketCompression = false
 
 [browser]
 serverAddress = "localhost"
-serverPort = 9011
+serverPort = 8661

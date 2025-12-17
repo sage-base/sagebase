@@ -82,7 +82,9 @@ class PoliticianCommands(BaseCommand):
         from src.infrastructure.persistence.politician_repository_sync_impl import (
             PoliticianRepositorySyncImpl,
         )
-        from src.party_member_extractor.extractor import PartyMemberExtractor
+        from src.interfaces.factories.party_member_extractor_factory import (
+            PartyMemberExtractorFactory,
+        )
         from src.party_member_extractor.html_fetcher import PartyMemberPageFetcher
 
         engine = get_db_engine()
@@ -144,8 +146,8 @@ class PoliticianCommands(BaseCommand):
                             f"  URL: {party.members_list_url}"
                         )
 
-                        # Initialize extractor with party_id for history tracking
-                        extractor = PartyMemberExtractor(party_id=party.id)
+                        # Initialize extractor
+                        extractor = PartyMemberExtractorFactory.create()
 
                         # HTMLページを取得（ページネーション対応）
                         with spinner(
@@ -170,7 +172,9 @@ class PoliticianCommands(BaseCommand):
                             f"Extracting member information using LLM for "
                             f"{party.name}..."
                         ):
-                            result = extractor.extract_from_pages(pages, party.name)
+                            result = await extractor.extract_from_pages(
+                                pages, party.name
+                            )
 
                         if not result or not result.members:
                             PoliticianCommands.show_progress(

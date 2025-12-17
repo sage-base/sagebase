@@ -52,6 +52,43 @@ jobs:
         run: |
           uv sync --extra dev
 
+      - name: Set up Node.js for BAML
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Generate BAML client
+        run: |
+          echo "===== Starting BAML client generation ====="
+          echo "Working directory: $(pwd)"
+          echo "Checking for baml_src:"
+          ls -la baml_src/ || echo "baml_src directory not found"
+          echo "Running: npx @boundaryml/baml generate"
+          npx @boundaryml/baml generate
+          echo "BAML generation completed. Exit code: $?"
+          echo "Checking for baml_client:"
+          ls -la baml_client/ || echo "baml_client directory not found after generation"
+
+      - name: Install baml_client as editable package
+        run: |
+          echo "Installing baml_client as editable package..."
+          uv pip install -e .
+
+      - name: Debug baml_client import
+        run: |
+          echo "===== Debugging baml_client import ====="
+          echo "1. Checking sys.path:"
+          uv run python -c "import sys; print('\n'.join(sys.path))"
+          echo ""
+          echo "2. Checking if baml_client directory exists:"
+          ls -la baml_client/ || echo "baml_client directory not found"
+          echo ""
+          echo "3. Attempting to import baml_client:"
+          uv run python -c "from baml_client.async_client import b; print('✅ SUCCESS: baml_client imported')" || echo "❌ FAILED: baml_client import failed"
+          echo ""
+          echo "4. Checking installed packages:"
+          uv pip list | grep -i baml || echo "No BAML packages found"
+
       - name: Install Playwright browsers
         run: |
           uv run playwright install chromium
@@ -77,9 +114,17 @@ jobs:
       - name: Run tests with coverage
         env:
           CI: true
+          PYTHONPATH: ${{ github.workspace }}
+          USE_BAML_PARTY_MEMBER_EXTRACTOR: true
+          USE_BAML_PARLIAMENTARY_GROUP_EXTRACTOR: true
+          USE_BAML_MINUTES_DIVIDER: true
         run: |
           # Exclude evaluation tests from CI to save costs (run manually via workflow_dispatch)
-          uv run pytest -v --tb=short --cov=src --cov-report=html --cov-report=term --cov-report=xml --cov-report=json --ignore=tests/evaluation/
+          # Exclude BAML integration tests (tested separately in Debug BAML Tests workflow)
+          uv run pytest -v --tb=short --cov=src --cov-report=html --cov-report=term --cov-report=xml --cov-report=json \
+            --ignore=tests/evaluation/ \
+            --ignore=tests/integration/parliamentary_group_member_extractor/test_baml_integration.py \
+            -k 'not test_create_baml_extractor_by_default'
 
       - name: Check coverage threshold
         run: |
@@ -303,6 +348,43 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --extra dev
+
+      - name: Set up Node.js for BAML
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Generate BAML client
+        run: |
+          echo "===== Starting BAML client generation ====="
+          echo "Working directory: $(pwd)"
+          echo "Checking for baml_src:"
+          ls -la baml_src/ || echo "baml_src directory not found"
+          echo "Running: npx @boundaryml/baml generate"
+          npx @boundaryml/baml generate
+          echo "BAML generation completed. Exit code: $?"
+          echo "Checking for baml_client:"
+          ls -la baml_client/ || echo "baml_client directory not found after generation"
+
+      - name: Install baml_client as editable package
+        run: |
+          echo "Installing baml_client as editable package..."
+          uv pip install -e .
+
+      - name: Debug baml_client import
+        run: |
+          echo "===== Debugging baml_client import ====="
+          echo "1. Checking sys.path:"
+          uv run python -c "import sys; print('\n'.join(sys.path))"
+          echo ""
+          echo "2. Checking if baml_client directory exists:"
+          ls -la baml_client/ || echo "baml_client directory not found"
+          echo ""
+          echo "3. Attempting to import baml_client:"
+          uv run python -c "from baml_client.async_client import b; print('✅ SUCCESS: baml_client imported')" || echo "❌ FAILED: baml_client import failed"
+          echo ""
+          echo "4. Checking installed packages:"
+          uv pip list | grep -i baml || echo "No BAML packages found"
 
       - name: Install Playwright browsers for integration tests
         run: |

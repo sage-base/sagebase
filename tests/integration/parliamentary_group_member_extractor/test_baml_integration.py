@@ -19,7 +19,7 @@ class TestBAMLIntegration:
         2. その関数が呼び出し可能である
         3. 正しいモジュール構造である
         """
-        from baml_client import b
+        from baml_client.async_client import b
 
         # BAML関数の存在確認
         assert hasattr(b, "ExtractParliamentaryGroupMembers"), (
@@ -39,7 +39,7 @@ class TestBAMLIntegration:
         """
         import inspect
 
-        from baml_client import b
+        from baml_client.async_client import b
 
         # 非同期関数であることを確認
         assert inspect.iscoroutinefunction(b.ExtractParliamentaryGroupMembers), (
@@ -53,7 +53,7 @@ class TestBAMLIntegration:
         """
         import inspect
 
-        from baml_client import b
+        from baml_client.async_client import b
 
         # シグネチャを取得
         sig = inspect.signature(b.ExtractParliamentaryGroupMembers)
@@ -123,7 +123,8 @@ class TestBAMLIntegration:
         """
         from unittest.mock import AsyncMock, patch
 
-        from baml_client import b, types
+        from baml_client import types
+        from baml_client.async_client import b
 
         # BAML関数をモックして、正しい型のリストを返すようにする
         mock_result = [

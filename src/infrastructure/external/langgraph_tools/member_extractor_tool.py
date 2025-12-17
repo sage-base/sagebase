@@ -17,7 +17,9 @@ from typing import Any
 from langchain_core.tools import tool
 
 from src.domain.services.interfaces.llm_service import ILLMService
-from src.party_member_extractor.extractor import PartyMemberExtractor
+from src.interfaces.factories.party_member_extractor_factory import (
+    PartyMemberExtractorFactory,
+)
 from src.party_member_extractor.models import WebPageContent
 
 logger = logging.getLogger(__name__)
@@ -81,10 +83,7 @@ def create_member_extractor_tools(
         """
         try:
             # Create extractor instance
-            extractor = PartyMemberExtractor(
-                llm_service=llm_service,
-                party_id=party_id,
-            )
+            extractor = PartyMemberExtractorFactory.create(llm_service=llm_service)
 
             # Create WebPageContent from inputs
             page = WebPageContent(
@@ -94,12 +93,9 @@ def create_member_extractor_tools(
             )
 
             # Extract members
-            # Note: Using protected method _extract_from_single_page because
-            # PartyMemberExtractor doesn't expose a public single-page method.
-            # This is an internal tool wrapper, so accessing it is acceptable.
-            result = extractor._extract_from_single_page(  # type: ignore[reportPrivateUsage]
-                page, party_name
-            )
+            # Use extract_from_pages with a single page
+            # This works for both Pydantic and BAML implementations
+            result = await extractor.extract_from_pages([page], party_name)
 
             if result is None:
                 logger.warning(f"No members extracted from {url}")
