@@ -91,6 +91,34 @@ class BamlSyncClient:
     def parse_stream(self):
       return self.__llm_stream_parser
 
+    def ClassifyLinks(self, links: str,party_name: str,context: str,
+        baml_options: BamlCallOptions = {},
+    ) -> typing.List["types.LinkClassification"]:
+        # Check if on_tick is provided
+        if 'on_tick' in baml_options:
+            stream = self.stream.ClassifyLinks(links=links,party_name=party_name,context=context,
+                baml_options=baml_options)
+            return stream.get_final_response()
+        else:
+            # Original non-streaming code
+            result = self.__options.merge_options(baml_options).call_function_sync(function_name="ClassifyLinks", args={
+                "links": links,"party_name": party_name,"context": context,
+            })
+            return typing.cast(typing.List["types.LinkClassification"], result.cast_to(types, types, stream_types, False, __runtime__))
+    def ClassifyPage(self, html_excerpt: str,current_url: str,party_name: str,
+        baml_options: BamlCallOptions = {},
+    ) -> types.PageClassification:
+        # Check if on_tick is provided
+        if 'on_tick' in baml_options:
+            stream = self.stream.ClassifyPage(html_excerpt=html_excerpt,current_url=current_url,party_name=party_name,
+                baml_options=baml_options)
+            return stream.get_final_response()
+        else:
+            # Original non-streaming code
+            result = self.__options.merge_options(baml_options).call_function_sync(function_name="ClassifyPage", args={
+                "html_excerpt": html_excerpt,"current_url": current_url,"party_name": party_name,
+            })
+            return typing.cast(types.PageClassification, result.cast_to(types, types, stream_types, False, __runtime__))
     def DetectBoundary(self, minutes_text: str,
         baml_options: BamlCallOptions = {},
     ) -> types.MinutesBoundary:
@@ -226,6 +254,30 @@ class BamlStreamClient:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
+    def ClassifyLinks(self, links: str,party_name: str,context: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.BamlSyncStream[typing.List["stream_types.LinkClassification"], typing.List["types.LinkClassification"]]:
+        ctx, result = self.__options.merge_options(baml_options).create_sync_stream(function_name="ClassifyLinks", args={
+            "links": links,"party_name": party_name,"context": context,
+        })
+        return baml_py.BamlSyncStream[typing.List["stream_types.LinkClassification"], typing.List["types.LinkClassification"]](
+          result,
+          lambda x: typing.cast(typing.List["stream_types.LinkClassification"], x.cast_to(types, types, stream_types, True, __runtime__)),
+          lambda x: typing.cast(typing.List["types.LinkClassification"], x.cast_to(types, types, stream_types, False, __runtime__)),
+          ctx,
+        )
+    def ClassifyPage(self, html_excerpt: str,current_url: str,party_name: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.BamlSyncStream[stream_types.PageClassification, types.PageClassification]:
+        ctx, result = self.__options.merge_options(baml_options).create_sync_stream(function_name="ClassifyPage", args={
+            "html_excerpt": html_excerpt,"current_url": current_url,"party_name": party_name,
+        })
+        return baml_py.BamlSyncStream[stream_types.PageClassification, types.PageClassification](
+          result,
+          lambda x: typing.cast(stream_types.PageClassification, x.cast_to(types, types, stream_types, True, __runtime__)),
+          lambda x: typing.cast(types.PageClassification, x.cast_to(types, types, stream_types, False, __runtime__)),
+          ctx,
+        )
     def DetectBoundary(self, minutes_text: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlSyncStream[stream_types.MinutesBoundary, types.MinutesBoundary]:
@@ -342,6 +394,20 @@ class BamlHttpRequestClient:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
+    def ClassifyLinks(self, links: str,party_name: str,context: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        result = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ClassifyLinks", args={
+            "links": links,"party_name": party_name,"context": context,
+        }, mode="request")
+        return result
+    def ClassifyPage(self, html_excerpt: str,current_url: str,party_name: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        result = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ClassifyPage", args={
+            "html_excerpt": html_excerpt,"current_url": current_url,"party_name": party_name,
+        }, mode="request")
+        return result
     def DetectBoundary(self, minutes_text: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
@@ -413,6 +479,20 @@ class BamlHttpStreamRequestClient:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
+    def ClassifyLinks(self, links: str,party_name: str,context: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        result = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ClassifyLinks", args={
+            "links": links,"party_name": party_name,"context": context,
+        }, mode="stream")
+        return result
+    def ClassifyPage(self, html_excerpt: str,current_url: str,party_name: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        result = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ClassifyPage", args={
+            "html_excerpt": html_excerpt,"current_url": current_url,"party_name": party_name,
+        }, mode="stream")
+        return result
     def DetectBoundary(self, minutes_text: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:

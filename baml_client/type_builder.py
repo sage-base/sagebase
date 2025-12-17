@@ -20,7 +20,7 @@ from .globals import DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIM
 class TypeBuilder(type_builder.TypeBuilder):
     def __init__(self):
         super().__init__(classes=set(
-          ["AttendeesMapping","ExtractedMember","ExtractedPartyMember","MinutesBoundary","ParliamentaryGroupMember","RedividedSectionInfo","Resume","SectionInfo","SectionString","SpeakerAndSpeechContent",]
+          ["AttendeesMapping","ExtractedMember","ExtractedPartyMember","LinkClassification","MinutesBoundary","PageClassification","ParliamentaryGroupMember","RedividedSectionInfo","Resume","SectionInfo","SectionString","SpeakerAndSpeechContent",]
         ), enums=set(
           []
         ), runtime=DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME)
@@ -31,7 +31,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
     # #########################################################################
-    # Generated classes 10
+    # Generated classes 12
     # #########################################################################
 
     @property
@@ -47,8 +47,16 @@ class TypeBuilder(type_builder.TypeBuilder):
         return ExtractedPartyMemberViewer(self)
 
     @property
+    def LinkClassification(self) -> "LinkClassificationViewer":
+        return LinkClassificationViewer(self)
+
+    @property
     def MinutesBoundary(self) -> "MinutesBoundaryViewer":
         return MinutesBoundaryViewer(self)
+
+    @property
+    def PageClassification(self) -> "PageClassificationViewer":
+        return PageClassificationViewer(self)
 
     @property
     def ParliamentaryGroupMember(self) -> "ParliamentaryGroupMemberViewer":
@@ -82,7 +90,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
 # #########################################################################
-# Generated classes 10
+# Generated classes 12
 # #########################################################################
 
 class AttendeesMappingAst:
@@ -242,6 +250,57 @@ class ExtractedPartyMemberProperties:
 
 
 
+class LinkClassificationAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("LinkClassification")
+        self._properties: typing.Set[str] = set([  "url",  "link_type",  "confidence",  "reason",  ])
+        self._props = LinkClassificationProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "LinkClassificationProperties":
+        return self._props
+
+
+class LinkClassificationViewer(LinkClassificationAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+
+
+
+class LinkClassificationProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+
+
+    @property
+    def url(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("url"))
+
+    @property
+    def link_type(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("link_type"))
+
+    @property
+    def confidence(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("confidence"))
+
+    @property
+    def reason(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("reason"))
+
+
+
+
 class MinutesBoundaryAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
@@ -293,6 +352,61 @@ class MinutesBoundaryProperties:
     @property
     def reason(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("reason"))
+
+
+
+
+class PageClassificationAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("PageClassification")
+        self._properties: typing.Set[str] = set([  "page_type",  "confidence",  "reason",  "has_child_links",  "has_member_info",  ])
+        self._props = PageClassificationProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "PageClassificationProperties":
+        return self._props
+
+
+class PageClassificationViewer(PageClassificationAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+
+
+
+class PageClassificationProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+
+
+    @property
+    def page_type(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("page_type"))
+
+    @property
+    def confidence(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("confidence"))
+
+    @property
+    def reason(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("reason"))
+
+    @property
+    def has_child_links(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("has_child_links"))
+
+    @property
+    def has_member_info(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("has_member_info"))
 
 
 

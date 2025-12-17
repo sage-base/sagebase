@@ -41,7 +41,7 @@ def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
 # #########################################################################
 
 # #########################################################################
-# Generated classes (10)
+# Generated classes (12)
 # #########################################################################
 
 class AttendeesMapping(BaseModel):
@@ -63,12 +63,25 @@ class ExtractedPartyMember(BaseModel):
     profile_url: typing.Optional[str] = None
     party_position: typing.Optional[str] = None
 
+class LinkClassification(BaseModel):
+    url: str
+    link_type: str
+    confidence: float
+    reason: str
+
 class MinutesBoundary(BaseModel):
     boundary_found: bool
     boundary_text: typing.Optional[str] = None
     boundary_type: str
     confidence: float
     reason: str
+
+class PageClassification(BaseModel):
+    page_type: str
+    confidence: float
+    reason: str
+    has_child_links: bool
+    has_member_info: bool
 
 class ParliamentaryGroupMember(BaseModel):
     name: str

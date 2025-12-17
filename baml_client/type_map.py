@@ -25,8 +25,14 @@ type_map = {
     "types.ExtractedPartyMember": types.ExtractedPartyMember,
     "stream_types.ExtractedPartyMember": stream_types.ExtractedPartyMember,
 
+    "types.LinkClassification": types.LinkClassification,
+    "stream_types.LinkClassification": stream_types.LinkClassification,
+
     "types.MinutesBoundary": types.MinutesBoundary,
     "stream_types.MinutesBoundary": stream_types.MinutesBoundary,
+
+    "types.PageClassification": types.PageClassification,
+    "stream_types.PageClassification": stream_types.PageClassification,
 
     "types.ParliamentaryGroupMember": types.ParliamentaryGroupMember,
     "stream_types.ParliamentaryGroupMember": stream_types.ParliamentaryGroupMember,
