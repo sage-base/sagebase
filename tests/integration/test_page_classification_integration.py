@@ -4,7 +4,7 @@ These tests verify the end-to-end flow from HTML content through
 classification to navigation decision.
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -32,16 +32,13 @@ class TestPageClassificationIntegration:
         2. Decision node correctly decides to explore children
         3. Constants are used consistently throughout the flow
         """
-        from baml_client import types
-
         # Setup: Mock BAML to return INDEX_PAGE classification
-        mock_baml_result = types.PageClassification(
-            page_type="index_page",
-            confidence=DEFAULT_CONFIDENCE_THRESHOLD + 0.1,
-            reason="Contains prefecture links",
-            has_child_links=True,
-            has_member_info=False,
-        )
+        mock_baml_result = Mock()
+        mock_baml_result.page_type = "index_page"
+        mock_baml_result.confidence = DEFAULT_CONFIDENCE_THRESHOLD + 0.1
+        mock_baml_result.reason = "Contains prefecture links"
+        mock_baml_result.has_child_links = True
+        mock_baml_result.has_member_info = False
 
         with patch(
             "src.infrastructure.external.llm_page_classifier_service.b.ClassifyPage",
@@ -89,16 +86,13 @@ class TestPageClassificationIntegration:
         2. Decision node correctly decides to extract members
         3. Member extraction decision is consistent with domain logic
         """
-        from baml_client import types
-
         # Setup: Mock BAML to return MEMBER_LIST_PAGE classification
-        mock_baml_result = types.PageClassification(
-            page_type="member_list_page",
-            confidence=0.95,
-            reason="Contains multiple member profiles",
-            has_child_links=False,
-            has_member_info=True,
-        )
+        mock_baml_result = Mock()
+        mock_baml_result.page_type = "member_list_page"
+        mock_baml_result.confidence = 0.95
+        mock_baml_result.reason = "Contains multiple member profiles"
+        mock_baml_result.has_child_links = False
+        mock_baml_result.has_member_info = True
 
         with patch(
             "src.infrastructure.external.llm_page_classifier_service.b.ClassifyPage",
@@ -153,16 +147,13 @@ class TestPageClassificationIntegration:
         3. Decision node correctly decides to skip
         4. Threshold constant is used consistently
         """
-        from baml_client import types
-
         # Setup: Mock BAML to return low confidence classification
-        mock_baml_result = types.PageClassification(
-            page_type="index_page",
-            confidence=DEFAULT_CONFIDENCE_THRESHOLD - 0.1,
-            reason="Uncertain classification",
-            has_child_links=True,
-            has_member_info=False,
-        )
+        mock_baml_result = Mock()
+        mock_baml_result.page_type = "index_page"
+        mock_baml_result.confidence = DEFAULT_CONFIDENCE_THRESHOLD - 0.1
+        mock_baml_result.reason = "Uncertain classification"
+        mock_baml_result.has_child_links = True
+        mock_baml_result.has_member_info = False
 
         with patch(
             "src.infrastructure.external.llm_page_classifier_service.b.ClassifyPage",
@@ -210,16 +201,13 @@ class TestPageClassificationIntegration:
         2. Max depth enforcement prevents further exploration
         3. Domain and infrastructure layers coordinate correctly
         """
-        from baml_client import types
-
         # Setup: Mock BAML to return INDEX_PAGE with high confidence
-        mock_baml_result = types.PageClassification(
-            page_type="index_page",
-            confidence=0.95,
-            reason="Clear index page",
-            has_child_links=True,
-            has_member_info=False,
-        )
+        mock_baml_result = Mock()
+        mock_baml_result.page_type = "index_page"
+        mock_baml_result.confidence = 0.95
+        mock_baml_result.reason = "Clear index page"
+        mock_baml_result.has_child_links = True
+        mock_baml_result.has_member_info = False
 
         with patch(
             "src.infrastructure.external.llm_page_classifier_service.b.ClassifyPage",
