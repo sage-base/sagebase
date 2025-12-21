@@ -434,18 +434,12 @@ class ServiceContainer(containers.DeclarativeContainer):
     )
 
     llm_link_classifier_service: providers.Provider[ILLMLinkClassifierService] = (
-        providers.Factory(
-            LLMLinkClassifierService,
-            llm_service=llm_service,
-        )
+        providers.Factory(LLMLinkClassifierService)
     )
 
-    # Page classifier service for hierarchical scraping
+    # Page classifier service for hierarchical scraping (using BAML)
     page_classifier_service: providers.Provider[IPageClassifierService] = (
-        providers.Factory(
-            LLMPageClassifierService,
-            llm_service=llm_service,
-        )
+        providers.Factory(LLMPageClassifierService)
     )
 
     # Party member extraction service

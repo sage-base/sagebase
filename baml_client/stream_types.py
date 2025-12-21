@@ -23,7 +23,7 @@ class StreamState(BaseModel, typing.Generic[StreamStateValueT]):
     value: StreamStateValueT
     state: typing_extensions.Literal["Pending", "Incomplete", "Complete"]
 # #########################################################################
-# Generated classes (10)
+# Generated classes (12)
 # #########################################################################
 
 class AttendeesMapping(BaseModel):
@@ -45,12 +45,25 @@ class ExtractedPartyMember(BaseModel):
     profile_url: typing.Optional[str] = None
     party_position: typing.Optional[str] = None
 
+class LinkClassification(BaseModel):
+    url: typing.Optional[str] = None
+    link_type: typing.Optional[str] = None
+    confidence: typing.Optional[float] = None
+    reason: typing.Optional[str] = None
+
 class MinutesBoundary(BaseModel):
     boundary_found: typing.Optional[bool] = None
     boundary_text: typing.Optional[str] = None
     boundary_type: typing.Optional[str] = None
     confidence: typing.Optional[float] = None
     reason: typing.Optional[str] = None
+
+class PageClassification(BaseModel):
+    page_type: typing.Optional[str] = None
+    confidence: typing.Optional[float] = None
+    reason: typing.Optional[str] = None
+    has_child_links: typing.Optional[bool] = None
+    has_member_info: typing.Optional[bool] = None
 
 class ParliamentaryGroupMember(BaseModel):
     name: typing.Optional[str] = None

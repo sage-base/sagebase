@@ -1,7 +1,7 @@
-name: Debug BAML Tests (Manual)
+name: BAML Tests
 
-# 手動トリガーのみで実行されるデバッグ用ワークフロー
-# 失敗しているBAML関連テストのみを実行し、詳細なデバッグ出力を提供
+# BAML関連テストを実行するワークフロー
+# 手動トリガーまたはBAML関連ファイルの変更時に実行
 on:
   workflow_dispatch:
   pull_request:
@@ -20,8 +20,8 @@ permissions:
   pull-requests: write
 
 jobs:
-  debug-baml-tests:
-    name: Debug BAML Tests Only
+  baml-tests:
+    name: BAML Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -115,13 +115,16 @@ jobs:
           echo "===== Running BAML-related tests only ====="
           echo ""
 
-          # 失敗しているBAML関連テストを実行
+          # BAML関連テストを実行
           uv run pytest -xvs \
             tests/unit/interfaces/factories/test_party_member_extractor_factory.py \
             tests/unit/party_member_extractor/test_baml_extractor.py \
             tests/unit/parliamentary_group_member_extractor/test_baml_extractor.py \
             tests/unit/minutes_divide_processor/test_baml_minutes_divider.py \
             tests/unit/infrastructure/external/party_member_extractor/test_baml_extractor.py \
+            tests/infrastructure/external/test_llm_link_classifier_service.py \
+            tests/infrastructure/test_llm_page_classifier_service.py \
+            tests/integration/test_page_classification_integration.py \
             --tb=long \
             --capture=no \
             2>&1 | tee pytest-debug-output.txt
