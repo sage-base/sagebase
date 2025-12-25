@@ -226,11 +226,11 @@ class MinutesProcessAgent:
         print(f"incremented_speech_divide_index: {incremented_index}")
         return {"divided_speech_list_memory_id": memory_id, "index": incremented_index}
 
-    def run(self, original_minutes: str) -> list[SpeakerAndSpeechContent]:
+    async def run(self, original_minutes: str) -> list[SpeakerAndSpeechContent]:
         # 初期状態の設定
         initial_state = MinutesProcessState(original_minutes=original_minutes)
         # グラフの実行
-        final_state = self.graph.invoke(
+        final_state = await self.graph.ainvoke(
             initial_state, config={"recursion_limit": 300, "thread_id": "example-1"}
         )
         # 分割結果の取得
