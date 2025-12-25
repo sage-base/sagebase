@@ -78,12 +78,14 @@ class MinutesProcessAgent:
         self.in_memory_store.put(namespace_for_memory, memory_id, memory)
         return memory_id
 
-    def _process_minutes(self, state: MinutesProcessState) -> dict[str, str]:
+    async def _process_minutes(self, state: MinutesProcessState) -> dict[str, str]:
         # 議事録の文字列に対する前処理を行う
         processed_minutes = self.minutes_divider.pre_process(state.original_minutes)
 
         # 出席者情報と発言部分の境界を検出して分割
-        boundary = self.minutes_divider.detect_attendee_boundary(processed_minutes)
+        boundary = await self.minutes_divider.detect_attendee_boundary(
+            processed_minutes
+        )
         _, speech_part = self.minutes_divider.split_minutes_by_boundary(
             processed_minutes, boundary
         )
