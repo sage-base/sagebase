@@ -1,9 +1,8 @@
 """政党メンバー抽出器
 
-BAML実装とPydantic実装を提供します。
+BAML実装のみを提供します（Pydantic実装は削除済み）。
 """
 
 from .baml_extractor import BAMLPartyMemberExtractor
-from .pydantic_extractor import PydanticPartyMemberExtractor
 
-__all__ = ["BAMLPartyMemberExtractor", "PydanticPartyMemberExtractor"]
+__all__ = ["BAMLPartyMemberExtractor"]
