@@ -25,9 +25,11 @@ from src.domain.repositories.parliamentary_group_repository import (
 )
 from src.domain.repositories.politician_repository import PoliticianRepository
 from src.domain.services.interfaces.llm_service import ILLMService
-from src.parliamentary_group_member_extractor.service import (
-    ParliamentaryGroupMembershipService,
-)
+
+# TODO: 旧実装への参照を削除し、新実装のUseCaseに置き換える必要がある
+# from src.parliamentary_group_member_extractor.service import (
+#     ParliamentaryGroupMembershipService,
+# )
 
 logger = get_logger(__name__)
 
@@ -177,22 +179,25 @@ class ManageParliamentaryGroupsUseCase:
         self.extracted_member_repository = extracted_member_repository
 
         # Initialize membership service if all dependencies are available
-        if all(
-            [
-                politician_repository,
-                parliamentary_group_repository,
-                membership_repository,
-                llm_service,
-            ]
-        ):
-            self.membership_service = ParliamentaryGroupMembershipService(
-                llm_service=llm_service,
-                politician_repo=politician_repository,
-                group_repo=parliamentary_group_repository,
-                membership_repo=membership_repository,
-            )
-        else:
-            self.membership_service = None
+        # TODO: 旧実装のParliamentaryGroupMembershipServiceは削除予定
+        # 新実装のUseCaseを使用するように書き直す必要がある
+        # if all(
+        #     [
+        #         politician_repository,
+        #         parliamentary_group_repository,
+        #         membership_repository,
+        #         llm_service,
+        #     ]
+        # ):
+        #     self.membership_service = ParliamentaryGroupMembershipService(
+        #         llm_service=llm_service,
+        #         politician_repo=politician_repository,
+        #         group_repo=parliamentary_group_repository,
+        #         membership_repo=membership_repository,
+        #     )
+        # else:
+        #     self.membership_service = None
+        self.membership_service = None  # 旧実装は使用しない
 
     async def list_parliamentary_groups(
         self, input_dto: ParliamentaryGroupListInputDto
@@ -314,7 +319,8 @@ class ManageParliamentaryGroupsUseCase:
         """Extract members from parliamentary group URL."""
         try:
             # Check if services are available
-            if not self.extractor or not self.membership_service:
+            # Note: membership_service is deprecated, only check extractor
+            if not self.extractor:
                 return ExtractMembersOutputDto(
                     success=False,
                     error_message="必要なサービスが初期化されていません。LLMサービスとリポジトリが設定されているか確認してください。",
@@ -362,66 +368,18 @@ class ManageParliamentaryGroupsUseCase:
                 except Exception as e:
                     logger.error(f"Failed to save extracted members to database: {e}")
 
-            if input_dto.dry_run:
-                # Dry run mode - just return extracted members without saving
-                return ExtractMembersOutputDto(
-                    success=True,
-                    extracted_members=extraction_result.extracted_members,
-                    created_count=0,
-                    skipped_count=0,
-                )
+            # Note: マッチングとメンバーシップ作成は削除されました
+            # 代わりに、以下の新実装UseCaseを使用してください：
+            # 1. MatchParliamentaryGroupMembersUseCase - マッチング
+            # 2. CreateParliamentaryGroupMembershipsUseCase - メンバーシップ作成
 
-            # Match politicians with extracted members (Domain DTOを直接渡す)
-            matching_results_from_service = (
-                await self.membership_service.match_politicians(
-                    extracted_members=extraction_result.extracted_members,
-                    conference_id=None,  # Can be set if needed to narrow search
-                )
-            )
-
-            # Create memberships if not dry run
-            if not input_dto.dry_run:
-                creation_result = self.membership_service.create_memberships(
-                    parliamentary_group_id=input_dto.parliamentary_group_id,
-                    matching_results=matching_results_from_service,
-                    start_date=input_dto.start_date,
-                    confidence_threshold=input_dto.confidence_threshold,
-                    dry_run=False,
-                )
-                created_count = creation_result.created_count
-                skipped_count = creation_result.skipped_count
-            else:
-                # In dry run mode, just count potential matches
-                created_count = 0
-                skipped_count = 0
-                for match in matching_results_from_service:
-                    if (
-                        match.politician_id
-                        and match.confidence_score >= input_dto.confidence_threshold
-                    ):
-                        created_count += 1
-                    else:
-                        skipped_count += 1
-
-            # Convert service results to DTO format
-            # (MatchingResult → MemberMatchingResult)
-            matching_results = [
-                MemberMatchingResult(
-                    extracted_member=extraction_result.extracted_members[idx],
-                    politician_id=match.politician_id,
-                    politician_name=match.politician_name,
-                    confidence_score=match.confidence_score,
-                    matching_reason=match.matching_reason,
-                )
-                for idx, match in enumerate(matching_results_from_service)
-            ]
-
+            # 抽出のみを行い、結果を返す
             return ExtractMembersOutputDto(
                 success=True,
                 extracted_members=extraction_result.extracted_members,
-                matching_results=matching_results,
-                created_count=created_count,
-                skipped_count=skipped_count,
+                matching_results=None,  # マッチングは別のUseCaseで実行
+                created_count=0,
+                skipped_count=0,
             )
 
         except Exception as e:
