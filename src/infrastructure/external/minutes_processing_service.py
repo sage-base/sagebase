@@ -1,7 +1,5 @@
 """Minutes processing service implementation wrapping MinutesProcessAgent."""
 
-import asyncio
-
 import structlog
 
 from src.domain.services.interfaces.llm_service import ILLMService
@@ -49,11 +47,8 @@ class MinutesProcessAgentService(IMinutesProcessingService):
             ValueError: If processing fails or invalid input is provided
             TypeError: If the result format is invalid
         """
-        # The agent's run method is synchronous, so we run it in an executor
-        loop = asyncio.get_event_loop()
-        infrastructure_results = await loop.run_in_executor(
-            None, self.agent.run, original_minutes
-        )
+        # The agent's run method is now async
+        infrastructure_results = await self.agent.run(original_minutes)
 
         # Filter out invalid results and convert to domain value objects
         domain_results: list[SpeakerSpeech] = []

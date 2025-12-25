@@ -9,7 +9,7 @@ from datetime import datetime
 
 from bs4 import BeautifulSoup
 
-from baml_client import b
+from baml_client.async_client import b
 from src.domain.dtos.parliamentary_group_member_dto import (
     ExtractedParliamentaryGroupMemberDTO,
     ParliamentaryGroupMemberExtractionResultDTO,
@@ -100,29 +100,46 @@ class BAMLParliamentaryGroupMemberExtractor(IParliamentaryGroupMemberExtractorSe
             抽出された議員リスト（DTO）
         """
         try:
+            logger.info(
+                f"Starting BAML parliamentary group member extraction "
+                f"(Text size: {len(text_content)} chars, "
+                f"HTML size: {len(html_content)} chars)"
+            )
+
             # HTMLとテキストが長すぎる場合は切り詰める
             max_text_length = 5000
             max_html_length = 10000
 
-            if len(text_content) > max_text_length:
+            original_text_length = len(text_content)
+            original_html_length = len(html_content)
+
+            if original_text_length > max_text_length:
                 logger.warning(
-                    f"Text content too long ({len(text_content)} chars), "
-                    f"truncating to {max_text_length} chars"
+                    f"Text content too long ({original_text_length} chars), "
+                    f"truncating to {max_text_length} chars "
+                    f"(reduction: {original_text_length - max_text_length} chars, "
+                    f"{(1 - max_text_length / original_text_length) * 100:.1f}%)"
                 )
                 text_content = text_content[:max_text_length]
 
-            if len(html_content) > max_html_length:
+            if original_html_length > max_html_length:
                 logger.warning(
-                    f"HTML content too long ({len(html_content)} chars), "
-                    f"truncating to {max_html_length} chars"
+                    f"HTML content too long ({original_html_length} chars), "
+                    f"truncating to {max_html_length} chars "
+                    f"(reduction: {original_html_length - max_html_length} chars, "
+                    f"{(1 - max_html_length / original_html_length) * 100:.1f}%)"
                 )
                 html_content = html_content[:max_html_length]
 
             # BAML関数を呼び出し
-            logger.info("Calling BAML ExtractParliamentaryGroupMembers")
+            logger.info(
+                f"Calling BAML ExtractParliamentaryGroupMembers "
+                f"(text: {len(text_content)} chars, html: {len(html_content)} chars)"
+            )
             result = await b.ExtractParliamentaryGroupMembers(
                 html_content, text_content
             )
+            logger.debug(f"BAML returned {len(result)} raw results")
 
             # BAMLの結果をDTOに変換
             members_dto = [
@@ -136,7 +153,17 @@ class BAMLParliamentaryGroupMemberExtractor(IParliamentaryGroupMemberExtractorSe
                 for m in result
             ]
 
-            logger.info(f"BAML extracted {len(members_dto)} members")
+            logger.info(
+                f"BAML extraction completed: {len(members_dto)} members extracted"
+            )
+            if members_dto:
+                logger.debug(
+                    f"Sample member: {members_dto[0].name} "
+                    f"(role: {members_dto[0].role}, "
+                    f"party: {members_dto[0].party_name}, "
+                    f"district: {members_dto[0].district})"
+                )
+
             return members_dto
 
         except Exception as e:

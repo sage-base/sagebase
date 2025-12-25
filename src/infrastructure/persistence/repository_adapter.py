@@ -51,13 +51,21 @@ class RepositoryAdapter:
             sync_session: Optional sync session (for context)
         """
         self.async_repository_class = async_repository_class
-        self._async_engine = None
-        self._async_session_factory = None
+        # Cache engines per event loop to avoid asyncpg event loop errors
+        self._engines: dict[int, Any] = {}
+        self._session_factories: dict[int, Any] = {}
         self._shared_session: AsyncSession | None = None
 
     def get_async_session_factory(self):
-        """Get or create an async session factory."""
-        if self._async_session_factory is None:
+        """Get or create an async session factory for the current event loop."""
+        try:
+            loop = asyncio.get_running_loop()
+            loop_id = id(loop)
+        except RuntimeError:
+            # No running loop, use a sentinel value
+            loop_id = 0
+
+        if loop_id not in self._session_factories:
             # Convert sync database URL to async
             db_url = DATABASE_URL
             if db_url.startswith("postgresql://"):
@@ -69,11 +77,13 @@ class RepositoryAdapter:
             else:
                 async_db_url = db_url
 
-            self._async_engine = create_async_engine(async_db_url, echo=False)
-            self._async_session_factory = async_sessionmaker(
-                self._async_engine, expire_on_commit=False
+            engine = create_async_engine(async_db_url, echo=False)
+            self._engines[loop_id] = engine
+            self._session_factories[loop_id] = async_sessionmaker(
+                engine, expire_on_commit=False
             )
-        return self._async_session_factory
+
+        return self._session_factories[loop_id]
 
     def _run_async(self, coro: Coroutine[Any, Any, T]) -> T:
         """Run an async coroutine from sync context."""
@@ -210,11 +220,11 @@ class RepositoryAdapter:
         return sync_or_async_wrapper
 
     def close(self):
-        """Close the async engine if it exists."""
-        if self._async_engine:
-            asyncio.run(self._async_engine.dispose())
-            self._async_engine = None
-            self._async_session_factory = None
+        """Close all async engines."""
+        for engine in self._engines.values():
+            asyncio.run(engine.dispose())
+        self._engines.clear()
+        self._session_factories.clear()
 
     def __enter__(self):
         """Context manager entry."""

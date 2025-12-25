@@ -78,12 +78,14 @@ class MinutesProcessAgent:
         self.in_memory_store.put(namespace_for_memory, memory_id, memory)
         return memory_id
 
-    def _process_minutes(self, state: MinutesProcessState) -> dict[str, str]:
+    async def _process_minutes(self, state: MinutesProcessState) -> dict[str, str]:
         # 議事録の文字列に対する前処理を行う
         processed_minutes = self.minutes_divider.pre_process(state.original_minutes)
 
         # 出席者情報と発言部分の境界を検出して分割
-        boundary = self.minutes_divider.detect_attendee_boundary(processed_minutes)
+        boundary = await self.minutes_divider.detect_attendee_boundary(
+            processed_minutes
+        )
         _, speech_part = self.minutes_divider.split_minutes_by_boundary(
             processed_minutes, boundary
         )
@@ -93,7 +95,9 @@ class MinutesProcessAgent:
         memory_id = self._put_to_memory(namespace="processed_minutes", memory=memory)
         return {"processed_minutes_memory_id": memory_id}
 
-    def _divide_minutes_to_keyword(self, state: MinutesProcessState) -> dict[str, Any]:
+    async def _divide_minutes_to_keyword(
+        self, state: MinutesProcessState
+    ) -> dict[str, Any]:
         memory_id = state.processed_minutes_memory_id
         memory_data = self._get_from_memory(
             namespace="processed_minutes", memory_id=memory_id
@@ -106,7 +110,9 @@ class MinutesProcessAgent:
             raise TypeError("processed_minutes must be a string")
 
         # 議事録を分割する
-        section_info_list = self.minutes_divider.section_divide_run(processed_minutes)
+        section_info_list = await self.minutes_divider.section_divide_run(
+            processed_minutes
+        )
         section_list_length = len(section_info_list.section_info_list)
         print("divide_minutes_to_keyword_done")
         return {
@@ -154,7 +160,7 @@ class MinutesProcessAgent:
         print("check_length_done")
         return {"redivide_section_string_list_memory_id": memory_id}
 
-    def _divide_speech(self, state: MinutesProcessState) -> dict[str, Any]:
+    async def _divide_speech(self, state: MinutesProcessState) -> dict[str, Any]:
         memory_id = state.section_string_list_memory_id
         memory_data = self._get_from_memory("section_string_list", memory_id)
         if memory_data is None or "section_string_list" not in memory_data:
@@ -167,8 +173,10 @@ class MinutesProcessAgent:
         if state.index - 1 < len(section_string_list.section_string_list):
             # すべてのセクションを処理する（0, 1, 2, 3の制限を削除）
             # 発言者と発言内容に分割する
-            speaker_and_speech_content_list = self.minutes_divider.speech_divide_run(
-                section_string_list.section_string_list[state.index - 1]
+            speaker_and_speech_content_list = (
+                await self.minutes_divider.speech_divide_run(
+                    section_string_list.section_string_list[state.index - 1]
+                )
             )
         else:
             print(
@@ -224,11 +232,11 @@ class MinutesProcessAgent:
         print(f"incremented_speech_divide_index: {incremented_index}")
         return {"divided_speech_list_memory_id": memory_id, "index": incremented_index}
 
-    def run(self, original_minutes: str) -> list[SpeakerAndSpeechContent]:
+    async def run(self, original_minutes: str) -> list[SpeakerAndSpeechContent]:
         # 初期状態の設定
         initial_state = MinutesProcessState(original_minutes=original_minutes)
         # グラフの実行
-        final_state = self.graph.invoke(
+        final_state = await self.graph.ainvoke(
             initial_state, config={"recursion_limit": 300, "thread_id": "example-1"}
         )
         # 分割結果の取得

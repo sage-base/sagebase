@@ -6,7 +6,7 @@
 
 import logging
 
-from baml_client import b
+from baml_client.async_client import b
 from src.conference_member_extractor.models import ExtractedMember
 
 logger = logging.getLogger(__name__)
