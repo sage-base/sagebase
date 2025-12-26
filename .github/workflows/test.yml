@@ -218,6 +218,11 @@ jobs:
 
       - name: Check code style
         run: |
+          echo "=== Ruff Version ==="
+          uv run ruff --version
+          echo "=== PyProject Isort Config ==="
+          cat pyproject.toml | grep -A 10 "isort"
+          echo "=== Ruff Check ==="
           uv run ruff check src/ tests/
 
       - name: Run type checking
