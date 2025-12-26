@@ -3,7 +3,6 @@
 import logging
 import os
 import time
-
 from typing import Any, TypeVar
 
 from langchain_core.language_models import BaseChatModel

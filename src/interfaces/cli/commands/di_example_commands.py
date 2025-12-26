@@ -6,7 +6,6 @@ This module shows how to integrate the DI container with CLI commands.
 
 import asyncio
 import sys
-
 from typing import Any
 
 import click

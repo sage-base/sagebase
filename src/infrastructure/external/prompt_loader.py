@@ -1,12 +1,10 @@
 """Prompt template loader from YAML files"""
 
 import logging
-
 from pathlib import Path
 from typing import Any
 
 import yaml
-
 from langchain_core.prompts import ChatPromptTemplate
 
 

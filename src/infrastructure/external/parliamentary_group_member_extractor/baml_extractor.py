@@ -5,7 +5,6 @@ BAMLを使用してトークン効率とパース精度を向上。
 """
 
 import logging
-
 from datetime import datetime
 
 from bs4 import BeautifulSoup

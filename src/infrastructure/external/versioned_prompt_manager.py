@@ -1,7 +1,6 @@
 """Versioned prompt management with database backing."""
 
 import logging
-
 from datetime import datetime
 from typing import Any
 

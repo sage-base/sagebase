@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-
 from pathlib import Path
 
 from ..common.logging import get_logger

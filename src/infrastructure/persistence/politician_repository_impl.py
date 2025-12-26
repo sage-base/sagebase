@@ -1,7 +1,6 @@
 """Politician repository implementation (async-only)."""
 
 import logging
-
 from typing import Any
 
 from sqlalchemy import text

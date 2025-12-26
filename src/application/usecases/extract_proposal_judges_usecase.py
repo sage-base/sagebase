@@ -1,7 +1,6 @@
 """Use case for extracting proposal judges from web pages."""
 
 import logging
-
 from datetime import datetime
 
 from src.application.dtos.proposal_judge_dto import (

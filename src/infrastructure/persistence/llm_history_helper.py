@@ -2,7 +2,6 @@
 
 import json
 import logging
-
 from datetime import UTC, datetime
 
 from sqlalchemy import create_engine, text

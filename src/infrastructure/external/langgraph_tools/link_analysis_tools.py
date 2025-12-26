@@ -5,7 +5,6 @@ The tools act as an adapter between the LangGraph framework and our use cases.
 """
 
 import logging
-
 from typing import Any
 
 from langchain_core.tools import tool

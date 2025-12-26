@@ -1,7 +1,6 @@
 """Unit tests for ProposalScraperService."""
 
 import json
-
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 

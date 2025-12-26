@@ -5,7 +5,6 @@ and recursive navigation capabilities (PBI-004).
 """
 
 import logging
-
 from dataclasses import replace
 
 from langgraph.graph import END, START, StateGraph

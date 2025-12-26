@@ -1,7 +1,6 @@
 """Adapter to make async LLM service work in sync context."""
 
 import asyncio
-
 from collections.abc import Coroutine
 from typing import Any, TypeVar
 

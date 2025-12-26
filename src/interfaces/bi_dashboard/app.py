@@ -9,7 +9,6 @@ It demonstrates:
 """
 
 import sys
-
 from pathlib import Path
 
 from dash import Dash

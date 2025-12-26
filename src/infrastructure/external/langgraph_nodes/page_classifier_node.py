@@ -1,7 +1,6 @@
 """LangGraph node for page classification."""
 
 import logging
-
 from collections.abc import Awaitable, Callable
 
 from src.domain.services.interfaces.page_classifier_service import (

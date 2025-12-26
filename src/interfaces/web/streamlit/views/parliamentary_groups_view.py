@@ -1,7 +1,6 @@
 """View for parliamentary group management."""
 
 import asyncio
-
 from datetime import date
 from typing import Any, cast
 

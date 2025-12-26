@@ -1,7 +1,6 @@
 """Domain service for analyzing link relationships and hierarchies."""
 
 import logging
-
 from urllib.parse import urlparse
 
 from src.domain.value_objects.link import Link

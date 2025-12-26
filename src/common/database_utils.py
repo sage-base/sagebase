@@ -5,7 +5,6 @@ Provides common database operations with type safety and error handling.
 """
 
 import logging
-
 from collections.abc import Callable
 from typing import Any, Protocol, TypeVar
 

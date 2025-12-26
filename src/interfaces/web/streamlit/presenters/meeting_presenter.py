@@ -5,7 +5,6 @@ handling UI state and coordinating with repositories.
 """
 
 import builtins
-
 from typing import Any
 
 import pandas as pd

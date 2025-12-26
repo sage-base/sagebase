@@ -3,7 +3,6 @@
 import sys
 import threading
 import time
-
 from collections.abc import Callable, Iterable
 from contextlib import contextmanager
 from types import TracebackType

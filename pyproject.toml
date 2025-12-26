@@ -123,7 +123,8 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]
-lines-between-types = 1
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+no-lines-before = ["local-folder"]
 lines-after-imports = 2
 forced-separate = ["src"]
 

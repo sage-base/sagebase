@@ -6,7 +6,6 @@
 import asyncio
 import functools
 import logging
-
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime

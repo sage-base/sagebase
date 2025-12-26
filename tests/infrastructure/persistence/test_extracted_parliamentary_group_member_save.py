@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.infrastructure.persistence import (

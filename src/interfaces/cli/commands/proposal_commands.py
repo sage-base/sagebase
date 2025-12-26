@@ -4,7 +4,6 @@ import asyncio
 import logging
 
 import click
-
 from sqlalchemy import text
 
 from src.application.dtos.proposal_judge_dto import (

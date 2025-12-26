@@ -6,7 +6,6 @@ synchronous methods for backward compatibility with sync code.
 
 import asyncio
 import logging
-
 from dataclasses import asdict
 from typing import Any
 

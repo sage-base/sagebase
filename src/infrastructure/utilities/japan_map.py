@@ -4,7 +4,6 @@ from typing import Any
 
 import folium
 import pandas as pd
-
 from folium import plugins
 
 

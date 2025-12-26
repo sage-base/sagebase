@@ -5,7 +5,6 @@ from unittest.mock import MagicMock
 from uuid import UUID
 
 import pytest
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.infrastructure.persistence import (

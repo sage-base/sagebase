@@ -6,7 +6,6 @@ common presenter functionality.
 """
 
 import asyncio
-
 from abc import ABC, abstractmethod
 from collections.abc import Coroutine
 from typing import Any, Generic, TypeVar
