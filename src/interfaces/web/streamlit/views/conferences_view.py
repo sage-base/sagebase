@@ -2,14 +2,13 @@
 
 import asyncio
 import logging
+
 from typing import Any, cast
 
 import pandas as pd
 import streamlit as st
 
-from src.application.usecases.manage_conferences_usecase import (
-    ManageConferencesUseCase,
-)
+from src.application.usecases.manage_conferences_usecase import ManageConferencesUseCase
 from src.domain.repositories import ConferenceRepository, GoverningBodyRepository
 from src.infrastructure.external.conference_member_extractor.extractor import (
     ConferenceMemberExtractor,
@@ -27,6 +26,7 @@ from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
 from src.interfaces.web.streamlit.presenters.conference_presenter import (
     ConferencePresenter,
 )
+
 
 logger = logging.getLogger(__name__)
 
