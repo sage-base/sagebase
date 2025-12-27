@@ -6,7 +6,6 @@ import logging
 from typing import Any, cast
 
 import pandas as pd
-
 import streamlit as st
 
 from src.application.usecases.manage_conferences_usecase import ManageConferencesUseCase
