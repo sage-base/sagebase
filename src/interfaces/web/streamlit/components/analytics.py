@@ -6,9 +6,8 @@
 
 import os
 
-import streamlit.components.v1 as components
-
 import streamlit as st
+import streamlit.components.v1 as components
 
 
 def inject_google_analytics():

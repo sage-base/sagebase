@@ -6,7 +6,6 @@
 from datetime import date, datetime, timedelta
 
 import pandas as pd
-
 import streamlit as st
 
 from src.application.dtos.work_history_dto import WorkType

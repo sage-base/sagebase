@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 
 import pandas as pd
-
 import streamlit as st
 
 from src.application.usecases.manage_conferences_usecase import (
