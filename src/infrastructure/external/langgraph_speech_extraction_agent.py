@@ -5,7 +5,7 @@
 高精度な境界検出を実現します。
 """
 
-from typing import Annotated, Any
+from typing import Annotated
 
 import structlog
 
@@ -22,6 +22,25 @@ from src.infrastructure.external.langgraph_tools.speech_extraction_tools import 
 
 logger = structlog.get_logger(__name__)
 
+# 定数定義
+CONFIDENCE_THRESHOLD = 0.7  # 境界検出の最小信頼度閾値
+MAX_REACT_STEPS = 10  # ReActエージェントの最大実行ステップ数
+
+
+class VerifiedBoundary(TypedDict):
+    """検証済み境界の型定義"""
+
+    position: int  # 境界位置（文字インデックス）
+    boundary_type: str  # 境界の種類（speech_start, separator_line等）
+    confidence: float  # 信頼度（0.0-1.0）
+
+
+class BoundaryExtractionResult(TypedDict):
+    """境界抽出結果の型定義"""
+
+    verified_boundaries: list[VerifiedBoundary]  # 検証済み境界のリスト
+    error_message: str | None  # エラーメッセージ（エラー時のみ）
+
 
 class SpeechExtractionAgentState(TypedDict):
     """発言抽出Agent固有の状態定義
@@ -32,7 +51,7 @@ class SpeechExtractionAgentState(TypedDict):
 
     minutes_text: str  # 議事録テキスト全体
     boundary_candidates: list[int]  # 境界候補位置のリスト（文字インデックス）
-    verified_boundaries: list[dict[str, Any]]  # 検証済み境界情報のリスト
+    verified_boundaries: list[VerifiedBoundary]  # 検証済み境界情報のリスト
     current_position: int  # 現在の検証位置
     messages: Annotated[list[BaseMessage], add_messages]  # エージェントメッセージ履歴
     remaining_steps: int  # ReActエージェントの残りステップ数
@@ -74,7 +93,7 @@ class SpeechExtractionAgent:
         Returns:
             コンパイル済みのReActエージェント（サブグラフとして使用可能）
         """
-        system_prompt = """あなたは議事録からの発言抽出を専門とするエージェントです。
+        system_prompt = f"""あなたは議事録からの発言抽出を専門とするエージェントです。
 
 あなたの役割:
 1. 議事録テキストから発言者と発言内容の境界を検出する
@@ -92,7 +111,7 @@ class SpeechExtractionAgent:
 - 時刻表記（午前10時、10:00など）
 - 出席者リストの終了
 
-信頼度0.7以上の境界のみを採用してください。
+信頼度{CONFIDENCE_THRESHOLD}以上の境界のみを採用してください。
 """
 
         logger.info("Creating ReAct workflow for speech extraction")
@@ -116,7 +135,7 @@ class SpeechExtractionAgent:
         logger.debug("Compiling SpeechExtractionAgent as subgraph")
         return self.agent
 
-    async def extract_boundaries(self, minutes_text: str) -> dict[str, Any]:
+    async def extract_boundaries(self, minutes_text: str) -> BoundaryExtractionResult:
         """発言境界を抽出
 
         Args:
@@ -138,7 +157,7 @@ class SpeechExtractionAgent:
             "verified_boundaries": [],
             "current_position": 0,
             "messages": [],
-            "remaining_steps": 10,  # ReActエージェントの最大ステップ数
+            "remaining_steps": MAX_REACT_STEPS,
             "error_message": None,
         }
 
@@ -152,10 +171,10 @@ class SpeechExtractionAgent:
                 has_error=result.get("error_message") is not None,
             )
 
-            return {
-                "verified_boundaries": result.get("verified_boundaries", []),
-                "error_message": result.get("error_message"),
-            }
+            return BoundaryExtractionResult(
+                verified_boundaries=result.get("verified_boundaries", []),
+                error_message=result.get("error_message"),
+            )
 
         except Exception as e:
             logger.error(
@@ -163,7 +182,7 @@ class SpeechExtractionAgent:
                 error=str(e),
                 exc_info=True,
             )
-            return {
-                "verified_boundaries": [],
-                "error_message": f"境界抽出中にエラーが発生しました: {str(e)}",
-            }
+            return BoundaryExtractionResult(
+                verified_boundaries=[],
+                error_message=f"境界抽出中にエラーが発生しました: {str(e)}",
+            )

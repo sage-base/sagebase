@@ -1,6 +1,5 @@
 """SpeechExtractionAgent のユニットテスト"""
 
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -8,8 +7,10 @@ import pytest
 from langchain_core.language_models import BaseChatModel
 
 from src.infrastructure.external.langgraph_speech_extraction_agent import (
+    BoundaryExtractionResult,
     SpeechExtractionAgent,
     SpeechExtractionAgentState,
+    VerifiedBoundary,
 )
 
 
@@ -52,7 +53,7 @@ class TestSpeechExtractionAgent:
     ) -> None:
         """空のテキストでの境界抽出テスト"""
         # エージェントの実行をモック
-        mock_result: dict[str, Any] = {
+        mock_result: BoundaryExtractionResult = {
             "verified_boundaries": [],
             "error_message": None,
         }
@@ -79,19 +80,18 @@ class TestSpeechExtractionAgent:
         """
 
         # エージェントの実行をモック
-        mock_result: dict[str, Any] = {
-            "verified_boundaries": [
-                {
-                    "position": 10,
-                    "boundary_type": "speech_start",
-                    "confidence": 0.85,
-                },
-                {
-                    "position": 50,
-                    "boundary_type": "speech_start",
-                    "confidence": 0.90,
-                },
-            ],
+        boundary1: VerifiedBoundary = {
+            "position": 10,
+            "boundary_type": "speech_start",
+            "confidence": 0.85,
+        }
+        boundary2: VerifiedBoundary = {
+            "position": 50,
+            "boundary_type": "speech_start",
+            "confidence": 0.90,
+        }
+        mock_result: BoundaryExtractionResult = {
+            "verified_boundaries": [boundary1, boundary2],
             "error_message": None,
         }
 
@@ -110,7 +110,7 @@ class TestSpeechExtractionAgent:
     ) -> None:
         """エラー時の境界抽出テスト"""
         # エージェントの実行をモック（エラーケース）
-        mock_result: dict[str, Any] = {
+        mock_result: BoundaryExtractionResult = {
             "verified_boundaries": [],
             "error_message": "LLM processing error",
         }
@@ -153,13 +153,14 @@ class TestSpeechExtractionAgent:
         sample_minutes = "テスト議事録"
 
         # 高信頼度と低信頼度が混在する結果をモック
-        mock_result: dict[str, Any] = {
+        boundary: VerifiedBoundary = {
+            "position": 10,
+            "boundary_type": "speech_start",
+            "confidence": 0.85,  # 高信頼度
+        }
+        mock_result: BoundaryExtractionResult = {
             "verified_boundaries": [
-                {
-                    "position": 10,
-                    "boundary_type": "speech_start",
-                    "confidence": 0.85,  # 高信頼度
-                },
+                boundary,
                 # 低信頼度の境界はエージェントが除外するはず
             ],
             "error_message": None,
@@ -181,16 +182,23 @@ class TestSpeechExtractionAgent:
         sample_minutes = "テスト議事録"
 
         # 複数の境界を位置順にモック
-        mock_result: dict[str, Any] = {
-            "verified_boundaries": [
-                {"position": 10, "boundary_type": "speech_start", "confidence": 0.80},
-                {"position": 50, "boundary_type": "speech_start", "confidence": 0.85},
-                {
-                    "position": 100,
-                    "boundary_type": "separator_line",
-                    "confidence": 0.90,
-                },
-            ],
+        boundary1: VerifiedBoundary = {
+            "position": 10,
+            "boundary_type": "speech_start",
+            "confidence": 0.80,
+        }
+        boundary2: VerifiedBoundary = {
+            "position": 50,
+            "boundary_type": "speech_start",
+            "confidence": 0.85,
+        }
+        boundary3: VerifiedBoundary = {
+            "position": 100,
+            "boundary_type": "separator_line",
+            "confidence": 0.90,
+        }
+        mock_result: BoundaryExtractionResult = {
+            "verified_boundaries": [boundary1, boundary2, boundary3],
             "error_message": None,
         }
 
@@ -228,16 +236,15 @@ class TestSpeechExtractionAgentState:
 
     def test_state_with_verified_boundaries(self) -> None:
         """検証済み境界を含む状態のテスト"""
+        boundary: VerifiedBoundary = {
+            "position": 10,
+            "boundary_type": "speech_start",
+            "confidence": 0.85,
+        }
         state: SpeechExtractionAgentState = {
             "minutes_text": "sample text",
             "boundary_candidates": [10, 20, 30],
-            "verified_boundaries": [
-                {
-                    "position": 10,
-                    "boundary_type": "speech_start",
-                    "confidence": 0.85,
-                },
-            ],
+            "verified_boundaries": [boundary],
             "current_position": 10,
             "messages": [],
             "remaining_steps": 5,
