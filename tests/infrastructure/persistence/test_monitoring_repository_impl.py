@@ -86,7 +86,7 @@ async def async_session() -> AsyncGenerator[AsyncSession]:
             text("""
             CREATE TABLE conversations (
                 id INTEGER PRIMARY KEY,
-                meeting_id INTEGER,
+                minutes_id INTEGER,
                 speaker_id INTEGER
             )
         """)
