@@ -5,6 +5,7 @@
 
 import asyncio
 import logging
+
 from datetime import datetime
 from uuid import UUID
 
@@ -20,6 +21,7 @@ from src.application.usecases.get_user_statistics_usecase import (
 )
 from src.application.usecases.get_work_history_usecase import GetWorkHistoryUseCase
 from src.infrastructure.di.container import Container
+
 
 logger = logging.getLogger(__name__)
 

@@ -2,9 +2,8 @@
 
 import asyncio
 import json
-from pathlib import Path
 
-from src.infrastructure.config import config
+from pathlib import Path
 
 from ..common.logging import get_logger
 from ..infrastructure.persistence.meeting_repository_impl import MeetingRepositoryImpl
@@ -14,6 +13,8 @@ from .base_scraper import BaseScraper
 from .kaigiroku_net_scraper import KaigirokuNetScraper
 from .kokkai_scraper import KokkaiScraper
 from .models import MinutesData
+
+from src.infrastructure.config import config
 
 
 class ScraperService:
@@ -87,7 +88,7 @@ class ScraperService:
         """
         # 会議情報を取得
         meeting_repo = RepositoryAdapter(MeetingRepositoryImpl)
-        meeting = meeting_repo.get_by_id(meeting_id)
+        meeting = await meeting_repo.get_by_id(meeting_id)
 
         if not meeting:
             self.logger.error(f"Meeting not found with ID: {meeting_id}")

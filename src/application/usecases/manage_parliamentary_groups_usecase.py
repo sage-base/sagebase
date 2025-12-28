@@ -17,17 +17,10 @@ from src.domain.interfaces.parliamentary_group_member_extractor_service import (
 from src.domain.repositories.extracted_parliamentary_group_member_repository import (
     ExtractedParliamentaryGroupMemberRepository,
 )
-from src.domain.repositories.parliamentary_group_membership_repository import (
-    ParliamentaryGroupMembershipRepository,
-)
 from src.domain.repositories.parliamentary_group_repository import (
     ParliamentaryGroupRepository,
 )
-from src.domain.repositories.politician_repository import PoliticianRepository
-from src.domain.services.interfaces.llm_service import ILLMService
-from src.parliamentary_group_member_extractor.service import (
-    ParliamentaryGroupMembershipService,
-)
+
 
 logger = get_logger(__name__)
 
@@ -113,25 +106,16 @@ class ExtractMembersInputDto:
 
 
 @dataclass
-class MemberMatchingResult:
-    """Member matching result."""
-
-    extracted_member: ExtractedParliamentaryGroupMemberDTO
-    politician_id: int | None = None
-    politician_name: str | None = None
-    confidence_score: float = 0.0
-    matching_reason: str = ""
-
-
-@dataclass
 class ExtractMembersOutputDto:
-    """Output DTO for extracting members."""
+    """議員団メンバー抽出結果のDTO。
+
+    Note: マッチングとメンバーシップ作成は別のUseCaseで行われます：
+    - MatchParliamentaryGroupMembersUseCase: 抽出メンバーと政治家のマッチング
+    - CreateParliamentaryGroupMembershipsUseCase: メンバーシップの作成
+    """
 
     success: bool
     extracted_members: list[ExtractedParliamentaryGroupMemberDTO] | None = None
-    matching_results: list[MemberMatchingResult] | None = None
-    created_count: int = 0
-    skipped_count: int = 0
     error_message: str | None = None
     errors: list[str] | None = None
 
@@ -153,9 +137,6 @@ class ManageParliamentaryGroupsUseCase:
         self,
         parliamentary_group_repository: ParliamentaryGroupRepository,
         member_extractor: IParliamentaryGroupMemberExtractorService | None = None,
-        politician_repository: PoliticianRepository | None = None,
-        membership_repository: ParliamentaryGroupMembershipRepository | None = None,
-        llm_service: ILLMService | None = None,
         extracted_member_repository: ExtractedParliamentaryGroupMemberRepository
         | None = None,
     ):
@@ -164,35 +145,11 @@ class ManageParliamentaryGroupsUseCase:
         Args:
             parliamentary_group_repository: Repository instance (can be sync or async)
             member_extractor: Member extractor service instance (injected)
-            politician_repository: Politician repository instance
-            membership_repository: Membership repository instance
-            llm_service: LLM service instance
             extracted_member_repository: Extracted member repository instance
         """
         self.parliamentary_group_repository = parliamentary_group_repository
         self.extractor = member_extractor  # Injected instead of created by Factory
-        self.politician_repository = politician_repository
-        self.membership_repository = membership_repository
-        self.llm_service = llm_service
         self.extracted_member_repository = extracted_member_repository
-
-        # Initialize membership service if all dependencies are available
-        if all(
-            [
-                politician_repository,
-                parliamentary_group_repository,
-                membership_repository,
-                llm_service,
-            ]
-        ):
-            self.membership_service = ParliamentaryGroupMembershipService(
-                llm_service=llm_service,
-                politician_repo=politician_repository,
-                group_repo=parliamentary_group_repository,
-                membership_repo=membership_repository,
-            )
-        else:
-            self.membership_service = None
 
     async def list_parliamentary_groups(
         self, input_dto: ParliamentaryGroupListInputDto
@@ -311,10 +268,15 @@ class ManageParliamentaryGroupsUseCase:
     async def extract_members(
         self, input_dto: ExtractMembersInputDto
     ) -> ExtractMembersOutputDto:
-        """Extract members from parliamentary group URL."""
+        """議員団URLからメンバーを抽出する。
+
+        Note: このメソッドはメンバーの抽出のみを行います。
+        マッチングとメンバーシップ作成は以下の別のUseCaseで実行してください：
+        - MatchParliamentaryGroupMembersUseCase: 抽出メンバーと政治家のマッチング
+        - CreateParliamentaryGroupMembershipsUseCase: メンバーシップの作成
+        """
         try:
-            # Check if services are available
-            if not self.extractor or not self.membership_service:
+            if not self.extractor:
                 return ExtractMembersOutputDto(
                     success=False,
                     error_message="必要なサービスが初期化されていません。LLMサービスとリポジトリが設定されているか確認してください。",
@@ -362,66 +324,9 @@ class ManageParliamentaryGroupsUseCase:
                 except Exception as e:
                     logger.error(f"Failed to save extracted members to database: {e}")
 
-            if input_dto.dry_run:
-                # Dry run mode - just return extracted members without saving
-                return ExtractMembersOutputDto(
-                    success=True,
-                    extracted_members=extraction_result.extracted_members,
-                    created_count=0,
-                    skipped_count=0,
-                )
-
-            # Match politicians with extracted members (Domain DTOを直接渡す)
-            matching_results_from_service = (
-                await self.membership_service.match_politicians(
-                    extracted_members=extraction_result.extracted_members,
-                    conference_id=None,  # Can be set if needed to narrow search
-                )
-            )
-
-            # Create memberships if not dry run
-            if not input_dto.dry_run:
-                creation_result = self.membership_service.create_memberships(
-                    parliamentary_group_id=input_dto.parliamentary_group_id,
-                    matching_results=matching_results_from_service,
-                    start_date=input_dto.start_date,
-                    confidence_threshold=input_dto.confidence_threshold,
-                    dry_run=False,
-                )
-                created_count = creation_result.created_count
-                skipped_count = creation_result.skipped_count
-            else:
-                # In dry run mode, just count potential matches
-                created_count = 0
-                skipped_count = 0
-                for match in matching_results_from_service:
-                    if (
-                        match.politician_id
-                        and match.confidence_score >= input_dto.confidence_threshold
-                    ):
-                        created_count += 1
-                    else:
-                        skipped_count += 1
-
-            # Convert service results to DTO format
-            # (MatchingResult → MemberMatchingResult)
-            matching_results = [
-                MemberMatchingResult(
-                    extracted_member=extraction_result.extracted_members[idx],
-                    politician_id=match.politician_id,
-                    politician_name=match.politician_name,
-                    confidence_score=match.confidence_score,
-                    matching_reason=match.matching_reason,
-                )
-                for idx, match in enumerate(matching_results_from_service)
-            ]
-
             return ExtractMembersOutputDto(
                 success=True,
                 extracted_members=extraction_result.extracted_members,
-                matching_results=matching_results,
-                created_count=created_count,
-                skipped_count=skipped_count,
             )
 
         except Exception as e:

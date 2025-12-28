@@ -5,10 +5,12 @@
 """
 
 import os
+
 from typing import Any
 
 import requests
 import streamlit as st
+
 from streamlit_oauth import OAuth2Component
 
 

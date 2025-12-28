@@ -1,6 +1,7 @@
 """Conversation repository implementation."""
 
 import logging
+
 from datetime import datetime
 from typing import Any, TypedDict
 
@@ -11,9 +12,12 @@ from sqlalchemy.orm import Session, registry
 from src.domain.entities.conversation import Conversation
 from src.domain.repositories.conversation_repository import ConversationRepository
 from src.domain.repositories.session_adapter import ISessionAdapter
-from src.domain.services.speaker_matching_service import SpeakerMatchingService
+from src.domain.services.baml_speaker_matching_service import (
+    BAMLSpeakerMatchingService as SpeakerMatchingService,
+)
 from src.infrastructure.persistence.base_repository_impl import BaseRepositoryImpl
 from src.minutes_divide_processor.models import SpeakerAndSpeechContent
+
 
 logger = logging.getLogger(__name__)
 

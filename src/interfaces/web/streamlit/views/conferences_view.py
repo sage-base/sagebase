@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+
 from typing import Any, cast
 
 import pandas as pd
@@ -27,6 +28,7 @@ from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
 from src.interfaces.web.streamlit.presenters.conference_presenter import (
     ConferencePresenter,
 )
+
 
 logger = logging.getLogger(__name__)
 
