@@ -11,15 +11,27 @@ Issue #839: async/await バグ再発防止のための統合テスト
 重要: このテストでは実際のデータベースを使用しますが、LLMは使用しません。
 """
 
+import os
+
 from datetime import UTC, date, datetime
 
 import pytest
 
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 
 from src.domain.entities.meeting import Meeting
+from src.infrastructure.config.database import DATABASE_URL
 from src.infrastructure.persistence.meeting_repository_impl import MeetingRepositoryImpl
 from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
+
+
+# Skip all tests in this module if NOT running in CI environment
+# CI環境でのみ実行（ローカルではデータベースポート設定が異なるため）
+pytestmark = pytest.mark.skipif(
+    os.getenv("CI") != "true",
+    reason="Integration tests require database connection available in CI only",
+)
 
 
 # ============================================================================
@@ -27,27 +39,33 @@ from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
 # ============================================================================
 
 
-@pytest.fixture
-async def test_db_session():
+@pytest.fixture(scope="function")
+def test_db_session():
     """テスト用のデータベースセッションを作成
 
     各テストの前後でデータベースをクリーンアップします。
     """
-    from src.infrastructure.config.async_database import async_engine
+    engine = create_engine(DATABASE_URL)
+    connection = engine.connect()
+    transaction = connection.begin()
 
-    # テーブルを作成
-    from src.infrastructure.persistence.base_repository_impl import Base
+    session_factory = sessionmaker(bind=connection)
+    session = session_factory()
 
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # 既存のテストデータをクリーンアップ
+    session.execute(text("TRUNCATE TABLE meetings CASCADE"))
+    session.commit()
 
-    yield
+    yield session
 
-    # テーブルをドロップ（クリーンアップ）
-    async with async_engine.begin() as conn:
-        # テストデータを削除
-        await conn.execute(text("TRUNCATE TABLE meetings CASCADE"))
-        await conn.commit()
+    # テストデータを削除（クリーンアップ）
+    session.execute(text("TRUNCATE TABLE meetings CASCADE"))
+    session.commit()
+
+    session.close()
+    transaction.rollback()
+    connection.close()
+    engine.dispose()
 
 
 @pytest.fixture
@@ -160,7 +178,7 @@ async def test_repository_adapter_async_delete(test_db_session, sample_meeting):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_repository_adapter_async_transaction():
+async def test_repository_adapter_async_transaction(test_db_session):
     """非同期コンテキストでトランザクションを使用
 
     Issue #839: トランザクション内での複数操作を検証。
@@ -213,7 +231,7 @@ async def test_repository_adapter_async_transaction():
 
 
 @pytest.mark.integration
-def test_repository_adapter_sync_create_and_retrieve(sample_meeting):
+def test_repository_adapter_sync_create_and_retrieve(test_db_session, sample_meeting):
     """同期コンテキストで RepositoryAdapter を使用: 作成と取得
 
     Issue #839: RepositoryAdapter は同期コンテキストでも動作する。
@@ -241,7 +259,7 @@ def test_repository_adapter_sync_create_and_retrieve(sample_meeting):
 
 
 @pytest.mark.integration
-def test_repository_adapter_sync_with_transaction(sample_meeting):
+def test_repository_adapter_sync_with_transaction(test_db_session, sample_meeting):
     """同期コンテキストでトランザクションを使用
 
     Issue #839: with_transaction メソッドの動作確認。

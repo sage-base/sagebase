@@ -1,5 +1,7 @@
 """Tests for ScraperService.fetch_from_meeting_id method"""
 
+import os
+
 from datetime import date, datetime
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -225,6 +227,10 @@ async def test_repository_adapter_requires_await(mock_meeting):
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(
+    os.getenv("CI") != "true",
+    reason="Integration test requires database connection available in CI only",
+)
 async def test_repository_adapter_integration_with_real_adapter():
     """
     統合テスト: 実際の RepositoryAdapter の挙動を検証

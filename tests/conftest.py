@@ -331,14 +331,18 @@ def mock_gemini_llm_service():
     return mock_service
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def mock_baml_client():
-    """BAML クライアントを自動的にモック（統合テスト専用）
+    """BAML クライアントをモック（統合テスト用）
 
     実際のLLM APIコールを完全に防ぐ。
-    すべての統合テストで自動的に適用される。
+    必要なテストで明示的に使用する。
 
     Issue #839: 統合テストでLLMを絶対に叩かない（マスト要件）
+
+    注: autouse=True を削除したため、このフィクスチャーが必要なテストは
+    明示的に引数として受け取る必要があります。
+    BAML生成コードの構造テスト（シグネチャやasync確認）には影響しません。
     """
     from unittest.mock import AsyncMock, patch
 
@@ -375,17 +379,27 @@ def mock_baml_client():
         yield mock_b
 
 
-@pytest.fixture
-def assert_no_real_llm_call(monkeypatch):
+@pytest.fixture(scope="function", autouse=True)
+def assert_no_real_llm_call(monkeypatch, request):
     """実際のLLM APIコールが発生していないことを検証するフィクスチャー
 
+    Issue #839: 統合テストでLLMを絶対に叩かない（マスト要件）
+
+    統合テストで自動的に有効化され、実際のLLM APIコールを検出・ブロックします。
+    単体テストでは無効化されます。
+
     使用例:
-        def test_something(assert_no_real_llm_call):
-            # テスト実行
+        @pytest.mark.integration
+        async def test_something():
+            # 実際のLLM APIコールがあれば自動的にエラー
             result = await some_function()
-            # 自動的にLLM APIコールがないことを検証
     """
     import httpx
+
+    # 単体テストではスキップ（integrationマーカーがある場合のみ有効化）
+    if "integration" not in request.keywords:
+        yield
+        return
 
     original_post = httpx.AsyncClient.post
     call_count = {"count": 0}
