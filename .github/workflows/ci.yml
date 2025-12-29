@@ -180,17 +180,8 @@ jobs:
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
         run: |
-          uv run python -c "
-          import asyncio
-          from src.infrastructure.config.async_database import async_db
-          from src.infrastructure.persistence.sqlalchemy_models import Base
-
-          async def setup_db():
-              async with async_db.engine.begin() as conn:
-                  await conn.run_sync(Base.metadata.create_all)
-
-          asyncio.run(setup_db())
-          "
+          # Run database migrations
+          PGPASSWORD=test psql -h localhost -U test -d test_db -f database/02_run_migrations.sql
 
       - name: Run persistence integration tests
         env:
