@@ -183,7 +183,7 @@ jobs:
           uv run python -c "
           import asyncio
           from src.infrastructure.config.async_database import async_db
-          from src.infrastructure.persistence.base_repository_impl import Base
+          from src.infrastructure.persistence.sqlalchemy_models import Base
 
           async def setup_db():
               async with async_db.engine.begin() as conn:
