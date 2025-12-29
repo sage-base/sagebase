@@ -123,6 +123,41 @@ Sagebaseプロジェクトでは、以下のスキルが自動的にアクティ
 - **[MONITORING.md](docs/MONITORING.md)**: Monitoring setup
 - **[BI_DASHBOARD.md](docs/BI_DASHBOARD.md)**: BI Dashboard (Plotly Dash) setup and usage
 
+### Architecture Decision Records (ADR)
+
+**📁 Location**: `docs/ADR/`
+
+このディレクトリには、アーキテクチャに関する重要な意思決定の記録（ADR）を保管します。
+
+**ADR作成時のルール**:
+- ファイル名: `NNNN-kebab-case-title.md` (例: `0001-clean-architecture-adoption.md`)
+- 必須セクション: Status, Context, Decision, Consequences, References
+- 決定日を明記し、一度Acceptedになった決定は変更しない（新しいADRで上書き）
+
+**既存のADR**:
+- **[0001-clean-architecture-adoption.md](docs/ADR/0001-clean-architecture-adoption.md)**: Clean Architecture採用の経緯
+- **[0002-baml-for-llm-outputs.md](docs/ADR/0002-baml-for-llm-outputs.md)**: BAML採用の経緯とトークン効率改善
+- **[0003-repository-pattern.md](docs/ADR/0003-repository-pattern.md)**: Repository Pattern + ISessionAdapter採用
+
+### Layer Guides
+
+**📁 Location**: `docs/architecture/`
+
+このディレクトリには、Clean Architectureの各層の詳細な実装ガイドを保管します。
+
+**各層ガイドの構成**:
+- 層の責務と境界
+- 核となる概念と実装パターン
+- 実際のコードベースからの実装例
+- よくある落とし穴と解決策
+- 実装チェックリスト
+
+**既存の層ガイド**:
+- **[DOMAIN_LAYER.md](docs/architecture/DOMAIN_LAYER.md)**: エンティティ、リポジトリIF、ドメインサービス
+- **[APPLICATION_LAYER.md](docs/architecture/APPLICATION_LAYER.md)**: ユースケース、DTO、トランザクション管理
+- **[INFRASTRUCTURE_LAYER.md](docs/architecture/INFRASTRUCTURE_LAYER.md)**: リポジトリ実装、外部サービス、DB接続
+- **[INTERFACE_LAYER.md](docs/architecture/INTERFACE_LAYER.md)**: CLI、Streamlit UI、プレゼンター
+
 ## Important Notes
 
 ### Critical Requirements
