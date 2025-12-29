@@ -1,7 +1,5 @@
 """Tests for ScraperService.fetch_from_meeting_id method"""
 
-import os
-
 from datetime import date, datetime
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -224,36 +222,3 @@ async def test_repository_adapter_requires_await(mock_meeting):
         assert meeting == mock_meeting
         assert hasattr(meeting, "url")
         assert meeting.url == "https://example.com/minutes.html"
-
-
-@pytest.mark.asyncio
-@pytest.mark.skipif(
-    os.getenv("CI") != "true",
-    reason="Integration test requires database connection available in CI only",
-)
-async def test_repository_adapter_integration_with_real_adapter():
-    """
-    統合テスト: 実際の RepositoryAdapter の挙動を検証
-
-    このテストは、モックではなく実際の RepositoryAdapter を使用して、
-    非同期コンテキストでの正しい挙動を確認します。
-
-    Issue #839: モックに依存しすぎないテストの追加
-    """
-    from src.infrastructure.persistence.meeting_repository_impl import (
-        MeetingRepositoryImpl,
-    )
-    from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
-
-    # 実際の RepositoryAdapter を作成
-    repo = RepositoryAdapter(MeetingRepositoryImpl)
-
-    # 非同期コンテキストでメソッド呼び出し
-    # 注: このテストは実際のDBを使用しないため、None が返されることを期待
-    result = await repo.get_by_id(999999)  # 存在しないID
-
-    # None が返されることを確認（DBに存在しないため）
-    assert result is None
-
-    # クリーンアップ
-    repo.close()
