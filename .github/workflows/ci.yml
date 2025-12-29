@@ -182,11 +182,11 @@ jobs:
         run: |
           uv run python -c "
           import asyncio
-          from src.infrastructure.config.async_database import async_engine
+          from src.infrastructure.config.async_database import async_db
           from src.infrastructure.persistence.base_repository_impl import Base
 
           async def setup_db():
-              async with async_engine.begin() as conn:
+              async with async_db.engine.begin() as conn:
                   await conn.run_sync(Base.metadata.create_all)
 
           asyncio.run(setup_db())
@@ -196,8 +196,9 @@ jobs:
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
           TESTING: "true"
+          CI: "true"
         run: |
-          uv run pytest tests/integration/database/ tests/integration/test_repository_adapter.py -v -m integration
+          uv run pytest tests/integration/persistence/ tests/integration/database/ tests/integration/test_repository_adapter.py -v
 
   # Lane 6: Integration - Scraping (~5-7分)
   integration-scraping:
@@ -228,8 +229,9 @@ jobs:
         env:
           TESTING: "true"
           GOOGLE_API_KEY: "test-api-key-not-used"
+          CI: "true"
         run: |
-          uv run pytest tests/integration/scraping/ -v -m integration
+          uv run pytest tests/integration/scraping/ -v
 
   # Lane 7: Integration - LLM (~3-5分)
   integration-llm:
@@ -272,8 +274,9 @@ jobs:
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
           TESTING: "true"
           GOOGLE_API_KEY: "test-api-key-not-used"
+          CI: "true"
         run: |
-          uv run pytest tests/integration/llm/ tests/integration/test_minutes_processing_with_history.py -v -m integration
+          uv run pytest tests/integration/llm/ tests/integration/test_minutes_processing_with_history.py -v
 
   # Lane 8: Integration - Other (~2-4分)
   integration-other:
@@ -300,5 +303,6 @@ jobs:
         env:
           TESTING: "true"
           GOOGLE_API_KEY: "test-api-key-not-used"
+          CI: "true"
         run: |
-          uv run pytest tests/integration/cli/ tests/integration/parliamentary*/ -v -m integration
+          uv run pytest tests/integration/cli/ tests/integration/parliamentary*/ tests/integration/test_*.py --ignore=tests/integration/scraping --ignore=tests/integration/persistence --ignore=tests/integration/database --ignore=tests/integration/llm -v
