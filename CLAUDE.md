@@ -98,6 +98,18 @@ src/
 
 **重要**: 以下のskillは特定のタスクで自動的にアクティベートされるべきです。タスクの内容に応じて適切なskillを使用してください。
 
+### Critical Requirements
+
+#### critical-requirements
+**使用タイミング**:
+- git commitを実行する前（Pre-commit hooksの遵守確認）
+- 新しいファイルを作成する時（ファイル配置ルールの確認）
+- データ処理（議事録処理、話者マッチングなど）を実行する時（処理順序、API Keyの確認）
+- テストを書く時（モック要件の確認）
+- GCS操作を行う時（認証、URI形式の確認）
+- データベースマイグレーションを作成する時
+- 一時ファイルや中間ファイルを作成する時
+
 ### Architecture & Code Quality
 
 #### clean-architecture-checker
@@ -214,31 +226,19 @@ Clean Architectureの各層の詳細な実装ガイドを保管（責務、実�
 
 ## Important Notes
 
-### Critical Requirements
-- **API Key Required**: `GOOGLE_API_KEY` must be set in `.env` for Gemini API access
-- **Processing Order**: Always run `process-minutes → extract-speakers → update-speakers` in sequence
-- **GCS Authentication**: Run `gcloud auth application-default login` before using GCS features
+**⚠️ 重要**: 開発時に絶対に守るべきルールと制約については、[critical-requirements](.claude/skills/critical-requirements/)スキルを参照してください。
 
-### File Management
-- **Intermediate Files**: Always create temporary files in `tmp/` directory (gitignored)
-- **Knowledge Base**: Record important decisions in `_docs/` (gitignored, for Claude's memory)
+### クイックリファレンス
+- **API Key**: `GOOGLE_API_KEY`を`.env`に設定
+- **処理順序**: `process-minutes → extract-speakers → update-speakers`
+- **Pre-commit Hooks**: `--no-verify`は**絶対に使用しない**
+- **一時ファイル**: `tmp/`ディレクトリに作成
+- **テストのモック**: 外部サービス（LLM、API）は必ずモック
+- **データベースマイグレーション**: `database/02_run_migrations.sql`に追加
+- **Docker-first**: すべてのコマンドはDockerコンテナ経由で実行
+- **GCS URI**: `gs://`形式を使用
 
-### Code Quality
-- **Pre-commit Hooks**: **NEVER use `--no-verify`** - always fix errors before committing
-- **Testing**: External services (LLM, APIs) must be mocked in tests
-- **CI/CD**: Create Issues for any skipped tests with `continue-on-error: true`
-
-### Database
-- **Master Data**: Governing bodies and conferences are fixed master data
-- **Coverage**: All 1,966 Japanese municipalities tracked with organization codes
-- **Migrations**: Always add new migrations to `database/02_run_migrations.sql`
-
-### Development
-- **Docker-first**: All commands run through Docker containers
-- **Unified CLI**: `sagebase` command provides single entry point
-- **GCS URI Format**: Always use `gs://` format, not HTTPS URLs
-
-**📖 For detailed conventions**: See [.claude/skills/project-conventions/](.claude/skills/project-conventions/)
+**📖 詳細情報**: [.claude/skills/critical-requirements/](.claude/skills/critical-requirements/)
 
 ## BAML Integration
 
