@@ -329,7 +329,7 @@ class TestJudgeConfidence:
         mock_baml_result.recommendation = "マッチング推奨"
 
         with patch(
-            "baml_client.async_client.b.JudgeMatchingConfidence",
+            "src.infrastructure.external.langgraph_tools.speaker_matching_tools.b.JudgeMatchingConfidence",
             new_callable=AsyncMock,
             return_value=mock_baml_result,
         ):
@@ -373,7 +373,7 @@ class TestJudgeConfidence:
         mock_baml_result.recommendation = "マッチング推奨"
 
         with patch(
-            "baml_client.async_client.b.JudgeMatchingConfidence",
+            "src.infrastructure.external.langgraph_tools.speaker_matching_tools.b.JudgeMatchingConfidence",
             new_callable=AsyncMock,
             return_value=mock_baml_result,
         ):
@@ -438,7 +438,7 @@ class TestJudgeConfidence:
         mock_baml_result.recommendation = "マッチング推奨"
 
         with patch(
-            "baml_client.async_client.b.JudgeMatchingConfidence",
+            "src.infrastructure.external.langgraph_tools.speaker_matching_tools.b.JudgeMatchingConfidence",
             new_callable=AsyncMock,
             return_value=mock_baml_result,
         ):
@@ -484,7 +484,7 @@ class TestJudgeConfidence:
         mock_baml_result.recommendation = "マッチング非推奨。別の候補を検討してください"
 
         with patch(
-            "baml_client.async_client.b.JudgeMatchingConfidence",
+            "src.infrastructure.external.langgraph_tools.speaker_matching_tools.b.JudgeMatchingConfidence",
             new_callable=AsyncMock,
             return_value=mock_baml_result,
         ):
@@ -576,7 +576,7 @@ class TestJudgeConfidence:
         mock_baml_result.recommendation = "マッチング推奨"
 
         with patch(
-            "baml_client.async_client.b.JudgeMatchingConfidence",
+            "src.infrastructure.external.langgraph_tools.speaker_matching_tools.b.JudgeMatchingConfidence",
             new_callable=AsyncMock,
             return_value=mock_baml_result,
         ):
