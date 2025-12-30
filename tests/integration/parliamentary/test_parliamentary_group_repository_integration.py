@@ -65,7 +65,15 @@ def db_session():
     # Clean up any existing test data before yielding
     # Delete in correct order to respect FK constraints (child → parent)
     try:
-        # Delete child tables first
+        # Delete meetings first (references conferences)
+        session.execute(
+            text(
+                "DELETE FROM meetings WHERE conference_id IN "
+                "(SELECT id FROM conferences WHERE name LIKE 'テスト%')"
+            )
+        )
+
+        # Delete child tables
         session.execute(
             text("DELETE FROM parliamentary_group_memberships WHERE id > 0")
         )
@@ -80,7 +88,9 @@ def db_session():
         session.execute(
             text("DELETE FROM political_parties WHERE name LIKE 'テスト党%'")
         )
-        session.execute(text("DELETE FROM conferences WHERE name LIKE 'テスト%'"))
+
+        # Note: conference_id=1 はマスターデータなので削除しない
+        # 新しい conference を作成した場合のみ削除（現在は作成していない）
 
         session.commit()
     except Exception as e:
