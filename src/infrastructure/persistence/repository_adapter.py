@@ -138,8 +138,18 @@ class RepositoryAdapter:
                     f"Transaction committed successfully, session={id(session)}"
                 )
             except Exception as e:
-                logger.error(f"Transaction failed, rolling back: {e}")
+                logger.error(
+                    f"Transaction failed, rolling back: {e}, "
+                    f"session={id(session)}, "
+                    f"in_transaction={session.in_transaction()}, "
+                    f"is_active={session.is_active}"
+                )
                 await session.rollback()
+                logger.info(
+                    f"Rollback completed: session={id(session)}, "
+                    f"in_transaction={session.in_transaction()}, "
+                    f"is_active={session.is_active}"
+                )
                 raise
             finally:
                 self._shared_session = None
