@@ -1,21 +1,28 @@
-name: Post Cloudflare Pages Preview URL
+name: Cloudflare Pages
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, closed]
     paths:
       - "website/**"
-      - ".github/workflows/cloudflare-preview-comment.yml"
-    types: [opened, synchronize, reopened]
+      - ".github/workflows/cloudflare.yml"
 
 permissions:
   pull-requests: write
   issues: write
   contents: read
 
+# 同一PRでの重複実行を防ぐ
+concurrency:
+  group: cloudflare-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
+  # PRがオープン/更新された時: プレビューURLをコメント
   post-preview-url:
+    name: Post Preview URL
     runs-on: ubuntu-latest
-    if: github.event.pull_request
+    if: github.event.action != 'closed'
 
     steps:
       - name: Wait for Cloudflare Pages deployment
@@ -133,3 +140,18 @@ jobs:
               });
               console.log('新しいコメントを作成しました');
             }
+
+  # PRがクローズされた時: プレビュー環境を削除
+  cleanup-preview:
+    name: Cleanup Preview Deployment
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed'
+
+    steps:
+      - name: Delete Cloudflare Pages Deployment
+        uses: go-fjords/cloudflare-delete-deployments-action@main
+        with:
+          token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          account: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          project: "sagebase"
+          branch: ${{ github.head_ref }}
