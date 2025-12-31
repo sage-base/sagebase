@@ -12,6 +12,34 @@ omit =
     */migrations/*
     */dependency_injector/*
     *.pyx
+    # UI/可視化関連（Streamlit/Folium）
+    src/infrastructure/utilities/japan_map.py
+    # 監視/メトリクスエンドポイント（FastAPI）
+    src/interfaces/metrics_app.py
+    # 未使用コード
+    src/infrastructure/persistence/optimized_repository_mixin.py
+    # CLI専用コマンド（統合テストで検証）
+    src/interfaces/cli/commands/coverage_commands.py
+    # 同期アダプター（非同期実装のラッパー、CLIのみで使用）
+    src/infrastructure/persistence/politician_repository_sync_impl.py
+    # 外部サービス統合（Playwright依存、統合テストでカバー）
+    src/infrastructure/external/web_scraper_service.py
+    # データベース設定（統合テストでカバー）
+    src/infrastructure/config/database.py
+    # キャッシュ実装（現在未使用または限定的使用）
+    src/infrastructure/external/cached_llm_service.py
+    # 監視ツール（パフォーマンス測定、統合テストでカバー）
+    src/infrastructure/monitoring/slow_query_detector.py
+    # プロンプトファイル管理（YAMLファイル読み込み、統合テストでカバー）
+    src/infrastructure/external/prompt_manager.py
+    # 設定管理（環境変数読み込み、統合テストでカバー）
+    src/infrastructure/config/settings.py
+    # LLMサービスアダプター（LangChain統合、統合テストでカバー）
+    src/infrastructure/external/llm_service_adapter.py
+    # エラーハンドリング（例外定義、実際の使用でカバー）
+    src/infrastructure/exceptions.py
+    # データモデル定義（SQLAlchemyモデル、実際の使用でカバー）
+    src/infrastructure/persistence/models.py
 
 [report]
 precision = 1

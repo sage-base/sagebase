@@ -15,7 +15,11 @@ class TestSeedGenerator:
     @pytest.fixture
     def seed_generator(self):
         """SeedGeneratorのインスタンスを返すフィクスチャ"""
-        return SeedGenerator()
+        with patch("src.seed_generator.get_db_engine") as mock_get_db_engine:
+            mock_engine = MagicMock()
+            mock_get_db_engine.return_value = mock_engine
+            generator = SeedGenerator()
+            return generator
 
     def test_generate_governing_bodies_seed(self, seed_generator):
         """governing_bodiesのSEED生成テスト"""
@@ -294,11 +298,12 @@ class TestSeedGenerator:
         assert "ON CONFLICT (name, type) DO NOTHING;" in result
 
     @patch("src.seed_generator.open", create=True)
-    def test_generate_all_seeds(self, mock_open, seed_generator):
+    @patch("src.seed_generator.get_db_engine")
+    def test_generate_all_seeds(self, mock_get_db_engine, mock_open):
         """全SEEDファイル生成のテスト"""
-        # ファイル書き込みのモック
-        mock_file = MagicMock()
-        mock_open.return_value.__enter__.return_value = mock_file
+        # DB接続のモック
+        mock_engine = MagicMock()
+        mock_get_db_engine.return_value = mock_engine
 
         # データベースクエリのモック
         mock_result = MagicMock()
@@ -307,8 +312,11 @@ class TestSeedGenerator:
 
         mock_conn = MagicMock()
         mock_conn.execute.return_value = mock_result
-        seed_generator.engine = MagicMock()
-        seed_generator.engine.connect.return_value.__enter__.return_value = mock_conn
+        mock_engine.connect.return_value.__enter__.return_value = mock_conn
+
+        # ファイル書き込みのモック
+        mock_file = MagicMock()
+        mock_open.return_value.__enter__.return_value = mock_file
 
         # 実行
         from src.seed_generator import generate_all_seeds
