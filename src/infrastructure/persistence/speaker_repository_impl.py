@@ -35,6 +35,8 @@ class SpeakerModel:
     is_politician: bool
     politician_id: int | None
     matched_by_user_id: UUID | None
+    is_manually_verified: bool
+    latest_extraction_log_id: int | None
 
     def __init__(self, **kwargs: Any):
         for key, value in kwargs.items():
@@ -128,6 +130,8 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             is_politician=model.is_politician,
             politician_id=getattr(model, "politician_id", None),
             matched_by_user_id=getattr(model, "matched_by_user_id", None),
+            is_manually_verified=bool(getattr(model, "is_manually_verified", False)),
+            latest_extraction_log_id=getattr(model, "latest_extraction_log_id", None),
             id=model.id,
         )
 
@@ -141,6 +145,8 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             is_politician=entity.is_politician,
             politician_id=entity.politician_id,
             matched_by_user_id=entity.matched_by_user_id,
+            is_manually_verified=entity.is_manually_verified,
+            latest_extraction_log_id=entity.latest_extraction_log_id,
         )
 
     def _update_model(self, model: Any, entity: Speaker) -> None:
@@ -152,6 +158,8 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         model.is_politician = entity.is_politician
         model.politician_id = entity.politician_id
         model.matched_by_user_id = entity.matched_by_user_id
+        model.is_manually_verified = entity.is_manually_verified
+        model.latest_extraction_log_id = entity.latest_extraction_log_id
 
     async def get_speakers_with_conversation_count(
         self,
@@ -350,6 +358,8 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             is_politician=getattr(row, "is_politician", False),
             politician_id=getattr(row, "politician_id", None),
             matched_by_user_id=getattr(row, "matched_by_user_id", None),
+            is_manually_verified=bool(getattr(row, "is_manually_verified", False)),
+            latest_extraction_log_id=getattr(row, "latest_extraction_log_id", None),
         )
 
     async def get_speakers_with_politician_info(self) -> list[dict[str, Any]]:

@@ -23,6 +23,8 @@ class PoliticianAffiliationModel:
     start_date: date
     end_date: date | None
     role: str | None
+    is_manually_verified: bool
+    latest_extraction_log_id: int | None
 
     def __init__(self, **kwargs: Any):
         for key, value in kwargs.items():
@@ -176,6 +178,8 @@ class PoliticianAffiliationRepositoryImpl(
             start_date=row.start_date,
             end_date=row.end_date,
             role=getattr(row, "role", None),
+            is_manually_verified=bool(getattr(row, "is_manually_verified", False)),
+            latest_extraction_log_id=getattr(row, "latest_extraction_log_id", None),
         )
 
     def _to_entity(self, model: PoliticianAffiliationModel) -> PoliticianAffiliation:
@@ -187,6 +191,8 @@ class PoliticianAffiliationRepositoryImpl(
             start_date=model.start_date,
             end_date=model.end_date,
             role=model.role,
+            is_manually_verified=bool(getattr(model, "is_manually_verified", False)),
+            latest_extraction_log_id=getattr(model, "latest_extraction_log_id", None),
         )
 
     def _to_model(self, entity: PoliticianAffiliation) -> PoliticianAffiliationModel:
@@ -197,6 +203,8 @@ class PoliticianAffiliationRepositoryImpl(
             "start_date": entity.start_date,
             "end_date": entity.end_date,
             "role": entity.role,
+            "is_manually_verified": entity.is_manually_verified,
+            "latest_extraction_log_id": entity.latest_extraction_log_id,
         }
 
         if entity.id is not None:
@@ -215,3 +223,5 @@ class PoliticianAffiliationRepositoryImpl(
         model.start_date = entity.start_date
         model.end_date = entity.end_date
         model.role = entity.role
+        model.is_manually_verified = entity.is_manually_verified
+        model.latest_extraction_log_id = entity.latest_extraction_log_id

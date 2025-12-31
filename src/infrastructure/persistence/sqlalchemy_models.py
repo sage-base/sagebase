@@ -8,7 +8,15 @@ repository pattern to use ORM features instead of raw SQL.
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Uuid
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Uuid,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -36,6 +44,13 @@ class ParliamentaryGroupMembershipModel(Base):
     role: Mapped[str | None] = mapped_column(String(100))
     created_by_user_id: Mapped[UUID | None] = mapped_column(
         Uuid, ForeignKey("users.user_id", use_alter=True, name="fk_pgm_user")
+    )
+    is_manually_verified: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    latest_extraction_log_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("extraction_logs.id", use_alter=True, name="fk_pgm_extraction_log"),
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False

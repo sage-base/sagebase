@@ -36,6 +36,8 @@ class ConversationModelDict(TypedDict, total=False):
     sequence_number: int
     chapter_number: int | None
     sub_chapter_number: int | None
+    is_manually_verified: bool
+    latest_extraction_log_id: int | None
     created_at: datetime
     updated_at: datetime
 
@@ -62,6 +64,17 @@ conversations_table = Table(
     Column("sequence_number", Integer, nullable=False),
     Column("chapter_number", Integer, nullable=True),
     Column("sub_chapter_number", Integer, nullable=True),
+    Column("is_manually_verified", Integer, nullable=False, server_default=text("0")),
+    Column(
+        "latest_extraction_log_id",
+        Integer,
+        ForeignKey(
+            "extraction_logs.id",
+            use_alter=True,
+            name="fk_conversations_extraction_log_id",
+        ),
+        nullable=True,
+    ),
     Column(
         "created_at",
         DateTime,
@@ -88,6 +101,8 @@ class ConversationModel:
     sequence_number: int
     chapter_number: int | None
     sub_chapter_number: int | None
+    is_manually_verified: bool
+    latest_extraction_log_id: int | None
     created_at: datetime
     updated_at: datetime
 
@@ -696,6 +711,8 @@ class ConversationRepositoryImpl(
             speaker_name=row.speaker_name,
             chapter_number=row.chapter_number,
             sub_chapter_number=row.sub_chapter_number,
+            is_manually_verified=bool(getattr(row, "is_manually_verified", False)),
+            latest_extraction_log_id=getattr(row, "latest_extraction_log_id", None),
         )
 
     def _to_entity(self, model: Any) -> Conversation:
@@ -709,6 +726,8 @@ class ConversationRepositoryImpl(
             speaker_name=getattr(model, "speaker_name", None),
             chapter_number=getattr(model, "chapter_number", None),
             sub_chapter_number=getattr(model, "sub_chapter_number", None),
+            is_manually_verified=bool(getattr(model, "is_manually_verified", False)),
+            latest_extraction_log_id=getattr(model, "latest_extraction_log_id", None),
         )
 
     def _to_model(self, entity: Conversation) -> Any:
@@ -721,6 +740,8 @@ class ConversationRepositoryImpl(
             speaker_name=entity.speaker_name,
             chapter_number=entity.chapter_number,
             sub_chapter_number=entity.sub_chapter_number,
+            is_manually_verified=entity.is_manually_verified,
+            latest_extraction_log_id=entity.latest_extraction_log_id,
         )
 
     def _update_model(self, model: Any, entity: Conversation) -> None:
@@ -732,3 +753,5 @@ class ConversationRepositoryImpl(
         model.speaker_name = entity.speaker_name
         model.chapter_number = entity.chapter_number
         model.sub_chapter_number = entity.sub_chapter_number
+        model.is_manually_verified = entity.is_manually_verified
+        model.latest_extraction_log_id = entity.latest_extraction_log_id

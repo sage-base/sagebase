@@ -19,6 +19,7 @@ from src.domain.entities.political_party import PoliticalParty
 from src.domain.entities.politician import Politician
 from src.domain.entities.prompt_version import PromptVersion
 from src.domain.entities.speaker import Speaker
+from src.domain.entities.verifiable_entity import VerifiableEntity
 
 
 __all__ = [
@@ -37,4 +38,5 @@ __all__ = [
     "ProcessingType",
     "PromptVersion",
     "Speaker",
+    "VerifiableEntity",
 ]
