@@ -38,12 +38,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Wait for tests to complete
+      - name: Wait for CI to complete
         if: github.event_name == 'push'
         uses: fountainhead/action-wait-for-check@v1.2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          checkName: Tests and Code Quality (Python 3.13)
+          checkName: Unit Tests
           ref: ${{ github.sha }}
           timeoutSeconds: 1800 # 30分
           intervalSeconds: 30
