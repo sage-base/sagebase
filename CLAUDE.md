@@ -320,3 +320,135 @@ Sagebaseでは、以下の機能にBAML (Boundary ML)を使用しています。
 
 ### Usage in Streamlit
 会議体管理画面の「会議体一覧」タブで、会議体を選択して「選択した会議体から議員情報を抽出」ボタンをクリックすると、BAMLを使用してメンバー情報を抽出できます。抽出結果は「抽出結果確認」タブで確認できます。
+
+## Data Layer Architecture（Bronze Layer / Gold Layer）
+
+### Overview
+Sagebaseでは、LLM抽出結果と確定データを分離する**2層アーキテクチャ**を採用しています。これにより、AIの抽出履歴を保持しながら、人間の修正を保護します。
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Bronze Layer（抽出ログ層）                 │
+│                                                              │
+│  - LLM抽出結果を追記専用（Immutable）で保存                   │
+│  - 精度分析・トレーサビリティのための履歴                      │
+│  - テーブル: extraction_logs                                 │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              │ is_manually_verified = false の場合のみ反映
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Gold Layer（確定データ層）                  │
+│                                                              │
+│  - アプリケーションが参照する唯一の正解データ                   │
+│  - 人間の修正が優先される                                     │
+│  - テーブル: statements, politicians, speakers, etc.         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 設計原則
+
+#### 1. Bronze Layer（抽出ログ層）
+- **目的**: LLM抽出結果の履歴保持、精度分析
+- **特性**: 追記専用（Immutable）、削除・更新なし
+- **用途**:
+  - AIモデル改善の検証データ
+  - 抽出精度の時系列分析
+  - デバッグ・トラブルシューティング
+
+#### 2. Gold Layer（確定データ層）
+- **目的**: ユーザーに提供する正解データ
+- **特性**: 人間の修正が最優先
+- **用途**:
+  - Streamlit UIでの表示
+  - API経由でのデータ提供
+  - レポート・分析の基礎データ
+
+### データフロー
+
+```
+LLM抽出実行
+    │
+    ▼
+┌────────────────────────────┐
+│ ExtractionLog に必ず保存    │  ← Bronze Layer（常に履歴として残る）
+│ （Immutable）               │
+└────────────────────────────┘
+    │
+    ▼
+┌────────────────────────────┐
+│ is_manually_verified?      │
+└────────────────────────────┘
+    │                │
+    │ false          │ true
+    │（未検証）       │（検証済み）
+    ▼                ▼
+┌──────────┐    ┌──────────────────┐
+│ Gold更新  │    │ Gold更新しない    │
+│          │    │（人間の修正を保護）│
+└──────────┘    └──────────────────┘
+```
+
+### 対象エンティティ
+
+| 抽出オブジェクト（Bronze） | → | 確定オブジェクト（Gold） |
+|---------------------------|---|-------------------------|
+| StatementExtraction | → | Statement（発言） |
+| PoliticianExtraction | → | Politician（政治家） |
+| SpeakerExtraction | → | Speaker（話者） |
+| ConferenceMemberExtraction | → | ConferenceMember（会議体メンバー） |
+| ParliamentaryGroupMemberExtraction | → | ParliamentaryGroupMember（議員団メンバー） |
+
+### 主要コンポーネント
+
+#### ExtractionLog エンティティ
+```python
+class EntityType(Enum):
+    STATEMENT = "statement"
+    POLITICIAN = "politician"
+    SPEAKER = "speaker"
+    CONFERENCE_MEMBER = "conference_member"
+    PARLIAMENTARY_GROUP_MEMBER = "parliamentary_group_member"
+
+@dataclass
+class ExtractionLog:
+    id: UUID
+    entity_type: EntityType          # どのエンティティの抽出か
+    entity_id: UUID                  # 対象GoldエンティティのID
+    pipeline_version: str            # "gemini-2.0-flash-v1" など
+    extracted_data: dict             # AIが出した生データ（JSON）
+    confidence_score: Optional[float]
+    extraction_metadata: dict        # モデル名、トークン数等
+    created_at: datetime             # Immutable
+```
+
+#### Gold エンティティの共通フィールド
+```python
+# 全Goldエンティティ（Statement, Politician等）に追加
+is_manually_verified: bool = False      # 人間が検証済みか
+latest_extraction_log_id: Optional[UUID] # 最新の抽出ログへの参照
+```
+
+### 動作ルール
+
+| 状態 | AI再抽出時の動作 | 理由 |
+|------|-----------------|------|
+| `is_manually_verified = false` | Gold Layerを更新 | 最新AIの精度向上を反映 |
+| `is_manually_verified = true` | Gold Layerは更新しない | 人間の判断を最優先 |
+| （両方） | Bronze Layerには常に保存 | 履歴・分析用 |
+
+### 実装上の注意
+
+#### 新しい抽出処理を追加する場合
+1. `UpdateEntityFromExtractionUseCase` を使用して更新処理を実装
+2. 抽出結果は必ず `ExtractionLog` に保存
+3. `is_manually_verified` フラグをチェックしてから Gold を更新
+
+#### 人間が修正する場合
+1. Gold エンティティを直接更新
+2. `is_manually_verified = true` をセット
+3. 以降のAI再抽出では上書きされない
+
+### 関連Issue
+- Product Goal: [#813](https://github.com/trust-chain-organization/sagebase/issues/813)
+- 実装PBI: #861〜#872
