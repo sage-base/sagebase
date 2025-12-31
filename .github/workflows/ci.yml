@@ -1,12 +1,15 @@
-name: CI - Parallel Checks
+name: CI Pipeline
 
 on:
+  push:
+    branches: [main, develop]
   pull_request:
     types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
+  security-events: write
 
 jobs:
   # Lane 1: Lint & Format (~1-2分)
@@ -80,12 +83,14 @@ jobs:
               sys.exit(1)
           "
 
-  # Lane 3: Security (~1-2分)
+  # Lane 3: Security (~2-3分)
   security:
     name: Security Scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -105,7 +110,42 @@ jobs:
         run: |
           # Skip B608: SQL injection (parameterized queries used)
           # Skip B104: Hardcoded bind to 0.0.0.0 (required for Docker)
+          uv run bandit -r src/ -ll -i -x "*/tests/*" -s B608,B104 -f json -o bandit-report.json || true
           uv run bandit -r src/ -ll -i -x "*/tests/*" -s B608,B104
+
+      - name: Upload bandit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+      - name: Check for hardcoded secrets (PR)
+        if: github.event_name == 'pull_request'
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+
+      - name: Check for hardcoded secrets (Push)
+        if: github.event_name == 'push'
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          extra_args: --max-depth=1
+
+      - name: Run pip-audit for dependency vulnerabilities
+        run: |
+          uv pip compile pyproject.toml -o requirements.txt
+          uv run pip-audit -r requirements.txt --format json --output pip-audit-report.json || true
+
+      - name: Upload pip-audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: pip-audit-report.json
 
   # Lane 4: Unit Tests (~3-5分)
   unit-tests:
@@ -128,17 +168,55 @@ jobs:
         run: |
           uv sync --frozen --extra dev
 
-      - name: Run unit tests
+      - name: Run unit tests with coverage
         run: |
-          uv run pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term-missing
+          uv run pytest tests/unit/ -v \
+            --cov=src \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-report=term-missing \
+            --cov-report=json
+
+      - name: Check coverage threshold
+        run: |
+          # Extract coverage percentage from the XML report
+          coverage_percent=$(python -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('coverage.xml')
+          root = tree.getroot()
+          coverage = float(root.attrib['line-rate']) * 100
+          print(f'{coverage:.1f}')
+          ")
+          echo "Current coverage: ${coverage_percent}%"
+
+          # Set threshold for minimum acceptable coverage
+          threshold=50
+          if (( $(echo "$coverage_percent < $threshold" | bc -l) )); then
+            echo "Coverage ${coverage_percent}% is below threshold ${threshold}%"
+            echo "::warning::Coverage is below ${threshold}%"
+          else
+            echo "✅ Coverage ${coverage_percent}% meets minimum threshold of ${threshold}%"
+          fi
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
+        uses: actions/upload-artifact@v4
         if: always()
+        with:
+          name: coverage-report
+          path: |
+            htmlcov/
+            coverage.json
+            coverage.xml
+
+      - name: Upload coverage to Codecov
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+        uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
           flags: unit-tests
           name: unit-tests-coverage
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   # Lane 5: Integration - Persistence (~3-5分)
   integration-persistence:
@@ -308,3 +386,83 @@ jobs:
           CI: "true"
         run: |
           uv run pytest tests/integration/cli/ tests/integration/test_*.py --ignore=tests/integration/scraping --ignore=tests/integration/persistence --ignore=tests/integration/database --ignore=tests/integration/llm --ignore=tests/integration/parliamentary -v
+
+  # Lane 9: BAML Tests (~5-7分) - BAML関連ファイルが変更された場合のみ実行
+  baml-tests:
+    name: BAML Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for BAML-related changes
+        id: baml-changes
+        run: |
+          # 変更されたファイルを取得
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} || echo "")
+          else
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD || echo "")
+          fi
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # BAML関連パスが含まれているかチェック
+          if echo "$CHANGED_FILES" | grep -qE "^(baml_src/|src/infrastructure/external/party_member_extractor/|src/infrastructure/external/parliamentary_group_extractor/|src/infrastructure/external/minutes_divide/|src/interfaces/factories/|tests/party_member_extractor/|tests/parliamentary_group_extractor/|tests/unit/interfaces/factories/)"; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "BAML-related changes detected"
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No BAML-related changes"
+          fi
+
+      - name: Set up Python
+        if: steps.baml-changes.outputs.has_changes == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.13.3
+
+      - name: Install uv
+        if: steps.baml-changes.outputs.has_changes == 'true'
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        if: steps.baml-changes.outputs.has_changes == 'true'
+        run: |
+          uv sync --frozen --extra dev
+
+      - name: Set up Node.js for BAML
+        if: steps.baml-changes.outputs.has_changes == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Generate BAML client
+        if: steps.baml-changes.outputs.has_changes == 'true'
+        run: |
+          npx @boundaryml/baml generate
+
+      - name: Install baml_client as editable package
+        if: steps.baml-changes.outputs.has_changes == 'true'
+        run: |
+          uv pip install -e .
+
+      - name: Run BAML Tests
+        if: steps.baml-changes.outputs.has_changes == 'true'
+        env:
+          CI: true
+          PYTHONPATH: ${{ github.workspace }}
+          USE_BAML_SPEAKER_MATCHING: true
+          USE_BAML_POLITICIAN_MATCHING: true
+        run: |
+          uv run pytest -xvs -m baml --tb=short
+
+      - name: Skip message
+        if: steps.baml-changes.outputs.has_changes != 'true'
+        run: |
+          echo "Skipping BAML tests - no BAML-related changes detected"
