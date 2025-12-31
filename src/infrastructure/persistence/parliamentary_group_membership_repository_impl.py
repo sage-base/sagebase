@@ -242,6 +242,8 @@ class ParliamentaryGroupMembershipRepositoryImpl(
             end_date=model.end_date,
             role=model.role,
             created_by_user_id=model.created_by_user_id,
+            is_manually_verified=bool(getattr(model, "is_manually_verified", False)),
+            latest_extraction_log_id=getattr(model, "latest_extraction_log_id", None),
         )
 
     def _to_model(
@@ -258,6 +260,8 @@ class ParliamentaryGroupMembershipRepositoryImpl(
             end_date=entity.end_date,
             role=entity.role,
             created_by_user_id=entity.created_by_user_id,
+            is_manually_verified=entity.is_manually_verified,
+            latest_extraction_log_id=entity.latest_extraction_log_id,
             created_at=datetime.now() if not entity.id else None,
             updated_at=datetime.now(),
         )
@@ -274,6 +278,8 @@ class ParliamentaryGroupMembershipRepositoryImpl(
         model.end_date = entity.end_date
         model.role = entity.role
         model.created_by_user_id = entity.created_by_user_id
+        model.is_manually_verified = entity.is_manually_verified
+        model.latest_extraction_log_id = entity.latest_extraction_log_id
 
     async def find_by_created_user(
         self, user_id: "UUID | None" = None
