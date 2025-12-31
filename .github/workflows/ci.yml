@@ -190,7 +190,7 @@ jobs:
           echo "Current coverage: ${coverage_percent}%"
 
           # Set threshold for minimum acceptable coverage
-          threshold=50
+          threshold=79
           if (( $(echo "$coverage_percent < $threshold" | bc -l) )); then
             echo "Coverage ${coverage_percent}% is below threshold ${threshold}%"
             echo "::warning::Coverage is below ${threshold}%"
