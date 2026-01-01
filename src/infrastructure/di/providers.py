@@ -506,7 +506,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         politician_repository=repositories.politician_repository,
         conversation_repository=repositories.conversation_repository,
         speaker_domain_service=services.speaker_domain_service,
-        llm_service=services.llm_service,
+        llm_service=services.async_llm_service,  # Use async service directly
         update_speaker_usecase=update_speaker_usecase,
     )
 
