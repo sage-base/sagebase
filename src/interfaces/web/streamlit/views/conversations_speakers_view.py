@@ -82,7 +82,7 @@ def render_matching_tab() -> None:
             try:
                 # Import services directly (same pattern as meeting_presenter.py)
                 # Get container for repositories and use cases
-                container = Container()
+                container = Container.create_for_environment()
 
                 # Initialize use cases
                 auth_usecase = AuthenticateUserUseCase(
@@ -223,7 +223,7 @@ def render_evaluate_candidates_test() -> None:
         with st.spinner("候補を評価中..."):
             try:
                 # Get container for repositories
-                container = Container()
+                container = Container.create_for_environment()
 
                 # Create tools with repositories
                 tools = create_speaker_matching_tools(
@@ -341,7 +341,7 @@ def render_search_info_test() -> None:
         with st.spinner("情報を検索中..."):
             try:
                 # Get container for repositories
-                container = Container()
+                container = Container.create_for_environment()
 
                 # Create tools with repositories
                 tools = create_speaker_matching_tools(
@@ -478,7 +478,7 @@ def render_judge_confidence_test() -> None:
         with st.spinner("確信度を判定中..."):
             try:
                 # Get container for repositories
-                container = Container()
+                container = Container.create_for_environment()
 
                 # Create tools with repositories
                 tools = create_speaker_matching_tools(
@@ -621,7 +621,7 @@ def render_agent_test_tab() -> None:
         with st.spinner("エージェントを実行中..."):
             try:
                 # Get container for repositories
-                container = Container()
+                container = Container.create_for_environment()
 
                 # Create LLM service
                 from langchain_google_genai import ChatGoogleGenerativeAI
