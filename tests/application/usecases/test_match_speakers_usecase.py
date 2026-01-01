@@ -45,6 +45,13 @@ class TestMatchSpeakersUseCase:
         return service
 
     @pytest.fixture
+    def mock_update_speaker_usecase(self):
+        """Create mock update speaker usecase."""
+        usecase = AsyncMock()
+        usecase.execute = AsyncMock()
+        return usecase
+
+    @pytest.fixture
     def use_case(
         self,
         mock_speaker_repo,
@@ -52,6 +59,7 @@ class TestMatchSpeakersUseCase:
         mock_conversation_repo,
         mock_speaker_service,
         mock_llm_service,
+        mock_update_speaker_usecase,
     ):
         """Create MatchSpeakersUseCase instance."""
         return MatchSpeakersUseCase(
@@ -60,6 +68,7 @@ class TestMatchSpeakersUseCase:
             conversation_repository=mock_conversation_repo,
             speaker_domain_service=mock_speaker_service,
             llm_service=mock_llm_service,
+            update_speaker_usecase=mock_update_speaker_usecase,
         )
 
     @pytest.mark.asyncio

@@ -35,6 +35,9 @@ from src.application.usecases.review_extracted_politician_usecase import (
     ReviewExtractedPoliticianUseCase,
 )
 from src.application.usecases.scrape_politicians_usecase import ScrapePoliticiansUseCase
+from src.application.usecases.update_speaker_from_extraction_usecase import (
+    UpdateSpeakerFromExtractionUseCase,
+)
 from src.application.usecases.update_statement_from_extraction_usecase import (
     UpdateStatementFromExtractionUseCase,
 )
@@ -489,6 +492,14 @@ class UseCaseContainer(containers.DeclarativeContainer):
         text_extractor=services.text_extractor_service,
     )
 
+    # Update Speaker from Extraction UseCase (Issue #865)
+    update_speaker_usecase = providers.Factory(
+        UpdateSpeakerFromExtractionUseCase,
+        speaker_repo=repositories.speaker_repository,
+        extraction_log_repo=repositories.extraction_log_repository,
+        session_adapter=database.async_session,
+    )
+
     match_speakers_usecase = providers.Factory(
         MatchSpeakersUseCase,
         speaker_repository=repositories.speaker_repository,
@@ -496,6 +507,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         conversation_repository=repositories.conversation_repository,
         speaker_domain_service=services.speaker_domain_service,
         llm_service=services.llm_service,
+        update_speaker_usecase=update_speaker_usecase,
     )
 
     # Define analyze_party_page_links_usecase, link_analyzer_service, and party_scraping_agent
