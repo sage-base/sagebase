@@ -5,8 +5,9 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Column, DateTime, Float, Integer, String, and_, func
+from sqlalchemy import Column, DateTime, Enum, Float, Integer, String, and_, func
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import declarative_base
@@ -16,6 +17,7 @@ from src.domain.repositories.extraction_log_repository import (
     ExtractionLogRepository,
 )
 from src.domain.repositories.session_adapter import ISessionAdapter
+from src.infrastructure.exceptions import DatabaseError
 from src.infrastructure.persistence.base_repository_impl import BaseRepositoryImpl
 
 
@@ -30,7 +32,11 @@ class ExtractionLogModel(Base):
     __tablename__ = "extraction_logs"
 
     id = Column(Integer, primary_key=True)
-    entity_type = Column(String(50), nullable=False)
+    # PostgreSQL ENUM型を使用（マイグレーションで作成済み）
+    entity_type = Column(
+        Enum(EntityType, name="entity_type", create_type=False),
+        nullable=False,
+    )
     entity_id = Column(Integer, nullable=False)
     pipeline_version = Column(String(100), nullable=False)
     extracted_data = Column(JSONB, nullable=False)
@@ -68,22 +74,34 @@ class ExtractionLogRepositoryImpl(
 
         Returns:
             List of extraction logs ordered by created_at descending
+
+        Raises:
+            DatabaseError: If database operation fails
         """
-        query = (
-            select(self.model_class)
-            .where(
-                and_(
-                    self.model_class.entity_type == entity_type.value,
-                    self.model_class.entity_id == entity_id,
+        try:
+            query = (
+                select(self.model_class)
+                .where(
+                    and_(
+                        self.model_class.entity_type == entity_type,
+                        self.model_class.entity_id == entity_id,
+                    )
                 )
+                .order_by(self.model_class.created_at.desc())
             )
-            .order_by(self.model_class.created_at.desc())
-        )
 
-        result = await self.session.execute(query)
-        models = result.scalars().all()
+            result = await self.session.execute(query)
+            models = result.scalars().all()
 
-        return [self._to_entity(model) for model in models]
+            return [self._to_entity(model) for model in models]
+        except SQLAlchemyError as e:
+            logger.error(
+                f"Failed to get extraction logs for "
+                f"{entity_type.value}:{entity_id}: {e}"
+            )
+            raise DatabaseError(
+                f"Failed to retrieve extraction logs for {entity_type.value}"
+            ) from e
 
     async def get_by_pipeline_version(
         self,
@@ -100,22 +118,33 @@ class ExtractionLogRepositoryImpl(
 
         Returns:
             List of extraction logs ordered by created_at descending
+
+        Raises:
+            DatabaseError: If database operation fails
         """
-        query = select(self.model_class).where(
-            self.model_class.pipeline_version == version
-        )
+        try:
+            query = select(self.model_class).where(
+                self.model_class.pipeline_version == version
+            )
 
-        if offset is not None:
-            query = query.offset(offset)
-        if limit is not None:
-            query = query.limit(limit)
+            if offset is not None:
+                query = query.offset(offset)
+            if limit is not None:
+                query = query.limit(limit)
 
-        query = query.order_by(self.model_class.created_at.desc())
+            query = query.order_by(self.model_class.created_at.desc())
 
-        result = await self.session.execute(query)
-        models = result.scalars().all()
+            result = await self.session.execute(query)
+            models = result.scalars().all()
 
-        return [self._to_entity(model) for model in models]
+            return [self._to_entity(model) for model in models]
+        except SQLAlchemyError as e:
+            logger.error(
+                f"Failed to get extraction logs for pipeline version {version}: {e}"
+            )
+            raise DatabaseError(
+                f"Failed to retrieve extraction logs for pipeline version {version}"
+            ) from e
 
     async def get_by_entity_type(
         self,
@@ -132,22 +161,34 @@ class ExtractionLogRepositoryImpl(
 
         Returns:
             List of extraction logs ordered by created_at descending
+
+        Raises:
+            DatabaseError: If database operation fails
         """
-        query = select(self.model_class).where(
-            self.model_class.entity_type == entity_type.value
-        )
+        try:
+            query = select(self.model_class).where(
+                self.model_class.entity_type == entity_type
+            )
 
-        if offset is not None:
-            query = query.offset(offset)
-        if limit is not None:
-            query = query.limit(limit)
+            if offset is not None:
+                query = query.offset(offset)
+            if limit is not None:
+                query = query.limit(limit)
 
-        query = query.order_by(self.model_class.created_at.desc())
+            query = query.order_by(self.model_class.created_at.desc())
 
-        result = await self.session.execute(query)
-        models = result.scalars().all()
+            result = await self.session.execute(query)
+            models = result.scalars().all()
 
-        return [self._to_entity(model) for model in models]
+            return [self._to_entity(model) for model in models]
+        except SQLAlchemyError as e:
+            logger.error(
+                f"Failed to get extraction logs for "
+                f"entity type {entity_type.value}: {e}"
+            )
+            raise DatabaseError(
+                f"Failed to retrieve logs for entity type {entity_type.value}"
+            ) from e
 
     async def get_latest_by_entity(
         self,
@@ -162,25 +203,37 @@ class ExtractionLogRepositoryImpl(
 
         Returns:
             Latest extraction log or None if not found
+
+        Raises:
+            DatabaseError: If database operation fails
         """
-        query = (
-            select(self.model_class)
-            .where(
-                and_(
-                    self.model_class.entity_type == entity_type.value,
-                    self.model_class.entity_id == entity_id,
+        try:
+            query = (
+                select(self.model_class)
+                .where(
+                    and_(
+                        self.model_class.entity_type == entity_type,
+                        self.model_class.entity_id == entity_id,
+                    )
                 )
+                .order_by(self.model_class.created_at.desc())
+                .limit(1)
             )
-            .order_by(self.model_class.created_at.desc())
-            .limit(1)
-        )
 
-        result = await self.session.execute(query)
-        model = result.scalar_one_or_none()
+            result = await self.session.execute(query)
+            model = result.scalar_one_or_none()
 
-        if model:
-            return self._to_entity(model)
-        return None
+            if model:
+                return self._to_entity(model)
+            return None
+        except SQLAlchemyError as e:
+            logger.error(
+                f"Failed to get latest extraction log for "
+                f"{entity_type.value}:{entity_id}: {e}"
+            )
+            raise DatabaseError(
+                f"Failed to retrieve latest extraction log for {entity_type.value}"
+            ) from e
 
     async def search(
         self,
@@ -201,31 +254,40 @@ class ExtractionLogRepositoryImpl(
 
         Returns:
             List of extraction logs ordered by created_at descending
+
+        Raises:
+            DatabaseError: If database operation fails
         """
-        conditions: list[Any] = []
+        try:
+            conditions: list[Any] = []
 
-        if entity_type:
-            conditions.append(self.model_class.entity_type == entity_type.value)
-        if pipeline_version:
-            conditions.append(self.model_class.pipeline_version == pipeline_version)
-        if min_confidence_score is not None:
-            conditions.append(self.model_class.confidence_score >= min_confidence_score)
+            if entity_type:
+                conditions.append(self.model_class.entity_type == entity_type)
+            if pipeline_version:
+                conditions.append(self.model_class.pipeline_version == pipeline_version)
+            if min_confidence_score is not None:
+                conditions.append(
+                    self.model_class.confidence_score >= min_confidence_score
+                )
 
-        query = select(self.model_class)
-        if conditions:
-            query = query.where(and_(*conditions))
+            query = select(self.model_class)
+            if conditions:
+                query = query.where(and_(*conditions))
 
-        if offset is not None:
-            query = query.offset(offset)
-        if limit is not None:
-            query = query.limit(limit)
+            if offset is not None:
+                query = query.offset(offset)
+            if limit is not None:
+                query = query.limit(limit)
 
-        query = query.order_by(self.model_class.created_at.desc())
+            query = query.order_by(self.model_class.created_at.desc())
 
-        result = await self.session.execute(query)
-        models = result.scalars().all()
+            result = await self.session.execute(query)
+            models = result.scalars().all()
 
-        return [self._to_entity(model) for model in models]
+            return [self._to_entity(model) for model in models]
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to search extraction logs: {e}")
+            raise DatabaseError("Failed to search extraction logs") from e
 
     async def count_by_entity_type(
         self,
@@ -238,13 +300,25 @@ class ExtractionLogRepositoryImpl(
 
         Returns:
             Number of extraction logs
-        """
-        query = select(func.count(self.model_class.id)).where(
-            self.model_class.entity_type == entity_type.value
-        )
 
-        result = await self.session.execute(query)
-        return result.scalar() or 0
+        Raises:
+            DatabaseError: If database operation fails
+        """
+        try:
+            query = select(func.count(self.model_class.id)).where(
+                self.model_class.entity_type == entity_type
+            )
+
+            result = await self.session.execute(query)
+            return result.scalar() or 0
+        except SQLAlchemyError as e:
+            logger.error(
+                f"Failed to count extraction logs for entity type "
+                f"{entity_type.value}: {e}"
+            )
+            raise DatabaseError(
+                f"Failed to count extraction logs for entity type {entity_type.value}"
+            ) from e
 
     async def count_by_pipeline_version(
         self,
@@ -257,13 +331,24 @@ class ExtractionLogRepositoryImpl(
 
         Returns:
             Number of extraction logs
-        """
-        query = select(func.count(self.model_class.id)).where(
-            self.model_class.pipeline_version == version
-        )
 
-        result = await self.session.execute(query)
-        return result.scalar() or 0
+        Raises:
+            DatabaseError: If database operation fails
+        """
+        try:
+            query = select(func.count(self.model_class.id)).where(
+                self.model_class.pipeline_version == version
+            )
+
+            result = await self.session.execute(query)
+            return result.scalar() or 0
+        except SQLAlchemyError as e:
+            logger.error(
+                f"Failed to count extraction logs for pipeline version {version}: {e}"
+            )
+            raise DatabaseError(
+                f"Failed to count extraction logs for pipeline version {version}"
+            ) from e
 
     def _to_entity(self, model: Any) -> ExtractionLog:
         """Convert database model to domain entity.
@@ -275,7 +360,7 @@ class ExtractionLogRepositoryImpl(
             Domain entity
         """
         entity = ExtractionLog(
-            entity_type=EntityType(model.entity_type),
+            entity_type=model.entity_type,  # ENUM型なのでそのまま使用
             entity_id=model.entity_id,
             pipeline_version=model.pipeline_version,
             extracted_data=model.extracted_data,
@@ -297,7 +382,7 @@ class ExtractionLogRepositoryImpl(
             Database model
         """
         return ExtractionLogModel(
-            entity_type=entity.entity_type.value,
+            entity_type=entity.entity_type,  # ENUM型なのでそのまま使用
             entity_id=entity.entity_id,
             pipeline_version=entity.pipeline_version,
             extracted_data=entity.extracted_data,
