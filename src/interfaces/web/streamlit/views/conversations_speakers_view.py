@@ -89,7 +89,7 @@ def render_matching_tab() -> None:
                     user_repository=container.repositories.user_repository()
                 )
                 # DIコンテナからMatchSpeakersUseCaseを取得
-                match_usecase = container.usecases.match_speakers_usecase()
+                match_usecase = container.use_cases.match_speakers_usecase()
 
                 # Authenticate user and get user_id
                 email = user_info.get("email", "")
