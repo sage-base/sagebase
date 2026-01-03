@@ -100,6 +100,8 @@ class BAMLPoliticianMatchingService:
         )
         if rule_based_match.matched and rule_based_match.confidence >= 0.9:
             logger.info(f"Rule-based match found for '{speaker_name}'")
+            # ルールベースマッチングでも抽出ログを記録
+            await self._log_matching_result(rule_based_match)
             return rule_based_match
 
         # BAMLによる高度なマッチング
@@ -142,25 +144,7 @@ class BAMLPoliticianMatchingService:
             )
 
             # マッチングが成功した場合、抽出ログを記録
-            if match_result.matched and match_result.politician_id:
-                extraction_result = PoliticianExtractionResult(
-                    match_confidence=match_result.confidence,
-                    match_reason=match_result.reason,
-                )
-
-                try:
-                    await self._update_politician_usecase.execute(
-                        entity_id=match_result.politician_id,
-                        extraction_result=extraction_result,
-                        pipeline_version="politician-matching-v1",
-                    )
-                    logger.debug(
-                        "Politician matching logged: "
-                        f"politician_id={match_result.politician_id}"
-                    )
-                except Exception as log_error:
-                    # ログ記録の失敗はマッチング結果に影響しない
-                    logger.error(f"Failed to log politician matching: {log_error}")
+            await self._log_matching_result(match_result)
 
             return match_result
 
@@ -296,3 +280,29 @@ class BAMLPoliticianMatchingService:
                 info += f", 選挙区: {p['electoral_district']}"
             formatted.append(info)
         return "\n".join(formatted)
+
+    async def _log_matching_result(self, match_result: PoliticianMatch) -> None:
+        """マッチング結果を抽出ログに記録する。
+
+        Args:
+            match_result: マッチング結果
+        """
+        if match_result.matched and match_result.politician_id:
+            extraction_result = PoliticianExtractionResult(
+                match_confidence=match_result.confidence,
+                match_reason=match_result.reason,
+            )
+
+            try:
+                await self._update_politician_usecase.execute(
+                    entity_id=match_result.politician_id,
+                    extraction_result=extraction_result,
+                    pipeline_version="politician-matching-v1",
+                )
+                logger.debug(
+                    "Politician matching logged: "
+                    f"politician_id={match_result.politician_id}"
+                )
+            except Exception as log_error:
+                # ログ記録の失敗はマッチング結果に影響しない
+                logger.error(f"Failed to log politician matching: {log_error}")
