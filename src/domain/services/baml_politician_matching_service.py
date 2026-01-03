@@ -13,6 +13,12 @@ from pydantic import BaseModel, Field
 
 from baml_client.async_client import b
 
+from src.application.dtos.extraction_result.politician_extraction_result import (
+    PoliticianExtractionResult,
+)
+from src.application.usecases.update_politician_from_extraction_usecase import (
+    UpdatePoliticianFromExtractionUseCase,
+)
 from src.domain.exceptions import ExternalServiceException
 from src.domain.repositories.politician_repository import PoliticianRepository
 from src.domain.services.interfaces.llm_service import ILLMService
@@ -48,6 +54,7 @@ class BAMLPoliticianMatchingService:
         self,
         llm_service: ILLMService,  # 互換性のため保持（BAML使用時は不要）
         politician_repository: PoliticianRepository,
+        update_politician_usecase: UpdatePoliticianFromExtractionUseCase,
     ):
         """
         Initialize BAML politician matching service
@@ -55,9 +62,11 @@ class BAMLPoliticianMatchingService:
         Args:
             llm_service: 互換性のためのパラメータ（BAML使用時は不要）
             politician_repository: Politician repository instance (domain interface)
+            update_politician_usecase: 政治家更新UseCase（抽出ログ記録用）
         """
         self.llm_service = llm_service
         self.politician_repository = politician_repository
+        self._update_politician_usecase = update_politician_usecase
         logger.info("BAMLPoliticianMatchingService initialized")
 
     async def find_best_match(
@@ -131,6 +140,27 @@ class BAMLPoliticianMatchingService:
                 f"BAML match result for '{speaker_name}': "
                 f"matched={match_result.matched}, confidence={match_result.confidence}"
             )
+
+            # マッチングが成功した場合、抽出ログを記録
+            if match_result.matched and match_result.politician_id:
+                extraction_result = PoliticianExtractionResult(
+                    match_confidence=match_result.confidence,
+                    match_reason=match_result.reason,
+                )
+
+                try:
+                    await self._update_politician_usecase.execute(
+                        entity_id=match_result.politician_id,
+                        extraction_result=extraction_result,
+                        pipeline_version="politician-matching-v1",
+                    )
+                    logger.debug(
+                        "Politician matching logged: "
+                        f"politician_id={match_result.politician_id}"
+                    )
+                except Exception as log_error:
+                    # ログ記録の失敗はマッチング結果に影響しない
+                    logger.error(f"Failed to log politician matching: {log_error}")
 
             return match_result
 
