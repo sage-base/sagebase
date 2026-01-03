@@ -1,8 +1,14 @@
 """Use case for managing parliamentary groups."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import date
+from typing import TYPE_CHECKING
 
+from src.application.dtos.extraction_result.parliamentary_group_member_extraction_result import (  # noqa: E501
+    ParliamentaryGroupMemberExtractionResult,
+)
 from src.common.logging import get_logger
 from src.domain.dtos.parliamentary_group_member_dto import (
     ExtractedParliamentaryGroupMemberDTO,
@@ -20,6 +26,12 @@ from src.domain.repositories.extracted_parliamentary_group_member_repository imp
 from src.domain.repositories.parliamentary_group_repository import (
     ParliamentaryGroupRepository,
 )
+
+
+if TYPE_CHECKING:
+    from src.application.usecases.update_extracted_parliamentary_group_member_from_extraction_usecase import (  # noqa: E501
+        UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase,
+    )
 
 
 logger = get_logger(__name__)
@@ -139,6 +151,8 @@ class ManageParliamentaryGroupsUseCase:
         member_extractor: IParliamentaryGroupMemberExtractorService | None = None,
         extracted_member_repository: ExtractedParliamentaryGroupMemberRepository
         | None = None,
+        update_usecase: UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase
+        | None = None,
     ):
         """Initialize the use case.
 
@@ -146,10 +160,12 @@ class ManageParliamentaryGroupsUseCase:
             parliamentary_group_repository: Repository instance (can be sync or async)
             member_extractor: Member extractor service instance (injected)
             extracted_member_repository: Extracted member repository instance
+            update_usecase: 抽出ログを記録するためのUseCase（オプション）
         """
         self.parliamentary_group_repository = parliamentary_group_repository
         self.extractor = member_extractor  # Injected instead of created by Factory
         self.extracted_member_repository = extracted_member_repository
+        self._update_usecase = update_usecase
 
     async def list_parliamentary_groups(
         self, input_dto: ParliamentaryGroupListInputDto
@@ -296,33 +312,58 @@ class ManageParliamentaryGroupsUseCase:
 
             # Save extracted members to database if repository is available
             if self.extracted_member_repository and not input_dto.dry_run:
-                # Create ExtractedParliamentaryGroupMember entities
-                entities_to_save = [
-                    ExtractedParliamentaryGroupMember(
-                        parliamentary_group_id=input_dto.parliamentary_group_id,
-                        extracted_name=member.name,
-                        source_url=input_dto.url,
-                        extracted_role=member.role,
-                        extracted_party_name=member.party_name,
-                        extracted_district=member.district,
-                        extracted_at=extraction_result.extraction_date,
-                        additional_info=member.additional_info,
-                    )
-                    for member in extraction_result.extracted_members
-                ]
+                saved_count = 0
 
-                # Bulk create in database
-                try:
-                    if hasattr(self.extracted_member_repository, "bulk_create"):
-                        # Use await for async repositories
-                        await self.extracted_member_repository.bulk_create(
-                            entities_to_save
+                for member in extraction_result.extracted_members:
+                    try:
+                        # Create entity
+                        entity = ExtractedParliamentaryGroupMember(
+                            parliamentary_group_id=input_dto.parliamentary_group_id,
+                            extracted_name=member.name,
+                            source_url=input_dto.url,
+                            extracted_role=member.role,
+                            extracted_party_name=member.party_name,
+                            extracted_district=member.district,
+                            extracted_at=extraction_result.extraction_date,
+                            additional_info=member.additional_info,
                         )
-                    logger.info(
-                        f"Saved {len(entities_to_save)} extracted members to database"
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to save extracted members to database: {e}")
+
+                        # Save entity to database
+                        created_entity = await self.extracted_member_repository.create(
+                            entity
+                        )
+
+                        if created_entity:
+                            saved_count += 1
+
+                            # 抽出ログを記録（UseCaseがあれば）
+                            if self._update_usecase and created_entity.id:
+                                try:
+                                    result = ParliamentaryGroupMemberExtractionResult(
+                                        parliamentary_group_id=input_dto.parliamentary_group_id,
+                                        extracted_name=member.name,
+                                        source_url=input_dto.url,
+                                        extracted_role=member.role,
+                                        extracted_party_name=member.party_name,
+                                        extracted_district=member.district,
+                                        additional_info=member.additional_info,
+                                    )
+                                    await self._update_usecase.execute(
+                                        entity_id=created_entity.id,
+                                        extraction_result=result,
+                                        pipeline_version="parliamentary-group-member-extractor-v1",
+                                    )
+                                except Exception as e:
+                                    name = member.name
+                                    logger.warning(
+                                        f"Failed to log extraction for {name}: {e}"
+                                    )
+                                    # 抽出ログ記録失敗は処理を中断しない
+
+                    except Exception as e:
+                        logger.error(f"Failed to save member {member.name}: {e}")
+
+                logger.info(f"Saved {saved_count} extracted members to database")
 
             return ExtractMembersOutputDto(
                 success=True,

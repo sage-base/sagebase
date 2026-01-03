@@ -1,12 +1,17 @@
 """Conference member extractor that saves to staging table"""
 
+from __future__ import annotations
+
 import logging
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 
+from src.application.dtos.extraction_result.conference_member_extraction_result import (
+    ConferenceMemberExtractionResult,
+)
 from src.domain.dtos.conference_member_dto import ExtractedMemberDTO
 from src.domain.entities.extracted_conference_member import ExtractedConferenceMember
 from src.infrastructure.external.conference_member_extractor.factory import (
@@ -18,16 +23,32 @@ from src.infrastructure.persistence.extracted_conference_member_repository_impl 
 from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
 
 
+if TYPE_CHECKING:
+    from src.application.usecases.update_extracted_conference_member_from_extraction_usecase import (  # noqa: E501
+        UpdateExtractedConferenceMemberFromExtractionUseCase,
+    )
+
+
 logger = logging.getLogger(__name__)
 
 
 class ConferenceMemberExtractor:
     """会議体メンバー情報を抽出してステージングテーブルに保存するクラス"""
 
-    def __init__(self):
+    def __init__(
+        self,
+        update_usecase: UpdateExtractedConferenceMemberFromExtractionUseCase
+        | None = None,
+    ):
+        """初期化する。
+
+        Args:
+            update_usecase: 抽出ログを記録するためのUseCase（オプション）
+        """
         # ファクトリーからextractorを取得
         self._extractor = MemberExtractorFactory.create()
         self.repo = RepositoryAdapter(ExtractedConferenceMemberRepositoryImpl)
+        self._update_usecase = update_usecase
 
     async def fetch_html(self, url: str) -> str:
         """URLからHTMLを取得"""
@@ -188,6 +209,28 @@ class ConferenceMemberExtractor:
                             f"Saved extracted member: {member.name} "
                             f"(role: {member.role}, party: {member.party_name})"
                         )
+
+                        # 抽出ログを記録（UseCaseがあれば）
+                        if self._update_usecase and created_entity.id:
+                            try:
+                                extraction_result = ConferenceMemberExtractionResult(
+                                    conference_id=conference_id,
+                                    extracted_name=member.name,
+                                    source_url=url,
+                                    extracted_role=member.role,
+                                    extracted_party_name=member.party_name,
+                                    additional_data=member.additional_info,
+                                )
+                                await self._update_usecase.execute(
+                                    entity_id=created_entity.id,
+                                    extraction_result=extraction_result,
+                                    pipeline_version="conference-member-extractor-v1",
+                                )
+                            except Exception as e:
+                                logger.warning(
+                                    f"Failed to log extraction for {member.name}: {e}"
+                                )
+                                # 抽出ログ記録失敗は処理を中断しない
                     else:
                         failed_count += 1
                         logger.error(f"Failed to save member: {member.name}")

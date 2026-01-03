@@ -35,6 +35,12 @@ from src.application.usecases.review_extracted_politician_usecase import (
     ReviewExtractedPoliticianUseCase,
 )
 from src.application.usecases.scrape_politicians_usecase import ScrapePoliticiansUseCase
+from src.application.usecases.update_extracted_conference_member_from_extraction_usecase import (  # noqa: E501
+    UpdateExtractedConferenceMemberFromExtractionUseCase,
+)
+from src.application.usecases.update_extracted_parliamentary_group_member_from_extraction_usecase import (  # noqa: E501
+    UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase,
+)
 from src.application.usecases.update_speaker_from_extraction_usecase import (
     UpdateSpeakerFromExtractionUseCase,
 )
@@ -112,6 +118,9 @@ from src.infrastructure.persistence.data_coverage_repository_impl import (
 )
 from src.infrastructure.persistence.extracted_conference_member_repository_impl import (
     ExtractedConferenceMemberRepositoryImpl,
+)
+from src.infrastructure.persistence.extracted_parliamentary_group_member_repository_impl import (  # noqa: E501
+    ExtractedParliamentaryGroupMemberRepositoryImpl,
 )
 from src.infrastructure.persistence.extracted_politician_repository_impl import (
     ExtractedPoliticianRepositoryImpl,
@@ -345,6 +354,11 @@ class RepositoryContainer(containers.DeclarativeContainer):
         session=database.async_session,
     )
 
+    extracted_parliamentary_group_member_repository = providers.Factory(
+        ExtractedParliamentaryGroupMemberRepositoryImpl,
+        session=database.async_session,
+    )
+
     extracted_politician_repository = providers.Factory(
         ExtractedPoliticianRepositoryImpl,
         session=database.async_session,
@@ -496,6 +510,22 @@ class UseCaseContainer(containers.DeclarativeContainer):
     update_speaker_usecase = providers.Factory(
         UpdateSpeakerFromExtractionUseCase,
         speaker_repo=repositories.speaker_repository,
+        extraction_log_repo=repositories.extraction_log_repository,
+        session_adapter=database.async_session,
+    )
+
+    # Update Extracted Conference Member from Extraction UseCase (Issue #867)
+    update_extracted_conference_member_usecase = providers.Factory(
+        UpdateExtractedConferenceMemberFromExtractionUseCase,
+        extracted_conference_member_repo=repositories.extracted_conference_member_repository,
+        extraction_log_repo=repositories.extraction_log_repository,
+        session_adapter=database.async_session,
+    )
+
+    # Update Extracted Parliamentary Group Member from Extraction UseCase (Issue #867)
+    update_extracted_parliamentary_group_member_usecase = providers.Factory(
+        UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase,
+        extracted_parliamentary_group_member_repo=repositories.extracted_parliamentary_group_member_repository,
         extraction_log_repo=repositories.extraction_log_repository,
         session_adapter=database.async_session,
     )
