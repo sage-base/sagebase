@@ -23,7 +23,7 @@ from src.infrastructure.external.llm_service import GeminiLLMService
 from src.infrastructure.external.parliamentary_group_member_extractor.factory import (
     ParliamentaryGroupMemberExtractorFactory,
 )
-from src.infrastructure.persistence.async_session_adapter import AsyncSessionAdapter
+from src.infrastructure.persistence.async_session_adapter import NoOpSessionAdapter
 from src.infrastructure.persistence.conference_repository_impl import (
     ConferenceRepositoryImpl,
 )
@@ -71,8 +71,9 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         self.member_extractor = ParliamentaryGroupMemberExtractorFactory.create()
 
         # 抽出ログ記録用のUseCaseを作成
+        # RepositoryAdapterは各操作で自動コミットするため、NoOpSessionAdapterを使用
         self.extraction_log_repo = RepositoryAdapter(ExtractionLogRepositoryImpl)
-        session_adapter = AsyncSessionAdapter(self.extracted_member_repo._session)
+        session_adapter = NoOpSessionAdapter()
 
         self.update_usecase = (
             UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase(

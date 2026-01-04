@@ -18,7 +18,7 @@ from src.domain.repositories import ConferenceRepository, GoverningBodyRepositor
 from src.infrastructure.external.conference_member_extractor.extractor import (
     ConferenceMemberExtractor,
 )
-from src.infrastructure.persistence.async_session_adapter import AsyncSessionAdapter
+from src.infrastructure.persistence.async_session_adapter import NoOpSessionAdapter
 from src.infrastructure.persistence.conference_repository_impl import (
     ConferenceRepositoryImpl,
 )
@@ -500,11 +500,12 @@ def extract_members_from_conferences(selected_rows: pd.DataFrame) -> None:
     results: list[dict[str, Any]] = []
 
     # 抽出ログ記録用のUseCaseを作成
+    # RepositoryAdapterは各操作で自動コミットするため、NoOpSessionAdapterを使用
     extracted_member_repo_for_usecase = RepositoryAdapter(
         ExtractedConferenceMemberRepositoryImpl
     )
     extraction_log_repo = RepositoryAdapter(ExtractionLogRepositoryImpl)
-    session_adapter = AsyncSessionAdapter(extracted_member_repo_for_usecase._session)
+    session_adapter = NoOpSessionAdapter()
 
     update_usecase = UpdateExtractedConferenceMemberFromExtractionUseCase(
         extracted_conference_member_repo=extracted_member_repo_for_usecase,  # type: ignore[arg-type]
