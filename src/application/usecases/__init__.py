@@ -15,6 +15,12 @@ from src.application.usecases.scrape_politicians_usecase import ScrapePolitician
 from src.application.usecases.update_conversation_from_extraction_usecase import (
     UpdateConversationFromExtractionUseCase,
 )
+from src.application.usecases.update_extracted_conference_member_from_extraction_usecase import (  # noqa: E501
+    UpdateExtractedConferenceMemberFromExtractionUseCase,
+)
+from src.application.usecases.update_extracted_parliamentary_group_member_from_extraction_usecase import (  # noqa: E501
+    UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase,
+)
 from src.application.usecases.update_parliamentary_group_membership_from_extraction_usecase import (  # noqa: E501
     UpdateParliamentaryGroupMembershipFromExtractionUseCase,
 )
@@ -34,6 +40,8 @@ __all__ = [
     "ProcessMinutesUseCase",
     "ScrapePoliticiansUseCase",
     "UpdateConversationFromExtractionUseCase",
+    "UpdateExtractedConferenceMemberFromExtractionUseCase",
+    "UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase",
     "UpdateParliamentaryGroupMembershipFromExtractionUseCase",
     "UpdatePoliticianFromExtractionUseCase",
     "UpdateSpeakerFromExtractionUseCase",

@@ -6,7 +6,11 @@ from src.domain.entities.base import BaseEntity
 
 
 class ExtractedParliamentaryGroupMember(BaseEntity):
-    """議員団メンバー抽出情報を表すエンティティ."""
+    """議員団メンバー抽出情報を表すエンティティ.
+
+    VerifiableEntityプロトコルを実装し、手動検証状態と
+    LLM抽出ログ参照を保持する。
+    """
 
     def __init__(
         self,
@@ -22,6 +26,8 @@ class ExtractedParliamentaryGroupMember(BaseEntity):
         matching_status: str = "pending",
         matched_at: datetime | None = None,
         additional_info: str | None = None,
+        is_manually_verified: bool = False,
+        latest_extraction_log_id: int | None = None,
         id: int | None = None,
     ) -> None:
         super().__init__(id)
@@ -37,6 +43,8 @@ class ExtractedParliamentaryGroupMember(BaseEntity):
         self.matching_status = matching_status
         self.matched_at = matched_at
         self.additional_info = additional_info
+        self.is_manually_verified = is_manually_verified
+        self.latest_extraction_log_id = latest_extraction_log_id
 
     def is_matched(self) -> bool:
         """Check if the member has been successfully matched."""
@@ -49,6 +57,18 @@ class ExtractedParliamentaryGroupMember(BaseEntity):
     def is_pending(self) -> bool:
         """Check if matching has not been executed yet."""
         return self.matching_status == "pending"
+
+    def mark_as_manually_verified(self) -> None:
+        """手動検証済みとしてマークする."""
+        self.is_manually_verified = True
+
+    def update_from_extraction_log(self, log_id: int) -> None:
+        """最新の抽出ログIDを更新する."""
+        self.latest_extraction_log_id = log_id
+
+    def can_be_updated_by_ai(self) -> bool:
+        """AIによる更新が可能かどうかを返す."""
+        return not self.is_manually_verified
 
     def __str__(self) -> str:
         return (

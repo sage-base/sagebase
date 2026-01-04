@@ -12,6 +12,63 @@ from sqlalchemy.orm import Session
 from src.domain.repositories.session_adapter import ISessionAdapter
 
 
+class NoOpSessionAdapter(ISessionAdapter):
+    """No-op session adapter for use with RepositoryAdapter.
+
+    RepositoryAdapter handles its own transaction management
+    (auto-commit per operation), so this adapter provides no-op
+    implementations of all session methods.
+    Use this when the underlying repository already handles commits/rollbacks.
+    """
+
+    async def execute(
+        self, statement: Any, params: dict[str, Any] | None = None
+    ) -> Result[Any]:
+        """No-op: RepositoryAdapter handles execution."""
+        raise NotImplementedError(
+            "NoOpSessionAdapter does not support execute. "
+            "Use repository methods instead."
+        )
+
+    async def commit(self) -> None:
+        """No-op: RepositoryAdapter auto-commits."""
+        pass
+
+    async def rollback(self) -> None:
+        """No-op: RepositoryAdapter handles rollback on error."""
+        pass
+
+    async def close(self) -> None:
+        """No-op: RepositoryAdapter manages session lifecycle."""
+        pass
+
+    def add(self, instance: Any) -> None:
+        """No-op: RepositoryAdapter handles adding."""
+        pass
+
+    def add_all(self, instances: list[Any]) -> None:
+        """No-op: RepositoryAdapter handles adding."""
+        pass
+
+    async def flush(self) -> None:
+        """No-op: RepositoryAdapter handles flushing."""
+        pass
+
+    async def refresh(self, instance: Any) -> None:
+        """No-op: RepositoryAdapter handles refreshing."""
+        pass
+
+    async def get(self, entity_type: Any, entity_id: Any) -> Any | None:
+        """No-op: Use repository.get_by_id instead."""
+        raise NotImplementedError(
+            "NoOpSessionAdapter does not support get. Use repository.get_by_id instead."
+        )
+
+    async def delete(self, instance: Any) -> None:
+        """No-op: Use repository.delete instead."""
+        pass
+
+
 class AsyncSessionAdapter(ISessionAdapter):
     """Adapter that wraps sync Session to provide async interface.
 

@@ -1,387 +1,334 @@
-# Issue #797 実装計画: 発言抽出AgentをMinutesProcessAgentに統合
+# Issue #867 実装計画: ConferenceMember/ParliamentaryGroupMember処理への抽出ログ統合
 
 ## 1. 問題の理解
 
 ### Issue概要
-- **タイトル**: [PBI-004] 発言抽出AgentをMinutesProcessAgentに統合
-- **目的**: Issue #796 で実装された発言抽出Agent（SpeechExtractionAgent）をMinutesProcessAgentのParent Graphにサブグラフノードとして統合する
+会議体メンバー抽出処理と議員団メンバー抽出処理に抽出ログ機能を統合し、ConferenceMember/ParliamentaryGroupMember抽出ログを自動記録する。
 
 ### 受入条件
-- [ ] MinutesProcessAgentに発言抽出Agentノードが追加されている
-- [ ] エッジとフロー制御が適切に設定されている
-- [ ] 既存の`detect_attendee_boundary`と`split_minutes_by_boundary`がAgent化されている
-- [ ] 統合テストが作成されている
-- [ ] パフォーマンスの劣化が許容範囲内（10%以内）である
+- [ ] 会議体メンバー抽出（baml_extractor）がUseCaseを使用している
+- [ ] 議員団メンバー抽出がUseCaseを使用している
+- [ ] 処理IDが各メンバー処理に紐付けられている
+- [ ] エラー時もログが保存される
+- [ ] パフォーマンスの劣化が5%以内
+- [ ] 既存のテストが全て通る
+- [ ] 統合テストが実装されている
 
 ## 2. コードベース調査の結果
 
-### SpeechExtractionAgent (Issue #796で実装済み)
-**場所**: `src/infrastructure/external/langgraph_speech_extraction_agent.py`
+### 既存のアーキテクチャ（重要）
 
-**機能**:
-- ReActエージェントとして実装
-- 議事録から発言境界を検出・検証
-- 3つのツール使用:
-  - `validate_boundary_candidate`: 境界候補の妥当性検証
-  - `analyze_context`: 境界周辺のコンテキスト分析
-  - `verify_boundary`: 最終的な境界検証
+**会議体メンバー抽出の2層構造**:
+- `BAMLMemberExtractor`: 純粋なDTO抽出ロジック（`ExtractedMemberDTO`を返す）
+- `ConferenceMemberExtractor.extract_and_save_members()`: エンティティ作成・保存（**統合対象**）
 
-**主要メソッド**:
-```python
-async def extract_boundaries(minutes_text: str) -> BoundaryExtractionResult
-def compile() -> CompiledAgent  # サブグラフとして使用可能
-```
+**議員団メンバー抽出の2層構造**:
+- `BAMLParliamentaryGroupMemberExtractor`: 純粋なDTO抽出ロジック（DTOを返す）
+- `ManageParliamentaryGroupsUseCase.extract_members()`: エンティティ作成・保存（**統合対象**）
 
-**状態**:
-```python
-class SpeechExtractionAgentState(TypedDict):
-    minutes_text: str
-    boundary_candidates: list[int]
-    verified_boundaries: list[VerifiedBoundary]
-    current_position: int
-    messages: Annotated[list[BaseMessage], add_messages]
-    remaining_steps: int
-    error_message: str | None
-```
+### 既存のエンティティ構造
 
-### MinutesProcessAgent (既存実装)
-**場所**: `src/minutes_divide_processor/minutes_process_agent.py`
+**ExtractedConferenceMember** (`src/domain/entities/extracted_conference_member.py`)
+- 会議体から抽出されたメンバー情報を保存するエンティティ
+- 現在、`is_manually_verified`や`latest_extraction_log_id`フィールドを**持たない**
+- `VerifiableEntity`プロトコルを実装していない
 
-**現在のフロー**:
-```
-process_minutes → divide_minutes_to_keyword → divide_minutes_to_string
-→ check_length → divide_speech (loop) → END
-```
+**ExtractedParliamentaryGroupMember** (`src/domain/entities/extracted_parliamentary_group_member.py`)
+- 議員団から抽出されたメンバー情報を保存するエンティティ
+- 同様に`VerifiableEntity`プロトコルを実装していない
 
-**現在の境界検出処理** (`_process_minutes`メソッド内):
-```python
-# 出席者情報と発言部分の境界を検出して分割
-boundary = await self.minutes_divider.detect_attendee_boundary(processed_minutes)
-_, speech_part = self.minutes_divider.split_minutes_by_boundary(processed_minutes, boundary)
-```
+### 既存の抽出ログ統合パターン (PBI-004, PBI-005, PBI-006)
 
-**状態**:
-```python
-class MinutesProcessState(BaseModel):
-    original_minutes: str
-    processed_minutes_memory_id: str
-    section_info_list: Annotated[list[SectionInfo], operator.add]
-    section_string_list_memory_id: str
-    # ... その他のフィールド
-```
+**UpdateEntityFromExtractionUseCase**基底クラスパターン：
+- エンティティは`VerifiableEntity`プロトコルを実装
+- `ExtractionResult` DTOを作成してUseCaseに渡す
+- UseCaseが抽出ログを自動記録
+- `is_manually_verified`フラグで人間による修正を保護
 
-### BAMLMinutesDivider
-**場所**: `src/infrastructure/external/minutes_divider/baml_minutes_divider.py`
+### マイグレーション状況
 
-**関連メソッド**:
-- `detect_attendee_boundary(minutes_text)`: BAML使用で境界検出
-- `split_minutes_by_boundary(minutes_text, boundary)`: 境界で分割
+**最新マイグレーション**: `039_add_verification_fields_to_gold_entities.sql`
+- 対象: conversations, politicians, speakers, politician_affiliations, parliamentary_group_memberships
+- **`extracted_conference_members`と`extracted_parliamentary_group_members`は対象外**
+- 新しいマイグレーション`040_`が必要
 
 ## 3. 技術的な解決策
 
-### 統合アプローチの選択
+### 実装アプローチ
 
-**検討した選択肢**:
+Issue #867の要件と既存のコードベースを分析した結果、以下のアプローチを採用します：
 
-#### 選択肢A: 直接メソッド呼び出し（採用）
+**統合対象の場所**（Issueの記述とは異なる）:
+- **会議体メンバー**: `ConferenceMemberExtractor.extract_and_save_members()` に統合
+- **議員団メンバー**: `ManageParliamentaryGroupsUseCase.extract_members()` に統合
+
+**変更しないもの**:
+- `BAMLMemberExtractor`: そのまま（純粋なDTO抽出ロジック）
+- `BAMLParliamentaryGroupMemberExtractor`: そのまま（純粋なDTO抽出ロジック）
+- `IMemberExtractorService`: インターフェース変更不要
+- `IParliamentaryGroupMemberExtractorService`: インターフェース変更不要
+- `MemberExtractorFactory`: Factory変更不要
+
+理由：
+1. 2層構造を維持（抽出ロジックとエンティティ保存の分離）
+2. 既存のPBI-004, PBI-005, PBI-006と同じパターンを踏襲
+3. 既存のインターフェースを変更しないため、既存コードへの影響が最小限
+4. データの一貫性とトレーサビリティの確保
+
+### 実装の詳細
+
+#### 1. エンティティの更新
+
+**ExtractedConferenceMemberエンティティ**
+- `is_manually_verified: bool = False`フィールドを追加
+- `latest_extraction_log_id: int | None = None`フィールドを追加
+- `mark_as_manually_verified()`メソッドを追加
+- `update_from_extraction_log(log_id: int)`メソッドを追加
+- `can_be_updated_by_ai()`メソッドを追加
+
+**ExtractedParliamentaryGroupMemberエンティティ**
+- 同様のフィールドとメソッドを追加
+
+**データベースマイグレーション** (`040_add_extraction_log_fields_to_extracted_members.sql`)
+- `extracted_conference_members`テーブルに以下のカラムを追加:
+  - `is_manually_verified BOOLEAN NOT NULL DEFAULT FALSE`
+  - `latest_extraction_log_id INTEGER REFERENCES extraction_logs(id)`
+- `extracted_parliamentary_group_members`テーブルに同様のカラムを追加
+
+#### 2. ExtractionResult DTOの作成
+
+**ConferenceMemberExtractionResult** (`src/application/dtos/extraction_result/conference_member_extraction_result.py`)
 ```python
-# 新ノード内でSpeechExtractionAgentのメソッドを呼び出す
-result = await self.speech_extraction_agent.extract_boundaries(minutes_text)
+@dataclass
+class ConferenceMemberExtractionResult:
+    """会議体メンバーのAI抽出結果を表すDTO."""
+    conference_id: int
+    extracted_name: str
+    source_url: str
+    extracted_role: str | None = None
+    extracted_party_name: str | None = None
+    additional_data: str | None = None
+    confidence_score: float | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 ```
 
-**メリット**:
-- 実装がシンプル
-- 状態管理が明確
-- デバッグが容易
-
-**デメリット**:
-- サブグラフの再利用性が低い
-
-#### 選択肢B: LangGraphサブグラフ統合
+**ParliamentaryGroupMemberExtractionResult** (`src/application/dtos/extraction_result/parliamentary_group_member_extraction_result.py`)
 ```python
-# サブグラフとしてノードに追加（状態変換が必要）
-workflow.add_node("speech_extraction", speech_extraction_agent.compile())
+@dataclass
+class ParliamentaryGroupMemberExtractionResult:
+    """議員団メンバーのAI抽出結果を表すDTO."""
+    parliamentary_group_id: int
+    extracted_name: str
+    source_url: str
+    extracted_role: str | None = None
+    extracted_party_name: str | None = None
+    extracted_district: str | None = None
+    additional_info: str | None = None
+    confidence_score: float | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 ```
 
-**メリット**:
-- 真のサブグラフとして動作
-- LangGraphの機能を最大限活用
+#### 3. UseCaseの作成
 
-**デメリット**:
-- 状態スキーマが異なるため、状態変換関数が必要
-- 実装が複雑
+**UpdateExtractedConferenceMemberFromExtractionUseCase**
+- `UpdateEntityFromExtractionUseCase`を継承
+- `_get_entity_type()`: `EntityType.CONFERENCE_MEMBER`を返す
+- `_get_entity()`: `ExtractedConferenceMemberRepository.get_by_id()`を呼び出す
+- `_save_entity()`: `ExtractedConferenceMemberRepository.update()`を呼び出す
+- `_to_extracted_data()`: `result.to_dict()`を呼び出す
+- `_apply_extraction()`: 抽出結果をエンティティに適用
 
-**決定**: 選択肢Aを採用
-- Issueの要件「ノードとして追加」を満たしつつ、実装の複雑さを抑える
-- 将来的に選択肢Bへの移行も可能
+**UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase**
+- 同様のパターンで実装
 
-### 実装設計
+#### 4. 抽出処理へのUseCase統合
 
-#### 1. MinutesProcessState の拡張
-
-新しいフィールドを追加:
-```python
-class MinutesProcessState(BaseModel):
-    # ... 既存フィールド
-    boundary_extraction_result_memory_id: str = Field(
-        default="",
-        description="発言境界抽出結果を保存したメモリID"
-    )
-```
-
-#### 2. MinutesProcessAgent の更新
-
-**新しいノードの追加**:
-```python
-async def _extract_speech_boundary(self, state: MinutesProcessState) -> dict[str, str]:
-    """発言境界を抽出（SpeechExtractionAgentを使用）"""
-    # 前処理済み議事録を取得
-    memory_data = self._get_from_memory("processed_minutes", state.processed_minutes_memory_id)
-    processed_minutes = memory_data["processed_minutes"]
-
-    # SpeechExtractionAgentで境界抽出
-    boundary_result = await self.speech_extraction_agent.extract_boundaries(processed_minutes)
-
-    # 境界で分割（既存のsplit_minutes_by_boundaryを活用）
-    # ※ BoundaryExtractionResultからMinutesBoundaryへの変換が必要
-    boundary = self._convert_boundary_result(boundary_result)
-    _, speech_part = self.minutes_divider.split_minutes_by_boundary(processed_minutes, boundary)
-
-    # メモリに保存
-    memory = {"boundary_result": boundary_result, "speech_part": speech_part}
-    memory_id = self._put_to_memory("boundary_extraction", memory)
-
-    return {"boundary_extraction_result_memory_id": memory_id}
-```
-
-**グラフの再設計**:
-```python
-def _create_graph(self) -> Any:
-    workflow = StateGraph(MinutesProcessState)
-    checkpointer = MemorySaver()
-
-    # ノードの追加
-    workflow.add_node("process_minutes", self._process_minutes)
-    workflow.add_node("extract_speech_boundary", self._extract_speech_boundary)  # 新規
-    workflow.add_node("divide_minutes_to_keyword", self._divide_minutes_to_keyword)
-    # ... その他のノード
-
-    # エッジの設定（フロー変更）
-    workflow.set_entry_point("process_minutes")
-    workflow.add_edge("process_minutes", "extract_speech_boundary")  # 変更
-    workflow.add_edge("extract_speech_boundary", "divide_minutes_to_keyword")  # 新規
-    workflow.add_edge("divide_minutes_to_keyword", "divide_minutes_to_string")
-    # ... その他のエッジ
-```
-
-**_process_minutes の簡素化**:
-```python
-async def _process_minutes(self, state: MinutesProcessState) -> dict[str, str]:
-    """議事録の前処理のみを行う（境界検出はextract_speech_boundaryに移譲）"""
-    processed_minutes = self.minutes_divider.pre_process(state.original_minutes)
-
-    memory = {"processed_minutes": processed_minutes}
-    memory_id = self._put_to_memory(namespace="processed_minutes", memory=memory)
-    return {"processed_minutes_memory_id": memory_id}
-```
-
-**境界結果の変換関数**:
-```python
-def _convert_boundary_result(
-    self, boundary_result: BoundaryExtractionResult
-) -> MinutesBoundary:
-    """BoundaryExtractionResultをMinutesBoundaryに変換"""
-    if not boundary_result["verified_boundaries"]:
-        return MinutesBoundary(
-            boundary_found=False,
-            boundary_text=None,
-            boundary_type="none",
-            confidence=0.0,
-            reason="境界が検出されませんでした"
-        )
-
-    # 最も信頼度の高い境界を使用
-    best_boundary = max(
-        boundary_result["verified_boundaries"],
-        key=lambda b: b["confidence"]
-    )
-
-    return MinutesBoundary(
-        boundary_found=True,
-        boundary_text=f"｜境界｜ (position: {best_boundary['position']})",
-        boundary_type=best_boundary["boundary_type"],  # type: ignore
-        confidence=best_boundary["confidence"],
-        reason=f"Agent検出: {best_boundary['boundary_type']}"
-    )
-```
-
-#### 3. SpeechExtractionAgent の初期化
+**会議体メンバー: ConferenceMemberExtractor.extract_and_save_members()への統合**
 
 ```python
-class MinutesProcessAgent:
+# src/infrastructure/external/conference_member_extractor/extractor.py
+
+class ConferenceMemberExtractor:
     def __init__(
         self,
-        llm_service: ILLMService | InstrumentedLLMService | None = None,
-        k: int | None = None,
+        update_usecase: UpdateExtractedConferenceMemberFromExtractionUseCase | None = None,
     ):
-        # 既存の初期化
-        self.minutes_divider = MinutesDividerFactory.create(
-            llm_service=llm_service, k=k or 5
-        )
+        self._extractor = MemberExtractorFactory.create()  # 変更なし
+        self.repo = RepositoryAdapter(ExtractedConferenceMemberRepositoryImpl)
+        self._update_usecase = update_usecase
 
-        # SpeechExtractionAgentの初期化
-        # ※ LLMモデルのインスタンス化が必要
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
-        self.speech_extraction_agent = SpeechExtractionAgent(llm)
+    async def extract_and_save_members(
+        self, conference_id: int, conference_name: str, url: str
+    ) -> dict[str, Any]:
+        # ... 既存の処理 ...
 
-        # グラフ初期化
-        self.in_memory_store = InMemoryStore()
-        self.graph = self._create_graph()
+        for member in members:
+            # エンティティを作成
+            entity = ExtractedConferenceMember(...)
+            created_entity = await self.repo.create(entity)
+
+            # 抽出ログを記録（UseCaseがあれば）
+            if self._update_usecase and created_entity.id:
+                try:
+                    extraction_result = ConferenceMemberExtractionResult(...)
+                    await self._update_usecase.execute(
+                        entity_id=created_entity.id,
+                        extraction_result=extraction_result,
+                        pipeline_version="conference-member-extractor-v1",
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to log extraction: {e}")
+                    # エラー時も処理は継続
 ```
 
-## 4. 実装タスク
-
-### Phase 1: 基本統合
-1. **MinutesProcessState の拡張**
-   - `boundary_extraction_result_memory_id` フィールド追加
-   - models.py を更新
-
-2. **MinutesProcessAgent の更新**
-   - `_extract_speech_boundary` ノードメソッド追加
-   - `_convert_boundary_result` ヘルパーメソッド追加
-   - `__init__` で SpeechExtractionAgent を初期化
-   - `_create_graph` でノードとエッジを更新
-   - `_process_minutes` を簡素化（境界検出ロジック削除）
-
-3. **既存機能の保持**
-   - `divide_minutes_to_keyword` で境界抽出結果を使用するよう更新
-   - メモリアクセスの調整
-
-### Phase 2: テスト実装
-4. **統合テストの作成**
-   - `tests/minutes_divide_processor/test_minutes_process_agent_with_subgraph.py`
-   - 基本的な境界検出フロー
-   - エラーハンドリング
-   - メモリ管理の検証
-
-5. **既存テストの更新**
-   - 既存のMinutesProcessAgentテストを確認・更新
-   - モックの調整が必要な場合は対応
-
-### Phase 3: 検証とパフォーマンステスト
-6. **機能検証**
-   - 実際の議事録データで動作確認
-   - 境界検出精度の確認
-   - エラーケースの確認
-
-7. **パフォーマンステスト**
-   - 既存実装との比較（10%以内の劣化を確認）
-   - LLM呼び出し回数の確認
-   - 処理時間の測定
-
-## 5. 変更ファイル一覧
-
-### 修正
-- `src/minutes_divide_processor/models.py`
-  - MinutesProcessState への新フィールド追加
-
-- `src/minutes_divide_processor/minutes_process_agent.py`
-  - __init__ の更新（SpeechExtractionAgent初期化）
-  - _create_graph の更新（ノード・エッジ追加）
-  - _process_minutes の簡素化
-  - _extract_speech_boundary の追加
-  - _convert_boundary_result の追加
-
-### 新規作成
-- `tests/minutes_divide_processor/test_minutes_process_agent_with_subgraph.py`
-  - 統合テスト
-
-## 6. リスクと注意点
-
-### リスク
-1. **LLM呼び出しの増加**
-   - SpeechExtractionAgentはReActパターンを使用（最大10ステップ）
-   - パフォーマンスへの影響を監視
-
-2. **状態管理の複雑化**
-   - メモリベースの状態管理が増加
-   - デバッグの難易度上昇
-
-3. **既存テストへの影響**
-   - エッジとフローの変更により、既存テストが失敗する可能性
-
-### 対策
-1. **パフォーマンス対策**
-   - 必要に応じてReActステップ数を調整
-   - キャッシング機能の検討
-
-2. **デバッグ支援**
-   - 詳細なログ出力
-   - 境界検出結果の可視化
-
-3. **段階的な移行**
-   - まず新フローを実装
-   - 既存フローとの比較テスト
-   - 問題なければ既存フローを削除
-
-## 7. 実装順序
-
-1. ✅ **調査フェーズ** (完了)
-   - Issue内容の理解
-   - コードベースの調査
-   - 実装計画の作成
-
-2. **Phase 1: 基本統合** (推定: 2-3時間)
-   - MinutesProcessState 拡張
-   - MinutesProcessAgent 更新
-   - 基本動作確認
-
-3. **Phase 2: テスト** (推定: 1-2時間)
-   - 統合テスト作成
-   - 既存テスト更新
-
-4. **Phase 3: 検証** (推定: 1時間)
-   - 機能検証
-   - パフォーマンステスト
-   - ドキュメント更新
-
-## 8. 質問事項
-
-実装を開始する前に、以下の点について確認させてください：
-
-### Q1: SpeechExtractionAgentの利用方法
-現在の計画では、SpeechExtractionAgentを直接メソッド呼び出しで使用する設計（選択肢A）としています。これは実装がシンプルですが、LangGraphのサブグラフ機能を直接活用していません。
-
-**選択肢A（推奨）**: 直接メソッド呼び出し
-- `await self.speech_extraction_agent.extract_boundaries(...)`
-- シンプルで実装が容易
-
-**選択肢B**: LangGraphサブグラフとして統合
-- 状態変換関数が必要
-- より複雑だが、LangGraphの機能を最大限活用
-
-どちらを採用すべきでしょうか？
-
-### Q2: 既存の境界検出との関係
-既存の `BAMLMinutesDivider.detect_attendee_boundary()` は引き続き維持されます。これは以下の理由からです：
-- 後方互換性
-- 他の箇所で使用されている可能性
-
-ただし、MinutesProcessAgent では SpeechExtractionAgent を優先的に使用します。この方針で問題ないでしょうか？
-
-### Q3: LLMモデルの初期化
-SpeechExtractionAgent の初期化には LangChain の ChatModel インスタンスが必要です。現在の計画では：
+**議員団メンバー: ManageParliamentaryGroupsUseCase.extract_members()への統合**
 
 ```python
-from langchain_google_genai import ChatGoogleGenerativeAI
-llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
-self.speech_extraction_agent = SpeechExtractionAgent(llm)
+# src/application/usecases/manage_parliamentary_groups_usecase.py
+
+class ManageParliamentaryGroupsUseCase:
+    def __init__(
+        self,
+        ...,
+        update_extracted_member_usecase: UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase | None = None,
+    ):
+        ...
+        self._update_extracted_member_usecase = update_extracted_member_usecase
+
+    async def extract_members(self, input_dto: ExtractMembersInputDto) -> ExtractMembersOutputDto:
+        # ... 既存の処理 ...
+
+        for entity in entities_to_save:
+            # bulk_createの後、各エンティティに対して抽出ログを記録
+            if self._update_extracted_member_usecase and entity.id:
+                try:
+                    extraction_result = ParliamentaryGroupMemberExtractionResult(...)
+                    await self._update_extracted_member_usecase.execute(
+                        entity_id=entity.id,
+                        extraction_result=extraction_result,
+                        pipeline_version="parliamentary-group-member-extractor-v1",
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to log extraction: {e}")
 ```
 
-この実装で問題ないでしょうか？それとも、既存の `llm_service` を変換して使用すべきでしょうか？
+## 4. 実装計画
 
----
+### Phase 1: エンティティとマイグレーション
 
-以上の実装計画でよろしければ、実装を開始いたします。
-変更が必要な箇所や、追加の考慮事項があればお知らせください。
+#### タスク1.1: ExtractedConferenceMemberエンティティの更新
+- ファイル: `src/domain/entities/extracted_conference_member.py`
+- 追加フィールド: `is_manually_verified`, `latest_extraction_log_id`
+- 追加メソッド: `mark_as_manually_verified()`, `update_from_extraction_log()`, `can_be_updated_by_ai()`
+
+#### タスク1.2: ExtractedParliamentaryGroupMemberエンティティの更新
+- ファイル: `src/domain/entities/extracted_parliamentary_group_member.py`
+- 同様のフィールドとメソッドを追加
+
+#### タスク1.3: データベースマイグレーション
+- ファイル: `database/migrations/040_add_extraction_log_fields_to_extracted_members.sql`
+- `extracted_conference_members`と`extracted_parliamentary_group_members`テーブルにカラムを追加
+- `database/02_run_migrations.sql`に追加
+
+### Phase 2: DTO作成
+
+#### タスク2.1: ConferenceMemberExtractionResult作成
+- ファイル: `src/application/dtos/extraction_result/conference_member_extraction_result.py`
+
+#### タスク2.2: ParliamentaryGroupMemberExtractionResult作成
+- ファイル: `src/application/dtos/extraction_result/parliamentary_group_member_extraction_result.py`
+
+#### タスク2.3: __init__.pyの更新
+- ファイル: `src/application/dtos/extraction_result/__init__.py`
+
+### Phase 3: UseCase作成
+
+#### タスク3.1: UpdateExtractedConferenceMemberFromExtractionUseCase作成
+- ファイル: `src/application/usecases/update_extracted_conference_member_from_extraction_usecase.py`
+
+#### タスク3.2: UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase作成
+- ファイル: `src/application/usecases/update_extracted_parliamentary_group_member_from_extraction_usecase.py`
+
+#### タスク3.3: __init__.pyの更新
+- ファイル: `src/application/usecases/__init__.py`
+
+### Phase 4: 抽出処理への統合
+
+#### タスク4.1: ConferenceMemberExtractorの更新
+- ファイル: `src/infrastructure/external/conference_member_extractor/extractor.py`
+- `UpdateExtractedConferenceMemberFromExtractionUseCase`を依存性注入（オプショナル）
+- `extract_and_save_members()`内でエンティティ保存後に抽出ログを記録
+- **注意**: `BAMLMemberExtractor`は変更なし
+
+#### タスク4.2: ManageParliamentaryGroupsUseCaseの更新
+- ファイル: `src/application/usecases/manage_parliamentary_groups_usecase.py`
+- `UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase`を依存性注入（オプショナル）
+- `extract_members()`内でエンティティ保存後に抽出ログを記録
+- **注意**: `BAMLParliamentaryGroupMemberExtractor`は変更なし
+
+### Phase 5: DIコンテナの更新
+
+#### タスク5.1: DIコンテナの更新
+- ファイル: `src/infrastructure/di/providers.py`
+- UseCaseをコンテナに登録
+- `ConferenceMemberExtractor`と`ManageParliamentaryGroupsUseCase`に依存性を注入
+
+#### タスク5.2: 使用箇所の更新
+- `src/interfaces/web/streamlit/views/conferences_view.py`: `ConferenceMemberExtractor()`をDI経由に変更
+- `src/interfaces/cli/commands/conference_member_commands.py`: 同様
+- `src/interfaces/web/streamlit/presenters/parliamentary_group_presenter.py`: UseCaseにDI注入
+
+### Phase 6: テストの作成
+
+#### タスク6.1: 統合テストの作成
+- ファイル: `tests/integration/test_conference_member_extractor_with_extraction_log.py`
+- 会議体メンバー抽出時の抽出ログ記録テスト
+- エラー時のログ記録テスト
+
+#### タスク6.2: 統合テストの作成
+- ファイル: `tests/integration/test_parliamentary_group_member_extractor_with_extraction_log.py`
+- 議員団メンバー抽出時の抽出ログ記録テスト
+
+#### タスク6.3: 既存テストの更新
+- `ConferenceMemberExtractor`のテストを更新（モックの追加）
+- `ManageParliamentaryGroupsUseCase`のテストを更新（モックの追加）
+- **注意**: `BAMLMemberExtractor`と`BAMLParliamentaryGroupMemberExtractor`のテストは変更不要
+
+## 5. リスクと注意点
+
+### リスク1: データベーススキーマの変更
+- 既存データへの影響を最小化するため、デフォルト値を設定
+- ロールバック手順を準備
+
+### リスク2: 2段階処理のパフォーマンス
+- エンティティ作成と抽出ログ記録の2回のDB書き込み
+- トランザクション管理の複雑化
+
+### リスク3: 既存コードへの影響
+- `ConferenceMemberExtractor`と`ManageParliamentaryGroupsUseCase`のコンストラクタ変更
+- 既存の使用箇所（CLI、Streamlit UI）でのインスタンス化方法を更新する必要がある
+- **注意**: `BAMLMemberExtractor`と`BAMLParliamentaryGroupMemberExtractor`は変更不要のため、低リスク
+
+## 6. 実装の順序
+
+1. Phase 1: エンティティとマイグレーション
+2. Phase 2: DTO作成
+3. Phase 3: UseCase作成
+4. Phase 4: 抽出処理への統合
+5. Phase 5: DIコンテナの更新
+6. Phase 6: テストの作成と既存テストの更新
+7. 動作確認とパフォーマンステスト
+
+## 7. 期待される成果
+
+- ✅ 会議体メンバー抽出処理が抽出ログを自動記録
+- ✅ 議員団メンバー抽出処理が抽出ログを自動記録
+- ✅ 処理IDが各メンバー処理に紐付けられている
+- ✅ エラー時もログが保存される
+- ✅ パフォーマンスの劣化が5%以内
+- ✅ 既存のテストが全て通る
+- ✅ 統合テストが実装されている

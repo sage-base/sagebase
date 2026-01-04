@@ -42,5 +42,6 @@
 \i /docker-entrypoint-initdb.d/02_migrations/037_add_created_by_user_id_to_parliamentary_group_memberships.sql
 \i /docker-entrypoint-initdb.d/02_migrations/038_create_extraction_logs.sql
 \i /docker-entrypoint-initdb.d/02_migrations/039_add_verification_fields_to_gold_entities.sql
+\i /docker-entrypoint-initdb.d/02_migrations/040_add_extraction_log_fields_to_extracted_members.sql
 
 \echo 'Migrations completed.'
