@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="{{ .Site.LanguageCode | default "ja" }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>{{ .Title }} {{ if not .IsHome }}| {{ .Site.Title }}{{ end }}</title>
+
+  {{- /* SEOメタタグ */ -}}
+  <meta name="description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+  <meta name="author" content="{{ .Site.Params.author }}">
+  <meta name="keywords" content="政治活動,議事録,政治家データベース,日本,オープンデータ,分析,透明性">
+
+  {{- /* Open Graph */ -}}
+  <meta property="og:title" content="{{ .Title }}">
+  <meta property="og:description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ .Permalink }}">
+  <meta property="og:site_name" content="{{ .Site.Title }}">
+  <meta property="og:locale" content="ja_JP">
+
+  {{- /* Twitter Card */ -}}
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ .Title }}">
+  <meta name="twitter:description" content="{{ with .Description }}{{ . }}{{ else }}{{ .Site.Params.description }}{{ end }}">
+
+  {{- /* テーマカラー - モノクローム */ -}}
+  <meta name="theme-color" content="#1a1a1a">
+  <meta name="msapplication-TileColor" content="#1a1a1a">
+
+  {{- /* Google Fonts */ -}}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&family=Noto+Serif+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  {{- /* カスタムCSS */ -}}
+  <link rel="stylesheet" href="{{ "css/custom.css" | absURL }}">
+
+  {{- /* 構造化データ */ -}}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "{{ .Site.Title }}",
+    "url": "{{ .Site.BaseURL }}",
+    "description": "{{ .Site.Params.description }}",
+    "inLanguage": "ja",
+    "publisher": {
+      "@type": "Organization",
+      "name": "一般社団法人政治ベース"
+    }
+  }
+  </script>
+</head>
+<body>
+  {{- /* スキップリンク */ -}}
+  <a href="#main-content" class="skip-link">メインコンテンツへスキップ</a>
+
+  {{- /* ヘッダー */ -}}
+  <header class="site-header">
+    <nav class="nav-container">
+      <a href="/" class="logo">Sagebase</a>
+      <div class="nav-links">
+        {{ range .Site.Menus.main }}
+        <a href="{{ .URL }}" class="nav-link {{ if $.IsMenuCurrent "main" . }}active{{ end }}">{{ .Name }}</a>
+        {{ end }}
+      </div>
+      <button class="nav-toggle" aria-label="メニューを開く">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </nav>
+  </header>
+
+  {{- /* メインコンテンツ */ -}}
+  <main id="main-content">
+    {{ block "main" . }}{{ end }}
+  </main>
+
+  {{- /* フッター */ -}}
+  <footer class="site-footer">
+    <div class="footer-container">
+      <div class="footer-brand">
+        <div class="footer-logo">Sagebase</div>
+        <p class="footer-tagline">日本の政治議論データソース</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-section">
+          <h4>サービス</h4>
+          <a href="/about/">政治ベースとは</a>
+          <a href="/features/">提供データ</a>
+        </div>
+        <div class="footer-section">
+          <h4>リソース</h4>
+          <a href="https://github.com/trust-chain-organization/sagebase" target="_blank" rel="noopener">GitHub</a>
+          <a href="/contact/">お問い合わせ</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; {{ now.Year }} 一般社団法人政治ベース</p>
+      </div>
+    </div>
+  </footer>
+
+  {{- /* JavaScript */ -}}
+  <script>
+    // モバイルナビゲーション
+    document.querySelector('.nav-toggle')?.addEventListener('click', function() {
+      document.querySelector('.nav-links').classList.toggle('active');
+      this.classList.toggle('active');
+    });
+
+    // スクロールアニメーション
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, observerOptions);
+
+    document.querySelectorAll('.animate-on-scroll').forEach(el => {
+      observer.observe(el);
+    });
+  </script>
+</body>
+</html>
