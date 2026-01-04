@@ -121,6 +121,13 @@ up: _setup_worktree
 db: _setup_worktree
 	docker compose {{compose_cmd}} exec postgres psql -U sagebase_user -d sagebase_db
 
+# Run database migrations (safe to run multiple times, won't lose data)
+migrate: _setup_worktree
+	#!/bin/bash
+	echo "Running database migrations..."
+	docker compose {{compose_cmd}} exec postgres psql -U sagebase_user -d sagebase_db -f /docker-entrypoint-initdb.d/02_run_migrations.sql
+	echo "Migrations complete!"
+
 # Run tests with type checking
 test: _setup_worktree
 	uv run --frozen pyright
