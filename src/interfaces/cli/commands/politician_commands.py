@@ -81,6 +81,7 @@ class PoliticianCommands(BaseCommand):
             )
             return
         from src.infrastructure.config.database import get_db_engine
+        from src.infrastructure.di.container import get_container, init_container
         from src.infrastructure.persistence.politician_repository_sync_impl import (
             PoliticianRepositorySyncImpl,
         )
@@ -90,6 +91,18 @@ class PoliticianCommands(BaseCommand):
         from src.party_member_extractor.html_fetcher import PartyMemberPageFetcher
 
         engine = get_db_engine()
+
+        # Initialize DI container for extraction logging
+        try:
+            container = get_container()
+        except RuntimeError:
+            container = init_container()
+
+        # Get dependencies for extraction logging
+        politician_repository = container.repositories.politician_repository()
+        update_politician_usecase = (
+            container.use_cases.update_politician_from_extraction_usecase()
+        )
 
         try:
             # 対象の政党を取得
@@ -148,8 +161,11 @@ class PoliticianCommands(BaseCommand):
                             f"  URL: {party.members_list_url}"
                         )
 
-                        # Initialize extractor
-                        extractor = PartyMemberExtractorFactory.create()
+                        # Initialize extractor with dependencies for extraction logging
+                        extractor = PartyMemberExtractorFactory.create(
+                            politician_repository=politician_repository,
+                            update_politician_usecase=update_politician_usecase,
+                        )
 
                         # HTMLページを取得（ページネーション対応）
                         with spinner(
