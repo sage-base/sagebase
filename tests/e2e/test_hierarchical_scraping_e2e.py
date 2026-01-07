@@ -102,8 +102,18 @@ async def test_scrape_politicians_backward_compatibility():
         return_value=["<html><body>Test page</body></html>"]
     )
 
+    # Mock DI container for extraction logging dependencies
+    mock_di_container = MagicMock()
+    mock_di_container.repositories.politician_repository.return_value = MagicMock()
+    mock_usecases = mock_di_container.use_cases
+    mock_usecases.update_politician_from_extraction_usecase.return_value = MagicMock()
+
     with (
         patch("src.infrastructure.config.database.get_db_engine") as mock_engine,
+        patch(
+            "src.infrastructure.di.container.get_container",
+            return_value=mock_di_container,
+        ),
         patch(
             "src.interfaces.factories.party_member_extractor_factory.PartyMemberExtractorFactory.create",
             return_value=mock_extractor,
