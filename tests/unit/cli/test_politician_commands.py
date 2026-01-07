@@ -1,6 +1,6 @@
 """Tests for politician CLI commands"""
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -41,8 +41,23 @@ class TestScrapePoliticiansCommand:
             mock.return_value = progress_instance
             yield progress_instance
 
+    @pytest.fixture
+    def mock_di_container(self):
+        """Mock DI container for extraction logging dependencies"""
+        mock_container = MagicMock()
+        mock_container.repositories.politician_repository.return_value = MagicMock()
+        mock_update_usecase = mock_container.use_cases
+        mock_update_usecase.update_politician_from_extraction_usecase.return_value = (
+            MagicMock()
+        )
+        with patch(
+            "src.infrastructure.di.container.get_container",
+            return_value=mock_container,
+        ):
+            yield mock_container
+
     def test_scrape_politicians_specific_party_success(
-        self, runner, mock_db_engine, mock_progress
+        self, runner, mock_db_engine, mock_progress, mock_di_container
     ):
         """Test successful scraping for a specific party"""
         # Set environment variable to skip confirmation
@@ -125,7 +140,7 @@ class TestScrapePoliticiansCommand:
                             )
 
     def test_scrape_politicians_all_parties_success(
-        self, runner, mock_db_engine, mock_progress
+        self, runner, mock_db_engine, mock_progress, mock_di_container
     ):
         """Test successful scraping for all parties"""
         # Set environment variable to skip confirmation
@@ -207,7 +222,9 @@ class TestScrapePoliticiansCommand:
                             assert result.exit_code == 0
                             assert "Found 2 parties to scrape" in result.output
 
-    def test_scrape_politicians_dry_run(self, runner, mock_db_engine, mock_progress):
+    def test_scrape_politicians_dry_run(
+        self, runner, mock_db_engine, mock_progress, mock_di_container
+    ):
         """Test dry-run mode (no data saved)"""
         # Set environment variable to skip confirmation
         with patch.dict("os.environ", {"STREAMLIT_RUNNING": "true"}):
@@ -335,7 +352,9 @@ class TestScrapePoliticiansCommand:
                             or "Found 1 parties to scrape" in result.output
                         )
 
-    def test_scrape_politicians_no_parties_found(self, runner, mock_db_engine):
+    def test_scrape_politicians_no_parties_found(
+        self, runner, mock_db_engine, mock_di_container
+    ):
         """Test when no parties with member list URLs are found"""
         # Mock database query returning no results
         mock_conn = Mock()
@@ -355,7 +374,7 @@ class TestScrapePoliticiansCommand:
         assert "No parties found" in result.output
 
     def test_scrape_politicians_fetch_pages_failure(
-        self, runner, mock_db_engine, mock_progress
+        self, runner, mock_db_engine, mock_progress, mock_di_container
     ):
         """Test when fetching pages fails"""
         # Set environment variable to skip confirmation
@@ -398,7 +417,7 @@ class TestScrapePoliticiansCommand:
                 )
 
     def test_scrape_politicians_llm_extraction_failure(
-        self, runner, mock_db_engine, mock_progress
+        self, runner, mock_db_engine, mock_progress, mock_di_container
     ):
         """Test when LLM extraction fails to find members"""
         # Set environment variable to skip confirmation
@@ -456,7 +475,7 @@ class TestScrapePoliticiansCommand:
                     )
 
     def test_scrape_politicians_database_save_error(
-        self, runner, mock_db_engine, mock_progress
+        self, runner, mock_db_engine, mock_progress, mock_di_container
     ):
         """Test handling of database save errors"""
         # Set environment variable to skip confirmation
