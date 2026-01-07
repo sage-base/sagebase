@@ -15,6 +15,7 @@ from src.application.dtos.extraction_log_dto import (
 )
 from src.domain.entities.extraction_log import EntityType, ExtractionLog
 from src.domain.repositories.extraction_log_repository import ExtractionLogRepository
+from src.infrastructure.exceptions import DatabaseError
 
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,9 @@ class GetExtractionLogsUseCase:
 
         Returns:
             ページネーション付き抽出ログ
+
+        Raises:
+            DatabaseError: データベース操作に失敗した場合
         """
         try:
             # 検索実行
@@ -75,14 +79,12 @@ class GetExtractionLogsUseCase:
                 current_offset=filter_dto.offset,
             )
 
+        except DatabaseError:
+            # DatabaseErrorはそのまま再送出して呼び出し元に処理を委ねる
+            raise
         except Exception as e:
             logger.error(f"抽出ログの検索中にエラーが発生しました: {e}")
-            return PaginatedExtractionLogsDTO(
-                logs=[],
-                total_count=0,
-                page_size=filter_dto.limit,
-                current_offset=filter_dto.offset,
-            )
+            raise DatabaseError(f"抽出ログの検索に失敗しました: {e}") from e
 
     async def get_statistics(
         self,
@@ -99,6 +101,9 @@ class GetExtractionLogsUseCase:
 
         Returns:
             抽出統計情報
+
+        Raises:
+            DatabaseError: データベース操作に失敗した場合
         """
         try:
             # デフォルトの日付範囲（過去30日）
@@ -107,61 +112,57 @@ class GetExtractionLogsUseCase:
             if not date_to:
                 date_to = datetime.now()
 
+            repo = self.extraction_log_repository
+
             # 総件数取得
-            total_count = await self.extraction_log_repository.count_with_filters(
+            total_count = await repo.count_with_filters(
                 entity_type=entity_type,
                 date_from=date_from,
                 date_to=date_to,
             )
 
-            # エンティティタイプ別件数
-            by_entity_type: dict[str, int] = {}
-            for et in EntityType:
-                count = await self.extraction_log_repository.count_with_filters(
-                    entity_type=et,
-                    date_from=date_from,
-                    date_to=date_to,
-                )
-                if count > 0:
-                    by_entity_type[et.value] = count
-
-            # パイプラインバージョン一覧取得
-            pipeline_versions = (
-                await self.extraction_log_repository.get_distinct_pipeline_versions()
+            # エンティティタイプ別件数（GROUP BYで一括取得 - N+1クエリ回避）
+            entity_type_counts = await repo.get_count_grouped_by_entity_type(
+                date_from=date_from,
+                date_to=date_to,
             )
+            by_entity_type = {
+                et.value: count for et, count in entity_type_counts.items() if count > 0
+            }
 
-            # パイプラインバージョン別件数と平均信頼度
-            by_pipeline_version: dict[str, int] = {}
-            confidence_by_pipeline: dict[str, float] = {}
+            # パイプラインバージョン別件数（GROUP BYで一括取得 - N+1クエリ回避）
+            by_pipeline_version = await repo.get_count_grouped_by_pipeline_version(
+                entity_type=entity_type,
+                date_from=date_from,
+                date_to=date_to,
+            )
+            # 件数が0のものを除外
+            by_pipeline_version = {
+                version: count
+                for version, count in by_pipeline_version.items()
+                if count > 0
+            }
 
-            for version in pipeline_versions:
-                count = await self.extraction_log_repository.count_with_filters(
+            # パイプラインバージョン別平均信頼度（GROUP BYで一括取得 - N+1クエリ回避）
+            confidence_by_pipeline = (
+                await repo.get_avg_confidence_grouped_by_pipeline_version(
                     entity_type=entity_type,
-                    pipeline_version=version,
-                    date_from=date_from,
-                    date_to=date_to,
                 )
-                if count > 0:
-                    by_pipeline_version[version] = count
-
-                    # パイプラインバージョン別平均信頼度
-                    repo = self.extraction_log_repository
-                    avg_confidence = await repo.get_average_confidence_score(
-                        entity_type=entity_type,
-                        pipeline_version=version,
-                    )
-                    if avg_confidence is not None:
-                        confidence_by_pipeline[version] = round(avg_confidence, 3)
+            )
+            # by_pipeline_versionに存在するもののみ保持
+            confidence_by_pipeline = {
+                version: confidence
+                for version, confidence in confidence_by_pipeline.items()
+                if version in by_pipeline_version
+            }
 
             # 全体平均信頼度
-            average_confidence = (
-                await self.extraction_log_repository.get_average_confidence_score(
-                    entity_type=entity_type,
-                )
+            average_confidence = await repo.get_average_confidence_score(
+                entity_type=entity_type,
             )
 
             # 日別件数
-            daily_counts_raw = await self.extraction_log_repository.get_count_by_date(
+            daily_counts_raw = await repo.get_count_by_date(
                 entity_type=entity_type,
                 date_from=date_from,
                 date_to=date_to,
@@ -175,22 +176,18 @@ class GetExtractionLogsUseCase:
                 by_entity_type=by_entity_type,
                 by_pipeline_version=by_pipeline_version,
                 average_confidence=round(average_confidence, 3)
-                if average_confidence
+                if average_confidence is not None
                 else None,
                 daily_counts=daily_counts,
                 confidence_by_pipeline=confidence_by_pipeline,
             )
 
+        except DatabaseError:
+            # DatabaseErrorはそのまま再送出して呼び出し元に処理を委ねる
+            raise
         except Exception as e:
             logger.error(f"抽出統計情報の取得中にエラーが発生しました: {e}")
-            return ExtractionStatisticsDTO(
-                total_count=0,
-                by_entity_type={},
-                by_pipeline_version={},
-                average_confidence=None,
-                daily_counts=[],
-                confidence_by_pipeline={},
-            )
+            raise DatabaseError(f"抽出統計情報の取得に失敗しました: {e}") from e
 
     async def get_by_id(self, log_id: int) -> ExtractionLog | None:
         """IDで抽出ログを取得する。
@@ -200,12 +197,17 @@ class GetExtractionLogsUseCase:
 
         Returns:
             抽出ログ、存在しない場合はNone
+
+        Raises:
+            DatabaseError: データベース操作に失敗した場合
         """
         try:
             return await self.extraction_log_repository.get_by_id(log_id)
+        except DatabaseError:
+            raise
         except Exception as e:
             logger.error(f"抽出ログの取得中にエラーが発生しました: {e}")
-            return None
+            raise DatabaseError(f"抽出ログの取得に失敗しました: {e}") from e
 
     async def get_by_entity(
         self, entity_type: EntityType, entity_id: int
@@ -218,31 +220,43 @@ class GetExtractionLogsUseCase:
 
         Returns:
             抽出ログのリスト
+
+        Raises:
+            DatabaseError: データベース操作に失敗した場合
         """
         try:
             return await self.extraction_log_repository.get_by_entity(
                 entity_type=entity_type,
                 entity_id=entity_id,
             )
+        except DatabaseError:
+            raise
         except Exception as e:
             logger.error(f"エンティティの抽出ログ取得中にエラーが発生しました: {e}")
-            return []
+            raise DatabaseError(f"エンティティの抽出ログ取得に失敗しました: {e}") from e
 
     async def get_pipeline_versions(self) -> list[str]:
         """パイプラインバージョン一覧を取得する。
 
         Returns:
             パイプラインバージョンのリスト
+
+        Raises:
+            DatabaseError: データベース操作に失敗した場合
         """
         try:
             return await self.extraction_log_repository.get_distinct_pipeline_versions()
+        except DatabaseError:
+            raise
         except Exception as e:
             logger.error(
                 f"パイプラインバージョン一覧の取得中にエラーが発生しました: {e}"
             )
-            return []
+            raise DatabaseError(
+                f"パイプラインバージョン一覧の取得に失敗しました: {e}"
+            ) from e
 
-    async def get_entity_types(self) -> list[str]:
+    def get_entity_types(self) -> list[str]:
         """エンティティタイプ一覧を取得する。
 
         Returns:

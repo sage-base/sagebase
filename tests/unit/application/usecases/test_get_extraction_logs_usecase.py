@@ -12,6 +12,7 @@ from src.application.usecases.get_extraction_logs_usecase import (
     GetExtractionLogsUseCase,
 )
 from src.domain.entities.extraction_log import EntityType, ExtractionLog
+from src.infrastructure.exceptions import DatabaseError
 
 
 class TestGetExtractionLogsUseCase:
@@ -170,12 +171,12 @@ class TestGetExtractionLogsUseCase:
         assert result.total_count == 0
 
     @pytest.mark.asyncio
-    async def test_execute_handles_exception(
+    async def test_execute_raises_database_error_on_exception(
         self,
         usecase: GetExtractionLogsUseCase,
         mock_repo: MagicMock,
     ) -> None:
-        """例外発生時のエラーハンドリングテスト。"""
+        """例外発生時にDatabaseErrorを発生させるテスト。"""
         # Arrange
         mock_repo.search_with_date_range = AsyncMock(
             side_effect=Exception("Database error")
@@ -183,12 +184,28 @@ class TestGetExtractionLogsUseCase:
 
         filter_dto = ExtractionLogFilterDTO(limit=10, offset=0)
 
-        # Act
-        result = await usecase.execute(filter_dto)
+        # Act & Assert
+        with pytest.raises(DatabaseError):
+            await usecase.execute(filter_dto)
 
-        # Assert
-        assert len(result.logs) == 0
-        assert result.total_count == 0
+    @pytest.mark.asyncio
+    async def test_execute_propagates_database_error(
+        self,
+        usecase: GetExtractionLogsUseCase,
+        mock_repo: MagicMock,
+    ) -> None:
+        """DatabaseErrorをそのまま伝播するテスト。"""
+        # Arrange
+        mock_repo.search_with_date_range = AsyncMock(
+            side_effect=DatabaseError("DB connection failed")
+        )
+
+        filter_dto = ExtractionLogFilterDTO(limit=10, offset=0)
+
+        # Act & Assert
+        with pytest.raises(DatabaseError) as exc_info:
+            await usecase.execute(filter_dto)
+        assert "DB connection failed" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_get_statistics_success(
@@ -196,11 +213,24 @@ class TestGetExtractionLogsUseCase:
         usecase: GetExtractionLogsUseCase,
         mock_repo: MagicMock,
     ) -> None:
-        """統計情報取得成功のテスト。"""
+        """統計情報取得成功のテスト。
+
+        新しいGROUP BYメソッドを使用して、N+1クエリ問題を回避しています。
+        """
         # Arrange
         mock_repo.count_with_filters = AsyncMock(return_value=100)
-        mock_repo.get_distinct_pipeline_versions = AsyncMock(
-            return_value=["gemini-2.0-flash-v1"]
+        mock_repo.get_count_grouped_by_entity_type = AsyncMock(
+            return_value={
+                EntityType.POLITICIAN: 50,
+                EntityType.SPEAKER: 30,
+                EntityType.STATEMENT: 20,
+            }
+        )
+        mock_repo.get_count_grouped_by_pipeline_version = AsyncMock(
+            return_value={"gemini-2.0-flash-v1": 100}
+        )
+        mock_repo.get_avg_confidence_grouped_by_pipeline_version = AsyncMock(
+            return_value={"gemini-2.0-flash-v1": 0.85}
         )
         mock_repo.get_average_confidence_score = AsyncMock(return_value=0.85)
         mock_repo.get_count_by_date = AsyncMock(
@@ -216,10 +246,19 @@ class TestGetExtractionLogsUseCase:
         # Assert
         assert result.total_count == 100
         assert result.average_confidence == 0.85
-        mock_repo.count_with_filters.assert_called()
-        mock_repo.get_distinct_pipeline_versions.assert_called_once()
-        mock_repo.get_average_confidence_score.assert_called()
-        mock_repo.get_count_by_date.assert_called_once()
+        assert result.by_entity_type == {
+            "politician": 50,
+            "speaker": 30,
+            "statement": 20,
+        }
+        assert result.by_pipeline_version == {"gemini-2.0-flash-v1": 100}
+        assert result.confidence_by_pipeline == {"gemini-2.0-flash-v1": 0.85}
+        assert len(result.daily_counts) == 2
+
+        # GROUP BYメソッドが呼ばれていることを確認
+        mock_repo.get_count_grouped_by_entity_type.assert_called_once()
+        mock_repo.get_count_grouped_by_pipeline_version.assert_called_once()
+        mock_repo.get_avg_confidence_grouped_by_pipeline_version.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_statistics_with_entity_type_filter(
@@ -230,7 +269,13 @@ class TestGetExtractionLogsUseCase:
         """エンティティタイプフィルタ付き統計情報取得のテスト。"""
         # Arrange
         mock_repo.count_with_filters = AsyncMock(return_value=50)
-        mock_repo.get_distinct_pipeline_versions = AsyncMock(return_value=[])
+        mock_repo.get_count_grouped_by_entity_type = AsyncMock(
+            return_value={EntityType.POLITICIAN: 50}
+        )
+        mock_repo.get_count_grouped_by_pipeline_version = AsyncMock(return_value={})
+        mock_repo.get_avg_confidence_grouped_by_pipeline_version = AsyncMock(
+            return_value={}
+        )
         mock_repo.get_average_confidence_score = AsyncMock(return_value=0.90)
         mock_repo.get_count_by_date = AsyncMock(return_value=[])
 
@@ -240,6 +285,22 @@ class TestGetExtractionLogsUseCase:
         # Assert
         assert result.total_count == 50
         assert result.average_confidence == 0.90
+
+    @pytest.mark.asyncio
+    async def test_get_statistics_raises_database_error_on_exception(
+        self,
+        usecase: GetExtractionLogsUseCase,
+        mock_repo: MagicMock,
+    ) -> None:
+        """統計情報取得時に例外発生でDatabaseErrorを発生させるテスト。"""
+        # Arrange
+        mock_repo.count_with_filters = AsyncMock(
+            side_effect=Exception("Database error")
+        )
+
+        # Act & Assert
+        with pytest.raises(DatabaseError):
+            await usecase.get_statistics()
 
     @pytest.mark.asyncio
     async def test_get_by_id_success(
@@ -279,6 +340,20 @@ class TestGetExtractionLogsUseCase:
         mock_repo.get_by_id.assert_called_once_with(999)
 
     @pytest.mark.asyncio
+    async def test_get_by_id_raises_database_error_on_exception(
+        self,
+        usecase: GetExtractionLogsUseCase,
+        mock_repo: MagicMock,
+    ) -> None:
+        """get_by_idで例外発生時にDatabaseErrorを発生させるテスト。"""
+        # Arrange
+        mock_repo.get_by_id = AsyncMock(side_effect=Exception("Database error"))
+
+        # Act & Assert
+        with pytest.raises(DatabaseError):
+            await usecase.get_by_id(1)
+
+    @pytest.mark.asyncio
     async def test_get_by_entity_success(
         self,
         usecase: GetExtractionLogsUseCase,
@@ -301,6 +376,20 @@ class TestGetExtractionLogsUseCase:
         )
 
     @pytest.mark.asyncio
+    async def test_get_by_entity_raises_database_error_on_exception(
+        self,
+        usecase: GetExtractionLogsUseCase,
+        mock_repo: MagicMock,
+    ) -> None:
+        """get_by_entityで例外発生時にDatabaseErrorを発生させるテスト。"""
+        # Arrange
+        mock_repo.get_by_entity = AsyncMock(side_effect=Exception("Database error"))
+
+        # Act & Assert
+        with pytest.raises(DatabaseError):
+            await usecase.get_by_entity(EntityType.POLITICIAN, 100)
+
+    @pytest.mark.asyncio
     async def test_get_pipeline_versions_success(
         self,
         usecase: GetExtractionLogsUseCase,
@@ -319,13 +408,31 @@ class TestGetExtractionLogsUseCase:
         mock_repo.get_distinct_pipeline_versions.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_entity_types(
+    async def test_get_pipeline_versions_raises_database_error_on_exception(
+        self,
+        usecase: GetExtractionLogsUseCase,
+        mock_repo: MagicMock,
+    ) -> None:
+        """get_pipeline_versionsで例外発生時にDatabaseErrorを発生させるテスト。"""
+        # Arrange
+        mock_repo.get_distinct_pipeline_versions = AsyncMock(
+            side_effect=Exception("Database error")
+        )
+
+        # Act & Assert
+        with pytest.raises(DatabaseError):
+            await usecase.get_pipeline_versions()
+
+    def test_get_entity_types(
         self,
         usecase: GetExtractionLogsUseCase,
     ) -> None:
-        """エンティティタイプ一覧取得のテスト。"""
+        """エンティティタイプ一覧取得のテスト。
+
+        注: get_entity_typesは同期メソッドに変更されました。
+        """
         # Act
-        result = await usecase.get_entity_types()
+        result = usecase.get_entity_types()
 
         # Assert
         assert "politician" in result

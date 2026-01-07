@@ -245,3 +245,60 @@ class ExtractionLogRepository(BaseRepository[ExtractionLog]):
             (日付, 件数)のタプルのリスト
         """
         pass
+
+    @abstractmethod
+    async def get_count_grouped_by_entity_type(
+        self,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> dict[EntityType, int]:
+        """エンティティタイプ別の件数を一括取得する。
+
+        N+1クエリを避けるため、GROUP BYで一括取得する。
+
+        Args:
+            date_from: 検索開始日時（フィルタ）
+            date_to: 検索終了日時（フィルタ）
+
+        Returns:
+            エンティティタイプをキー、件数を値とする辞書
+        """
+        pass
+
+    @abstractmethod
+    async def get_count_grouped_by_pipeline_version(
+        self,
+        entity_type: EntityType | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> dict[str, int]:
+        """パイプラインバージョン別の件数を一括取得する。
+
+        N+1クエリを避けるため、GROUP BYで一括取得する。
+
+        Args:
+            entity_type: エンティティタイプ（フィルタ）
+            date_from: 検索開始日時（フィルタ）
+            date_to: 検索終了日時（フィルタ）
+
+        Returns:
+            パイプラインバージョンをキー、件数を値とする辞書
+        """
+        pass
+
+    @abstractmethod
+    async def get_avg_confidence_grouped_by_pipeline_version(
+        self,
+        entity_type: EntityType | None = None,
+    ) -> dict[str, float]:
+        """パイプラインバージョン別の平均信頼度を一括取得する。
+
+        N+1クエリを避けるため、GROUP BYで一括取得する。
+
+        Args:
+            entity_type: エンティティタイプ（フィルタ）
+
+        Returns:
+            パイプラインバージョンをキー、平均信頼度を値とする辞書
+        """
+        pass

@@ -5,6 +5,10 @@ from typing import Any
 
 import pandas as pd
 
+from src.application.dtos.extraction_log_dto import ExtractionLogFilterDTO
+from src.application.usecases.get_extraction_logs_usecase import (
+    GetExtractionLogsUseCase,
+)
 from src.common.logging import get_logger
 from src.domain.entities.extraction_log import EntityType, ExtractionLog
 from src.infrastructure.persistence.extraction_log_repository_impl import (
@@ -17,7 +21,11 @@ from src.interfaces.web.streamlit.utils.session_manager import SessionManager
 
 
 class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
-    """抽出ログ管理用Presenter。"""
+    """抽出ログ管理用Presenter。
+
+    UseCaseを通じてリポジトリにアクセスすることで、
+    Clean Architectureの依存ルールを遵守しています。
+    """
 
     def __init__(self, container: Any = None):
         """Presenterを初期化する。
@@ -26,7 +34,12 @@ class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
             container: 依存性注入コンテナ
         """
         super().__init__(container)
-        self.extraction_log_repo = RepositoryAdapter(ExtractionLogRepositoryImpl)
+        # RepositoryAdapterを通じてリポジトリを作成
+        self._extraction_log_repo = RepositoryAdapter(ExtractionLogRepositoryImpl)
+        # UseCaseを初期化（リポジトリをduck typingで渡す）
+        self._usecase = GetExtractionLogsUseCase(
+            extraction_log_repository=self._extraction_log_repo  # type: ignore[arg-type]
+        )
         self.session = SessionManager(namespace="extraction_logs")
         self.logger = get_logger(self.__class__.__name__)
 
@@ -36,7 +49,7 @@ class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
         Returns:
             抽出ログのリスト
         """
-        return self.extraction_log_repo.get_all()
+        return self._extraction_log_repo.get_all()
 
     def handle_action(self, action: str, **kwargs: Any) -> Any:
         """ユーザーアクションを処理する。
@@ -92,34 +105,26 @@ class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
             )
             pipeline = None if pipeline_version == "すべて" else pipeline_version
 
-            # ログを検索
-            logs = self.extraction_log_repo.search_with_date_range(
+            # UseCaseを使用して検索
+            filter_dto = ExtractionLogFilterDTO(
                 entity_type=entity_type_enum,
                 entity_id=entity_id,
                 pipeline_version=pipeline,
-                min_confidence_score=min_confidence_score,
                 date_from=start_date,
                 date_to=end_date,
+                min_confidence_score=min_confidence_score,
                 limit=limit,
                 offset=offset,
             )
 
-            # 総件数を取得
-            total_count = self.extraction_log_repo.count_with_filters(
-                entity_type=entity_type_enum,
-                entity_id=entity_id,
-                pipeline_version=pipeline,
-                min_confidence_score=min_confidence_score,
-                date_from=start_date,
-                date_to=end_date,
-            )
+            result = self._run_async(self._usecase.execute(filter_dto))
 
             return WebResponseDTO.success_response(
                 data={
-                    "logs": logs,
-                    "total_count": total_count,
-                    "page_size": limit,
-                    "current_offset": offset,
+                    "logs": result.logs,
+                    "total_count": result.total_count,
+                    "page_size": result.page_size,
+                    "current_offset": result.current_offset,
                 }
             )
 
@@ -134,6 +139,8 @@ class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
         end_date: datetime | None = None,
     ) -> WebResponseDTO[dict[str, Any]]:
         """抽出統計情報を取得する。
+
+        UseCaseを使用することでN+1クエリ問題を回避しています。
 
         Args:
             entity_type: エンティティタイプフィルタ
@@ -157,79 +164,29 @@ class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
                 else None
             )
 
-            # 総件数
-            total_count = self.extraction_log_repo.count_with_filters(
-                entity_type=entity_type_enum,
-                date_from=start_date,
-                date_to=end_date,
-            )
-
-            # エンティティタイプ別件数
-            by_entity_type: dict[str, int] = {}
-            for et in EntityType:
-                count = self.extraction_log_repo.count_with_filters(
-                    entity_type=et,
-                    date_from=start_date,
-                    date_to=end_date,
-                )
-                if count > 0:
-                    by_entity_type[et.value] = count
-
-            # パイプラインバージョン一覧取得
-            pipeline_versions = (
-                self.extraction_log_repo.get_distinct_pipeline_versions()
-            )
-
-            # パイプラインバージョン別件数と平均信頼度
-            by_pipeline_version: dict[str, int] = {}
-            confidence_by_pipeline: dict[str, float] = {}
-
-            for version in pipeline_versions:
-                count = self.extraction_log_repo.count_with_filters(
+            # UseCaseを使用して統計情報を取得（N+1クエリ問題を回避）
+            stats = self._run_async(
+                self._usecase.get_statistics(
                     entity_type=entity_type_enum,
-                    pipeline_version=version,
                     date_from=start_date,
                     date_to=end_date,
                 )
-                if count > 0:
-                    by_pipeline_version[version] = count
-
-                    # パイプラインバージョン別平均信頼度
-                    avg_confidence = (
-                        self.extraction_log_repo.get_average_confidence_score(
-                            entity_type=entity_type_enum,
-                            pipeline_version=version,
-                        )
-                    )
-                    if avg_confidence is not None:
-                        confidence_by_pipeline[version] = round(avg_confidence, 3)
-
-            # 全体平均信頼度
-            average_confidence = self.extraction_log_repo.get_average_confidence_score(
-                entity_type=entity_type_enum,
             )
 
-            # 日別件数
-            daily_counts_raw = self.extraction_log_repo.get_count_by_date(
-                entity_type=entity_type_enum,
-                date_from=start_date,
-                date_to=end_date,
-            )
+            # DTOをdict形式に変換
             daily_counts = [
-                {"date": dt.strftime("%Y-%m-%d"), "count": count}
-                for dt, count in daily_counts_raw
+                {"date": item.date.strftime("%Y-%m-%d"), "count": item.count}
+                for item in stats.daily_counts
             ]
 
             return WebResponseDTO.success_response(
                 data={
-                    "total_count": total_count,
-                    "by_entity_type": by_entity_type,
-                    "by_pipeline_version": by_pipeline_version,
-                    "average_confidence": round(average_confidence, 3)
-                    if average_confidence
-                    else None,
+                    "total_count": stats.total_count,
+                    "by_entity_type": stats.by_entity_type,
+                    "by_pipeline_version": stats.by_pipeline_version,
+                    "average_confidence": stats.average_confidence,
                     "daily_counts": daily_counts,
-                    "confidence_by_pipeline": confidence_by_pipeline,
+                    "confidence_by_pipeline": stats.confidence_by_pipeline,
                     "date_range": {
                         "start": start_date.isoformat(),
                         "end": end_date.isoformat(),
@@ -286,7 +243,7 @@ class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
         Returns:
             'すべて'を含むエンティティタイプ値のリスト
         """
-        return ["すべて"] + [et.value for et in EntityType]
+        return ["すべて"] + self._usecase.get_entity_types()
 
     def get_pipeline_versions(self) -> list[str]:
         """登録されているパイプラインバージョンを取得する。
@@ -295,7 +252,7 @@ class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
             'すべて'を含むパイプラインバージョンのリスト
         """
         try:
-            versions = self.extraction_log_repo.get_distinct_pipeline_versions()
+            versions = self._run_async(self._usecase.get_pipeline_versions())
             return ["すべて"] + list(versions)
         except Exception as e:
             self.logger.error(f"Error getting pipeline versions: {e}")
@@ -311,7 +268,7 @@ class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
             ログ詳細を含むレスポンス
         """
         try:
-            log = self.extraction_log_repo.get_by_id(log_id)
+            log = self._run_async(self._usecase.get_by_id(log_id))
             if not log:
                 return WebResponseDTO.error_response(
                     f"ログID {log_id} が見つかりません"
@@ -352,9 +309,11 @@ class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
         """
         try:
             entity_type_enum = EntityType(entity_type)
-            logs = self.extraction_log_repo.get_by_entity(
-                entity_type=entity_type_enum,
-                entity_id=entity_id,
+            logs = self._run_async(
+                self._usecase.get_by_entity(
+                    entity_type=entity_type_enum,
+                    entity_id=entity_id,
+                )
             )
 
             return WebResponseDTO.success_response(

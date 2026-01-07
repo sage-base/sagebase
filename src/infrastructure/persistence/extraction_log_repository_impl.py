@@ -359,6 +359,45 @@ class ExtractionLogRepositoryImpl(
                 f"Failed to count extraction logs for pipeline version {version}"
             ) from e
 
+    def _build_conditions(
+        self,
+        entity_type: EntityType | None = None,
+        entity_id: int | None = None,
+        pipeline_version: str | None = None,
+        min_confidence_score: float | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> list[Any]:
+        """検索条件を構築する。
+
+        Args:
+            entity_type: エンティティタイプ（フィルタ）
+            entity_id: エンティティID（フィルタ）
+            pipeline_version: パイプラインバージョン（フィルタ）
+            min_confidence_score: 最小信頼度スコア（フィルタ）
+            date_from: 検索開始日時（フィルタ）
+            date_to: 検索終了日時（フィルタ）
+
+        Returns:
+            SQLAlchemy条件のリスト
+        """
+        conditions: list[Any] = []
+
+        if entity_type:
+            conditions.append(self.model_class.entity_type == entity_type.value)
+        if entity_id is not None:
+            conditions.append(self.model_class.entity_id == entity_id)
+        if pipeline_version:
+            conditions.append(self.model_class.pipeline_version == pipeline_version)
+        if min_confidence_score is not None:
+            conditions.append(self.model_class.confidence_score >= min_confidence_score)
+        if date_from:
+            conditions.append(self.model_class.created_at >= date_from)
+        if date_to:
+            conditions.append(self.model_class.created_at <= date_to)
+
+        return conditions
+
     def _to_entity(self, model: Any) -> ExtractionLog:
         """Convert database model to domain entity.
 
@@ -447,22 +486,14 @@ class ExtractionLogRepositoryImpl(
             DatabaseError: データベース操作に失敗した場合
         """
         try:
-            conditions: list[Any] = []
-
-            if entity_type:
-                conditions.append(self.model_class.entity_type == entity_type.value)
-            if entity_id is not None:
-                conditions.append(self.model_class.entity_id == entity_id)
-            if pipeline_version:
-                conditions.append(self.model_class.pipeline_version == pipeline_version)
-            if min_confidence_score is not None:
-                conditions.append(
-                    self.model_class.confidence_score >= min_confidence_score
-                )
-            if date_from:
-                conditions.append(self.model_class.created_at >= date_from)
-            if date_to:
-                conditions.append(self.model_class.created_at <= date_to)
+            conditions = self._build_conditions(
+                entity_type=entity_type,
+                entity_id=entity_id,
+                pipeline_version=pipeline_version,
+                min_confidence_score=min_confidence_score,
+                date_from=date_from,
+                date_to=date_to,
+            )
 
             query = select(self.model_class)
             if conditions:
@@ -509,22 +540,14 @@ class ExtractionLogRepositoryImpl(
             DatabaseError: データベース操作に失敗した場合
         """
         try:
-            conditions: list[Any] = []
-
-            if entity_type:
-                conditions.append(self.model_class.entity_type == entity_type.value)
-            if entity_id is not None:
-                conditions.append(self.model_class.entity_id == entity_id)
-            if pipeline_version:
-                conditions.append(self.model_class.pipeline_version == pipeline_version)
-            if min_confidence_score is not None:
-                conditions.append(
-                    self.model_class.confidence_score >= min_confidence_score
-                )
-            if date_from:
-                conditions.append(self.model_class.created_at >= date_from)
-            if date_to:
-                conditions.append(self.model_class.created_at <= date_to)
+            conditions = self._build_conditions(
+                entity_type=entity_type,
+                entity_id=entity_id,
+                pipeline_version=pipeline_version,
+                min_confidence_score=min_confidence_score,
+                date_from=date_from,
+                date_to=date_to,
+            )
 
             query = select(func.count(self.model_class.id))
             if conditions:
@@ -592,12 +615,10 @@ class ExtractionLogRepositoryImpl(
             DatabaseError: データベース操作に失敗した場合
         """
         try:
-            conditions: list[Any] = []
-
-            if entity_type:
-                conditions.append(self.model_class.entity_type == entity_type.value)
-            if pipeline_version:
-                conditions.append(self.model_class.pipeline_version == pipeline_version)
+            conditions = self._build_conditions(
+                entity_type=entity_type,
+                pipeline_version=pipeline_version,
+            )
 
             query = select(func.avg(self.model_class.confidence_score))
             if conditions:
@@ -631,14 +652,11 @@ class ExtractionLogRepositoryImpl(
             DatabaseError: データベース操作に失敗した場合
         """
         try:
-            conditions: list[Any] = []
-
-            if entity_type:
-                conditions.append(self.model_class.entity_type == entity_type.value)
-            if date_from:
-                conditions.append(self.model_class.created_at >= date_from)
-            if date_to:
-                conditions.append(self.model_class.created_at <= date_to)
+            conditions = self._build_conditions(
+                entity_type=entity_type,
+                date_from=date_from,
+                date_to=date_to,
+            )
 
             # 日付でグループ化してカウント
             date_column = cast(self.model_class.created_at, Date)
@@ -661,9 +679,139 @@ class ExtractionLogRepositoryImpl(
             return_list: list[tuple[datetime, int]] = []
             for row in rows:
                 date_val = datetime.combine(row[0], datetime.min.time())
-                count_val = int(row[1])  # type: ignore[arg-type]
+                count_val = int(row[1])
                 return_list.append((date_val, count_val))
             return return_list
         except SQLAlchemyError as e:
             logger.error(f"Failed to get count by date: {e}")
             raise DatabaseError("Failed to get count by date") from e
+
+    async def get_count_grouped_by_entity_type(
+        self,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> dict[EntityType, int]:
+        """エンティティタイプ別の件数を一括取得する。
+
+        N+1クエリを避けるため、GROUP BYで一括取得する。
+
+        Args:
+            date_from: 検索開始日時（フィルタ）
+            date_to: 検索終了日時（フィルタ）
+
+        Returns:
+            エンティティタイプをキー、件数を値とする辞書
+
+        Raises:
+            DatabaseError: データベース操作に失敗した場合
+        """
+        try:
+            conditions = self._build_conditions(
+                date_from=date_from,
+                date_to=date_to,
+            )
+
+            query = select(
+                self.model_class.entity_type,
+                func.count(self.model_class.id).label("count"),
+            ).group_by(self.model_class.entity_type)
+
+            if conditions:
+                query = query.where(and_(*conditions))
+
+            result = await self.session.execute(query)
+            rows = result.all()
+
+            return {EntityType(row[0]): int(row[1]) for row in rows}
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to get count grouped by entity type: {e}")
+            raise DatabaseError("Failed to get count grouped by entity type") from e
+
+    async def get_count_grouped_by_pipeline_version(
+        self,
+        entity_type: EntityType | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> dict[str, int]:
+        """パイプラインバージョン別の件数を一括取得する。
+
+        N+1クエリを避けるため、GROUP BYで一括取得する。
+
+        Args:
+            entity_type: エンティティタイプ（フィルタ）
+            date_from: 検索開始日時（フィルタ）
+            date_to: 検索終了日時（フィルタ）
+
+        Returns:
+            パイプラインバージョンをキー、件数を値とする辞書
+
+        Raises:
+            DatabaseError: データベース操作に失敗した場合
+        """
+        try:
+            conditions = self._build_conditions(
+                entity_type=entity_type,
+                date_from=date_from,
+                date_to=date_to,
+            )
+
+            query = select(
+                self.model_class.pipeline_version,
+                func.count(self.model_class.id).label("count"),
+            ).group_by(self.model_class.pipeline_version)
+
+            if conditions:
+                query = query.where(and_(*conditions))
+
+            result = await self.session.execute(query)
+            rows = result.all()
+
+            return {str(row[0]): int(row[1]) for row in rows}
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to get count grouped by pipeline version: {e}")
+            raise DatabaseError(
+                "Failed to get count grouped by pipeline version"
+            ) from e
+
+    async def get_avg_confidence_grouped_by_pipeline_version(
+        self,
+        entity_type: EntityType | None = None,
+    ) -> dict[str, float]:
+        """パイプラインバージョン別の平均信頼度を一括取得する。
+
+        N+1クエリを避けるため、GROUP BYで一括取得する。
+
+        Args:
+            entity_type: エンティティタイプ（フィルタ）
+
+        Returns:
+            パイプラインバージョンをキー、平均信頼度を値とする辞書
+
+        Raises:
+            DatabaseError: データベース操作に失敗した場合
+        """
+        try:
+            conditions = self._build_conditions(entity_type=entity_type)
+
+            query = select(
+                self.model_class.pipeline_version,
+                func.avg(self.model_class.confidence_score).label("avg_confidence"),
+            ).group_by(self.model_class.pipeline_version)
+
+            if conditions:
+                query = query.where(and_(*conditions))
+
+            result = await self.session.execute(query)
+            rows = result.all()
+
+            return {
+                str(row[0]): round(float(row[1]), 3) if row[1] is not None else 0.0
+                for row in rows
+            }
+        except SQLAlchemyError as e:
+            logger.error(
+                f"Failed to get avg confidence grouped by pipeline version: {e}"
+            )
+            raise DatabaseError(
+                "Failed to get avg confidence grouped by pipeline version"
+            ) from e
