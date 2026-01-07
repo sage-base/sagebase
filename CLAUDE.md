@@ -138,6 +138,14 @@ src/
 - ファイルパスを指定する時
 - データ処理スクリプトを書く時
 
+#### plan-writer
+**使用タイミング**:
+- 実装計画を作成する時
+- 調査結果をドキュメント化する時
+- 一時的な分析結果を保存する時
+- Issue解決のための計画を立てる時
+- **重要**: 計画ファイルは必ず`tmp/`に配置すること
+
 #### sagebase-commands
 **使用タイミング**:
 - アプリケーションの起動方法を知りたい時
@@ -215,7 +223,6 @@ src/
 - **[ARCHITECTURE.md](docs/ARCHITECTURE.md)**: Complete system architecture
 - **[CLEAN_ARCHITECTURE_MIGRATION.md](docs/CLEAN_ARCHITECTURE_MIGRATION.md)**: Migration progress
 - **[DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md)**: Development workflows
-- **[TESTING_GUIDE.md](docs/TESTING_GUIDE.md)**: Testing strategies
 
 **📁 Architecture Decision Records (ADR)** - `docs/ADR/`:
 アーキテクチャに関する重要な意思決定の記録を保管
@@ -225,6 +232,7 @@ src/
   - [0001-clean-architecture-adoption.md](docs/ADR/0001-clean-architecture-adoption.md): Clean Architecture採用の経緯
   - [0002-baml-for-llm-outputs.md](docs/ADR/0002-baml-for-llm-outputs.md): BAML採用の経緯
   - [0003-repository-pattern.md](docs/ADR/0003-repository-pattern.md): Repository Pattern採用
+  - [0004-langgraph-adapter-pattern.md](docs/ADR/0004-langgraph-adapter-pattern.md): LangGraph Adapter Pattern
 
 **📁 Layer Guides** - `docs/architecture/`:
 Clean Architectureの各層の詳細な実装ガイドを保管（責務、実装例、落とし穴、チェックリスト）
@@ -234,15 +242,13 @@ Clean Architectureの各層の詳細な実装ガイドを保管（責務、実�
 - [INFRASTRUCTURE_LAYER.md](docs/architecture/INFRASTRUCTURE_LAYER.md): リポジトリ実装、外部サービス
 - [INTERFACE_LAYER.md](docs/architecture/INTERFACE_LAYER.md): CLI、Streamlit UI、プレゼンター
 
-### Database & Domain
-- **[DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)**: Database structure
-- **[DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md)**: Business entities
-- **[USE_CASES.md](docs/USE_CASES.md)**: Application workflows
-
 ### Operations
 - **[DEPLOYMENT.md](docs/DEPLOYMENT.md)**: Deployment procedures
-- **[MONITORING.md](docs/MONITORING.md)**: Monitoring setup
 - **[BI_DASHBOARD.md](docs/BI_DASHBOARD.md)**: BI Dashboard (Plotly Dash) setup and usage
+- **[CICD.md](docs/CICD.md)**: CI/CD workflows
+- **[OPERATIONS.md](docs/OPERATIONS.md)**: Operations guide
+- **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**: Troubleshooting guide
+- **[docs/monitoring/](docs/monitoring/)**: Monitoring setup (Grafana, Prometheus)
 
 ## Important Notes
 
@@ -254,6 +260,8 @@ Clean Architectureの各層の詳細な実装ガイドを保管（責務、実�
 ### File Management
 - **Intermediate Files**: Always create temporary files in `tmp/` directory (gitignored)
 - **Knowledge Base**: Record important decisions in `_docs/` (gitignored, for Claude's memory)
+- **NEVER create .md files in docs/ without explicit approval** - docs/の構成は固定されています
+- **Implementation plans go to tmp/** - 実装計画は`tmp/implementation_plan_{issue_number}.md`に配置
 
 ### Code Quality
 - **Pre-commit Hooks**: **NEVER use `--no-verify`** - always fix errors before committing
