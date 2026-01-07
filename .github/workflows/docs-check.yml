@@ -1,0 +1,120 @@
+name: Docs Structure Check
+
+on:
+  pull_request:
+    paths:
+      - "**/*.md"
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.md"
+
+jobs:
+  check-markdown-files:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for unauthorized markdown files
+        run: |
+          # 許可された.mdファイルのパスパターン
+          ALLOWED_PATTERNS=(
+            # ルートレベルのファイル
+            "^README\.md$"
+            "^CLAUDE\.md$"
+            "^COMMANDS\.md$"
+            "^SETUP_CHECKLIST\.md$"
+
+            # .claudeディレクトリ
+            "^\.claude/.*\.md$"
+
+            # .serenaディレクトリ
+            "^\.serena/.*\.md$"
+
+            # .github ディレクトリ（テンプレート、プロンプト等）
+            "^\.github/.*\.md$"
+
+            # .vscode ディレクトリ（Copilot instructions等）
+            "^\.vscode/.*\.md$"
+
+            # docs/ADR
+            "^docs/ADR/[0-9]{4}-[a-z0-9-]+\.md$"
+
+            # docs/architecture
+            "^docs/architecture/.*\.md$"
+
+            # docs/diagrams
+            "^docs/diagrams/.*\.md$"
+
+            # docs/monitoring
+            "^docs/monitoring/.*\.md$"
+
+            # docs/guides
+            "^docs/guides/.*\.md$"
+
+            # その他の許可されたディレクトリ
+            "^terraform/.*\.md$"
+            "^docker/.*\.md$"
+            "^website/.*\.md$"
+            "^baml_client/.*\.md$"
+            "^data/.*\.md$"
+            "^scripts/.*\.md$"
+            "^src/.*\.md$"
+          )
+
+          # 全ての.mdファイルを検索（.git, tmp, .venv, .pytest_cacheを除外）
+          echo "Checking markdown file locations..."
+          UNAUTHORIZED_FILES=()
+
+          while IFS= read -r file; do
+            ALLOWED=false
+            for pattern in "${ALLOWED_PATTERNS[@]}"; do
+              if [[ "$file" =~ $pattern ]]; then
+                ALLOWED=true
+                break
+              fi
+            done
+            if [ "$ALLOWED" = false ]; then
+              UNAUTHORIZED_FILES+=("$file")
+            fi
+          done < <(find . -name "*.md" -not -path "./.git/*" -not -path "./tmp/*" -not -path "./.venv/*" -not -path "./node_modules/*" -not -path "./.pytest_cache/*" -not -path "./tests/.pytest_cache/*" | sed 's|^\./||')
+
+          # 結果の出力
+          if [ ${#UNAUTHORIZED_FILES[@]} -gt 0 ]; then
+            echo "::error::The following markdown files are in unauthorized locations:"
+            for file in "${UNAUTHORIZED_FILES[@]}"; do
+              echo "  - $file"
+            done
+            echo ""
+            echo "Allowed locations:"
+            echo "  - README.md, CLAUDE.md, COMMANDS.md, SETUP_CHECKLIST.md (root)"
+            echo "  - .claude/**/*.md"
+            echo "  - .serena/**/*.md"
+            echo "  - docs/ADR/NNNN-*.md"
+            echo "  - docs/architecture/*.md"
+            echo "  - docs/diagrams/*.md"
+            echo "  - docs/monitoring/*.md"
+            echo "  - docs/ARCHITECTURE.md, docs/BI_DASHBOARD.md, docs/CICD.md, etc."
+            echo "  - terraform/**/*.md, docker/**/*.md, website/**/*.md"
+            echo ""
+            echo "If you need to create implementation plans or temporary documents,"
+            echo "please place them in the tmp/ directory instead."
+            exit 1
+          else
+            echo "All markdown files are in authorized locations."
+          fi
+
+      - name: Check for tmp files in PR
+        if: github.event_name == 'pull_request'
+        run: |
+          # PRにtmp/配下のファイルが含まれていないか確認
+          TMP_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep "^tmp/" || true)
+          if [ -n "$TMP_FILES" ]; then
+            echo "::warning::The following tmp files are included in this PR:"
+            echo "$TMP_FILES"
+            echo ""
+            echo "tmp/ files should typically not be committed."
+            echo "Please review these files and remove them if they are not needed."
+          fi
