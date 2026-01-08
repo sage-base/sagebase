@@ -485,9 +485,9 @@ LLM抽出結果の履歴を保持するBronze Layerテーブル。
 | entity_id | INTEGER | NOT NULL | 対象GoldエンティティのID |
 | pipeline_version | VARCHAR(100) | NOT NULL | パイプラインバージョン（例: gemini-2.0-flash-v1） |
 | extracted_data | JSONB | NOT NULL | LLM出力の生データ |
-| confidence_score | DECIMAL(5,4) | | 抽出信頼度（0.0〜1.0） |
+| confidence_score | FLOAT | | 抽出信頼度（0.0〜1.0） |
 | extraction_metadata | JSONB | DEFAULT '{}' | メタデータ（モデル名、トークン数等） |
-| created_at | TIMESTAMPTZ | DEFAULT NOW() | 作成日時 |
+| created_at | TIMESTAMP | NOT NULL DEFAULT CURRENT_TIMESTAMP | 作成日時 |
 
 **ENTITY_TYPE ENUM**:
 - `statement`: Conversation（発言）

@@ -213,9 +213,11 @@ LLM抽出結果と確定データを分離するために、以下のエンテ�
 ExtractionLogはLLM抽出結果の履歴を保持するBronze Layerエンティティです。
 
 ```python
-from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
+from typing import Any
+
+from src.domain.entities.base import BaseEntity
+
 
 class EntityType(Enum):
     """抽出対象のエンティティタイプ."""
@@ -225,18 +227,27 @@ class EntityType(Enum):
     CONFERENCE_MEMBER = "conference_member"
     PARLIAMENTARY_GROUP_MEMBER = "parliamentary_group_member"
 
-@dataclass
-class ExtractionLog:
+
+class ExtractionLog(BaseEntity):
     """LLM抽出結果の履歴を記録するエンティティ."""
 
-    id: int | None
-    entity_type: EntityType
-    entity_id: int
-    pipeline_version: str
-    extracted_data: dict
-    confidence_score: float | None
-    extraction_metadata: dict
-    created_at: datetime | None = None
+    def __init__(
+        self,
+        entity_type: EntityType,
+        entity_id: int,
+        pipeline_version: str,
+        extracted_data: dict[str, Any],
+        confidence_score: float | None = None,
+        extraction_metadata: dict[str, Any] | None = None,
+        id: int | None = None,
+    ) -> None:
+        super().__init__(id)
+        self.entity_type = entity_type
+        self.entity_id = entity_id
+        self.pipeline_version = pipeline_version
+        self.extracted_data = extracted_data
+        self.confidence_score = confidence_score
+        self.extraction_metadata = extraction_metadata or {}
 
     @property
     def model_name(self) -> str | None:

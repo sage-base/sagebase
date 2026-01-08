@@ -81,9 +81,9 @@ CREATE TABLE extraction_logs (
     entity_id INTEGER NOT NULL,
     pipeline_version VARCHAR(100) NOT NULL,
     extracted_data JSONB NOT NULL,
-    confidence_score DECIMAL(5,4),
+    confidence_score FLOAT,
     extraction_metadata JSONB NOT NULL DEFAULT '{}',
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
