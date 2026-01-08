@@ -209,3 +209,92 @@ class TestBAMLPoliticianMatchingService:
         assert result.matched is False
         assert result.confidence == 0.0
         assert "空です" in result.reason
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "title_name",
+        [
+            "委員長",
+            "副委員長",
+            "議長",
+            "副議長",
+            "事務局長",
+            "事務局次長",
+            "参考人",
+            "証人",
+            "説明員",
+            "政府委員",
+            "幹事",
+            "書記",
+        ],
+    )
+    async def test_title_only_speaker_returns_no_match(
+        self,
+        mock_llm_service,
+        mock_politician_repository,
+        mock_update_politician_usecase,
+        title_name,
+    ):
+        """役職のみの発言者はBAML呼び出しをスキップしてマッチなしを返すテスト"""
+        service = BAMLPoliticianMatchingService(
+            mock_llm_service, mock_politician_repository, mock_update_politician_usecase
+        )
+
+        result = await service.find_best_match(title_name)
+
+        assert result.matched is False
+        assert result.confidence == 0.0
+        assert "役職名のみ" in result.reason
+        # 政治家リストの取得が呼ばれていないことを確認（早期リターンのため）
+        mock_politician_repository.get_all_for_matching.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_baml_validation_error_returns_no_match(
+        self,
+        mock_llm_service,
+        mock_politician_repository,
+        mock_update_politician_usecase,
+        mock_baml_client,
+    ):
+        """BamlValidationError発生時にマッチなし結果を返すテスト"""
+        from baml_py.errors import BamlValidationError
+
+        # BAMLがValidationErrorを発生させる
+        mock_baml_client.MatchPolitician.side_effect = BamlValidationError(
+            prompt="test prompt",
+            message="Failed to parse LLM response",
+            raw_output="natural language output",
+            detailed_message="The LLM did not return valid JSON",
+        )
+
+        service = BAMLPoliticianMatchingService(
+            mock_llm_service, mock_politician_repository, mock_update_politician_usecase
+        )
+
+        # ルールベースでマッチしない名前を使用してBAML呼び出しを発生させる
+        result = await service.find_best_match("未知の人物")
+
+        assert result.matched is False
+        assert result.confidence == 0.0
+        assert "LLMが構造化出力を返せませんでした" in result.reason
+
+    @pytest.mark.asyncio
+    async def test_is_title_only_speaker_method(
+        self,
+        mock_llm_service,
+        mock_politician_repository,
+        mock_update_politician_usecase,
+    ):
+        """_is_title_only_speakerメソッドのテスト"""
+        service = BAMLPoliticianMatchingService(
+            mock_llm_service, mock_politician_repository, mock_update_politician_usecase
+        )
+
+        # 役職のみの発言者
+        assert service._is_title_only_speaker("委員長") is True
+        assert service._is_title_only_speaker("  議長  ") is True  # 空白はトリム
+
+        # 通常の発言者名
+        assert service._is_title_only_speaker("山田太郎") is False
+        assert service._is_title_only_speaker("山田委員長") is False  # 名前+役職
+        assert service._is_title_only_speaker("委員長山田") is False  # 役職+名前

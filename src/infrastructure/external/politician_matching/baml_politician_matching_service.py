@@ -15,6 +15,8 @@ import re
 
 from typing import Any
 
+from baml_py.errors import BamlValidationError
+
 from baml_client.async_client import b
 
 from src.application.dtos.extraction_result.politician_extraction_result import (
@@ -63,6 +65,34 @@ class BAMLPoliticianMatchingService:
         self._update_politician_usecase = update_politician_usecase
         logger.info("BAMLPoliticianMatchingService initialized")
 
+    # 役職のみの発言者名パターン（個人を特定できないためマッチ対象外）
+    TITLE_ONLY_PATTERNS: set[str] = {
+        "委員長",
+        "副委員長",
+        "議長",
+        "副議長",
+        "事務局長",
+        "事務局次長",
+        "参考人",
+        "証人",
+        "説明員",
+        "政府委員",
+        "幹事",
+        "書記",
+    }
+
+    def _is_title_only_speaker(self, speaker_name: str) -> bool:
+        """役職のみの発言者名かどうかを判定する。
+
+        Args:
+            speaker_name: 発言者名
+
+        Returns:
+            bool: 役職のみの場合はTrue
+        """
+        cleaned = speaker_name.strip()
+        return cleaned in self.TITLE_ONLY_PATTERNS
+
     async def find_best_match(
         self,
         speaker_name: str,
@@ -80,6 +110,15 @@ class BAMLPoliticianMatchingService:
         Returns:
             PoliticianMatch: マッチング結果
         """
+        # 役職のみの発言者は早期リターン（BAML呼び出しをスキップ）
+        if self._is_title_only_speaker(speaker_name):
+            logger.debug(f"Title-only speaker skipped: '{speaker_name}'")
+            return PoliticianMatch(
+                matched=False,
+                confidence=0.0,
+                reason=f"役職名のみのためマッチ対象外: {speaker_name}",
+            )
+
         # 既存の政治家リストを取得
         available_politicians = await self.politician_repository.get_all_for_matching()
 
@@ -146,6 +185,18 @@ class BAMLPoliticianMatchingService:
 
             return match_result
 
+        except BamlValidationError as e:
+            # LLMが構造化出力を返さなかった場合（自然言語での回答など）
+            # これは正常なケースとして扱い、マッチなし結果を返す
+            logger.warning(
+                f"BAML validation failed for '{speaker_name}': {e}. "
+                "Returning no-match result."
+            )
+            return PoliticianMatch(
+                matched=False,
+                confidence=0.0,
+                reason=f"LLMが構造化出力を返せませんでした: {speaker_name}",
+            )
         except Exception as e:
             logger.error(f"BAML政治家マッチング中のエラー: {e}")
             # Wrap errors as ExternalServiceException
