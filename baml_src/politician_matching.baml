@@ -58,6 +58,10 @@ function MatchPolitician(
         - マッチしない場合は politician_id, politician_name, political_party_name を null に設定
 
         # 重要
-        信頼度が0.7未満の場合は、必ず matched: false を返してください。
+        - 信頼度が0.7未満の場合は、必ず matched: false を返してください。
+        - **必ず**指定された形式のJSONで出力してください。自然言語での説明は禁止です。
+        - 役職名のみの入力（例：「委員長」「副議長」「事務局長」）は個人を特定できないため、
+          matched: false, confidence: 0.0, reason: "役職名のみのため個人を特定できません" を返してください。
+        - マッチする政治家がいない場合も、必ず構造化された形式で出力してください。
     "#
 }
