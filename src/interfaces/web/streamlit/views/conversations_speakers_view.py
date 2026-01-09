@@ -1098,26 +1098,9 @@ def render_politician_matching_agent_test() -> None:
 
         with st.spinner("エージェントを実行中..."):
             try:
-                from langchain_google_genai import ChatGoogleGenerativeAI
-
-                from src.infrastructure.external.langgraph_politician_matching_agent import (  # noqa: E501
-                    PoliticianMatchingAgent,
-                )
-
+                # DIコンテナからエージェントを取得（Clean Architecture準拠）
                 container = Container.create_for_environment()
-
-                llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.0-flash",
-                    temperature=0.0,
-                )
-
-                agent = PoliticianMatchingAgent(
-                    llm=llm,
-                    politician_repo=container.repositories.politician_repository(),
-                    affiliation_repo=(
-                        container.repositories.politician_affiliation_repository()
-                    ),
-                )
+                agent = container.usecases.politician_matching_agent()
 
                 result = asyncio.run(
                     agent.match_politician(

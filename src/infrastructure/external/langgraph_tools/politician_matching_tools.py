@@ -18,10 +18,17 @@ from src.domain.repositories.politician_affiliation_repository import (
     PoliticianAffiliationRepository,
 )
 from src.domain.repositories.politician_repository import PoliticianRepository
-from src.infrastructure.di.container import get_container
 
 
 logger = logging.getLogger(__name__)
+
+# 類似度計算用の定数
+PARTIAL_MATCH_SCORE = 0.8
+FUZZY_NAME_MATCH_SCORE = 0.6
+FUZZY_SIMILARITY_THRESHOLD = 0.5
+FUZZY_SCORE_FACTOR = 0.5
+PARTY_MATCH_BOOST = 0.15
+CONFIDENCE_THRESHOLD = 0.7
 
 
 def _calculate_name_similarity(
@@ -48,13 +55,13 @@ def _calculate_name_similarity(
 
     # 部分一致（発言者名が政治家名を含む、または逆）
     if cleaned_speaker in cleaned_politician or cleaned_politician in cleaned_speaker:
-        return 0.8, "partial"
+        return PARTIAL_MATCH_SCORE, "partial"
 
     # 姓または名の一致
     speaker_parts = cleaned_speaker.split()
     politician_parts = cleaned_politician.split()
     if any(sp in politician_parts for sp in speaker_parts if len(sp) >= 2):
-        return 0.6, "fuzzy"
+        return FUZZY_NAME_MATCH_SCORE, "fuzzy"
 
     # レーベンシュタイン距離ベースのあいまいマッチ
     if len(cleaned_speaker) > 0 and len(cleaned_politician) > 0:
@@ -62,38 +69,32 @@ def _calculate_name_similarity(
         similarity = len(common_chars) / max(
             len(cleaned_speaker), len(cleaned_politician)
         )
-        if similarity > 0.5:
-            return similarity * 0.5, "fuzzy"
+        if similarity > FUZZY_SIMILARITY_THRESHOLD:
+            return similarity * FUZZY_SCORE_FACTOR, "fuzzy"
 
     return 0.0, "none"
 
 
 def create_politician_matching_tools(
-    politician_repo: PoliticianRepository | None = None,
-    affiliation_repo: PoliticianAffiliationRepository | None = None,
+    politician_repo: PoliticianRepository,
+    affiliation_repo: PoliticianAffiliationRepository,
 ) -> list[Any]:
     """政治家マッチング用のLangGraphツールを作成
 
     Args:
-        politician_repo: PoliticianRepository（省略時はDIから取得）
-        affiliation_repo: PoliticianAffiliationRepository（省略時はDIから取得）
+        politician_repo: PoliticianRepository（必須）
+        affiliation_repo: PoliticianAffiliationRepository（必須）
 
     Returns:
         政治家マッチング用のLangGraphツールリスト
-    """
-    if politician_repo is None or affiliation_repo is None:
-        container = get_container()
-        if politician_repo is None:
-            politician_repo = container.repositories.politician_repository()
-        if affiliation_repo is None:
-            affiliation_repo = (
-                container.repositories.politician_affiliation_repository()
-            )
 
-    assert politician_repo is not None, "Failed to initialize PoliticianRepository"
-    assert affiliation_repo is not None, (
-        "Failed to initialize PoliticianAffiliationRepository"
-    )
+    Raises:
+        ValueError: リポジトリがNoneの場合
+    """
+    if politician_repo is None:
+        raise ValueError("politician_repo is required")
+    if affiliation_repo is None:
+        raise ValueError("affiliation_repo is required")
 
     @tool
     async def search_politician_candidates(
@@ -171,7 +172,7 @@ def create_politician_matching_tools(
 
                 # 政党一致でスコアをブースト
                 if speaker_party and pol_party and speaker_party == pol_party:
-                    score = min(1.0, score + 0.15)
+                    score = min(1.0, score + PARTY_MATCH_BOOST)
 
                 if score > 0:
                     candidates.append(
@@ -358,7 +359,8 @@ def create_politician_matching_tools(
             )
 
             # 信頼度が低い場合はマッチなしとして扱う
-            matched = baml_result.matched and baml_result.confidence >= 0.7
+            is_confident = baml_result.confidence >= CONFIDENCE_THRESHOLD
+            matched = baml_result.matched and is_confident
 
             return {
                 "matched": matched,

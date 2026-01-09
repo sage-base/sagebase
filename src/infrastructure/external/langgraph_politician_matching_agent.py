@@ -18,6 +18,10 @@ from langgraph.prebuilt import create_react_agent
 
 from src.domain.dtos.politician_matching_dto import PoliticianMatchingAgentResult
 from src.domain.interfaces.politician_matching_agent import IPoliticianMatchingAgent
+from src.domain.repositories.politician_affiliation_repository import (
+    PoliticianAffiliationRepository,
+)
+from src.domain.repositories.politician_repository import PoliticianRepository
 from src.infrastructure.external.langgraph_tools.politician_matching_tools import (
     create_politician_matching_tools,
 )
@@ -86,15 +90,15 @@ class PoliticianMatchingAgent(IPoliticianMatchingAgent):
     def __init__(
         self,
         llm: BaseChatModel,
-        politician_repo: Any = None,
-        affiliation_repo: Any = None,
+        politician_repo: PoliticianRepository,
+        affiliation_repo: PoliticianAffiliationRepository,
     ):
         """エージェントを初期化
 
         Args:
             llm: LangChainのチャットモデル
-            politician_repo: PoliticianRepository（DIから取得可）
-            affiliation_repo: PoliticianAffiliationRepository（DIから取得可）
+            politician_repo: PoliticianRepository（必須）
+            affiliation_repo: PoliticianAffiliationRepository（必須）
         """
         self.llm = llm
         self.tools = create_politician_matching_tools(
