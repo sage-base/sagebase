@@ -9,7 +9,7 @@ Issue #905: [LangGraph+BAML] 議員団メンバー抽出のエージェント化
 from abc import ABC, abstractmethod
 
 from src.domain.dtos.parliamentary_group_member_dto import (
-    ParliamentaryGroupMemberExtractionResult,
+    ParliamentaryGroupMemberAgentResultDTO,
 )
 
 
@@ -28,7 +28,7 @@ class IParliamentaryGroupMemberExtractionAgent(ABC):
     @abstractmethod
     async def extract_members(
         self, html_content: str, parliamentary_group_name: str
-    ) -> ParliamentaryGroupMemberExtractionResult:
+    ) -> ParliamentaryGroupMemberAgentResultDTO:
         """HTMLコンテンツから議員団メンバーを抽出
 
         Args:
@@ -36,7 +36,7 @@ class IParliamentaryGroupMemberExtractionAgent(ABC):
             parliamentary_group_name: 議員団名（抽出精度向上に使用）
 
         Returns:
-            ParliamentaryGroupMemberExtractionResult:
+            ParliamentaryGroupMemberAgentResultDTO:
                 - members: 抽出されたメンバーのリスト
                   （ExtractedParliamentaryGroupMemberDTO）
                 - success: 抽出成功フラグ

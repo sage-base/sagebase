@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from src.domain.dtos.parliamentary_group_member_dto import (
     ExtractedParliamentaryGroupMemberDTO,
-    ParliamentaryGroupMemberExtractionResult,
+    ParliamentaryGroupMemberAgentResultDTO,
 )
 from src.domain.interfaces.parliamentary_group_member_extraction_agent import (
     IParliamentaryGroupMemberExtractionAgent,
@@ -72,7 +72,7 @@ class ParliamentaryGroupMemberExtractionAgent(IParliamentaryGroupMemberExtractio
         self,
         html_content: str,
         parliamentary_group_name: str,
-    ) -> ParliamentaryGroupMemberExtractionResult:
+    ) -> ParliamentaryGroupMemberAgentResultDTO:
         """議員団メンバーを抽出
 
         Args:
@@ -80,7 +80,7 @@ class ParliamentaryGroupMemberExtractionAgent(IParliamentaryGroupMemberExtractio
             parliamentary_group_name: 議員団名（抽出精度向上に使用）
 
         Returns:
-            抽出結果を含むParliamentaryGroupMemberExtractionResult:
+            抽出結果を含むParliamentaryGroupMemberAgentResultDTO:
             - members: 抽出されたメンバーのリスト
               （ExtractedParliamentaryGroupMemberDTO）
             - success: 抽出成功フラグ
@@ -107,7 +107,7 @@ class ParliamentaryGroupMemberExtractionAgent(IParliamentaryGroupMemberExtractio
             if not extract_result.get("success"):
                 error_msg = extract_result.get("error", "抽出に失敗しました")
                 logger.warning(f"Extraction failed: {error_msg}")
-                return ParliamentaryGroupMemberExtractionResult(
+                return ParliamentaryGroupMemberAgentResultDTO(
                     members=[],
                     success=False,
                     validation_errors=[],
@@ -118,7 +118,7 @@ class ParliamentaryGroupMemberExtractionAgent(IParliamentaryGroupMemberExtractio
             logger.info(f"Step 1 completed: {len(raw_members)} members extracted")
 
             if not raw_members:
-                return ParliamentaryGroupMemberExtractionResult(
+                return ParliamentaryGroupMemberAgentResultDTO(
                     members=[],
                     success=False,
                     validation_errors=[],
@@ -171,7 +171,7 @@ class ParliamentaryGroupMemberExtractionAgent(IParliamentaryGroupMemberExtractio
                 f"from '{parliamentary_group_name}'"
             )
 
-            return ParliamentaryGroupMemberExtractionResult(
+            return ParliamentaryGroupMemberAgentResultDTO(
                 members=members_dto,
                 success=len(members_dto) > 0,
                 validation_errors=validation_errors,
@@ -183,7 +183,7 @@ class ParliamentaryGroupMemberExtractionAgent(IParliamentaryGroupMemberExtractio
                 f"Error during member extraction: {str(e)}",
                 exc_info=True,
             )
-            return ParliamentaryGroupMemberExtractionResult(
+            return ParliamentaryGroupMemberAgentResultDTO(
                 members=[],
                 success=False,
                 validation_errors=validation_errors,

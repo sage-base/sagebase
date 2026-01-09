@@ -49,11 +49,15 @@ class ParliamentaryGroupMemberExtractionResultDTO:
 
 
 @dataclass
-class ParliamentaryGroupMemberExtractionResult:
+class ParliamentaryGroupMemberAgentResultDTO:
     """議員団メンバー抽出エージェントの結果DTO
 
     LangGraphエージェントによる議員団メンバー抽出の結果を表現します。
     会議体メンバー抽出エージェントと同様の構造を持ちます。
+
+    Note:
+        ParliamentaryGroupMemberExtractionResultDTOはURL経由の抽出結果用、
+        このDTOはLangGraphエージェント経由の抽出結果用です。
 
     Issue #905: [LangGraph+BAML] 議員団メンバー抽出のエージェント化
 

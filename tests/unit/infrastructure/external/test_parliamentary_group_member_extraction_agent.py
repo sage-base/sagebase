@@ -271,13 +271,13 @@ class TestDTOIntegration:
     """DTOの統合テスト"""
 
     def test_extraction_result_dto_structure(self):
-        """ParliamentaryGroupMemberExtractionResultの構造が正しいこと"""
+        """ParliamentaryGroupMemberAgentResultDTOの構造が正しいこと"""
         from src.domain.dtos.parliamentary_group_member_dto import (
             ExtractedParliamentaryGroupMemberDTO,
-            ParliamentaryGroupMemberExtractionResult,
+            ParliamentaryGroupMemberAgentResultDTO,
         )
 
-        result = ParliamentaryGroupMemberExtractionResult(
+        result = ParliamentaryGroupMemberAgentResultDTO(
             members=[
                 ExtractedParliamentaryGroupMemberDTO(
                     name="田中太郎",

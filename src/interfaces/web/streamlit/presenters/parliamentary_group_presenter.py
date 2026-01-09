@@ -309,44 +309,46 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
 
     def extract_members_with_agent(
         self,
-        parliamentary_group_id: int,
         parliamentary_group_name: str,
         url: str,
     ) -> tuple[bool, Any, str | None]:
-        """Extract members using LangGraph agent (Issue #905).
+        """LangGraphエージェントを使用してメンバーを抽出 (Issue #905)
 
-        LangGraphエージェントを使用してメンバーを抽出します。
+        Args:
+            parliamentary_group_name: 議員団名
+            url: 議員団メンバー一覧ページのURL
+
+        Returns:
+            (成功フラグ, 抽出結果DTO, エラーメッセージ)
+
+        Note:
+            DB保存は行いません。抽出のみを行います。
         """
         return self._run_async(
-            self._extract_members_with_agent_async(
-                parliamentary_group_id, parliamentary_group_name, url
-            )
+            self._extract_members_with_agent_async(parliamentary_group_name, url)
         )
 
     async def _extract_members_with_agent_async(
         self,
-        parliamentary_group_id: int,
         parliamentary_group_name: str,
         url: str,
     ) -> tuple[bool, Any, str | None]:
-        """Extract members using LangGraph agent (async implementation)."""
+        """LangGraphエージェントを使用してメンバーを抽出 (async)"""
         try:
             from src.infrastructure.external.parliamentary_group_member_extractor.extractor import (  # noqa: E501
                 ParliamentaryGroupMemberExtractor,
             )
 
             extractor = ParliamentaryGroupMemberExtractor()
-            try:
-                result = await extractor.extract_and_save_members(
-                    parliamentary_group_id=parliamentary_group_id,
-                    parliamentary_group_name=parliamentary_group_name,
-                    url=url,
-                )
-                if "error" in result:
-                    return False, None, result["error"]
-                return True, result, None
-            finally:
-                extractor.close()
+            result = await extractor.extract_members_from_url(
+                url=url,
+                parliamentary_group_name=parliamentary_group_name,
+            )
+
+            if not result.success:
+                return False, None, result.error_message
+
+            return True, result, None
         except Exception as e:
             error_msg = f"Failed to extract members with agent: {e}"
             self.logger.error(error_msg)

@@ -451,23 +451,36 @@ def render_member_extraction_tab(presenter: ParliamentaryGroupPresenter) -> None
                 # LangGraphエージェントを使用
                 with st.spinner("🤖 LangGraphエージェントでメンバー情報を抽出中..."):
                     success, result, error = presenter.extract_members_with_agent(
-                        selected_group.id,
                         selected_group.name,
                         cast(str, selected_group.url),
                     )
 
                     if success and result:
-                        extracted_count = result.get("extracted_count", 0)
-                        saved_count = result.get("saved_count", 0)
+                        extracted_count = len(result.members)
 
                         if extracted_count > 0:
                             st.success(
-                                f"✅ {extracted_count}名のメンバーを抽出、"
-                                f"{saved_count}名を保存しました"
+                                f"✅ {extracted_count}名のメンバーを抽出しました"
                             )
+
+                            # 抽出結果を表示
+                            st.markdown("### 抽出されたメンバー")
+                            members_data = [
+                                {
+                                    "名前": m.name,
+                                    "役職": m.role or "-",
+                                    "政党": m.party_name or "-",
+                                    "選挙区": m.district or "-",
+                                    "備考": m.additional_info or "-",
+                                }
+                                for m in result.members
+                            ]
+                            df_members = pd.DataFrame(members_data)
+                            st.dataframe(df_members, use_container_width=True)
+
                             st.info(
-                                "💡 抽出されたメンバーは「メンバーレビュー」タブで"
-                                "レビュー・マッチングできます"
+                                "💡 DB保存は行っていません。"
+                                "必要に応じて手動で登録してください。"
                             )
                         else:
                             st.warning("メンバーが抽出されませんでした")
