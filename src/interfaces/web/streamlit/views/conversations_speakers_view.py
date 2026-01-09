@@ -1100,7 +1100,7 @@ def render_politician_matching_agent_test() -> None:
             try:
                 # DIコンテナからエージェントを取得（Clean Architecture準拠）
                 container = Container.create_for_environment()
-                agent = container.usecases.politician_matching_agent()
+                agent = container.use_cases.politician_matching_agent()
 
                 result = asyncio.run(
                     agent.match_politician(
