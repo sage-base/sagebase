@@ -298,3 +298,7 @@ class TestBAMLPoliticianMatchingService:
         assert service._is_title_only_speaker("山田太郎") is False
         assert service._is_title_only_speaker("山田委員長") is False  # 名前+役職
         assert service._is_title_only_speaker("委員長山田") is False  # 役職+名前
+
+        # 空文字・空白のみ（エッジケース）
+        assert service._is_title_only_speaker("") is False  # 空文字
+        assert service._is_title_only_speaker("   ") is False  # 空白のみ

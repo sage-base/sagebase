@@ -63,23 +63,26 @@ class BAMLPoliticianMatchingService:
         self.llm_service = llm_service
         self.politician_repository = politician_repository
         self._update_politician_usecase = update_politician_usecase
-        logger.info("BAMLPoliticianMatchingService initialized")
+        logger.info("BAMLPoliticianMatchingService 初期化完了")
 
     # 役職のみの発言者名パターン（個人を特定できないためマッチ対象外）
-    TITLE_ONLY_PATTERNS: set[str] = {
-        "委員長",
-        "副委員長",
-        "議長",
-        "副議長",
-        "事務局長",
-        "事務局次長",
-        "参考人",
-        "証人",
-        "説明員",
-        "政府委員",
-        "幹事",
-        "書記",
-    }
+    # frozensetで不変性を明示
+    TITLE_ONLY_PATTERNS: frozenset[str] = frozenset(
+        {
+            "委員長",
+            "副委員長",
+            "議長",
+            "副議長",
+            "事務局長",
+            "事務局次長",
+            "参考人",
+            "証人",
+            "説明員",
+            "政府委員",
+            "幹事",
+            "書記",
+        }
+    )
 
     def _is_title_only_speaker(self, speaker_name: str) -> bool:
         """役職のみの発言者名かどうかを判定する。
@@ -112,7 +115,7 @@ class BAMLPoliticianMatchingService:
         """
         # 役職のみの発言者は早期リターン（BAML呼び出しをスキップ）
         if self._is_title_only_speaker(speaker_name):
-            logger.debug(f"Title-only speaker skipped: '{speaker_name}'")
+            logger.debug(f"役職のみの発言者をスキップ: '{speaker_name}'")
             return PoliticianMatch(
                 matched=False,
                 confidence=0.0,
@@ -132,7 +135,7 @@ class BAMLPoliticianMatchingService:
             speaker_name, speaker_party, available_politicians
         )
         if rule_based_match.matched and rule_based_match.confidence >= 0.9:
-            logger.info(f"Rule-based match found for '{speaker_name}'")
+            logger.info(f"ルールベースマッチング成功: '{speaker_name}'")
             # ルールベースマッチングでも抽出ログを記録
             await self._log_matching_result(rule_based_match)
             return rule_based_match
@@ -176,7 +179,7 @@ class BAMLPoliticianMatchingService:
                 )
 
             logger.info(
-                f"BAML match result for '{speaker_name}': "
+                f"BAMLマッチング結果: '{speaker_name}' - "
                 f"matched={match_result.matched}, confidence={match_result.confidence}"
             )
 
@@ -189,8 +192,8 @@ class BAMLPoliticianMatchingService:
             # LLMが構造化出力を返さなかった場合（自然言語での回答など）
             # これは正常なケースとして扱い、マッチなし結果を返す
             logger.warning(
-                f"BAML validation failed for '{speaker_name}': {e}. "
-                "Returning no-match result."
+                f"BAMLバリデーション失敗: '{speaker_name}' - {e}. "
+                "マッチなし結果を返します。"
             )
             return PoliticianMatch(
                 matched=False,
@@ -349,9 +352,9 @@ class BAMLPoliticianMatchingService:
                     pipeline_version="politician-matching-v1",
                 )
                 logger.debug(
-                    "Politician matching logged: "
+                    "政治家マッチングをログに記録: "
                     f"politician_id={match_result.politician_id}"
                 )
             except Exception as log_error:
                 # ログ記録の失敗はマッチング結果に影響しない
-                logger.error(f"Failed to log politician matching: {log_error}")
+                logger.error(f"政治家マッチングのログ記録に失敗: {log_error}")
