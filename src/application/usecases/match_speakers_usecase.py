@@ -19,7 +19,6 @@ from src.domain.repositories.politician_repository import PoliticianRepository
 from src.domain.repositories.speaker_repository import SpeakerRepository
 from src.domain.services.interfaces.llm_service import ILLMService
 from src.domain.services.speaker_domain_service import SpeakerDomainService
-from src.domain.types.llm import LLMSpeakerMatchContext
 
 
 if TYPE_CHECKING:
@@ -87,7 +86,6 @@ class MatchSpeakersUseCase:
     async def execute(
         self,
         use_llm: bool = True,
-        use_baml: bool = False,
         speaker_ids: list[int] | None = None,
         limit: int | None = None,
         user_id: UUID | None = None,
@@ -97,15 +95,10 @@ class MatchSpeakersUseCase:
         マッチング処理の流れ：
         1. 既にリンクされている発言者をスキップ
         2. ルールベースマッチング（名前の類似度）
-        3. LLMベースマッチング（コンテキストを考慮）
-           - use_baml=Trueの場合: BAMLベースのマッチング（推奨）
-           - use_baml=Falseの場合: 従来のLLMマッチング
+        3. BAMLベースマッチング（コンテキストを考慮、高精度）
 
         Args:
-            use_llm: LLMマッチングを使用するか（デフォルト: True）
-            use_baml: BAMLベースのマッチングを使用するか（デフォルト: False）
-                     use_llm=Trueの場合のみ有効。Trueの場合、BAMLPoliticianMatchingService
-                     を使用して高精度なマッチングを実行します。
+            use_llm: BAMLマッチングを使用するか（デフォルト: True）
             speaker_ids: 処理対象の発言者IDリスト（Noneの場合は全件）
             limit: 処理する発言者数の上限
             user_id: マッチング作業を実行したユーザーのID（UUID）
@@ -117,7 +110,7 @@ class MatchSpeakersUseCase:
             - matched_politician_id: マッチした政治家ID（マッチなしの場合None）
             - matched_politician_name: マッチした政治家名
             - confidence_score: マッチング信頼度（0.0〜1.0）
-            - matching_method: マッチング手法（existing/rule-based/baml/llm/none）
+            - matching_method: マッチング手法（existing/rule-based/baml/none）
             - matching_reason: マッチング理由の説明
         """
         # Get speakers to process
@@ -163,11 +156,8 @@ class MatchSpeakersUseCase:
             match_result = await self._rule_based_matching(speaker)
 
             if not match_result and use_llm:
-                # Try LLM-based matching (BAML or traditional)
-                if use_baml and self.baml_matching_service:
-                    match_result = await self._baml_based_matching(speaker)
-                else:
-                    match_result = await self._llm_based_matching(speaker)
+                # Try BAML-based matching
+                match_result = await self._baml_based_matching(speaker)
 
             if match_result:
                 # Update speaker with matched politician_id and user_id
@@ -241,71 +231,6 @@ class MatchSpeakersUseCase:
                 matching_method="rule-based",
                 matching_reason=f"Name similarity score: {best_score:.2f}",
             )
-
-        return None
-
-    async def _llm_based_matching(self, speaker: Speaker) -> SpeakerMatchingDTO | None:
-        """LLMベースの発言者マッチングを実行する
-
-        LLMを使用して、コンテキスト情報を考慮した高度なマッチングを行います。
-        処理履歴はLLMProcessingHistoryに記録されます。
-
-        Args:
-            speaker: マッチング対象の発言者
-
-        Returns:
-            マッチング結果DTO（マッチなしの場合None）
-        """
-        # Get potential candidates
-        candidates = await self.politician_repo.get_all(limit=100)
-        if not candidates:
-            return None
-
-        # Prepare context for LLM
-        context = LLMSpeakerMatchContext(
-            speaker_name=speaker.name,
-            normalized_name=self.speaker_service.normalize_speaker_name(speaker.name),
-            party_affiliation=speaker.political_party_name,
-            position=speaker.position,
-            meeting_date="",  # Not available in this context
-            candidates=[
-                {
-                    "id": str(c.id),
-                    "name": c.name,
-                    "party": "",  # Would need party name lookup
-                }
-                for c in candidates
-            ],
-        )
-
-        # Add metadata for history recording (metadata passed via set_input_reference)
-
-        # Set input reference for history tracking if supported
-        # Runtime check - ILLMService doesn't require this method
-        if hasattr(self.llm_service, "set_input_reference"):
-            # type: ignore - optional method not in protocol
-            self.llm_service.set_input_reference(  # type: ignore[attr-defined]
-                reference_type="speaker",
-                reference_id=speaker.id if speaker.id else 0,
-            )
-
-        # Call LLM service with metadata
-        match_result = await self.llm_service.match_speaker_to_politician(context)
-
-        if match_result and match_result.get("matched_id") is not None:
-            matched_id = match_result["matched_id"]
-            if matched_id is not None:
-                politician = await self.politician_repo.get_by_id(matched_id)
-                if politician:
-                    return SpeakerMatchingDTO(
-                        speaker_id=speaker.id if speaker.id is not None else 0,
-                        speaker_name=speaker.name,
-                        matched_politician_id=politician.id,
-                        matched_politician_name=politician.name,
-                        confidence_score=match_result.get("confidence", 0.8),
-                        matching_method="llm",
-                        matching_reason=match_result.get("reason", ""),
-                    )
 
         return None
 

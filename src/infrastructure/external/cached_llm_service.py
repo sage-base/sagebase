@@ -11,7 +11,6 @@ from src.domain.types import PoliticianDTO
 from src.domain.types.llm import (
     LLMExtractResult,
     LLMMatchResult,
-    LLMSpeakerMatchContext,
 )
 from src.infrastructure.external.llm_service import GeminiLLMService
 
@@ -105,30 +104,6 @@ class CachedLLMService(ILLMService):
         self._cache = LLMCache(ttl_minutes=cache_ttl_minutes)
         self._enable_batching = enable_batching
         self._pending_batch: list[tuple[str, Any, Any]] = []
-
-    async def match_speaker_to_politician(
-        self, context: LLMSpeakerMatchContext
-    ) -> LLMMatchResult | None:
-        """Match speaker to politician with caching.
-
-        Args:
-            context: Speaker matching context
-
-        Returns:
-            Match result or None if no match
-        """
-        # Check cache first
-        cached = self._cache.get("match_speaker", context)
-        if cached is not None:
-            return cached
-
-        # Call base service
-        result = await self._base_service.match_speaker_to_politician(context)
-
-        # Cache the result
-        self._cache.set("match_speaker", context, result)
-
-        return result
 
     async def extract_party_members(
         self, html_content: str, party_id: int
@@ -228,56 +203,6 @@ class CachedLLMService(ILLMService):
         self._cache.set("extract_speeches", cache_context, result)
 
         return result
-
-    async def batch_match_speakers(
-        self, contexts: list[LLMSpeakerMatchContext]
-    ) -> list[LLMMatchResult | None]:
-        """Batch process multiple speaker matching requests.
-
-        Args:
-            contexts: List of speaker matching contexts
-
-        Returns:
-            List of match results
-        """
-        if not self._enable_batching or len(contexts) <= 1:
-            # Fall back to individual processing
-            results = []
-            for context in contexts:
-                result = await self.match_speaker_to_politician(context)
-                results.append(result)
-            return results
-
-        # Check cache for each context
-        results = []
-        uncached_contexts = []
-        uncached_indices = []
-
-        for i, context in enumerate(contexts):
-            cached = self._cache.get("match_speaker", context)
-            if cached is not None:
-                results.append(cached)
-            else:
-                results.append(None)  # Placeholder
-                uncached_contexts.append(context)
-                uncached_indices.append(i)
-
-        # Process uncached items in batch
-        if uncached_contexts:
-            # Create a combined prompt for batch processing
-            # This is a simplified example - actual implementation would need
-            # to handle the batch response parsing
-            batch_results = []
-            for context in uncached_contexts:
-                result = await self._base_service.match_speaker_to_politician(context)
-                batch_results.append(result)
-                self._cache.set("match_speaker", context, result)
-
-            # Fill in the results
-            for i, result in zip(uncached_indices, batch_results, strict=False):
-                results[i] = result
-
-        return results
 
     def clear_cache(self) -> None:
         """Clear the cache."""

@@ -251,7 +251,6 @@ def mock_minutes_domain_service():
 def mock_llm_service():
     """Create a mock LLM service."""
     service = AsyncMock()
-    service.match_speaker_to_politician.return_value = {"politician_id": None}
     service.extract_conference_members.return_value = []
     service.scrape_party_members.return_value = []
     return service
@@ -319,13 +318,6 @@ def mock_gemini_llm_service():
             {"name": "テスト議員1", "role": "議長", "party_name": "テスト党"},
             {"name": "テスト議員2", "role": "議員", "party_name": "テスト党"},
         ]
-    }
-
-    # 話者マッチングメソッド
-    mock_service.match_speaker_to_politician.return_value = {
-        "politician_id": 1,
-        "confidence": 0.95,
-        "reason": "完全一致",
     }
 
     return mock_service

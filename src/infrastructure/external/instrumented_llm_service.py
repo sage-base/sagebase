@@ -21,7 +21,6 @@ from src.domain.services.interfaces.llm_service import ILLMService
 from src.domain.types import (
     LLMExtractResult,
     LLMMatchResult,
-    LLMSpeakerMatchContext,
     PoliticianDTO,
 )
 
@@ -202,34 +201,6 @@ class InstrumentedLLMService(ILLMService):
             metadata["is_null"] = True
 
         return metadata
-
-    async def match_speaker_to_politician(  # type: ignore[override]
-        self, context: LLMSpeakerMatchContext
-    ) -> LLMMatchResult | None:
-        """Match a speaker to a politician using LLM with history recording."""
-        # Extract prompt information
-        prompt_template = "speaker_matching"  # This would be from prompt manager
-        prompt_variables: dict[str, Any] = {
-            "speaker_name": context.get("speaker_name", ""),
-            "candidates_count": len(context.get("candidates", [])),
-        }
-
-        # Use configured reference if set via set_input_reference, else defaults
-        reference_type = self._input_reference_type or "speaker"
-        reference_id = self._input_reference_id
-        if reference_id is None:
-            # TypedDict doesn't have speaker_id, use speaker_name as reference
-            reference_id = hash(context.get("speaker_name", "")) % 1000000
-
-        return await self._record_processing(
-            ProcessingType.SPEAKER_MATCHING,
-            reference_type,
-            reference_id,
-            prompt_template,
-            prompt_variables,
-            self._llm_service.match_speaker_to_politician,
-            context,
-        )
 
     async def extract_speeches_from_text(self, text: str) -> list[dict[str, str]]:  # type: ignore[override]
         """Extract speeches from meeting minutes text with history recording."""

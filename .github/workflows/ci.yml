@@ -457,8 +457,6 @@ jobs:
         env:
           CI: true
           PYTHONPATH: ${{ github.workspace }}
-          USE_BAML_SPEAKER_MATCHING: true
-          USE_BAML_POLITICIAN_MATCHING: true
         run: |
           uv run pytest -xvs -m baml --tb=short
 

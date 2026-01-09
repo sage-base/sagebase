@@ -323,54 +323,6 @@ class TestSpeakerMatchingWithExtractionLog:
         )
 
     @pytest.mark.asyncio
-    async def test_speaker_matching_llm_creates_extraction_log_with_correct_version(
-        self,
-        mock_speaker_repo,
-        mock_politician_repo,
-        mock_conversation_repo,
-        mock_speaker_service,
-        mock_llm_service,
-        mock_update_speaker_usecase,
-        sample_speaker,
-        sample_politician,
-    ):
-        """Test that LLM matching creates extraction log with correct version."""
-        # Setup mock responses - no rule-based match
-        mock_speaker_repo.get_politicians.return_value = [sample_speaker]
-        mock_politician_repo.search_by_name.return_value = []  # No rule-based match
-        mock_politician_repo.get_all.return_value = [sample_politician]
-        mock_politician_repo.get_by_id.return_value = sample_politician
-
-        # Mock LLM match result
-        mock_llm_service.match_speaker_to_politician.return_value = {
-            "matched_id": 10,
-            "confidence": 0.9,
-            "reason": "High similarity",
-        }
-
-        # Create use case
-        use_case = MatchSpeakersUseCase(
-            speaker_repository=mock_speaker_repo,
-            politician_repository=mock_politician_repo,
-            conversation_repository=mock_conversation_repo,
-            speaker_domain_service=mock_speaker_service,
-            llm_service=mock_llm_service,
-            update_speaker_usecase=mock_update_speaker_usecase,
-        )
-
-        # Execute with LLM matching
-        results = await use_case.execute(use_llm=True)
-
-        # Verify
-        assert len(results) == 1
-        assert results[0].matching_method == "llm"
-
-        # Verify extraction log UseCase was called with LLM version
-        mock_update_speaker_usecase.execute.assert_called_once()
-        call_args = mock_update_speaker_usecase.execute.call_args
-        assert "speaker-matching-llm-v1" in call_args.kwargs["pipeline_version"]
-
-    @pytest.mark.asyncio
     async def test_no_extraction_log_when_no_match(
         self,
         mock_speaker_repo,
@@ -385,9 +337,8 @@ class TestSpeakerMatchingWithExtractionLog:
         # Setup mock responses - no matches
         mock_speaker_repo.get_politicians.return_value = [sample_speaker]
         mock_politician_repo.search_by_name.return_value = []  # No rule-based match
-        mock_llm_service.match_speaker_to_politician.return_value = None  # No LLM match
 
-        # Create use case
+        # Create use case without BAML service
         use_case = MatchSpeakersUseCase(
             speaker_repository=mock_speaker_repo,
             politician_repository=mock_politician_repo,
@@ -395,10 +346,11 @@ class TestSpeakerMatchingWithExtractionLog:
             speaker_domain_service=mock_speaker_service,
             llm_service=mock_llm_service,
             update_speaker_usecase=mock_update_speaker_usecase,
+            baml_matching_service=None,  # No BAML service
         )
 
         # Execute
-        results = await use_case.execute(use_llm=False)
+        results = await use_case.execute(use_llm=True)
 
         # Verify
         assert len(results) == 1

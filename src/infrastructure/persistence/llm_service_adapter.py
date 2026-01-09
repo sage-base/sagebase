@@ -13,7 +13,6 @@ from src.domain.services.interfaces.llm_service import ILLMService
 from src.domain.types import (
     LLMExtractResult,
     LLMMatchResult,
-    LLMSpeakerMatchContext,
     PoliticianDTO,
 )
 
@@ -104,19 +103,6 @@ class LLMServiceAdapter:
         return self._run_async(
             self._llm_service.get_processing_history(reference_type, reference_id)
         )
-
-    def match_speaker_to_politician(
-        self, context: LLMSpeakerMatchContext
-    ) -> LLMMatchResult | None:
-        """Match a speaker to a politician using LLM.
-
-        Args:
-            context: Context for speaker matching
-
-        Returns:
-            Match result or None if no match found
-        """
-        return self._run_async(self._llm_service.match_speaker_to_politician(context))
 
     def extract_speeches_from_text(self, text: str) -> list[dict[str, str]]:
         """Extract speeches from text using LLM.

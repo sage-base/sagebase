@@ -142,24 +142,24 @@ class TestLLMCache:
         """Test cached LLM service."""
         # Mock base service
         base_service = MagicMock()
-        base_service.match_speaker_to_politician = AsyncMock(
-            return_value={"matched_id": 123, "confidence": 0.9}
+        base_service.extract_speeches_from_text = AsyncMock(
+            return_value=[{"speaker": "Test", "content": "Test content"}]
         )
 
         # Create cached service
         cached_service = CachedLLMService(base_service)
 
         # First call should hit base service
-        context = MagicMock()
-        result1 = await cached_service.match_speaker_to_politician(context)
-        assert result1 == {"matched_id": 123, "confidence": 0.9}
-        base_service.match_speaker_to_politician.assert_called_once()
+        text = "Test meeting minutes"
+        result1 = await cached_service.extract_speeches_from_text(text)
+        assert result1 == [{"speaker": "Test", "content": "Test content"}]
+        base_service.extract_speeches_from_text.assert_called_once()
 
-        # Second call with same context should use cache
-        result2 = await cached_service.match_speaker_to_politician(context)
+        # Second call with same text should use cache
+        result2 = await cached_service.extract_speeches_from_text(text)
         assert result2 == result1
         # Base service should still have been called only once
-        assert base_service.match_speaker_to_politician.call_count == 1
+        assert base_service.extract_speeches_from_text.call_count == 1
 
 
 class TestConcurrentLLMService:
@@ -188,11 +188,11 @@ class TestConcurrentLLMService:
         # Mock base service
         base_service = MagicMock()
 
-        async def mock_match(*args, **kwargs):
+        async def mock_extract(*args, **kwargs):
             await asyncio.sleep(0.01)  # Simulate processing time
-            return {"matched_id": 1}
+            return [{"speaker": "Test", "content": "Test content"}]
 
-        base_service.match_speaker_to_politician = mock_match
+        base_service.extract_speeches_from_text = mock_extract
 
         # Create concurrent service
         concurrent_service = ConcurrentLLMService(
@@ -202,10 +202,10 @@ class TestConcurrentLLMService:
         )
 
         # Process multiple items
-        items = [1, 2, 3, 4, 5]
+        items = ["text1", "text2", "text3", "text4", "text5"]
 
         async def process_item(item):
-            return await concurrent_service.match_speaker_to_politician(MagicMock())
+            return await concurrent_service.extract_speeches_from_text(item)
 
         results = await concurrent_service.process_with_concurrency_limit(
             items,
@@ -214,7 +214,8 @@ class TestConcurrentLLMService:
         )
 
         assert len(results) == 5
-        assert all(r == {"matched_id": 1} for r in results)
+        expected_result = [{"speaker": "Test", "content": "Test content"}]
+        assert all(r == expected_result for r in results)
 
 
 class TestPerformanceMonitor:
