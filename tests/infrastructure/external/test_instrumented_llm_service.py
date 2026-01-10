@@ -15,7 +15,6 @@ from src.domain.repositories.llm_processing_history_repository import (
 from src.domain.types import (
     LLMExtractResult,
     LLMMatchResult,
-    LLMSpeakerMatchContext,
     PoliticianDTO,
 )
 from src.infrastructure.external.instrumented_llm_service import InstrumentedLLMService
@@ -37,17 +36,6 @@ class MockLLMService:
         self, reference_type: str | None = None, reference_id: int | None = None
     ) -> list[LLMProcessingHistory]:
         return []
-
-    def match_speaker_to_politician(
-        self, context: LLMSpeakerMatchContext
-    ) -> LLMMatchResult | None:
-        return LLMMatchResult(
-            matched=True,
-            confidence=0.95,
-            reason="Test match",
-            matched_id=123,
-            metadata={"test": "data"},
-        )
 
     def extract_speeches_from_text(self, text: str) -> list[dict[str, str]]:
         return [{"speaker": "Test Speaker", "content": "Test content"}]
@@ -103,42 +91,6 @@ def instrumented_service(mock_llm_service, mock_history_repository):
 
 class TestInstrumentedLLMService:
     """Test InstrumentedLLMService functionality."""
-
-    @pytest.mark.asyncio
-    async def test_match_speaker_to_politician_with_history(
-        self, instrumented_service, mock_history_repository
-    ):
-        """Test speaker matching records history."""
-        context = LLMSpeakerMatchContext(
-            speaker_name="Test Speaker",
-            normalized_name="test speaker",
-            party_affiliation=None,
-            position=None,
-            meeting_date="2024-01-01",
-            candidates=[],
-        )
-
-        result = await instrumented_service.match_speaker_to_politician(context)
-
-        # Verify result
-        assert result is not None
-        assert result["matched"] is True
-        assert result["confidence"] == 0.95
-
-        # Verify history was recorded
-        assert mock_history_repository.create.called
-        assert mock_history_repository.update.called
-
-        # Check history entry details
-        history_call = mock_history_repository.create.call_args[0][0]
-        assert isinstance(history_call, LLMProcessingHistory)
-        assert history_call.processing_type == ProcessingType.SPEAKER_MATCHING
-        assert history_call.model_name == "test-model"
-        assert history_call.model_version == "1.0.0"
-        assert history_call.input_reference_type == "speaker"
-        assert (
-            history_call.input_reference_id > 0
-        )  # Generated from hash of speaker name
 
     @pytest.mark.asyncio
     async def test_extract_speeches_with_history(
@@ -226,7 +178,7 @@ class TestInstrumentedLLMService:
     ):
         """Test history recording when processing fails."""
         # Make the LLM service raise an error
-        mock_llm_service.match_speaker_to_politician = MagicMock(
+        mock_llm_service.extract_speeches_from_text = MagicMock(
             side_effect=Exception("Test error")
         )
 
@@ -237,18 +189,11 @@ class TestInstrumentedLLMService:
             model_version="1.0.0",
         )
 
-        context = LLMSpeakerMatchContext(
-            speaker_name="Test Speaker",
-            normalized_name="test speaker",
-            party_affiliation=None,
-            position=None,
-            meeting_date="2024-01-01",
-            candidates=[],
-        )
+        text = "Test meeting minutes text"
 
         # Should raise the exception
         with pytest.raises(Exception, match="Test error"):
-            await instrumented_service.match_speaker_to_politician(context)
+            await instrumented_service.extract_speeches_from_text(text)
 
         # Verify history was still recorded with failure
         assert mock_history_repository.create.called
@@ -269,19 +214,13 @@ class TestInstrumentedLLMService:
             model_version="1.0.0",
         )
 
-        context = LLMSpeakerMatchContext(
-            speaker_name="Test Speaker",
-            normalized_name="test speaker",
-            party_affiliation=None,
-            position=None,
-            meeting_date="2024-01-01",
-            candidates=[],
-        )
+        text = "Test meeting minutes text"
 
         # Should work normally without recording history
-        result = await instrumented_service.match_speaker_to_politician(context)
+        result = await instrumented_service.extract_speeches_from_text(text)
         assert result is not None
-        assert result["matched"] is True
+        assert len(result) == 1
+        assert result[0]["speaker"] == "Test Speaker"
 
     def test_get_processing_history(
         self, instrumented_service, mock_history_repository

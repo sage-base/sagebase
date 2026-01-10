@@ -41,7 +41,6 @@ class TestMinutesProcessingWithHistory:
         # Mock async methods required by ILLMService
         mock.set_history_repository = AsyncMock()
         mock.get_processing_history = AsyncMock(return_value=[])
-        mock.match_speaker_to_politician = AsyncMock(return_value=None)
         mock.extract_speeches_from_text = AsyncMock(
             return_value=[
                 {"speaker": "田中議員", "content": "本日の議題について説明します。"},

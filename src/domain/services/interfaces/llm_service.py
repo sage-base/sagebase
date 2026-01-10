@@ -9,7 +9,6 @@ from src.domain.repositories.llm_processing_history_repository import (
 from src.domain.types import (
     LLMExtractResult,
     LLMMatchResult,
-    LLMSpeakerMatchContext,
     PoliticianDTO,
 )
 
@@ -45,19 +44,6 @@ class ILLMService(Protocol):
 
         Returns:
             List of processing history entries
-        """
-        ...
-
-    async def match_speaker_to_politician(
-        self, context: LLMSpeakerMatchContext
-    ) -> LLMMatchResult | None:
-        """Match a speaker to a politician using LLM.
-
-        Args:
-            context: Context containing speaker info and candidate politicians
-
-        Returns:
-            Matching result with politician_id and confidence score
         """
         ...
 

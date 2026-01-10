@@ -134,46 +134,6 @@ class TestMatchSpeakersUseCase:
         assert "speaker-matching-rule-based-v1" in call_kwargs["pipeline_version"]
 
     @pytest.mark.asyncio
-    async def test_execute_with_llm_matching(
-        self,
-        use_case,
-        mock_speaker_repo,
-        mock_politician_repo,
-        mock_llm_service,
-        mock_update_speaker_usecase,
-    ):
-        """Test LLM-based matching."""
-        # Setup
-        speaker = Speaker(id=3, name="田中次郎", is_politician=True)
-        politician = Politician(id=30, name="田中次郎", political_party_id=2)
-
-        mock_speaker_repo.get_politicians.return_value = [speaker]
-        # No existing politician link
-        mock_politician_repo.search_by_name.return_value = []  # No rule-based match
-        mock_politician_repo.get_all.return_value = [politician]
-        mock_politician_repo.get_by_id.return_value = politician
-
-        mock_llm_service.match_speaker_to_politician.return_value = {
-            "matched_id": 30,
-            "confidence": 0.85,
-        }
-
-        # Execute
-        results = await use_case.execute(use_llm=True)
-
-        # Verify
-        assert len(results) == 1
-        assert results[0].speaker_id == 3
-        assert results[0].matched_politician_id == 30
-        assert results[0].confidence_score == 0.85
-        assert results[0].matching_method == "llm"
-        # LLMマッチング成功時は抽出ログを記録する
-        mock_update_speaker_usecase.execute.assert_called_once()
-        call_kwargs = mock_update_speaker_usecase.execute.call_args.kwargs
-        assert call_kwargs["entity_id"] == 3
-        assert "speaker-matching-llm-v1" in call_kwargs["pipeline_version"]
-
-    @pytest.mark.asyncio
     async def test_execute_no_match_found(
         self,
         use_case,
@@ -297,24 +257,21 @@ class TestMatchSpeakersUseCase:
         assert results[0].confidence_score == 0.85
 
     @pytest.mark.asyncio
-    async def test_llm_matching_no_candidates(
+    async def test_baml_matching_no_service_configured(
         self, use_case, mock_speaker_repo, mock_politician_repo
     ):
-        """Test LLM matching when no candidates exist."""
-        # Setup
+        """Test when BAML service is not configured."""
+        # Setup - use_case fixture does not include baml_matching_service
         speaker = Speaker(id=6, name="新人議員", is_politician=True)
 
         mock_speaker_repo.get_politicians.return_value = [speaker]
         # No existing politician link
         mock_politician_repo.search_by_name.return_value = []
-        # Configure mock to not have get_all_cached method
-        del mock_politician_repo.get_all_cached
-        mock_politician_repo.get_all.return_value = []  # No candidates
 
         # Execute
         results = await use_case.execute(use_llm=True)
 
-        # Verify
+        # Verify - no BAML service means no LLM match
         assert len(results) == 1
         assert results[0].matched_politician_id is None
         assert results[0].matching_method == "none"

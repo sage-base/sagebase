@@ -90,15 +90,6 @@ def render_matching_tab() -> None:
     user_email = user_info.get("email", "Unknown")
     st.info(f"実行ユーザー: {user_name} ({user_email})")
 
-    # マッチング方式選択 (Issue #885)
-    use_baml = st.checkbox(
-        "BAML方式を使用（推奨）",
-        value=True,
-        help="BAMLベースの政治家マッチングを使用します。"
-        "ルールベースマッチング（高速パス）とBAMLマッチングのハイブリッドアプローチにより、"
-        "高精度なマッチングを実現します。",
-    )
-
     if st.button("マッチング実行", type="primary"):
         with st.spinner("マッチング処理を実行中..."):
             try:
@@ -118,11 +109,10 @@ def render_matching_tab() -> None:
                 name = user_info.get("name")
                 user = asyncio.run(auth_usecase.execute(email=email, name=name))
 
-                # Execute matching with user_id (Issue #885: use_baml support)
+                # Execute matching with user_id
                 results = asyncio.run(
                     match_usecase.execute(
                         use_llm=True,
-                        use_baml=use_baml,
                         limit=10,  # Limit to 10 for testing
                         user_id=user.user_id,
                     )

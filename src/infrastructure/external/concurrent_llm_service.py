@@ -10,7 +10,6 @@ from src.domain.types import PoliticianDTO
 from src.domain.types.llm import (
     LLMExtractResult,
     LLMMatchResult,
-    LLMSpeakerMatchContext,
 )
 
 
@@ -81,14 +80,6 @@ class ConcurrentLLMService(ILLMService):
         await self._rate_limiter.acquire()
         return await func(*args, **kwargs)
 
-    async def match_speaker_to_politician(
-        self, context: LLMSpeakerMatchContext
-    ) -> LLMMatchResult | None:
-        """Match speaker to politician with rate limiting."""
-        return await self._execute_with_rate_limit(
-            self._base_service.match_speaker_to_politician, context
-        )
-
     async def extract_party_members(
         self, html_content: str, party_id: int
     ) -> LLMExtractResult:
@@ -146,30 +137,6 @@ class ConcurrentLLMService(ILLMService):
         # Process all items concurrently with limits
         tasks = [process_with_limit(item) for item in items]
         return await asyncio.gather(*tasks)
-
-    async def batch_match_speakers_concurrent(
-        self,
-        contexts: list[LLMSpeakerMatchContext],
-        max_concurrent: int | None = None,
-    ) -> list[LLMMatchResult | None]:
-        """Match multiple speakers concurrently with rate limiting.
-
-        Args:
-            contexts: List of speaker contexts to match
-            max_concurrent: Maximum concurrent operations
-
-        Returns:
-            List of match results
-        """
-
-        async def match_single(
-            context: LLMSpeakerMatchContext,
-        ) -> LLMMatchResult | None:
-            return await self._base_service.match_speaker_to_politician(context)
-
-        return await self.process_with_concurrency_limit(
-            contexts, match_single, max_concurrent
-        )
 
     async def batch_extract_speeches_concurrent(
         self,

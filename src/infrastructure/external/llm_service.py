@@ -19,7 +19,6 @@ from src.domain.services.interfaces.llm_service import ILLMService
 from src.domain.types import (
     LLMExtractResult,
     LLMMatchResult,
-    LLMSpeakerMatchContext,
     PoliticianDTO,
 )
 from src.infrastructure.external.versioned_prompt_manager import VersionedPromptManager
@@ -106,9 +105,7 @@ class GeminiLLMService(ILLMService):
                 logger.warning(f"Failed to get versioned prompt: {e}")
 
         # Fallback to hardcoded prompts
-        if prompt_key == "speaker_matching":
-            return self._get_speaker_matching_prompt(variables)
-        elif prompt_key == "party_member_extraction":
+        if prompt_key == "party_member_extraction":
             return self._get_party_member_extraction_prompt(variables)
         elif prompt_key == "conference_member_matching":
             return self._get_conference_member_matching_prompt(variables)
@@ -116,32 +113,6 @@ class GeminiLLMService(ILLMService):
             return self._get_speech_extraction_prompt(variables)
         else:
             return f"No prompt found for key: {prompt_key}"
-
-    def _get_speaker_matching_prompt(self, variables: dict[str, Any]) -> str:
-        """Get speaker matching prompt."""
-        candidates = variables.get("candidates", [])
-        speaker_name = variables.get("speaker_name", "")
-
-        candidates_text = "\n".join(
-            [
-                f"- ID: {c['id']}, Name: {c['name']}, Party: {c.get('party', 'N/A')}"
-                for c in candidates
-            ]
-        )
-
-        return f"""Match the speaker to one of the candidates below.
-
-Speaker: {speaker_name}
-
-Candidates:
-{candidates_text}
-
-Return a JSON object with:
-- matched: boolean (true if match found)
-- confidence: float (0.0-1.0)
-- matched_id: int (candidate ID if matched)
-- reason: string (explanation)
-"""
 
     def _get_party_member_extraction_prompt(self, variables: dict[str, Any]) -> str:
         """Get party member extraction prompt."""
@@ -193,50 +164,6 @@ Return a JSON array of objects with:
 - content: string (speech content)
 
 Format: [{"speaker": "Name", "content": "Speech text"}, ...]"""
-
-    async def match_speaker_to_politician(
-        self, context: LLMSpeakerMatchContext
-    ) -> LLMMatchResult | None:
-        """Match speaker to politician using Gemini."""
-        try:
-            # Prepare prompt
-            prompt = await self._get_prompt(
-                "speaker_matching",
-                {
-                    "speaker_name": context.get("speaker_name", ""),
-                    "candidates": context.get("candidates", []),
-                },
-            )
-
-            # Create prompt template and invoke
-            prompt_template = ChatPromptTemplate.from_template(prompt)
-            chain: RunnableSerializable[dict[str, Any], BaseMessage] = cast(
-                RunnableSerializable[dict[str, Any], BaseMessage],
-                prompt_template | self._llm,
-            )
-            response = await chain.ainvoke({})
-
-            # Parse response
-            if hasattr(response, "content"):
-                content = cast(Any, response).content
-                if isinstance(content, str):
-                    response_text = content
-                else:
-                    response_text = str(content)
-            else:
-                response_text = str(response)
-            result = json.loads(response_text)
-
-            return LLMMatchResult(
-                matched=result.get("matched", False),
-                confidence=result.get("confidence", 0.0),
-                reason=result.get("reason", ""),
-                matched_id=result.get("matched_id"),
-                metadata={"model": self.model_name},
-            )
-        except Exception as e:
-            logger.error(f"Failed to match speaker: {e}")
-            return None
 
     async def extract_party_members(
         self, html_content: str, party_id: int

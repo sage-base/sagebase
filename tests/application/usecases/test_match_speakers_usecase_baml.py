@@ -1,4 +1,7 @@
-"""Tests for MatchSpeakersUseCase with BAML integration (Issue #885)."""
+"""Tests for MatchSpeakersUseCase with BAML integration.
+
+Issue #885, #906: BAML is now the only LLM matching method.
+"""
 
 from unittest.mock import AsyncMock, MagicMock
 
@@ -122,15 +125,15 @@ class TestMatchSpeakersUseCaseBAML:
         mock_baml_matching_service,
         mock_update_speaker_usecase,
     ):
-        """use_baml=Trueの場合、BAMLマッチングが使用される"""
+        """BAMLマッチングが使用される (Issue #906: BAML is now the default)"""
         # Setup
         speaker = Speaker(id=1, name="BAML太郎", is_politician=True)
 
         mock_speaker_repo.get_politicians.return_value = [speaker]
         mock_politician_repo.search_by_name.return_value = []  # ルールベースマッチなし
 
-        # Execute with use_baml=True
-        results = await use_case_with_baml.execute(use_llm=True, use_baml=True)
+        # Execute - BAML is now the only LLM matching method
+        results = await use_case_with_baml.execute(use_llm=True)
 
         # Verify
         assert len(results) == 1
@@ -154,71 +157,26 @@ class TestMatchSpeakersUseCaseBAML:
         assert "speaker-matching-baml-v1" in call_kwargs["pipeline_version"]
 
     @pytest.mark.asyncio
-    async def test_execute_baml_false_uses_llm_matching(
-        self,
-        use_case_with_baml,
-        mock_speaker_repo,
-        mock_politician_repo,
-        mock_llm_service,
-        mock_baml_matching_service,
-    ):
-        """use_baml=Falseの場合、従来のLLMマッチングが使用される"""
-        # Setup
-        speaker = Speaker(id=2, name="LLM次郎", is_politician=True)
-        politician = Politician(id=20, name="LLM次郎", political_party_id=1)
-
-        mock_speaker_repo.get_politicians.return_value = [speaker]
-        mock_politician_repo.search_by_name.return_value = []  # ルールベースマッチなし
-        mock_politician_repo.get_all.return_value = [politician]
-        mock_politician_repo.get_by_id.return_value = politician
-        mock_llm_service.match_speaker_to_politician.return_value = {
-            "matched_id": 20,
-            "confidence": 0.80,
-            "reason": "LLMマッチング",
-        }
-
-        # Execute with use_baml=False
-        results = await use_case_with_baml.execute(use_llm=True, use_baml=False)
-
-        # Verify
-        assert len(results) == 1
-        assert results[0].matching_method == "llm"
-
-        # BAMLサービスは呼び出されない
-        mock_baml_matching_service.find_best_match.assert_not_called()
-
-        # LLMサービスが呼び出されたことを確認
-        mock_llm_service.match_speaker_to_politician.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_execute_baml_without_service_falls_back_to_llm(
+    async def test_execute_baml_without_service_returns_no_match(
         self,
         use_case_without_baml,
         mock_speaker_repo,
         mock_politician_repo,
-        mock_llm_service,
     ):
-        """BAMLサービスがない場合、use_baml=TrueでもLLMマッチングにフォールバック"""
+        """BAMLサービスがない場合、マッチなしとなる (Issue #906)"""
         # Setup
         speaker = Speaker(id=3, name="フォールバック三郎", is_politician=True)
-        politician = Politician(id=30, name="フォールバック三郎", political_party_id=1)
 
         mock_speaker_repo.get_politicians.return_value = [speaker]
         mock_politician_repo.search_by_name.return_value = []  # ルールベースマッチなし
-        mock_politician_repo.get_all.return_value = [politician]
-        mock_politician_repo.get_by_id.return_value = politician
-        mock_llm_service.match_speaker_to_politician.return_value = {
-            "matched_id": 30,
-            "confidence": 0.75,
-        }
 
-        # Execute with use_baml=True but no BAML service configured
-        results = await use_case_without_baml.execute(use_llm=True, use_baml=True)
+        # Execute without BAML service configured
+        results = await use_case_without_baml.execute(use_llm=True)
 
-        # Verify - should fall back to LLM
+        # Verify - no BAML service means no LLM match
         assert len(results) == 1
-        assert results[0].matching_method == "llm"
-        mock_llm_service.match_speaker_to_politician.assert_called_once()
+        assert results[0].matching_method == "none"
+        assert results[0].matched_politician_id is None
 
     @pytest.mark.asyncio
     async def test_execute_baml_no_match(
@@ -247,7 +205,7 @@ class TestMatchSpeakersUseCaseBAML:
         )
 
         # Execute
-        results = await use_case_with_baml.execute(use_llm=True, use_baml=True)
+        results = await use_case_with_baml.execute(use_llm=True)
 
         # Verify
         assert len(results) == 1
@@ -277,7 +235,7 @@ class TestMatchSpeakersUseCaseBAML:
         mock_baml_matching_service.find_best_match.side_effect = Exception("BAML error")
 
         # Execute
-        results = await use_case_with_baml.execute(use_llm=True, use_baml=True)
+        results = await use_case_with_baml.execute(use_llm=True)
 
         # Verify - エラー時はマッチなしとして扱われる
         assert len(results) == 1
@@ -309,7 +267,7 @@ class TestMatchSpeakersUseCaseBAML:
         mock_politician_repo.search_by_name.return_value = []  # ルールベースマッチなし
 
         # Execute
-        await use_case_with_baml.execute(use_llm=True, use_baml=True)
+        await use_case_with_baml.execute(use_llm=True)
 
         # Verify - 発言者情報がBAMLサービスに正しく渡される
         mock_baml_matching_service.find_best_match.assert_called_once_with(
@@ -337,7 +295,7 @@ class TestMatchSpeakersUseCaseBAML:
         mock_speaker_service.calculate_name_similarity.return_value = 0.95  # 高類似度
 
         # Execute
-        results = await use_case_with_baml.execute(use_llm=True, use_baml=True)
+        results = await use_case_with_baml.execute(use_llm=True)
 
         # Verify - ルールベースマッチングが成功
         assert len(results) == 1
@@ -346,39 +304,3 @@ class TestMatchSpeakersUseCaseBAML:
 
         # BAMLサービスは呼び出されない
         mock_baml_matching_service.find_best_match.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_backward_compatibility_default_use_baml_false(
-        self,
-        use_case_with_baml,
-        mock_speaker_repo,
-        mock_politician_repo,
-        mock_llm_service,
-        mock_baml_matching_service,
-    ):
-        """デフォルトでuse_baml=Falseが使用される（後方互換性）"""
-        # Setup
-        speaker = Speaker(id=8, name="互換八郎", is_politician=True)
-        politician = Politician(id=80, name="互換八郎", political_party_id=1)
-
-        mock_speaker_repo.get_politicians.return_value = [speaker]
-        mock_politician_repo.search_by_name.return_value = []  # ルールベースマッチなし
-        mock_politician_repo.get_all.return_value = [politician]
-        mock_politician_repo.get_by_id.return_value = politician
-        mock_llm_service.match_speaker_to_politician.return_value = {
-            "matched_id": 80,
-            "confidence": 0.85,
-        }
-
-        # Execute without use_baml parameter (should default to False)
-        results = await use_case_with_baml.execute(use_llm=True)
-
-        # Verify - LLMマッチングが使用される
-        assert len(results) == 1
-        assert results[0].matching_method == "llm"
-
-        # BAMLサービスは呼び出されない
-        mock_baml_matching_service.find_best_match.assert_not_called()
-
-        # LLMサービスが呼び出される
-        mock_llm_service.match_speaker_to_politician.assert_called_once()

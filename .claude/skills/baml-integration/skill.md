@@ -164,43 +164,7 @@ class BAMLSpeakerMatchingService:
 - レイテンシ削減（LLM呼び出しを最小化）
 - コスト削減
 
-### 2. Factory Pattern
-
-**環境変数で実装を切り替え**:
-
-```python
-# src/domain/services/factories/speaker_matching_factory.py
-import os
-from src.domain.services.interfaces.llm_service import ILLMService
-from src.domain.repositories.speaker_repository import SpeakerRepository
-
-class SpeakerMatchingServiceFactory:
-    @staticmethod
-    def create(
-        llm_service: ILLMService,
-        speaker_repository: SpeakerRepository,
-    ):
-        use_baml = os.getenv("USE_BAML_SPEAKER_MATCHING", "false").lower() == "true"
-
-        if use_baml:
-            from src.domain.services.baml_speaker_matching_service import (
-                BAMLSpeakerMatchingService,
-            )
-            return BAMLSpeakerMatchingService(llm_service, speaker_repository)
-
-        from src.domain.services.speaker_matching_service import (
-            SpeakerMatchingService,
-        )
-        return SpeakerMatchingService(llm_service, speaker_repository)
-```
-
-**環境変数設定** (`.env`):
-```bash
-USE_BAML_SPEAKER_MATCHING=false  # デフォルトはfalse
-USE_BAML_POLITICIAN_MATCHING=false
-```
-
-### 3. Service Implementation Structure
+### 2. Service Implementation Structure
 
 ```python
 class BAMLSpeakerMatchingService:
@@ -358,24 +322,20 @@ return SpeakerMatch(
 )
 ```
 
-## Environment Variables
+## BAML-Only Features
 
-### BAML Feature Flags in Sagebase
+### All LLM Features Now Use BAML
 
-**Note:** 議事録分割、議員団メンバー抽出、政党メンバー抽出は現在BAML専用です。
+**Note:** Sagebaseの全てのLLM機能はBAML専用に移行完了しています。
 Pydantic実装は削除されており、環境変数による切り替えはできません。
 
-```bash
-# .env または .env.example
-# 以下の機能はBAML専用（環境変数不要、Pydantic実装削除済み）：
-# - 議事録分割（Minutes Divider）
-# - 会議体メンバー抽出（Conference Member Extractor）
-# - 議員団メンバー抽出（Parliamentary Group Member Extractor）
-# - 政党メンバー抽出（Party Member Extractor）
-
-USE_BAML_SPEAKER_MATCHING=false                  # 話者マッチング（デフォルト: false）
-USE_BAML_POLITICIAN_MATCHING=false               # 政治家マッチング（デフォルト: false）
-```
+**BAML専用機能:**
+- 議事録分割（Minutes Divider）
+- 会議体メンバー抽出（Conference Member Extractor）
+- 議員団メンバー抽出（Parliamentary Group Member Extractor）
+- 政党メンバー抽出（Party Member Extractor）
+- 話者マッチング（Speaker Matching）
+- 政治家マッチング（Politician Matching）
 
 ## Debugging
 
@@ -412,10 +372,6 @@ uv run pytest tests/domain/services/test_baml_speaker_matching_service.py -v
   - [ ] ハイブリッドアプローチ（ルールベース + BAML）
   - [ ] 候補フィルタリング
   - [ ] トークン最適化
-- [ ] ファクトリークラスを作成
-  - [ ] 環境変数で切り替え
-  - [ ] デフォルト値を設定
-- [ ] `.env.example`に環境変数を追加
 - [ ] テストを作成
   - [ ] BAMLクライアントをモック
   - [ ] ルールベースマッチングのテスト
@@ -425,7 +381,6 @@ uv run pytest tests/domain/services/test_baml_speaker_matching_service.py -v
   - [ ] トークン削減効果を記載
 - [ ] ドキュメント更新
   - [ ] 使い方を説明
-  - [ ] 環境変数の説明
 
 ## References
 

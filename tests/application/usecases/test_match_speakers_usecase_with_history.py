@@ -1,6 +1,9 @@
-"""Tests for MatchSpeakersUseCase with LLM history recording."""
+"""Tests for MatchSpeakersUseCase with history recording.
 
-from unittest.mock import AsyncMock, MagicMock, patch
+Note: Issue #906 removed legacy LLM matching. BAML is now the only LLM matching method.
+"""
+
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -11,6 +14,7 @@ from src.domain.entities.llm_processing_history import (
     ProcessingStatus,
     ProcessingType,
 )
+from src.domain.value_objects.politician_match import PoliticianMatch
 from src.infrastructure.external.instrumented_llm_service import InstrumentedLLMService
 
 
@@ -46,13 +50,6 @@ class TestMatchSpeakersUseCaseWithHistory:
         service = AsyncMock()
         service.temperature = 0.1
         service.model_name = "gemini-2.0-flash"
-        service.match_speaker_to_politician = AsyncMock(
-            return_value={
-                "matched_id": 1,
-                "confidence": 0.95,
-                "reason": "High name similarity and matching party affiliation",
-            }
-        )
         return service
 
     @pytest.fixture
@@ -113,6 +110,22 @@ class TestMatchSpeakersUseCaseWithHistory:
         return usecase
 
     @pytest.fixture
+    def mock_baml_matching_service(self) -> MagicMock:
+        """Create mock BAML matching service."""
+        service = MagicMock()
+        service.find_best_match = AsyncMock(
+            return_value=PoliticianMatch(
+                matched=True,
+                politician_id=1,
+                politician_name="山田太郎",
+                political_party_name="自民党",
+                confidence=0.95,
+                reason="BAMLマッチング: 名前が一致",
+            )
+        )
+        return service
+
+    @pytest.fixture
     def use_case(
         self,
         mock_speaker_repo: MagicMock,
@@ -121,6 +134,7 @@ class TestMatchSpeakersUseCaseWithHistory:
         mock_speaker_service: MagicMock,
         instrumented_llm_service: InstrumentedLLMService,
         mock_update_speaker_usecase: AsyncMock,
+        mock_baml_matching_service: MagicMock,
     ) -> MatchSpeakersUseCase:
         """Create MatchSpeakersUseCase with all dependencies."""
         return MatchSpeakersUseCase(
@@ -130,17 +144,19 @@ class TestMatchSpeakersUseCaseWithHistory:
             speaker_domain_service=mock_speaker_service,
             llm_service=instrumented_llm_service,
             update_speaker_usecase=mock_update_speaker_usecase,
+            baml_matching_service=mock_baml_matching_service,
         )
 
     @pytest.mark.asyncio
-    async def test_llm_matching_records_history(
+    async def test_baml_matching_creates_extraction_log(
         self,
         use_case: MatchSpeakersUseCase,
         mock_speaker_repo: MagicMock,
         mock_politician_repo: MagicMock,
-        mock_history_repo: MagicMock,
+        mock_baml_matching_service: MagicMock,
+        mock_update_speaker_usecase: AsyncMock,
     ):
-        """Test that LLM-based matching records history."""
+        """Test that BAML-based matching creates extraction log."""
         # Arrange
         speaker = Speaker(
             id=1,
@@ -149,17 +165,8 @@ class TestMatchSpeakersUseCaseWithHistory:
             position="議員",
         )
 
-        politician = Politician(
-            id=1,
-            name="山田太郎",
-            political_party_id=1,
-        )
-
         mock_speaker_repo.get_politicians.return_value = [speaker]
-        # No existing politician link
         mock_politician_repo.search_by_name.return_value = []  # No rule-based match
-        mock_politician_repo.get_all.return_value = [politician]
-        mock_politician_repo.get_by_id.return_value = politician
 
         # Act
         results = await use_case.execute(use_llm=True)
@@ -170,23 +177,17 @@ class TestMatchSpeakersUseCaseWithHistory:
         assert result.speaker_id == 1
         assert result.matched_politician_id == 1
         assert result.confidence_score == 0.95
-        assert result.matching_method == "llm"
-        assert (
-            result.matching_reason
-            == "High name similarity and matching party affiliation"
-        )
+        assert result.matching_method == "baml"
+        assert "BAMLマッチング" in result.matching_reason
 
-        # Verify history was recorded
-        mock_history_repo.create.assert_called_once()
-        history_call = mock_history_repo.create.call_args[0][0]
-        assert history_call.processing_type == ProcessingType.SPEAKER_MATCHING
-        assert history_call.status == ProcessingStatus.IN_PROGRESS  # Initial status
-        assert history_call.model_name == "gemini-2.0-flash"
+        # Verify BAML service was called
+        mock_baml_matching_service.find_best_match.assert_called_once()
 
-        # Verify history was updated with completion
-        mock_history_repo.update.assert_called_once()
-        updated_history = mock_history_repo.update.call_args[0][0]
-        assert updated_history.status == ProcessingStatus.COMPLETED
+        # Verify extraction log was created
+        mock_update_speaker_usecase.execute.assert_called_once()
+        call_kwargs = mock_update_speaker_usecase.execute.call_args.kwargs
+        assert call_kwargs["entity_id"] == 1
+        assert "speaker-matching-baml-v1" in call_kwargs["pipeline_version"]
 
     @pytest.mark.asyncio
     async def test_rule_based_matching_no_history(
@@ -230,55 +231,15 @@ class TestMatchSpeakersUseCaseWithHistory:
         mock_history_repo.create.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_set_input_reference_called(
+    async def test_baml_matching_no_match(
         self,
         use_case: MatchSpeakersUseCase,
         mock_speaker_repo: MagicMock,
         mock_politician_repo: MagicMock,
-        instrumented_llm_service: InstrumentedLLMService,
+        mock_baml_matching_service: MagicMock,
+        mock_update_speaker_usecase: AsyncMock,
     ):
-        """Test that set_input_reference is called when LLM matching is used."""
-        # Arrange
-        speaker = Speaker(
-            id=123,
-            name="佐藤花子",
-            political_party_name="立憲民主党",
-        )
-
-        politician = Politician(
-            id=456,
-            name="佐藤花子",
-            political_party_id=2,
-        )
-
-        mock_speaker_repo.get_politicians.return_value = [speaker]
-        # No existing politician link
-        mock_politician_repo.search_by_name.return_value = []  # No rule-based match
-        mock_politician_repo.get_all.return_value = [politician]
-        mock_politician_repo.get_by_id.return_value = politician
-
-        # Spy on set_input_reference
-        with patch.object(
-            instrumented_llm_service, "set_input_reference"
-        ) as mock_set_ref:
-            # Act
-            await use_case.execute(use_llm=True)
-
-            # Assert
-            mock_set_ref.assert_called_once_with(
-                reference_type="speaker",
-                reference_id=123,
-            )
-
-    @pytest.mark.asyncio
-    async def test_matching_with_no_candidates(
-        self,
-        use_case: MatchSpeakersUseCase,
-        mock_speaker_repo: MagicMock,
-        mock_politician_repo: MagicMock,
-        mock_history_repo: MagicMock,
-    ):
-        """Test matching when no politician candidates are available."""
+        """Test matching when BAML service returns no match."""
         # Arrange
         speaker = Speaker(
             id=1,
@@ -286,12 +247,17 @@ class TestMatchSpeakersUseCaseWithHistory:
         )
 
         mock_speaker_repo.get_politicians.return_value = [speaker]
-        # No existing politician link
         mock_politician_repo.search_by_name.return_value = []
-        mock_politician_repo.get_all.return_value = []  # No candidates
-        # Ensure get_all_cached doesn't exist so it uses get_all
-        if hasattr(mock_politician_repo, "get_all_cached"):
-            del mock_politician_repo.get_all_cached
+
+        # BAML service returns no match
+        mock_baml_matching_service.find_best_match.return_value = PoliticianMatch(
+            matched=False,
+            politician_id=None,
+            politician_name=None,
+            political_party_name=None,
+            confidence=0.3,
+            reason="信頼度が低いためマッチなし",
+        )
 
         # Act
         results = await use_case.execute(use_llm=True)
@@ -303,48 +269,6 @@ class TestMatchSpeakersUseCaseWithHistory:
         assert result.matched_politician_id is None
         assert result.confidence_score == 0.0
         assert result.matching_method == "none"
-        assert result.matching_reason == "No matching politician found"
 
-        # Verify history was NOT recorded (no LLM call made)
-        mock_history_repo.create.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_history_recording_failure_doesnt_break_matching(
-        self,
-        use_case: MatchSpeakersUseCase,
-        mock_speaker_repo: MagicMock,
-        mock_politician_repo: MagicMock,
-        mock_history_repo: MagicMock,
-    ):
-        """Test that history recording failure doesn't break the matching process."""
-        # Arrange
-        speaker = Speaker(
-            id=1,
-            name="エラーテスト議員",
-        )
-
-        politician = Politician(
-            id=1,
-            name="エラーテスト議員",
-            political_party_id=1,
-        )
-
-        mock_speaker_repo.get_politicians.return_value = [speaker]
-        # No existing politician link
-        mock_politician_repo.search_by_name.return_value = []
-        mock_politician_repo.get_all.return_value = [politician]
-        mock_politician_repo.get_by_id.return_value = politician
-
-        # Make history recording fail
-        mock_history_repo.create.side_effect = Exception("Database error")
-
-        # Act
-        results = await use_case.execute(use_llm=True)
-
-        # Assert - matching should still succeed
-        assert len(results) == 1
-        result = results[0]
-        assert result.speaker_id == 1
-        assert result.matched_politician_id == 1
-        assert result.confidence_score == 0.95
-        assert result.matching_method == "llm"
+        # Verify extraction log was NOT created for no match
+        mock_update_speaker_usecase.execute.assert_not_called()
