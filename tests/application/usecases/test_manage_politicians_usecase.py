@@ -20,7 +20,6 @@ from src.application.usecases.manage_politicians_usecase import (
 )
 from src.domain.entities.politician import Politician
 from src.domain.entities.politician_operation_log import PoliticianOperationType
-from src.domain.entities.speaker import Speaker
 
 
 class TestManagePoliticiansUseCase:
@@ -297,6 +296,7 @@ class TestManagePoliticiansUseCase:
             political_party_id=1,
         )
         mock_politician_repository.get_by_id.return_value = existing_politician
+        mock_politician_repository.get_related_data_counts.return_value = {}
         mock_politician_repository.delete.return_value = None
 
         input_dto = DeletePoliticianInputDto(id=1)
@@ -341,6 +341,7 @@ class TestManagePoliticiansUseCase:
             political_party_id=1,
         )
         mock_politician_repository.get_by_id.return_value = existing_politician
+        mock_politician_repository.get_related_data_counts.return_value = {}
         mock_politician_repository.delete.side_effect = Exception("Delete failed")
 
         input_dto = DeletePoliticianInputDto(id=1)
@@ -353,15 +354,13 @@ class TestManagePoliticiansUseCase:
         assert "Delete failed" in result.error_message
 
     @pytest.mark.asyncio
-    async def test_delete_politician_with_linked_speakers_without_force(
+    async def test_delete_politician_with_related_data_without_force(
         self, mock_politician_repository
     ):
-        """Test deleting a politician with linked speakers without force flag."""
+        """Test deleting a politician with related data without force flag."""
         # Arrange
-        mock_speaker_repository = AsyncMock()
         use_case = ManagePoliticiansUseCase(
             politician_repository=mock_politician_repository,
-            speaker_repository=mock_speaker_repository,
         )
 
         existing_politician = Politician(
@@ -373,11 +372,19 @@ class TestManagePoliticiansUseCase:
         )
         mock_politician_repository.get_by_id.return_value = existing_politician
 
-        linked_speakers = [
-            Speaker(id=1, name="発言者A", politician_id=1),
-            Speaker(id=2, name="発言者B", politician_id=1),
-        ]
-        mock_speaker_repository.get_by_politician_id.return_value = linked_speakers
+        # 関連データがある
+        related_counts = {
+            "speakers": 2,
+            "parliamentary_group_memberships": 1,
+            "pledges": 0,
+            "party_membership_history": 0,
+            "proposal_judges": 0,
+            "politician_affiliations": 0,
+            "extracted_conference_members": 0,
+            "extracted_parliamentary_group_members": 0,
+            "extracted_proposal_judges": 0,
+        }
+        mock_politician_repository.get_related_data_counts.return_value = related_counts
 
         input_dto = DeletePoliticianInputDto(id=1, force=False)
 
@@ -386,22 +393,22 @@ class TestManagePoliticiansUseCase:
 
         # Assert
         assert result.success is False
-        assert result.has_linked_speakers is True
-        assert result.linked_speaker_count == 2
-        assert result.linked_speaker_names == ["発言者A", "発言者B"]
-        assert "紐づいています" in result.error_message
+        assert result.has_related_data is True
+        assert result.related_data_counts == {
+            "speakers": 2,
+            "parliamentary_group_memberships": 1,
+        }
+        assert "関連データが" in result.error_message
         mock_politician_repository.delete.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_delete_politician_with_linked_speakers_with_force(
+    async def test_delete_politician_with_related_data_with_force(
         self, mock_politician_repository
     ):
-        """Test deleting a politician with linked speakers with force flag."""
+        """Test deleting a politician with related data with force flag."""
         # Arrange
-        mock_speaker_repository = AsyncMock()
         use_case = ManagePoliticiansUseCase(
             politician_repository=mock_politician_repository,
-            speaker_repository=mock_speaker_repository,
         )
 
         existing_politician = Politician(
@@ -414,12 +421,16 @@ class TestManagePoliticiansUseCase:
         mock_politician_repository.get_by_id.return_value = existing_politician
         mock_politician_repository.delete.return_value = None
 
-        linked_speakers = [
-            Speaker(id=1, name="発言者A", politician_id=1),
-            Speaker(id=2, name="発言者B", politician_id=1),
-        ]
-        mock_speaker_repository.get_by_politician_id.return_value = linked_speakers
-        mock_speaker_repository.unlink_from_politician.return_value = 2
+        # 関連データがある
+        related_counts = {
+            "speakers": 2,
+            "parliamentary_group_memberships": 1,
+        }
+        mock_politician_repository.get_related_data_counts.return_value = related_counts
+        mock_politician_repository.delete_related_data.return_value = {
+            "speakers": 2,
+            "parliamentary_group_memberships": 1,
+        }
 
         input_dto = DeletePoliticianInputDto(id=1, force=True)
 
@@ -428,19 +439,17 @@ class TestManagePoliticiansUseCase:
 
         # Assert
         assert result.success is True
-        mock_speaker_repository.unlink_from_politician.assert_called_once_with(1)
+        mock_politician_repository.delete_related_data.assert_called_once_with(1)
         mock_politician_repository.delete.assert_called_once_with(1)
 
     @pytest.mark.asyncio
-    async def test_delete_politician_without_linked_speakers(
+    async def test_delete_politician_without_related_data(
         self, mock_politician_repository
     ):
-        """Test deleting a politician without linked speakers."""
+        """Test deleting a politician without related data."""
         # Arrange
-        mock_speaker_repository = AsyncMock()
         use_case = ManagePoliticiansUseCase(
             politician_repository=mock_politician_repository,
-            speaker_repository=mock_speaker_repository,
         )
 
         existing_politician = Politician(
@@ -453,8 +462,8 @@ class TestManagePoliticiansUseCase:
         mock_politician_repository.get_by_id.return_value = existing_politician
         mock_politician_repository.delete.return_value = None
 
-        # No linked speakers
-        mock_speaker_repository.get_by_politician_id.return_value = []
+        # 関連データなし
+        mock_politician_repository.get_related_data_counts.return_value = {}
 
         input_dto = DeletePoliticianInputDto(id=1)
 
@@ -463,8 +472,8 @@ class TestManagePoliticiansUseCase:
 
         # Assert
         assert result.success is True
-        assert result.has_linked_speakers is False
-        mock_speaker_repository.unlink_from_politician.assert_not_called()
+        assert result.has_related_data is False
+        mock_politician_repository.delete_related_data.assert_not_called()
         mock_politician_repository.delete.assert_called_once_with(1)
 
     @pytest.mark.asyncio
@@ -700,6 +709,7 @@ class TestManagePoliticiansUseCaseWithLogging:
             district="東京1区",
         )
         mock_politician_repository.get_by_id.return_value = existing_politician
+        mock_politician_repository.get_related_data_counts.return_value = {}
 
         input_dto = DeletePoliticianInputDto(id=1, user_id=user_id)
 

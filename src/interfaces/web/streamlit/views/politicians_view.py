@@ -507,7 +507,7 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
         if st.button("🗑️ この政治家を削除", type="secondary"):
             user_id = presenter.get_current_user_id()
             # まず紐づきを確認（force=Falseで呼び出し）
-            success, error, has_linked, count, names = presenter.delete(
+            success, error, has_related, related_counts = presenter.delete(
                 selected_politician.id,  # type: ignore[arg-type]
                 user_id=user_id,
                 force=False,
@@ -516,43 +516,58 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
                 st.success(f"政治家「{selected_politician.name}」を削除しました")
                 st.session_state[confirm_key] = False
                 st.rerun()
-            elif has_linked:
-                # speaker紐づきがある場合は確認ダイアログを表示
+            elif has_related:
+                # 関連データがある場合は確認ダイアログを表示
                 st.session_state[confirm_key] = True
-                st.session_state[f"linked_count_{selected_politician.id}"] = count
-                st.session_state[f"linked_names_{selected_politician.id}"] = names
+                st.session_state[f"related_counts_{selected_politician.id}"] = (
+                    related_counts
+                )
                 st.rerun()
             else:
                 st.error(f"削除に失敗しました: {error}")
 
         # 確認ダイアログの表示
         if st.session_state.get(confirm_key, False):
-            count = st.session_state.get(f"linked_count_{selected_politician.id}", 0)
-            names = st.session_state.get(f"linked_names_{selected_politician.id}", [])
-            st.error(
-                f"⚠️ この政治家には{count}件の発言者が紐づいています。\n"
-                "削除すると、これらの発言者との紐づきが解除されます。"
+            related_counts = st.session_state.get(
+                f"related_counts_{selected_politician.id}", {}
             )
-            if names:
-                display_names = names[:5]
-                if len(names) > 5:
-                    st.write(
-                        "紐づいている発言者: "
-                        + ", ".join(display_names)
-                        + f" 他{len(names) - 5}件"
-                    )
-                else:
-                    st.write("紐づいている発言者: " + ", ".join(display_names))
+            total_count = sum(related_counts.values()) if related_counts else 0
+
+            # テーブル名の日本語マッピング
+            table_names_jp = {
+                "speakers": "発言者",
+                "parliamentary_group_memberships": "議員団所属",
+                "pledges": "公約",
+                "party_membership_history": "政党所属履歴",
+                "proposal_judges": "議案賛否",
+                "politician_affiliations": "会議体所属",
+                "extracted_conference_members": "抽出済み会議体メンバー",
+                "extracted_parliamentary_group_members": "抽出済み議員団メンバー",
+                "extracted_proposal_judges": "抽出済み議案賛否",
+            }
+
+            st.error(
+                f"⚠️ この政治家には関連データが{total_count}件あります。\n"
+                "削除すると、これらの関連データが解除または削除されます。"
+            )
+
+            if related_counts:
+                details = []
+                for table, count in related_counts.items():
+                    if count > 0:
+                        jp_name = table_names_jp.get(table, table)
+                        details.append(f"{jp_name}: {count}件")
+                st.write("関連データの内訳: " + ", ".join(details))
 
             col_confirm, col_cancel = st.columns(2)
             with col_confirm:
                 if st.button(
-                    "⚠️ 紐づきを解除して削除",
+                    "⚠️ 関連データを解除・削除して削除",
                     type="primary",
                     key=f"force_delete_{selected_politician.id}",
                 ):
                     user_id = presenter.get_current_user_id()
-                    success, error, _, _, _ = presenter.delete(
+                    success, error, _, _ = presenter.delete(
                         selected_politician.id,  # type: ignore[arg-type]
                         user_id=user_id,
                         force=True,
@@ -562,6 +577,10 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
                             f"政治家「{selected_politician.name}」を削除しました"
                         )
                         st.session_state[confirm_key] = False
+                        # セッション状態のクリーンアップ
+                        st.session_state.pop(
+                            f"related_counts_{selected_politician.id}", None
+                        )
                         st.rerun()
                     else:
                         st.error(f"削除に失敗しました: {error}")
@@ -570,6 +589,9 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
                     "キャンセル", key=f"cancel_delete_{selected_politician.id}"
                 ):
                     st.session_state[confirm_key] = False
+                    st.session_state.pop(
+                        f"related_counts_{selected_politician.id}", None
+                    )
                     st.rerun()
 
 
