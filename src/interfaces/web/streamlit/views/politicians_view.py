@@ -1,35 +1,11 @@
 """View for politician management."""
 
-import asyncio
-
 import streamlit as st
 
-from src.application.usecases.authenticate_user_usecase import AuthenticateUserUseCase
-from src.infrastructure.di.container import Container
-from src.interfaces.web.streamlit.auth import google_sign_in
 from src.interfaces.web.streamlit.presenters.politician_presenter import (
     PoliticianPresenter,
 )
 from src.seed_generator import SeedGenerator
-
-
-def get_current_user_id():
-    """現在ログインしているユーザーのIDを取得する."""
-    user_info = google_sign_in.get_user_info()
-    if not user_info:
-        return None
-
-    try:
-        container = Container()
-        auth_usecase = AuthenticateUserUseCase(
-            user_repository=container.repositories.user_repository()
-        )
-        email = user_info.get("email", "")
-        name = user_info.get("name")
-        user = asyncio.run(auth_usecase.execute(email=email, name=name))
-        return user.user_id
-    except Exception:
-        return None
 
 
 # 日本の都道府県リスト
@@ -216,7 +192,7 @@ def render_politicians_list_tab(presenter: PoliticianPresenter) -> None:
                             if original:
                                 # 政党IDを取得
                                 party_id = original.political_party_id
-                                user_id = get_current_user_id()
+                                user_id = presenter.get_current_user_id()
 
                                 success, error = presenter.update(
                                     id=politician_id,
@@ -355,7 +331,7 @@ def render_new_politician_tab(presenter: PoliticianPresenter) -> None:
                     if selected_party != "無所属"
                     else None
                 )
-                user_id = get_current_user_id()
+                user_id = presenter.get_current_user_id()
                 success, politician_id, error = presenter.create(
                     name,
                     prefecture,
@@ -503,7 +479,7 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
                     party_id = (
                         party_map.get(new_party) if new_party != "無所属" else None
                     )
-                    user_id = get_current_user_id()
+                    user_id = presenter.get_current_user_id()
                     success, error = presenter.update(
                         selected_politician.id,  # type: ignore[arg-type]
                         new_name,
@@ -524,11 +500,10 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
         st.warning("⚠️ 政治家を削除すると、関連する発言記録も影響を受けます")
 
         if st.button("🗑️ この政治家を削除", type="secondary"):
-            user_id = get_current_user_id()
+            user_id = presenter.get_current_user_id()
             success, error = presenter.delete(
                 selected_politician.id,  # type: ignore[arg-type]
                 user_id=user_id,
-                politician_name=selected_politician.name,
             )
             if success:
                 st.success(f"政治家「{selected_politician.name}」を削除しました")

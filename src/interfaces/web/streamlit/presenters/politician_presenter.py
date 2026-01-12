@@ -1,10 +1,13 @@
 """Presenter for politician management."""
 
+import asyncio
+
 from typing import Any
 from uuid import UUID
 
 import pandas as pd
 
+from src.application.usecases.authenticate_user_usecase import AuthenticateUserUseCase
 from src.application.usecases.manage_politicians_usecase import (
     CreatePoliticianInputDto,
     DeletePoliticianInputDto,
@@ -15,10 +18,6 @@ from src.application.usecases.manage_politicians_usecase import (
 )
 from src.common.logging import get_logger
 from src.domain.entities import PoliticalParty, Politician
-from src.domain.entities.politician_operation_log import (
-    PoliticianOperationLog,
-    PoliticianOperationType,
-)
 from src.infrastructure.di.container import Container
 from src.infrastructure.persistence.political_party_repository_impl import (
     PoliticalPartyRepositoryImpl,
@@ -30,6 +29,7 @@ from src.infrastructure.persistence.politician_repository_impl import (
     PoliticianRepositoryImpl,
 )
 from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
+from src.interfaces.web.streamlit.auth import google_sign_in
 from src.interfaces.web.streamlit.presenters.base import BasePresenter
 from src.interfaces.web.streamlit.utils.session_manager import SessionManager
 
@@ -48,10 +48,29 @@ class PoliticianPresenter(BasePresenter[list[Politician]]):
         )
         # Type: ignore - RepositoryAdapter duck-types as repository protocol
         self.use_case = ManagePoliticiansUseCase(
-            self.politician_repo  # type: ignore[arg-type]
+            politician_repository=self.politician_repo,  # type: ignore[arg-type]
+            operation_log_repository=self.operation_log_repo,  # type: ignore[arg-type]
         )
         self.session = SessionManager()
         self.logger = get_logger(__name__)
+        self._container = container or Container()
+
+    def get_current_user_id(self) -> UUID | None:
+        """現在ログインしているユーザーのIDを取得する."""
+        user_info = google_sign_in.get_user_info()
+        if not user_info:
+            return None
+
+        try:
+            auth_usecase = AuthenticateUserUseCase(
+                user_repository=self._container.repositories.user_repository()
+            )
+            email = user_info.get("email", "")
+            name = user_info.get("name")
+            user = asyncio.run(auth_usecase.execute(email=email, name=name))
+            return user.user_id
+        except Exception:
+            return None
 
     def load_data(self) -> list[Politician]:
         """Load all politicians."""
@@ -133,22 +152,10 @@ class PoliticianPresenter(BasePresenter[list[Politician]]):
                     district=district,
                     party_id=party_id,
                     profile_url=profile_url,
+                    user_id=user_id,
                 )
             )
             if result.success and result.politician_id:
-                # 操作ログを記録
-                await self._log_operation(
-                    politician_id=result.politician_id,
-                    politician_name=name,
-                    operation_type=PoliticianOperationType.CREATE,
-                    user_id=user_id,
-                    details={
-                        "prefecture": prefecture,
-                        "district": district,
-                        "party_id": party_id,
-                        "profile_url": profile_url,
-                    },
-                )
                 return True, result.politician_id, None
             else:
                 return False, None, result.error_message
@@ -194,22 +201,10 @@ class PoliticianPresenter(BasePresenter[list[Politician]]):
                     district=district,
                     party_id=party_id,
                     profile_url=profile_url,
+                    user_id=user_id,
                 )
             )
             if result.success:
-                # 操作ログを記録
-                await self._log_operation(
-                    politician_id=id,
-                    politician_name=name,
-                    operation_type=PoliticianOperationType.UPDATE,
-                    user_id=user_id,
-                    details={
-                        "prefecture": prefecture,
-                        "district": district,
-                        "party_id": party_id,
-                        "profile_url": profile_url,
-                    },
-                )
                 return True, None
             else:
                 return False, result.error_message
@@ -218,34 +213,19 @@ class PoliticianPresenter(BasePresenter[list[Politician]]):
             self.logger.error(error_msg)
             return False, error_msg
 
-    def delete(
-        self, id: int, user_id: UUID | None = None, politician_name: str | None = None
-    ) -> tuple[bool, str | None]:
+    def delete(self, id: int, user_id: UUID | None = None) -> tuple[bool, str | None]:
         """Delete a politician."""
-        return self._run_async(self._delete_async(id, user_id, politician_name))
+        return self._run_async(self._delete_async(id, user_id))
 
     async def _delete_async(
-        self, id: int, user_id: UUID | None = None, politician_name: str | None = None
+        self, id: int, user_id: UUID | None = None
     ) -> tuple[bool, str | None]:
         """Delete a politician (async implementation)."""
         try:
-            # 削除前に政治家名を取得（渡されていない場合）
-            if not politician_name:
-                politician = await self.politician_repo.get_by_id(id)
-                politician_name = politician.name if politician else f"ID:{id}"
-
             result = await self.use_case.delete_politician(
-                DeletePoliticianInputDto(id=id)
+                DeletePoliticianInputDto(id=id, user_id=user_id)
             )
             if result.success:
-                # 操作ログを記録
-                await self._log_operation(
-                    politician_id=id,
-                    politician_name=politician_name or f"ID:{id}",
-                    operation_type=PoliticianOperationType.DELETE,
-                    user_id=user_id,
-                    details={},
-                )
                 return True, None
             else:
                 return False, result.error_message
@@ -329,37 +309,3 @@ class PoliticianPresenter(BasePresenter[list[Politician]]):
             return self.merge(kwargs.get("source_id", 0), kwargs.get("target_id", 0))
         else:
             raise ValueError(f"Unknown action: {action}")
-
-    async def _log_operation(
-        self,
-        politician_id: int,
-        politician_name: str,
-        operation_type: PoliticianOperationType,
-        user_id: UUID | None,
-        details: dict[str, Any],
-    ) -> None:
-        """操作ログを記録する.
-
-        Args:
-            politician_id: 政治家ID
-            politician_name: 政治家名
-            operation_type: 操作種別
-            user_id: 操作ユーザーID
-            details: 操作詳細
-        """
-        try:
-            log = PoliticianOperationLog(
-                politician_id=politician_id,
-                politician_name=politician_name,
-                operation_type=operation_type,
-                user_id=user_id,
-                operation_details=details,
-            )
-            await self.operation_log_repo.create(log)
-            self.logger.info(
-                f"操作ログ記録: politician_id={politician_id}, "
-                f"operation_type={operation_type.value}, user_id={user_id}"
-            )
-        except Exception as e:
-            # ログ記録失敗は主要操作に影響させない
-            self.logger.warning(f"操作ログの記録に失敗: {e}")
