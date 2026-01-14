@@ -32,6 +32,7 @@ class ConferenceModel(PydanticBaseModel):
     type: str | None = None
     governing_body_id: int
     members_introduction_url: str | None = None
+    prefecture: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -74,6 +75,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     type,
                     governing_body_id,
                     members_introduction_url,
+                    prefecture,
                     created_at,
                     updated_at
                 FROM conferences
@@ -121,6 +123,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     type,
                     governing_body_id,
                     members_introduction_url,
+                    prefecture,
                     created_at,
                     updated_at
                 FROM conferences
@@ -165,6 +168,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     type,
                     governing_body_id,
                     members_introduction_url,
+                    prefecture,
                     created_at,
                     updated_at
                 FROM conferences
@@ -256,6 +260,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     c.type,
                     c.governing_body_id,
                     c.members_introduction_url,
+                    c.prefecture,
                     c.created_at,
                     c.updated_at,
                     gb.name as governing_body_name,
@@ -307,6 +312,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     type,
                     governing_body_id,
                     members_introduction_url,
+                    prefecture,
                     created_at,
                     updated_at
                 FROM conferences
@@ -347,11 +353,11 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             query = text("""
                 INSERT INTO conferences (
                     name, type, governing_body_id,
-                    members_introduction_url, created_at, updated_at
+                    members_introduction_url, prefecture, created_at, updated_at
                 )
                 VALUES (
                     :name, :type, :governing_body_id,
-                    :members_introduction_url, :created_at, :updated_at
+                    :members_introduction_url, :prefecture, :created_at, :updated_at
                 )
                 RETURNING *
             """)
@@ -361,6 +367,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 "type": entity.type,
                 "governing_body_id": entity.governing_body_id,
                 "members_introduction_url": entity.members_introduction_url,
+                "prefecture": entity.prefecture,
                 "created_at": datetime.now(),
                 "updated_at": datetime.now(),
             }
@@ -404,6 +411,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     type = :type,
                     governing_body_id = :governing_body_id,
                     members_introduction_url = :members_introduction_url,
+                    prefecture = :prefecture,
                     updated_at = :updated_at
                 WHERE id = :id
                 RETURNING *
@@ -415,6 +423,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 "type": entity.type,
                 "governing_body_id": entity.governing_body_id,
                 "members_introduction_url": entity.members_introduction_url,
+                "prefecture": entity.prefecture,
                 "updated_at": datetime.now(),
             }
 
@@ -449,18 +458,94 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             True if deleted, False otherwise
         """
         try:
-            # Check if there are related records
-            check_query = text("""
+            # Check if there are related meetings
+            check_meetings_query = text("""
                 SELECT COUNT(*) FROM meetings WHERE conference_id = :conference_id
             """)
             result = await self.session.execute(
-                check_query, {"conference_id": entity_id}
+                check_meetings_query, {"conference_id": entity_id}
             )
-            count = result.scalar()
+            meetings_count = result.scalar()
 
-            if count and count > 0:
+            if meetings_count and meetings_count > 0:
                 return False  # Cannot delete if there are related meetings
 
+            # Get parliamentary_group IDs for this conference
+            get_groups_query = text("""
+                SELECT id FROM parliamentary_groups WHERE conference_id = :conference_id
+            """)
+            result = await self.session.execute(
+                get_groups_query, {"conference_id": entity_id}
+            )
+            group_ids = [row[0] for row in result.fetchall()]
+
+            if group_ids:
+                # Delete related extracted_parliamentary_group_members
+                await self.session.execute(
+                    text("""
+                        DELETE FROM extracted_parliamentary_group_members
+                        WHERE parliamentary_group_id = ANY(:group_ids)
+                    """),
+                    {"group_ids": group_ids},
+                )
+
+                # Delete related parliamentary_group_memberships
+                await self.session.execute(
+                    text("""
+                        DELETE FROM parliamentary_group_memberships
+                        WHERE parliamentary_group_id = ANY(:group_ids)
+                    """),
+                    {"group_ids": group_ids},
+                )
+
+                # Delete related proposal_parliamentary_group_judges
+                await self.session.execute(
+                    text("""
+                        DELETE FROM proposal_parliamentary_group_judges
+                        WHERE parliamentary_group_id = ANY(:group_ids)
+                    """),
+                    {"group_ids": group_ids},
+                )
+
+                # Set parliamentary_group_id to NULL in proposal_judges
+                await self.session.execute(
+                    text("""
+                        UPDATE proposal_judges
+                        SET parliamentary_group_id = NULL
+                        WHERE parliamentary_group_id = ANY(:group_ids)
+                    """),
+                    {"group_ids": group_ids},
+                )
+
+                # Set matched_parliamentary_group_id to NULL in extracted_proposal_judges  # noqa: E501
+                await self.session.execute(
+                    text("""
+                        UPDATE extracted_proposal_judges
+                        SET matched_parliamentary_group_id = NULL
+                        WHERE matched_parliamentary_group_id = ANY(:group_ids)
+                    """),
+                    {"group_ids": group_ids},
+                )
+
+                # Delete parliamentary_groups
+                await self.session.execute(
+                    text("""
+                        DELETE FROM parliamentary_groups
+                        WHERE conference_id = :conference_id
+                    """),
+                    {"conference_id": entity_id},
+                )
+
+            # Delete related extracted_conference_members
+            await self.session.execute(
+                text("""
+                    DELETE FROM extracted_conference_members
+                    WHERE conference_id = :conference_id
+                """),
+                {"conference_id": entity_id},
+            )
+
+            # Delete the conference
             query = text("DELETE FROM conferences WHERE id = :id")
             result = await self.session.execute(query, {"id": entity_id})
             await self.session.commit()
@@ -496,6 +581,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             type=model.type,
             governing_body_id=model.governing_body_id,
             members_introduction_url=model.members_introduction_url,
+            prefecture=model.prefecture,
         )
 
     def _to_model(self, entity: Conference) -> ConferenceModel:
@@ -513,6 +599,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             type=entity.type,
             governing_body_id=entity.governing_body_id,
             members_introduction_url=entity.members_introduction_url,
+            prefecture=entity.prefecture,
         )
 
     def _update_model(self, model: ConferenceModel, entity: Conference) -> None:
@@ -526,6 +613,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
         model.type = entity.type
         model.governing_body_id = entity.governing_body_id
         model.members_introduction_url = entity.members_introduction_url
+        model.prefecture = entity.prefecture
 
     def _dict_to_entity(self, data: dict[str, Any]) -> Conference:
         """Convert dictionary to entity.
@@ -542,4 +630,5 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             type=data.get("type"),
             governing_body_id=data["governing_body_id"],
             members_introduction_url=data.get("members_introduction_url"),
+            prefecture=data.get("prefecture"),
         )

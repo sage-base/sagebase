@@ -12,6 +12,7 @@ class Conference(BaseEntity):
         governing_body_id: int,
         type: str | None = None,
         members_introduction_url: str | None = None,
+        prefecture: str | None = None,
         id: int | None = None,
     ) -> None:
         super().__init__(id)
@@ -19,6 +20,7 @@ class Conference(BaseEntity):
         self.governing_body_id = governing_body_id
         self.type = type
         self.members_introduction_url = members_introduction_url
+        self.prefecture = prefecture
 
     def __str__(self) -> str:
         return self.name
