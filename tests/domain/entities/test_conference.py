@@ -19,6 +19,7 @@ class TestConference:
         assert conference.governing_body_id == 1
         assert conference.type is None
         assert conference.members_introduction_url is None
+        assert conference.prefecture is None
         assert conference.id is None
 
     def test_initialization_with_all_fields(self) -> None:
@@ -29,6 +30,7 @@ class TestConference:
             governing_body_id=5,
             type="地方議会全体",
             members_introduction_url="https://example.com/members",
+            prefecture="大阪府",
         )
 
         assert conference.id == 10
@@ -36,6 +38,7 @@ class TestConference:
         assert conference.governing_body_id == 5
         assert conference.type == "地方議会全体"
         assert conference.members_introduction_url == "https://example.com/members"
+        assert conference.prefecture == "大阪府"
 
     def test_str_representation(self) -> None:
         """Test string representation."""
@@ -58,6 +61,7 @@ class TestConference:
         assert conference.name == "議会全体"
         assert conference.type == "地方議会全体"
         assert conference.members_introduction_url is None
+        assert conference.prefecture is None
 
     def test_factory_with_overrides(self) -> None:
         """Test entity factory with custom values."""
@@ -67,6 +71,7 @@ class TestConference:
             governing_body_id=10,
             type="都道府県議会",
             members_introduction_url="https://aichi.example.com/members",
+            prefecture="愛知県",
         )
 
         assert conference.id == 99
@@ -76,6 +81,7 @@ class TestConference:
         assert (
             conference.members_introduction_url == "https://aichi.example.com/members"
         )
+        assert conference.prefecture == "愛知県"
 
     def test_different_conference_types(self) -> None:
         """Test different types of conferences."""
@@ -166,9 +172,11 @@ class TestConference:
             governing_body_id=13,
             type="都道府県議会",
             members_introduction_url="https://tokyo.example.com/members",
+            prefecture="東京都",
         )
         assert str(prefectural) == "東京都議会"
         assert prefectural.type == "都道府県議会"
+        assert prefectural.prefecture == "東京都"
 
         # City council
         city_council = Conference(
@@ -177,9 +185,11 @@ class TestConference:
             governing_body_id=141,
             type="市区町村議会",
             members_introduction_url="https://yokohama.example.com/members",
+            prefecture="神奈川県",
         )
         assert str(city_council) == "横浜市議会"
         assert city_council.type == "市区町村議会"
+        assert city_council.prefecture == "神奈川県"
 
         # Committee
         committee = Conference(
@@ -188,9 +198,102 @@ class TestConference:
             governing_body_id=13,
             type="常任委員会",
             members_introduction_url=None,
+            prefecture="東京都",
         )
         assert str(committee) == "総務委員会"
         assert committee.type == "常任委員会"
+        assert committee.prefecture == "東京都"
+
+    def test_prefecture_for_national_parliament(self) -> None:
+        """Test prefecture set to '全国' for national parliament."""
+        # National Diet (衆議院)
+        house_of_representatives = Conference(
+            id=1,
+            name="衆議院本会議",
+            governing_body_id=1,
+            type="国会",
+            prefecture="全国",
+        )
+        assert house_of_representatives.prefecture == "全国"
+
+        # National Diet (参議院)
+        house_of_councillors = Conference(
+            id=2,
+            name="参議院本会議",
+            governing_body_id=1,
+            type="国会",
+            prefecture="全国",
+        )
+        assert house_of_councillors.prefecture == "全国"
+
+    def test_all_prefectures(self) -> None:
+        """Test all 47 prefectures plus '全国'."""
+        prefectures = [
+            "全国",
+            "北海道",
+            "青森県",
+            "岩手県",
+            "宮城県",
+            "秋田県",
+            "山形県",
+            "福島県",
+            "茨城県",
+            "栃木県",
+            "群馬県",
+            "埼玉県",
+            "千葉県",
+            "東京都",
+            "神奈川県",
+            "新潟県",
+            "富山県",
+            "石川県",
+            "福井県",
+            "山梨県",
+            "長野県",
+            "岐阜県",
+            "静岡県",
+            "愛知県",
+            "三重県",
+            "滋賀県",
+            "京都府",
+            "大阪府",
+            "兵庫県",
+            "奈良県",
+            "和歌山県",
+            "鳥取県",
+            "島根県",
+            "岡山県",
+            "広島県",
+            "山口県",
+            "徳島県",
+            "香川県",
+            "愛媛県",
+            "高知県",
+            "福岡県",
+            "佐賀県",
+            "長崎県",
+            "熊本県",
+            "大分県",
+            "宮崎県",
+            "鹿児島県",
+            "沖縄県",
+        ]
+
+        for pref in prefectures:
+            conference = Conference(
+                name=f"{pref}議会",
+                governing_body_id=1,
+                prefecture=pref,
+            )
+            assert conference.prefecture == pref
+
+    def test_prefecture_none_by_default(self) -> None:
+        """Test prefecture is None by default when not specified."""
+        conference = Conference(
+            name="Test Conference",
+            governing_body_id=1,
+        )
+        assert conference.prefecture is None
 
     def test_edge_cases(self) -> None:
         """Test edge cases for Conference entity."""
@@ -239,10 +342,12 @@ class TestConference:
             governing_body_id=1,
             type=None,
             members_introduction_url=None,
+            prefecture=None,
         )
 
         assert conference.type is None
         assert conference.members_introduction_url is None
+        assert conference.prefecture is None
 
     def test_id_assignment(self) -> None:
         """Test ID assignment behavior."""

@@ -340,3 +340,146 @@ class TestManageConferencesUseCase:
         # Assert
         assert result.success is False
         assert "Database error" in result.error_message
+
+    @pytest.mark.asyncio
+    async def test_create_conference_with_prefecture(
+        self, use_case, mock_conference_repository
+    ):
+        """Test creating a conference with prefecture."""
+        # Arrange
+        mock_conference_repository.get_by_name_and_governing_body.return_value = None
+        created_conference = Conference(
+            id=1,
+            name="東京都議会",
+            governing_body_id=13,
+            prefecture="東京都",
+        )
+        mock_conference_repository.create.return_value = created_conference
+
+        input_dto = CreateConferenceInputDto(
+            name="東京都議会",
+            governing_body_id=13,
+            prefecture="東京都",
+        )
+
+        # Act
+        result = await use_case.create_conference(input_dto)
+
+        # Assert
+        assert result.success is True
+        assert result.conference_id == 1
+        # Verify prefecture was passed to repository
+        call_args = mock_conference_repository.create.call_args
+        assert call_args[0][0].prefecture == "東京都"
+
+    @pytest.mark.asyncio
+    async def test_create_conference_with_zenkoku_prefecture(
+        self, use_case, mock_conference_repository
+    ):
+        """Test creating a national parliament conference with 全国 prefecture."""
+        # Arrange
+        mock_conference_repository.get_by_name_and_governing_body.return_value = None
+        created_conference = Conference(
+            id=1,
+            name="衆議院本会議",
+            governing_body_id=1,
+            prefecture="全国",
+        )
+        mock_conference_repository.create.return_value = created_conference
+
+        input_dto = CreateConferenceInputDto(
+            name="衆議院本会議",
+            governing_body_id=1,
+            prefecture="全国",
+        )
+
+        # Act
+        result = await use_case.create_conference(input_dto)
+
+        # Assert
+        assert result.success is True
+        call_args = mock_conference_repository.create.call_args
+        assert call_args[0][0].prefecture == "全国"
+
+    @pytest.mark.asyncio
+    async def test_update_conference_prefecture(
+        self, use_case, mock_conference_repository
+    ):
+        """Test updating conference prefecture."""
+        # Arrange
+        existing_conference = Conference(
+            id=1,
+            name="東京都議会",
+            governing_body_id=13,
+            prefecture=None,
+        )
+        updated_conference = Conference(
+            id=1,
+            name="東京都議会",
+            governing_body_id=13,
+            prefecture="東京都",
+        )
+        mock_conference_repository.get_by_id.return_value = existing_conference
+        mock_conference_repository.update.return_value = updated_conference
+
+        input_dto = UpdateConferenceInputDto(
+            id=1,
+            name="東京都議会",
+            governing_body_id=13,
+            prefecture="東京都",
+        )
+
+        # Act
+        result = await use_case.update_conference(input_dto)
+
+        # Assert
+        assert result.success is True
+        # Verify prefecture was updated
+        call_args = mock_conference_repository.update.call_args
+        assert call_args[0][0].prefecture == "東京都"
+
+    @pytest.mark.asyncio
+    async def test_generate_seed_file_includes_prefecture(
+        self, use_case, mock_conference_repository, monkeypatch
+    ):
+        """Test generating seed file includes prefecture column."""
+        # Arrange
+        conferences = [
+            Conference(
+                id=1,
+                name="衆議院本会議",
+                governing_body_id=1,
+                type="国会",
+                prefecture="全国",
+            ),
+            Conference(
+                id=2,
+                name="東京都議会",
+                governing_body_id=13,
+                type="都道府県議会",
+                prefecture="東京都",
+            ),
+            Conference(
+                id=3,
+                name="未設定の会議体",
+                governing_body_id=100,
+                type=None,
+                prefecture=None,
+            ),
+        ]
+        mock_conference_repository.get_all.return_value = conferences
+
+        # Mock open to avoid actual file writing
+        m_open = mock_open()
+        monkeypatch.setattr("builtins.open", m_open)
+
+        # Act
+        result = await use_case.generate_seed_file()
+
+        # Assert
+        assert result.success is True
+        assert "prefecture" in result.seed_content
+        assert "'全国'" in result.seed_content
+        assert "'東京都'" in result.seed_content
+        # Check NULL handling for prefecture
+        assert "NULL" in result.seed_content

@@ -49,6 +49,60 @@ from src.interfaces.web.streamlit.presenters.conference_presenter import (
 logger = logging.getLogger(__name__)
 
 
+# 都道府県リスト（「全国」を含む - 国会用）
+CONFERENCE_PREFECTURES: list[str] = [
+    "",  # 未選択用
+    "全国",  # 国会用
+    "北海道",
+    "青森県",
+    "岩手県",
+    "宮城県",
+    "秋田県",
+    "山形県",
+    "福島県",
+    "茨城県",
+    "栃木県",
+    "群馬県",
+    "埼玉県",
+    "千葉県",
+    "東京都",
+    "神奈川県",
+    "新潟県",
+    "富山県",
+    "石川県",
+    "福井県",
+    "山梨県",
+    "長野県",
+    "岐阜県",
+    "静岡県",
+    "愛知県",
+    "三重県",
+    "滋賀県",
+    "京都府",
+    "大阪府",
+    "兵庫県",
+    "奈良県",
+    "和歌山県",
+    "鳥取県",
+    "島根県",
+    "岡山県",
+    "広島県",
+    "山口県",
+    "徳島県",
+    "香川県",
+    "愛媛県",
+    "高知県",
+    "福岡県",
+    "佐賀県",
+    "長崎県",
+    "熊本県",
+    "大分県",
+    "宮崎県",
+    "鹿児島県",
+    "沖縄県",
+]
+
+
 def render_conferences_page() -> None:
     """Render conferences management page."""
     st.title("会議体管理")
@@ -100,9 +154,20 @@ def render_conferences_list(
     st.header("会議体一覧")
 
     # Filters
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
+        # 都道府県フィルター
+        prefecture_filter_options = ["すべて"] + [
+            p for p in CONFERENCE_PREFECTURES if p
+        ]
+        selected_prefecture = st.selectbox(
+            "都道府県で絞り込み",
+            options=prefecture_filter_options,
+            key="filter_prefecture",
+        )
+
+    with col2:
         # Load governing bodies for filter
         governing_bodies = governing_body_repo.get_all()
         gb_options = {"すべて": None}
@@ -115,7 +180,7 @@ def render_conferences_list(
         )
         governing_body_id = gb_options[selected_gb]
 
-    with col2:
+    with col3:
         url_filter_options = {
             "すべて": None,
             "URLあり": True,
@@ -132,6 +197,10 @@ def render_conferences_list(
     df, with_url_count, without_url_count = asyncio.run(
         presenter.load_conferences(governing_body_id, with_members_url)
     )
+
+    # 都道府県フィルターを適用
+    if selected_prefecture != "すべて" and not df.empty:
+        df = cast(pd.DataFrame, df[df["都道府県"] == selected_prefecture])
 
     # Display statistics
     col1, col2, col3 = st.columns(3)
@@ -204,6 +273,21 @@ def render_new_conference_form(
         )
         governing_body_id = gb_options[selected_gb] if selected_gb else None
 
+        # Prefecture selection
+        prefecture_options = [p for p in CONFERENCE_PREFECTURES if p]  # 空文字を除く
+        current_prefecture = form_data.prefecture or prefecture_options[0]
+        prefecture_index = (
+            prefecture_options.index(current_prefecture)
+            if current_prefecture in prefecture_options
+            else 0
+        )
+        prefecture = st.selectbox(
+            "都道府県",
+            options=prefecture_options,
+            index=prefecture_index,
+            help="国会の場合は「全国」を選択してください",
+        )
+
         # Type
         conf_type = st.text_input(
             "種別",
@@ -231,6 +315,7 @@ def render_new_conference_form(
                 # Update form data
                 form_data.name = name
                 form_data.governing_body_id = governing_body_id
+                form_data.prefecture = prefecture if prefecture else None
                 form_data.type = conf_type if conf_type else None
                 form_data.members_introduction_url = (
                     members_url if members_url else None
@@ -258,14 +343,59 @@ def render_edit_delete_form(
     st.header("会議体の編集・削除")
 
     # Load all conferences for selection
-    conferences = conference_repo.get_all()
+    conferences = asyncio.run(conference_repo.get_all())
 
     if not conferences:
         st.info("編集可能な会議体がありません。")
         return
 
+    # 都道府県フィルター
+    st.markdown("#### フィルター")
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        prefecture_filter_options = ["すべて"] + [
+            p for p in CONFERENCE_PREFECTURES if p
+        ]
+        selected_prefecture_filter = st.selectbox(
+            "都道府県でフィルター",
+            prefecture_filter_options,
+            key="edit_prefecture_filter",
+        )
+
+    with col2:
+        filter_no_prefecture = st.checkbox(
+            "都道府県が未設定のみ",
+            key="filter_no_prefecture",
+            help="都道府県が設定されていない会議体のみ表示",
+        )
+
+    # フィルターを適用
+    filtered_conferences = conferences
+
+    # 都道府県未設定フィルター（優先）
+    if filter_no_prefecture:
+        filtered_conferences = [c for c in filtered_conferences if not c.prefecture]
+    elif selected_prefecture_filter != "すべて":
+        filtered_conferences = [
+            c for c in conferences if c.prefecture == selected_prefecture_filter
+        ]
+
+    if not filtered_conferences:
+        st.warning("条件に一致する会議体がありません。")
+        return
+
+    # フィルター結果の表示
+    is_filtered = filter_no_prefecture or selected_prefecture_filter != "すべて"
+    if is_filtered:
+        st.info(
+            f"フィルター適用中: {len(filtered_conferences)}件 / 全{len(conferences)}件"
+        )
+
     # Conference selection
-    conf_options = {f"{conf.name} (ID: {conf.id})": conf.id for conf in conferences}
+    conf_options = {
+        f"{conf.name} (ID: {conf.id})": conf.id for conf in filtered_conferences
+    }
 
     selected_conf = st.selectbox(
         "編集する会議体を選択",
@@ -275,6 +405,7 @@ def render_edit_delete_form(
 
     if selected_conf:
         conference_id = conf_options[selected_conf]
+        assert conference_id is not None  # DBから取得した会議体は必ずIDを持つ
         conference = next(c for c in conferences if c.id == conference_id)
 
         # Load form data
@@ -307,6 +438,21 @@ def render_edit_delete_form(
             )
             governing_body_id = gb_options[selected_gb] if selected_gb else None
 
+            # Prefecture selection
+            prefecture_options = [p for p in CONFERENCE_PREFECTURES if p]
+            current_prefecture = form_data.prefecture or prefecture_options[0]
+            prefecture_index = (
+                prefecture_options.index(current_prefecture)
+                if current_prefecture in prefecture_options
+                else 0
+            )
+            prefecture = st.selectbox(
+                "都道府県",
+                options=prefecture_options,
+                index=prefecture_index,
+                help="国会の場合は「全国」を選択してください",
+            )
+
             # Type
             conf_type = st.text_input(
                 "種別",
@@ -336,6 +482,7 @@ def render_edit_delete_form(
                     # Update form data
                     form_data.name = name
                     form_data.governing_body_id = governing_body_id
+                    form_data.prefecture = prefecture if prefecture else None
                     form_data.type = conf_type if conf_type else None
                     form_data.members_introduction_url = (
                         members_url if members_url else None

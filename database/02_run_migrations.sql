@@ -46,5 +46,6 @@
 \i /docker-entrypoint-initdb.d/02_migrations/041_drop_extracted_politicians_table.sql
 \i /docker-entrypoint-initdb.d/02_migrations/042_remove_verification_fields_from_politicians.sql
 \i /docker-entrypoint-initdb.d/02_migrations/043_create_politician_operation_logs.sql
+\i /docker-entrypoint-initdb.d/02_migrations/044_add_prefecture_to_conferences.sql
 
 \echo 'Migrations completed.'

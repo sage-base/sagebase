@@ -51,6 +51,7 @@ class TestConferenceRepositoryImpl:
             "type": "plenary",
             "governing_body_id": 10,
             "members_introduction_url": "https://example.com/members",
+            "prefecture": "東京都",
             "created_at": None,
             "updated_at": None,
         }
@@ -64,6 +65,7 @@ class TestConferenceRepositoryImpl:
             type="plenary",
             governing_body_id=10,
             members_introduction_url="https://example.com/members",
+            prefecture="東京都",
         )
 
     @pytest.mark.asyncio
@@ -92,6 +94,7 @@ class TestConferenceRepositoryImpl:
         assert result.type == "plenary"
         assert result.governing_body_id == 10
         assert result.members_introduction_url == "https://example.com/members"
+        assert result.prefecture == "東京都"
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
@@ -352,6 +355,7 @@ class TestConferenceRepositoryImpl:
             type="plenary",
             governing_body_id=10,
             members_introduction_url="https://example.com/members",
+            prefecture="東京都",
         )
 
         # Convert
@@ -364,6 +368,7 @@ class TestConferenceRepositoryImpl:
         assert entity.type == "plenary"
         assert entity.governing_body_id == 10
         assert entity.members_introduction_url == "https://example.com/members"
+        assert entity.prefecture == "東京都"
 
     def test_to_model(
         self, repository: ConferenceRepositoryImpl, sample_conference_entity: Conference
@@ -379,6 +384,7 @@ class TestConferenceRepositoryImpl:
         assert model.type == "plenary"
         assert model.governing_body_id == 10
         assert model.members_introduction_url == "https://example.com/members"
+        assert model.prefecture == "東京都"
 
     def test_update_model(
         self, repository: ConferenceRepositoryImpl, sample_conference_entity: Conference
@@ -391,6 +397,7 @@ class TestConferenceRepositoryImpl:
             type="old_type",
             governing_body_id=5,
             members_introduction_url=None,
+            prefecture=None,
         )
 
         # Update model
@@ -401,6 +408,7 @@ class TestConferenceRepositoryImpl:
         assert model.type == "plenary"
         assert model.governing_body_id == 10
         assert model.members_introduction_url == "https://example.com/members"
+        assert model.prefecture == "東京都"
 
     def test_dict_to_entity(
         self,
@@ -418,6 +426,7 @@ class TestConferenceRepositoryImpl:
         assert entity.type == "plenary"
         assert entity.governing_body_id == 10
         assert entity.members_introduction_url == "https://example.com/members"
+        assert entity.prefecture == "東京都"
 
     def test_dict_to_entity_with_missing_optional_fields(
         self, repository: ConferenceRepositoryImpl
@@ -439,3 +448,110 @@ class TestConferenceRepositoryImpl:
         assert entity.type is None
         assert entity.governing_body_id == 10
         assert entity.members_introduction_url is None
+        assert entity.prefecture is None
+
+    def test_dict_to_entity_with_prefecture_zenkoku(
+        self, repository: ConferenceRepositoryImpl
+    ) -> None:
+        """Test _dict_to_entity handles 全国 (national parliament) prefecture."""
+        # Dictionary with prefecture set to "全国"
+        data: dict[str, Any] = {
+            "id": 1,
+            "name": "衆議院本会議",
+            "type": "国会",
+            "governing_body_id": 1,
+            "members_introduction_url": None,
+            "prefecture": "全国",
+        }
+
+        # Convert
+        entity = repository._dict_to_entity(data)  # type: ignore[reportPrivateUsage]
+
+        # Assert
+        assert entity.prefecture == "全国"
+
+    @pytest.mark.asyncio
+    async def test_create_conference_with_prefecture(
+        self,
+        repository: ConferenceRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test creating a conference with prefecture field."""
+        # Create entity with prefecture
+        entity = Conference(
+            name="東京都議会",
+            governing_body_id=13,
+            type="都道府県議会",
+            prefecture="東京都",
+        )
+
+        # Setup mock result for RETURNING *
+        created_dict = {
+            "id": 1,
+            "name": "東京都議会",
+            "governing_body_id": 13,
+            "type": "都道府県議会",
+            "members_introduction_url": None,
+            "prefecture": "東京都",
+            "created_at": None,
+            "updated_at": None,
+        }
+        mock_row = MagicMock()
+        mock_row._asdict = MagicMock(return_value=created_dict)
+        mock_result = MagicMock()
+        mock_result.first = MagicMock(return_value=mock_row)
+        mock_session.execute.return_value = mock_result
+
+        # Execute
+        result = await repository.create(entity)
+
+        # Assert
+        assert result.id == 1
+        assert result.prefecture == "東京都"
+        mock_session.execute.assert_called()
+        # Verify the SQL query includes prefecture
+        call_args = mock_session.execute.call_args
+        assert "prefecture" in call_args[0][0].text
+
+    @pytest.mark.asyncio
+    async def test_update_conference_prefecture(
+        self,
+        repository: ConferenceRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test updating conference prefecture field."""
+        # Create entity with updated prefecture
+        entity = Conference(
+            id=1,
+            name="東京都議会",
+            governing_body_id=13,
+            type="都道府県議会",
+            prefecture="東京都",
+        )
+
+        # Setup mock result for RETURNING *
+        updated_dict = {
+            "id": 1,
+            "name": "東京都議会",
+            "governing_body_id": 13,
+            "type": "都道府県議会",
+            "members_introduction_url": None,
+            "prefecture": "東京都",
+            "created_at": None,
+            "updated_at": None,
+        }
+        mock_row = MagicMock()
+        mock_row._asdict = MagicMock(return_value=updated_dict)
+        mock_result = MagicMock()
+        mock_result.first = MagicMock(return_value=mock_row)
+        mock_session.execute.return_value = mock_result
+
+        # Execute
+        result = await repository.update(entity)
+
+        # Assert
+        assert result.prefecture == "東京都"
+        mock_session.execute.assert_called()
+        # Verify the SQL query includes prefecture
+        call_args = mock_session.execute.call_args
+        assert "prefecture" in call_args[0][0].text

@@ -35,6 +35,7 @@ class CreateConferenceInputDto:
     governing_body_id: int | None = None
     type: str | None = None
     members_introduction_url: str | None = None
+    prefecture: str | None = None
 
 
 @dataclass
@@ -55,6 +56,7 @@ class UpdateConferenceInputDto:
     governing_body_id: int | None = None
     type: str | None = None
     members_introduction_url: str | None = None
+    prefecture: str | None = None
 
 
 @dataclass
@@ -166,6 +168,7 @@ class ManageConferencesUseCase:
                 ),
                 type=input_dto.type,
                 members_introduction_url=input_dto.members_introduction_url,
+                prefecture=input_dto.prefecture,
             )
 
             created = await self.conference_repository.create(conference)
@@ -192,6 +195,7 @@ class ManageConferencesUseCase:
                 existing.governing_body_id = input_dto.governing_body_id
             existing.type = input_dto.type
             existing.members_introduction_url = input_dto.members_introduction_url
+            existing.prefecture = input_dto.prefecture
             await self.conference_repository.update(existing)
             return UpdateConferenceOutputDto(success=True)
         except Exception as e:
@@ -229,7 +233,8 @@ class ManageConferencesUseCase:
             seed_content += "-- Generated from current database\n\n"
             seed_content += (
                 "INSERT INTO conferences "
-                "(id, name, governing_body_id, type, members_introduction_url) VALUES\n"
+                "(id, name, governing_body_id, type, members_introduction_url, "
+                "prefecture) VALUES\n"
             )
 
             values: list[str] = []
@@ -241,9 +246,10 @@ class ManageConferencesUseCase:
                     if conf.members_introduction_url
                     else "NULL"
                 )
+                prefecture = f"'{conf.prefecture}'" if conf.prefecture else "NULL"
                 values.append(
                     f"    ({conf.id}, '{conf.name}', {gb_id}, "
-                    f"{conf_type}, {members_url})"
+                    f"{conf_type}, {members_url}, {prefecture})"
                 )
 
             seed_content += ",\n".join(values) + "\n"
@@ -252,8 +258,9 @@ class ManageConferencesUseCase:
             seed_content += "    governing_body_id = EXCLUDED.governing_body_id,\n"
             seed_content += "    type = EXCLUDED.type,\n"
             seed_content += (
-                "    members_introduction_url = EXCLUDED.members_introduction_url;\n"
+                "    members_introduction_url = EXCLUDED.members_introduction_url,\n"
             )
+            seed_content += "    prefecture = EXCLUDED.prefecture;\n"
 
             # Save to file
             file_path = "database/seed_conferences_generated.sql"
