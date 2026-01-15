@@ -78,6 +78,12 @@ class LlmResponseParser:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractResume", llm_response=llm_response, mode="request")
         return typing.cast(types.Resume, __result__)
 
+    def ExtractRoleNameMapping(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> types.RoleNameMappingResult:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractRoleNameMapping", llm_response=llm_response, mode="request")
+        return typing.cast(types.RoleNameMappingResult, __result__)
+
     def JudgeMatchingConfidence(
         self, llm_response: str, baml_options: BamlCallOptions = {},
     ) -> types.ConfidenceJudgement:
@@ -163,6 +169,12 @@ class LlmStreamParser:
     ) -> stream_types.Resume:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractResume", llm_response=llm_response, mode="stream")
         return typing.cast(stream_types.Resume, __result__)
+
+    def ExtractRoleNameMapping(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> stream_types.RoleNameMappingResult:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractRoleNameMapping", llm_response=llm_response, mode="stream")
+        return typing.cast(stream_types.RoleNameMappingResult, __result__)
 
     def JudgeMatchingConfidence(
         self, llm_response: str, baml_options: BamlCallOptions = {},

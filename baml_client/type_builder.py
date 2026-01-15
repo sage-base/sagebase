@@ -20,7 +20,7 @@ from .globals import DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIM
 class TypeBuilder(type_builder.TypeBuilder):
     def __init__(self):
         super().__init__(classes=set(
-          ["AttendeesMapping","ConfidenceJudgement","ContributingFactor","ExtractedMember","LinkClassification","MinutesBoundary","PageClassification","ParliamentaryGroupMember","PoliticianMatch","RedividedSectionInfo","Resume","SectionInfo","SectionString","SpeakerAndSpeechContent","SpeakerMatch",]
+          ["AttendeesMapping","ConfidenceJudgement","ContributingFactor","ExtractedMember","LinkClassification","MinutesBoundary","PageClassification","ParliamentaryGroupMember","PoliticianMatch","RedividedSectionInfo","Resume","RoleNameMapping","RoleNameMappingResult","SectionInfo","SectionString","SpeakerAndSpeechContent","SpeakerMatch",]
         ), enums=set(
           []
         ), runtime=DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME)
@@ -31,7 +31,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
     # #########################################################################
-    # Generated classes 15
+    # Generated classes 17
     # #########################################################################
 
     @property
@@ -79,6 +79,14 @@ class TypeBuilder(type_builder.TypeBuilder):
         return ResumeViewer(self)
 
     @property
+    def RoleNameMapping(self) -> "RoleNameMappingViewer":
+        return RoleNameMappingViewer(self)
+
+    @property
+    def RoleNameMappingResult(self) -> "RoleNameMappingResultViewer":
+        return RoleNameMappingResultViewer(self)
+
+    @property
     def SectionInfo(self) -> "SectionInfoViewer":
         return SectionInfoViewer(self)
 
@@ -102,7 +110,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
 # #########################################################################
-# Generated classes 15
+# Generated classes 17
 # #########################################################################
 
 class AttendeesMappingAst:
@@ -678,6 +686,100 @@ class ResumeProperties:
     @property
     def skills(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("skills"))
+
+
+
+
+class RoleNameMappingAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("RoleNameMapping")
+        self._properties: typing.Set[str] = set([  "role",  "name",  "member_number",  ])
+        self._props = RoleNameMappingProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "RoleNameMappingProperties":
+        return self._props
+
+
+class RoleNameMappingViewer(RoleNameMappingAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+
+
+
+class RoleNameMappingProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+
+
+    @property
+    def role(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("role"))
+
+    @property
+    def name(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("name"))
+
+    @property
+    def member_number(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("member_number"))
+
+
+
+
+class RoleNameMappingResultAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("RoleNameMappingResult")
+        self._properties: typing.Set[str] = set([  "mappings",  "attendee_section_found",  "confidence",  ])
+        self._props = RoleNameMappingResultProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "RoleNameMappingResultProperties":
+        return self._props
+
+
+class RoleNameMappingResultViewer(RoleNameMappingResultAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+
+
+
+class RoleNameMappingResultProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+
+
+    @property
+    def mappings(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("mappings"))
+
+    @property
+    def attendee_section_found(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("attendee_section_found"))
+
+    @property
+    def confidence(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("confidence"))
 
 
 

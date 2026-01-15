@@ -41,7 +41,7 @@ def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
 # #########################################################################
 
 # #########################################################################
-# Generated classes (15)
+# Generated classes (17)
 # #########################################################################
 
 class AttendeesMapping(BaseModel):
@@ -113,6 +113,16 @@ class Resume(BaseModel):
     email: str
     experience: typing.List[str]
     skills: typing.List[str]
+
+class RoleNameMapping(BaseModel):
+    role: str
+    name: str
+    member_number: typing.Optional[str] = None
+
+class RoleNameMappingResult(BaseModel):
+    mappings: typing.List["RoleNameMapping"]
+    attendee_section_found: bool
+    confidence: float
 
 class SectionInfo(BaseModel):
     chapter_number: int

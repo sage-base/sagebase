@@ -23,7 +23,7 @@ class StreamState(BaseModel, typing.Generic[StreamStateValueT]):
     value: StreamStateValueT
     state: typing_extensions.Literal["Pending", "Incomplete", "Complete"]
 # #########################################################################
-# Generated classes (15)
+# Generated classes (17)
 # #########################################################################
 
 class AttendeesMapping(BaseModel):
@@ -95,6 +95,16 @@ class Resume(BaseModel):
     email: typing.Optional[str] = None
     experience: typing.List[str]
     skills: typing.List[str]
+
+class RoleNameMapping(BaseModel):
+    role: typing.Optional[str] = None
+    name: typing.Optional[str] = None
+    member_number: typing.Optional[str] = None
+
+class RoleNameMappingResult(BaseModel):
+    mappings: typing.List["RoleNameMapping"]
+    attendee_section_found: typing.Optional[bool] = None
+    confidence: typing.Optional[float] = None
 
 class SectionInfo(BaseModel):
     chapter_number: typing.Optional[int] = None
