@@ -387,7 +387,7 @@ class MinutesProcessAgent:
         役職（人名）パターンから人名を抽出し、役職のみの場合はマッピングを参照して
         人名を取得します。無効な発言者はフィルタリングされます。
         """
-        from baml_client import b
+        from baml_client.async_client import b
 
         # 分割済み発言リストを取得
         memory_id = state.divided_speech_list_memory_id
