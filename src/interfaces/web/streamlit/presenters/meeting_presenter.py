@@ -22,6 +22,9 @@ from src.application.usecases.execute_speaker_extraction_usecase import (
     ExecuteSpeakerExtractionDTO,
     ExecuteSpeakerExtractionUseCase,
 )
+from src.application.usecases.update_statement_from_extraction_usecase import (
+    UpdateStatementFromExtractionUseCase,
+)
 from src.common.logging import get_logger
 from src.domain.entities.meeting import Meeting
 from src.domain.services.interfaces.minutes_processing_service import (
@@ -40,6 +43,9 @@ from src.infrastructure.persistence.conference_repository_impl import (
 )
 from src.infrastructure.persistence.conversation_repository_impl import (
     ConversationRepositoryImpl,
+)
+from src.infrastructure.persistence.extraction_log_repository_impl import (
+    ExtractionLogRepositoryImpl,
 )
 from src.infrastructure.persistence.governing_body_repository_impl import (
     GoverningBodyRepositoryImpl,
@@ -565,12 +571,26 @@ class MeetingPresenter(CRUDPresenter[list[Meeting]]):
                 session_adapter = SQLAlchemySessionAdapter(session)
                 uow: IUnitOfWork = UnitOfWorkImpl(session=session_adapter)
 
+                # Initialize repositories for UpdateStatementFromExtractionUseCase
+                conversation_repo = ConversationRepositoryImpl(session=session_adapter)
+                extraction_log_repo = ExtractionLogRepositoryImpl(
+                    session=session_adapter
+                )
+
+                # Initialize UpdateStatementFromExtractionUseCase
+                update_statement_usecase = UpdateStatementFromExtractionUseCase(
+                    conversation_repo=conversation_repo,
+                    extraction_log_repo=extraction_log_repo,
+                    session_adapter=session_adapter,
+                )
+
                 # Initialize use case
                 minutes_usecase = ExecuteMinutesProcessingUseCase(
                     speaker_domain_service=speaker_domain_service,
                     minutes_processing_service=minutes_processing_service,
                     storage_service=storage_service,
                     unit_of_work=uow,
+                    update_statement_usecase=update_statement_usecase,
                 )
 
                 # Execute processing
