@@ -217,6 +217,21 @@ class BamlAsyncClient:
                 "resume": resume,
             })
             return typing.cast(types.Resume, __result__.cast_to(types, types, stream_types, False, __runtime__))
+    async def ExtractRoleNameMapping(self, attendee_text: str,
+        baml_options: BamlCallOptions = {},
+    ) -> types.RoleNameMappingResult:
+        # Check if on_tick is provided
+        if 'on_tick' in baml_options:
+            # Use streaming internally when on_tick is provided
+            __stream__ = self.stream.ExtractRoleNameMapping(attendee_text=attendee_text,
+                baml_options=baml_options)
+            return await __stream__.get_final_response()
+        else:
+            # Original non-streaming code
+            __result__ = await self.__options.merge_options(baml_options).call_function_async(function_name="ExtractRoleNameMapping", args={
+                "attendee_text": attendee_text,
+            })
+            return typing.cast(types.RoleNameMappingResult, __result__.cast_to(types, types, stream_types, False, __runtime__))
     async def JudgeMatchingConfidence(self, speaker_name: str,candidate_json: str,additional_info_json: typing.Optional[str] = None,
         baml_options: BamlCallOptions = {},
     ) -> types.ConfidenceJudgement:
@@ -394,6 +409,18 @@ class BamlStreamClient:
           lambda x: typing.cast(types.Resume, x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
+    def ExtractRoleNameMapping(self, attendee_text: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.BamlStream[stream_types.RoleNameMappingResult, types.RoleNameMappingResult]:
+        __ctx__, __result__ = self.__options.merge_options(baml_options).create_async_stream(function_name="ExtractRoleNameMapping", args={
+            "attendee_text": attendee_text,
+        })
+        return baml_py.BamlStream[stream_types.RoleNameMappingResult, types.RoleNameMappingResult](
+          __result__,
+          lambda x: typing.cast(stream_types.RoleNameMappingResult, x.cast_to(types, types, stream_types, True, __runtime__)),
+          lambda x: typing.cast(types.RoleNameMappingResult, x.cast_to(types, types, stream_types, False, __runtime__)),
+          __ctx__,
+        )
     def JudgeMatchingConfidence(self, speaker_name: str,candidate_json: str,additional_info_json: typing.Optional[str] = None,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlStream[stream_types.ConfidenceJudgement, types.ConfidenceJudgement]:
@@ -513,6 +540,13 @@ class BamlHttpRequestClient:
             "resume": resume,
         }, mode="request")
         return __result__
+    async def ExtractRoleNameMapping(self, attendee_text: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="ExtractRoleNameMapping", args={
+            "attendee_text": attendee_text,
+        }, mode="request")
+        return __result__
     async def JudgeMatchingConfidence(self, speaker_name: str,candidate_json: str,additional_info_json: typing.Optional[str] = None,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
@@ -610,6 +644,13 @@ class BamlHttpStreamRequestClient:
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="ExtractResume", args={
             "resume": resume,
+        }, mode="stream")
+        return __result__
+    async def ExtractRoleNameMapping(self, attendee_text: str,
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="ExtractRoleNameMapping", args={
+            "attendee_text": attendee_text,
         }, mode="stream")
         return __result__
     async def JudgeMatchingConfidence(self, speaker_name: str,candidate_json: str,additional_info_json: typing.Optional[str] = None,

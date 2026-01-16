@@ -15,7 +15,7 @@ import typing_extensions
 from enum import Enum
 
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 import baml_py
@@ -41,72 +41,72 @@ def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
 # #########################################################################
 
 # #########################################################################
-# Generated classes (15)
+# Generated classes (17)
 # #########################################################################
 
 class AttendeesMapping(BaseModel):
-    attendees_mapping: typing.Optional[typing.Dict[str, typing.Optional[str]]] = None
-    regular_attendees: typing.List[str]
-    confidence: float
+    attendees_mapping: typing.Optional[typing.Dict[str, typing.Optional[str]]] = Field(default=None, description='役職から人名へのマッピング（使用しない場合はnull）')
+    regular_attendees: typing.List[str] = Field(description='出席者の人名リスト')
+    confidence: float = Field(description='抽出の信頼度（0.0-1.0）')
 
 class ConfidenceJudgement(BaseModel):
-    confidence: float
-    confidence_level: str
-    should_match: bool
-    reason: str
-    contributing_factors: typing.List["ContributingFactor"]
-    recommendation: str
+    confidence: float = Field(description='確信度 (0.0-1.0)')
+    confidence_level: str = Field(description='確信度レベル (HIGH/MEDIUM/LOW)')
+    should_match: bool = Field(description='マッチすべきかどうか (confidence >= 0.8)')
+    reason: str = Field(description='判定理由の説明')
+    contributing_factors: typing.List["ContributingFactor"] = Field(description='確信度に寄与した要素')
+    recommendation: str = Field(description='推奨アクション')
 
 class ContributingFactor(BaseModel):
-    factor: str
-    impact: float
-    description: str
+    factor: str = Field(description='要素名 (例: base_score, affiliation, party)')
+    impact: float = Field(description='スコアへの影響 (-1.0 to 1.0)')
+    description: str = Field(description='説明')
 
 class ExtractedMember(BaseModel):
-    name: str
-    role: typing.Optional[str] = None
-    party_name: typing.Optional[str] = None
-    additional_info: typing.Optional[str] = None
+    name: str = Field(description='議員名（フルネーム）')
+    role: typing.Optional[str] = Field(default=None, description='役職（議長、副議長、委員長、委員など）')
+    party_name: typing.Optional[str] = Field(default=None, description='所属政党名')
+    additional_info: typing.Optional[str] = Field(default=None, description='その他の情報')
 
 class LinkClassification(BaseModel):
-    url: str
-    link_type: str
-    confidence: float
-    reason: str
+    url: str = Field(description='The URL being classified')
+    link_type: str = Field(description='Type of link: prefecture_list, city_list, member_list, member_profile, other')
+    confidence: float = Field(description='Confidence score (0.0-1.0)')
+    reason: str = Field(description='Reason for classification')
 
 class MinutesBoundary(BaseModel):
-    boundary_found: bool
-    boundary_text: typing.Optional[str] = None
-    boundary_type: str
-    confidence: float
-    reason: str
+    boundary_found: bool = Field(description='境界が見つかったかどうか')
+    boundary_text: typing.Optional[str] = Field(default=None, description='境界前後の文字列（｜境界｜でマーク）')
+    boundary_type: str = Field(description='境界の種類: separator_line, speech_start, time_marker, none')
+    confidence: float = Field(description='境界検出の信頼度（0.0-1.0）')
+    reason: str = Field(description='境界判定の理由')
 
 class PageClassification(BaseModel):
-    page_type: str
-    confidence: float
-    reason: str
-    has_child_links: bool
-    has_member_info: bool
+    page_type: str = Field(description='Type of page: index_page, member_list_page, other')
+    confidence: float = Field(description='Confidence score (0.0-1.0)')
+    reason: str = Field(description='Reason for classification')
+    has_child_links: bool = Field(description='Whether the page has child links')
+    has_member_info: bool = Field(description='Whether the page has member information')
 
 class ParliamentaryGroupMember(BaseModel):
-    name: str
-    role: typing.Optional[str] = None
-    party_name: typing.Optional[str] = None
-    district: typing.Optional[str] = None
-    additional_info: typing.Optional[str] = None
+    name: str = Field(description='議員名（フルネーム）')
+    role: typing.Optional[str] = Field(default=None, description='役職（団長、幹事長、政調会長など）')
+    party_name: typing.Optional[str] = Field(default=None, description='所属政党名')
+    district: typing.Optional[str] = Field(default=None, description='選挙区')
+    additional_info: typing.Optional[str] = Field(default=None, description='その他の情報')
 
 class PoliticianMatch(BaseModel):
-    matched: bool
-    politician_id: typing.Optional[int] = None
-    politician_name: typing.Optional[str] = None
-    political_party_name: typing.Optional[str] = None
-    confidence: float
-    reason: str
+    matched: bool = Field(description='マッチングが成功したか')
+    politician_id: typing.Optional[int] = Field(default=None, description='マッチした政治家のID（マッチしない場合はnull）')
+    politician_name: typing.Optional[str] = Field(default=None, description='マッチした政治家の名前（マッチしない場合はnull）')
+    political_party_name: typing.Optional[str] = Field(default=None, description='所属政党名（マッチしない場合はnull）')
+    confidence: float = Field(description='マッチングの信頼度（0.0-1.0）')
+    reason: str = Field(description='マッチング判定の理由')
 
 class RedividedSectionInfo(BaseModel):
-    chapter_number: int
-    sub_chapter_number: int
-    keyword: str
+    chapter_number: int = Field(description='再分割前の順番を表す番号')
+    sub_chapter_number: int = Field(description='再分割した中での順番を表す番号')
+    keyword: str = Field(description='分割した文字列の先頭30文字をそのまま抽出した文字列')
 
 class Resume(BaseModel):
     name: str
@@ -114,28 +114,38 @@ class Resume(BaseModel):
     experience: typing.List[str]
     skills: typing.List[str]
 
+class RoleNameMapping(BaseModel):
+    role: str = Field(description='役職名（例: 議長、副議長、知事、委員長）')
+    name: str = Field(description='人名（例: 伊藤条一、梶谷大志）。敬称は除外すること')
+    member_number: typing.Optional[str] = Field(default=None, description='議員番号（あれば。例: 100番、82番）')
+
+class RoleNameMappingResult(BaseModel):
+    mappings: typing.List["RoleNameMapping"] = Field(description='役職と人名のマッピングリスト')
+    attendee_section_found: bool = Field(description='出席者セクションが見つかったか')
+    confidence: float = Field(description='抽出の信頼度（0.0-1.0）')
+
 class SectionInfo(BaseModel):
-    chapter_number: int
-    keyword: str
+    chapter_number: int = Field(description='分割した文字列を前から順に割り振った番号')
+    keyword: str = Field(description='分割した文字列の先頭30文字をそのまま抽出した文字列')
 
 class SectionString(BaseModel):
-    chapter_number: int
-    sub_chapter_number: int
-    section_string: str
+    chapter_number: int = Field(description='分割した文字列を前から順に割り振った番号')
+    sub_chapter_number: int = Field(description='再分割した場合の文字列番号')
+    section_string: str = Field(description='分割した文字列')
 
 class SpeakerAndSpeechContent(BaseModel):
-    speaker: str
-    speech_content: str
-    chapter_number: int
-    sub_chapter_number: int
-    speech_order: int
+    speaker: str = Field(description='発言者')
+    speech_content: str = Field(description='発言内容')
+    chapter_number: int = Field(description='分割した文字列を前から順に割り振った番号')
+    sub_chapter_number: int = Field(description='再分割した場合の文字列番号')
+    speech_order: int = Field(description='発言順')
 
 class SpeakerMatch(BaseModel):
-    matched: bool
-    speaker_id: typing.Optional[int] = None
-    speaker_name: typing.Optional[str] = None
-    confidence: float
-    reason: str
+    matched: bool = Field(description='マッチングが成功したか')
+    speaker_id: typing.Optional[int] = Field(default=None, description='マッチした発言者のID（マッチしない場合はnull）')
+    speaker_name: typing.Optional[str] = Field(default=None, description='マッチした発言者の名前（マッチしない場合はnull）')
+    confidence: float = Field(description='マッチングの信頼度（0.0-1.0）')
+    reason: str = Field(description='マッチング判定の理由')
 
 # #########################################################################
 # Generated type aliases (0)

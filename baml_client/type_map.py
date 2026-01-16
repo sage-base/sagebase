@@ -49,6 +49,12 @@ type_map = {
     "types.Resume": types.Resume,
     "stream_types.Resume": stream_types.Resume,
 
+    "types.RoleNameMapping": types.RoleNameMapping,
+    "stream_types.RoleNameMapping": stream_types.RoleNameMapping,
+
+    "types.RoleNameMappingResult": types.RoleNameMappingResult,
+    "stream_types.RoleNameMappingResult": stream_types.RoleNameMappingResult,
+
     "types.SectionInfo": types.SectionInfo,
     "stream_types.SectionInfo": stream_types.SectionInfo,
 
