@@ -47,5 +47,6 @@
 \i /docker-entrypoint-initdb.d/02_migrations/042_remove_verification_fields_from_politicians.sql
 \i /docker-entrypoint-initdb.d/02_migrations/043_create_politician_operation_logs.sql
 \i /docker-entrypoint-initdb.d/02_migrations/044_add_prefecture_to_conferences.sql
+\i /docker-entrypoint-initdb.d/02_migrations/045_add_role_name_mappings_to_minutes.sql
 
 \echo 'Migrations completed.'

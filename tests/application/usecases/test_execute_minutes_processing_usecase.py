@@ -9,11 +9,16 @@ from src.application.usecases.execute_minutes_processing_usecase import (
     ExecuteMinutesProcessingDTO,
     ExecuteMinutesProcessingUseCase,
 )
+from src.domain.dtos.role_name_mapping_dto import (
+    RoleNameMappingDTO,
+    RoleNameMappingResultDTO,
+)
 from src.domain.entities.conversation import Conversation
 from src.domain.entities.meeting import Meeting
 from src.domain.entities.minutes import Minutes
 from src.domain.value_objects.speaker_speech import SpeakerSpeech
 from src.infrastructure.exceptions import APIKeyError
+from src.minutes_divide_processor.models import MinutesBoundary
 
 
 @pytest.fixture
@@ -322,3 +327,181 @@ async def test_extract_and_create_speakers(use_case, mock_unit_of_work, mock_ser
     # 検証
     assert created_count == 2  # 重複を除いた数
     assert mock_unit_of_work.speaker_repository.create.call_count == 2
+
+
+@pytest.fixture
+def use_case_with_role_mapping(mock_unit_of_work, mock_services):
+    """役職-人名マッピングサービス付きユースケースのフィクスチャ"""
+    mock_update_statement_usecase = AsyncMock()
+    mock_update_statement_usecase.execute = AsyncMock()
+
+    mock_role_name_mapping_service = AsyncMock()
+
+    # minutes_divider_serviceはAsyncMockとMagicMockのハイブリッド
+    # detect_attendee_boundaryはasync、split_minutes_by_boundaryは同期
+    mock_minutes_divider_service = MagicMock()
+    mock_minutes_divider_service.detect_attendee_boundary = AsyncMock()
+    mock_minutes_divider_service.split_minutes_by_boundary = MagicMock()
+
+    return ExecuteMinutesProcessingUseCase(
+        speaker_domain_service=mock_services["speaker_service"],
+        minutes_processing_service=mock_services["minutes_processing_service"],
+        storage_service=mock_services["storage_service"],
+        unit_of_work=mock_unit_of_work,
+        update_statement_usecase=mock_update_statement_usecase,
+        role_name_mapping_service=mock_role_name_mapping_service,
+        minutes_divider_service=mock_minutes_divider_service,
+    )
+
+
+@pytest.mark.asyncio
+async def test_extract_role_name_mappings_success(use_case_with_role_mapping):
+    """役職-人名マッピング抽出が正常に動作することをテスト"""
+    # モックの設定
+    mock_boundary = MinutesBoundary(
+        boundary_found=True,
+        boundary_text="出席者一覧｜境界｜○議長 発言開始",
+        boundary_type="separator_line",
+        confidence=0.9,
+        reason="セパレータラインが検出されました",
+    )
+    divider = use_case_with_role_mapping.minutes_divider_service
+    divider.detect_attendee_boundary.return_value = mock_boundary
+    divider.split_minutes_by_boundary.return_value = (
+        "出席者一覧テキスト",
+        "発言テキスト",
+    )
+
+    mock_mapping_result = RoleNameMappingResultDTO(
+        mappings=[
+            RoleNameMappingDTO(role="議長", name="伊藤条一"),
+            RoleNameMappingDTO(role="副議長", name="梶谷大志"),
+        ],
+        attendee_section_found=True,
+        confidence=0.95,
+    )
+    mapping_svc = use_case_with_role_mapping.role_name_mapping_service
+    mapping_svc.extract_role_name_mapping.return_value = mock_mapping_result
+
+    # 実行
+    result = await use_case_with_role_mapping._extract_role_name_mappings(
+        "テスト議事録テキスト"
+    )
+
+    # 検証
+    assert result is not None
+    assert "議長" in result
+    assert result["議長"] == "伊藤条一"
+    assert result["副議長"] == "梶谷大志"
+
+
+@pytest.mark.asyncio
+async def test_extract_role_name_mappings_no_service(use_case):
+    """役職-人名マッピングサービスが設定されていない場合はNoneを返すことをテスト"""
+    # サービスが設定されていないuse_caseを使用
+    result = await use_case._extract_role_name_mappings("テスト議事録テキスト")
+
+    # 検証
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_extract_role_name_mappings_empty_text(use_case_with_role_mapping):
+    """空のテキストの場合はNoneを返すことをテスト"""
+    # 実行
+    result = await use_case_with_role_mapping._extract_role_name_mappings("")
+
+    # 検証
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_extract_role_name_mappings_no_boundary(use_case_with_role_mapping):
+    """境界が見つからない場合もマッピング抽出を試みることをテスト"""
+    # モックの設定（境界が見つからない）
+    mock_boundary = MinutesBoundary(
+        boundary_found=False,
+        boundary_text=None,
+        boundary_type="none",
+        confidence=0.0,
+        reason="境界が検出されませんでした",
+    )
+    divider = use_case_with_role_mapping.minutes_divider_service
+    divider.detect_attendee_boundary.return_value = mock_boundary
+
+    # マッピング抽出結果
+    mock_mapping_result = RoleNameMappingResultDTO(
+        mappings=[RoleNameMappingDTO(role="議長", name="田中太郎")],
+        attendee_section_found=True,
+        confidence=0.8,
+    )
+    mapping_svc = use_case_with_role_mapping.role_name_mapping_service
+    mapping_svc.extract_role_name_mapping.return_value = mock_mapping_result
+
+    # 実行
+    result = await use_case_with_role_mapping._extract_role_name_mappings(
+        "テスト議事録テキスト"
+    )
+
+    # 検証
+    assert result is not None
+    assert result["議長"] == "田中太郎"
+
+
+@pytest.mark.asyncio
+async def test_execute_with_role_name_mappings(
+    use_case_with_role_mapping, mock_unit_of_work, mock_services, sample_meeting
+):
+    """役職-人名マッピングが議事録処理時に抽出・保存されることをテスト"""
+    # モックの設定
+    mock_unit_of_work.meeting_repository.get_by_id.return_value = sample_meeting
+    mock_unit_of_work.minutes_repository.get_by_meeting.return_value = None
+    mock_unit_of_work.conversation_repository.get_by_minutes.return_value = []
+
+    # Storage serviceをモック
+    mock_services[
+        "storage_service"
+    ].download_file.return_value = "議事録テキスト".encode()
+
+    # MinutesProcessingServiceをモック
+    mock_services["minutes_processing_service"].process_minutes.return_value = []
+    mock_unit_of_work.conversation_repository.bulk_create.return_value = []
+
+    # 役職-人名マッピング抽出をモック
+    mock_boundary = MinutesBoundary(
+        boundary_found=True,
+        boundary_text="出席者一覧｜境界｜○議長",
+        boundary_type="separator_line",
+        confidence=0.9,
+        reason="test",
+    )
+    divider = use_case_with_role_mapping.minutes_divider_service
+    divider.detect_attendee_boundary.return_value = mock_boundary
+    divider.split_minutes_by_boundary.return_value = (
+        "出席者一覧テキスト",
+        "発言テキスト",
+    )
+    mock_mapping_result = RoleNameMappingResultDTO(
+        mappings=[RoleNameMappingDTO(role="議長", name="伊藤条一")],
+        attendee_section_found=True,
+        confidence=0.95,
+    )
+    mapping_svc = use_case_with_role_mapping.role_name_mapping_service
+    mapping_svc.extract_role_name_mapping.return_value = mock_mapping_result
+
+    # Minutes作成時にrole_name_mappingsが含まれることを確認
+    created_minutes = Minutes(id=1, meeting_id=1, url="https://example.com")
+    mock_unit_of_work.minutes_repository.create.return_value = created_minutes
+
+    # 実行
+    request = ExecuteMinutesProcessingDTO(meeting_id=1)
+    result = await use_case_with_role_mapping.execute(request)
+
+    # 検証
+    assert result.meeting_id == 1
+    # minutes_repository.createが呼ばれたことを確認
+    mock_unit_of_work.minutes_repository.create.assert_called_once()
+    # 作成されたMinutesのrole_name_mappingsを確認
+    created_call = mock_unit_of_work.minutes_repository.create.call_args
+    created_entity = created_call[0][0]
+    assert created_entity.role_name_mappings == {"議長": "伊藤条一"}

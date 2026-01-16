@@ -21,6 +21,8 @@ from src.domain.entities.conversation import Conversation
 from src.domain.entities.meeting import Meeting
 from src.domain.entities.minutes import Minutes
 from src.domain.entities.speaker import Speaker
+from src.domain.interfaces.minutes_divider_service import IMinutesDividerService
+from src.domain.interfaces.role_name_mapping_service import IRoleNameMappingService
 from src.domain.services.interfaces.minutes_processing_service import (
     IMinutesProcessingService,
 )
@@ -55,6 +57,8 @@ class ExecuteMinutesProcessingUseCase:
         storage_service: IStorageService,
         unit_of_work: IUnitOfWork,
         update_statement_usecase: UpdateStatementFromExtractionUseCase,
+        role_name_mapping_service: IRoleNameMappingService | None = None,
+        minutes_divider_service: IMinutesDividerService | None = None,
     ):
         """ユースケースを初期化する
 
@@ -64,12 +68,16 @@ class ExecuteMinutesProcessingUseCase:
             storage_service: ストレージサービス
             unit_of_work: Unit of Work for transaction management
             update_statement_usecase: Statement更新UseCase（抽出ログ統合）
+            role_name_mapping_service: 役職-人名マッピング抽出サービス（オプション）
+            minutes_divider_service: 議事録分割サービス（境界検出用、オプション）
         """
         self.speaker_service = speaker_domain_service
         self.minutes_processing_service = minutes_processing_service
         self.storage_service = storage_service
         self.uow = unit_of_work
         self.update_statement_usecase = update_statement_usecase
+        self.role_name_mapping_service = role_name_mapping_service
+        self.minutes_divider_service = minutes_divider_service
 
     async def execute(
         self, request: ExecuteMinutesProcessingDTO
@@ -130,11 +138,15 @@ class ExecuteMinutesProcessingUseCase:
             # 議事録テキストを取得
             extracted_text = await self._fetch_minutes_text(meeting)
 
+            # 役職-人名マッピングを抽出
+            role_name_mappings = await self._extract_role_name_mappings(extracted_text)
+
             # Minutes レコードを作成または取得
             if not existing_minutes:
                 minutes = Minutes(
                     meeting_id=meeting.id,
                     url=meeting.url,
+                    role_name_mappings=role_name_mappings,
                 )
                 minutes = await self.uow.minutes_repository.create(minutes)
                 # Flush to make foreign key available for conversations
@@ -142,6 +154,12 @@ class ExecuteMinutesProcessingUseCase:
                 logger.info(f"Minutes created and flushed: id={minutes.id}")
             else:
                 minutes = existing_minutes
+                # 既存のMinutesの場合もマッピングを更新
+                if role_name_mappings and minutes.id:
+                    await self.uow.minutes_repository.update_role_name_mappings(
+                        minutes.id, role_name_mappings
+                    )
+                    logger.info(f"Updated role_name_mappings for minutes {minutes.id}")
 
             # 議事録を処理
             results = await self._process_minutes(extracted_text, meeting.id)
@@ -379,3 +397,60 @@ class ExecuteMinutesProcessingUseCase:
 
         logger.info(f"Created {created_count} new speakers")
         return created_count
+
+    async def _extract_role_name_mappings(
+        self, minutes_text: str
+    ) -> dict[str, str] | None:
+        """議事録テキストから役職-人名マッピングを抽出する
+
+        Args:
+            minutes_text: 議事録テキスト
+
+        Returns:
+            dict[str, str] | None: 役職-人名マッピング、抽出できない場合はNone
+        """
+        if not self.role_name_mapping_service:
+            logger.debug(
+                "Role name mapping service not configured, skipping extraction"
+            )
+            return None
+
+        if not minutes_text:
+            return None
+
+        try:
+            # 境界検出で出席者部分を取得
+            attendee_text = minutes_text
+            if self.minutes_divider_service:
+                boundary = await self.minutes_divider_service.detect_attendee_boundary(
+                    minutes_text
+                )
+                if boundary.boundary_found and boundary.boundary_text:
+                    attendee_text, _ = (
+                        self.minutes_divider_service.split_minutes_by_boundary(
+                            minutes_text, boundary
+                        )
+                    )
+                    logger.info(
+                        f"Attendee section extracted: {len(attendee_text)} chars"
+                    )
+
+            # 役職-人名マッピングを抽出
+            result = await self.role_name_mapping_service.extract_role_name_mapping(
+                attendee_text
+            )
+
+            if result.mappings:
+                mappings_dict = result.to_dict()
+                logger.info(
+                    f"Extracted {len(mappings_dict)} role-name mappings "
+                    f"with confidence {result.confidence}"
+                )
+                return mappings_dict
+
+            logger.debug("No role-name mappings found in minutes")
+            return None
+
+        except Exception as e:
+            logger.warning(f"Failed to extract role-name mappings: {e}")
+            return None

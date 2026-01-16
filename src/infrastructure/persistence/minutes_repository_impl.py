@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Column, DateTime, Integer, String, func, text, update
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import declarative_base
@@ -26,6 +27,7 @@ class MinutesModel(Base):
     meeting_id = Column(Integer, nullable=False)
     url = Column(String)
     processed_at = Column(DateTime)
+    role_name_mappings = Column(JSONB)
 
 
 class MinutesRepositoryImpl(BaseRepositoryImpl[Minutes], MinutesRepository):
@@ -91,6 +93,7 @@ class MinutesRepositoryImpl(BaseRepositoryImpl[Minutes], MinutesRepository):
             meeting_id=model.meeting_id,
             url=model.url,
             processed_at=model.processed_at,
+            role_name_mappings=model.role_name_mappings,
         )
 
     def _to_model(self, entity: Minutes) -> Any:
@@ -99,6 +102,7 @@ class MinutesRepositoryImpl(BaseRepositoryImpl[Minutes], MinutesRepository):
             "meeting_id": entity.meeting_id,
             "url": entity.url,
             "processed_at": entity.processed_at,
+            "role_name_mappings": entity.role_name_mappings,
         }
         if entity.id:
             data["id"] = entity.id
@@ -109,3 +113,25 @@ class MinutesRepositoryImpl(BaseRepositoryImpl[Minutes], MinutesRepository):
         model.meeting_id = entity.meeting_id
         model.url = entity.url
         model.processed_at = entity.processed_at
+        model.role_name_mappings = entity.role_name_mappings
+
+    async def update_role_name_mappings(
+        self, minutes_id: int, mappings: dict[str, str]
+    ) -> bool:
+        """議事録の役職-人名マッピングを更新する
+
+        Args:
+            minutes_id: 議事録ID
+            mappings: 役職-人名マッピング辞書
+
+        Returns:
+            bool: 更新成功の場合True
+        """
+        stmt = (
+            update(MinutesModel)
+            .where(MinutesModel.id == minutes_id)
+            .values(role_name_mappings=mappings)
+        )
+
+        result = await self.session.execute(stmt)
+        return result.rowcount > 0

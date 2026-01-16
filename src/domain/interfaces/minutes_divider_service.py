@@ -67,6 +67,21 @@ class IMinutesDividerService(ABC):
         pass
 
     @abstractmethod
+    def split_minutes_by_boundary(
+        self, minutes_text: str, boundary: MinutesBoundary
+    ) -> tuple[str, str]:
+        """境界情報に基づいて議事録を出席者部分と発言部分に分割する
+
+        Args:
+            minutes_text: 議事録の全文
+            boundary: 境界検出結果
+
+        Returns:
+            tuple[str, str]: (出席者部分, 発言部分)
+        """
+        pass
+
+    @abstractmethod
     async def speech_divide_run(
         self, section_string: SectionString
     ) -> SpeakerAndSpeechContentList:
