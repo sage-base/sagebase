@@ -143,11 +143,12 @@ class TestMatchSpeakersUseCaseBAML:
         assert results[0].matching_method == "baml"
         assert "BAMLマッチング" in results[0].matching_reason
 
-        # BAMLサービスが呼び出されたことを確認
+        # BAMLサービスが呼び出されたことを確認（Issue #946）
         mock_baml_matching_service.find_best_match.assert_called_once_with(
             speaker_name="BAML太郎",
             speaker_type=None,
             speaker_party=None,
+            role_name_mappings=None,
         )
 
         # 抽出ログが記録されたことを確認
@@ -269,11 +270,12 @@ class TestMatchSpeakersUseCaseBAML:
         # Execute
         await use_case_with_baml.execute(use_llm=True)
 
-        # Verify - 発言者情報がBAMLサービスに正しく渡される
+        # Verify - 発言者情報がBAMLサービスに正しく渡される（Issue #946）
         mock_baml_matching_service.find_best_match.assert_called_once_with(
             speaker_name="詳細六郎",
             speaker_type="議員",
             speaker_party="自民党",
+            role_name_mappings=None,
         )
 
     @pytest.mark.asyncio

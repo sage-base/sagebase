@@ -185,6 +185,30 @@ class ConversationRepositoryImpl(
             # This should never happen as one session must exist
             return []
 
+    async def get_by_meeting(
+        self, meeting_id: int, limit: int | None = None
+    ) -> list[Conversation]:
+        """Get all conversations for a meeting (via minutes)."""
+        query = text("""
+            SELECT c.* FROM conversations c
+            JOIN minutes m ON c.minutes_id = m.id
+            WHERE m.meeting_id = :meeting_id
+            ORDER BY c.sequence_number
+            LIMIT :limit
+        """)
+        params = {"meeting_id": meeting_id, "limit": limit or 999999}
+
+        if self.async_session is not None:
+            result = await self.async_session.execute(query, params)
+            rows = result.fetchall()
+            return [self._row_to_entity(row) for row in rows]
+        elif self.sync_session is not None:
+            result = await self.sync_session.execute(query, params)
+            rows = result.fetchall()
+            return [self._row_to_entity(row) for row in rows]
+        else:
+            return []
+
     async def get_by_speaker(
         self, speaker_id: int, limit: int | None = None
     ) -> list[Conversation]:

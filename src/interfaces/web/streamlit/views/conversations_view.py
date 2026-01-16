@@ -117,7 +117,7 @@ def render_conversations_list_tab() -> None:
 
     # Load conversations
     if meeting_id:
-        conversations = conversation_repo.get_by_minutes(meeting_id, limit=limit)
+        conversations = conversation_repo.get_by_meeting(meeting_id, limit=limit)
     else:
         conversations = conversation_repo.get_all(limit=limit)
 

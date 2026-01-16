@@ -163,9 +163,21 @@ function DivideSpeech(section_string: string) -> SpeakerAndSpeechContent[] {
         - ◆議員（名前）発言内容
         - ○委員長（名前）発言内容
 
+        【重要】以下は発言として抽出しないでください:
+        - 発言者を特定できないテキスト（「不明」として出力しないこと）
+        - 括弧で囲まれた文書要素: （イメージ）、（表）、（図）、（資料）、（請願文書表）など
+        - 議事進行の説明文やト書き
+        - 議題名や文書タイトルのみのセクション
+
+        【発言者として認められるもの】:
+        - 人名（姓名、または姓のみ）
+        - 役職名（議長、委員長、大臣など）
+        - 役職名（人名）の形式
+
         注意:
-        - 発言者が明示されていない場合でも、文脈から推測して抽出してください
+        - 発言者が明確に特定できる発言のみを抽出してください
         - 発言内容は元のテキストから正確に抽出してください
+        - 発言者を特定できない場合は、その部分はスキップしてください
 
         出力形式（JSON配列）:
         [
@@ -189,7 +201,69 @@ function DivideSpeech(section_string: string) -> SpeakerAndSpeechContent[] {
     "#
 }
 
-// Function 5: 長いセクションを再分割
+// Function 5: 発言者名を正規化して人名を抽出
+class NormalizedSpeaker {
+    original_speaker string @description("元の発言者名")
+    normalized_name string @description("正規化された人名（役職を除いた人名）")
+    is_valid bool @description("有効な人名かどうか（役職のみでマッピングもない場合はfalse）")
+    extraction_method string @description("抽出方法: pattern（括弧内から抽出）, mapping（マッピングから取得）, as_is（そのまま使用）, skipped（スキップ）")
+}
+
+function NormalizeSpeakerNames(
+    speakers: string[],
+    role_name_mappings: map<string, string>?
+) -> NormalizedSpeaker[] {
+    client Gemini2Flash
+    prompt #"
+        以下の発言者名リストを正規化し、人名のみを抽出してください。
+
+        発言者名リスト:
+        {{ speakers }}
+
+        役職-人名マッピング（提供されている場合）:
+        {{ role_name_mappings }}
+
+        【処理ルール】優先順位順に適用してください:
+
+        1. **括弧内の人名抽出**（最優先）
+           - 「役職（人名）」または「役職(人名)」形式の場合、括弧内の人名のみを抽出
+           - 例: "市長（松井一郎）" → "松井一郎"
+           - 例: "○議長（西村義直君）" → "西村義直"（敬称も除去）
+           - 例: "委員長（山田太郎議員）" → "山田太郎"
+           - extraction_method: "pattern"
+
+        2. **役職のみの場合はマッピング参照**
+           - 役職名のみ（議長、市長、委員長など）でマッピングがある場合は人名を取得
+           - 例: "市長" + マッピング{"市長": "松井一郎"} → "松井一郎"
+           - extraction_method: "mapping"
+
+        3. **役職のみでマッピングなしはスキップ**
+           - 役職名のみでマッピングがない場合は無効としてマーク
+           - 例: "市長"（マッピングなし）→ is_valid: false
+           - extraction_method: "skipped"
+
+        4. **人名のみはそのまま使用**
+           - 人名と判断できる場合はそのまま使用
+           - 例: "西村義直" → "西村義直"
+           - extraction_method: "as_is"
+
+        【役職として扱うキーワード】:
+        議長、副議長、委員長、副委員長、会長、副会長、理事、幹事、書記、議員、
+        市長、副市長、町長、副町長、村長、副村長、区長、副区長、知事、副知事、
+        部長、局長、課長、事務局長、事務局次長、
+        参考人、証人、説明員、政府参考人、大臣、副大臣、政務官
+
+        【敬称として除去するもの】:
+        君、氏、議員、委員、参考人、証人、説明員、さん、様、先生
+
+        【注意】:
+        - 記号（○◆◇■□●）は無視してください
+        - 全角括弧（）と半角括弧()の両方に対応してください
+        - 空の発言者名はis_valid: falseとしてください
+    "#
+}
+
+// Function 6: 長いセクションを再分割
 function RedivideSection(section_text: string, divide_counter: int, original_index: int) -> SectionInfo[] {
     client Gemini2Flash
     prompt #"

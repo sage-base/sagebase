@@ -24,6 +24,7 @@ class IPoliticianMatchingService(Protocol):
         speaker_name: str,
         speaker_type: str | None = None,
         speaker_party: str | None = None,
+        role_name_mappings: dict[str, str] | None = None,
     ) -> PoliticianMatch:
         """発言者に最適な政治家マッチを見つける
 
@@ -34,6 +35,8 @@ class IPoliticianMatchingService(Protocol):
             speaker_name: マッチングする発言者名
             speaker_type: 発言者の種別（例: "議員", "委員"など）
             speaker_party: 発言者の所属政党（もしあれば）
+            role_name_mappings: 役職-人名マッピング辞書（例: {"議長": "伊藤条一"}）
+                役職のみの発言者名を実名に解決するために使用
 
         Returns:
             PoliticianMatch: マッチング結果

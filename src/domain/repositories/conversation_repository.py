@@ -18,6 +18,21 @@ class ConversationRepository(BaseRepository[Conversation]):
         pass
 
     @abstractmethod
+    async def get_by_meeting(
+        self, meeting_id: int, limit: int | None = None
+    ) -> list[Conversation]:
+        """Get all conversations for a meeting (via minutes).
+
+        Args:
+            meeting_id: Meeting ID to filter by
+            limit: Optional maximum number of results
+
+        Returns:
+            List of conversations linked to the meeting
+        """
+        pass
+
+    @abstractmethod
     async def get_by_speaker(
         self, speaker_id: int, limit: int | None = None
     ) -> list[Conversation]:

@@ -15,6 +15,7 @@ from src.application.usecases.update_speaker_from_extraction_usecase import (
 from src.common.logging import get_logger
 from src.domain.entities.speaker import Speaker
 from src.domain.repositories.conversation_repository import ConversationRepository
+from src.domain.repositories.minutes_repository import MinutesRepository
 from src.domain.repositories.politician_repository import PoliticianRepository
 from src.domain.repositories.speaker_repository import SpeakerRepository
 from src.domain.services.interfaces.llm_service import ILLMService
@@ -63,6 +64,7 @@ class MatchSpeakersUseCase:
         llm_service: ILLMService,  # LLMServiceAdapter for sync usage
         update_speaker_usecase: UpdateSpeakerFromExtractionUseCase,
         baml_matching_service: IPoliticianMatchingService | None = None,
+        minutes_repository: MinutesRepository | None = None,
     ):
         """発言者マッチングユースケースを初期化する
 
@@ -74,6 +76,7 @@ class MatchSpeakersUseCase:
             llm_service: LLMサービスアダプタ（同期版）
             update_speaker_usecase: Speaker更新UseCase（抽出ログ統合）
             baml_matching_service: BAMLベースの政治家マッチングサービス（Issue #885）
+            minutes_repository: 議事録リポジトリ（役職-人名マッピング取得用）
         """
         self.speaker_repo = speaker_repository
         self.politician_repo = politician_repository
@@ -82,6 +85,7 @@ class MatchSpeakersUseCase:
         self.llm_service = llm_service
         self.update_speaker_usecase = update_speaker_usecase
         self.baml_matching_service = baml_matching_service
+        self.minutes_repo = minutes_repository
 
     async def execute(
         self,
@@ -156,8 +160,14 @@ class MatchSpeakersUseCase:
             match_result = await self._rule_based_matching(speaker)
 
             if not match_result and use_llm:
+                # 役職-人名マッピングを取得（Issue #946）
+                role_name_mappings = await self._get_role_name_mappings_for_speaker(
+                    speaker
+                )
                 # Try BAML-based matching
-                match_result = await self._baml_based_matching(speaker)
+                match_result = await self._baml_based_matching(
+                    speaker, role_name_mappings=role_name_mappings
+                )
 
             if match_result:
                 # Update speaker with matched politician_id and user_id
@@ -234,7 +244,11 @@ class MatchSpeakersUseCase:
 
         return None
 
-    async def _baml_based_matching(self, speaker: Speaker) -> SpeakerMatchingDTO | None:
+    async def _baml_based_matching(
+        self,
+        speaker: Speaker,
+        role_name_mappings: dict[str, str] | None = None,
+    ) -> SpeakerMatchingDTO | None:
         """BAMLベースの政治家マッチングを実行する
 
         BAMLPoliticianMatchingServiceを使用して、高精度なマッチングを行います。
@@ -242,6 +256,8 @@ class MatchSpeakersUseCase:
 
         Args:
             speaker: マッチング対象の発言者
+            role_name_mappings: 役職-人名マッピング辞書（例: {"議長": "伊藤条一"}）
+                役職のみの発言者名を実名に解決するために使用（Issue #946）
 
         Returns:
             マッチング結果DTO（マッチなしの場合None）
@@ -252,10 +268,12 @@ class MatchSpeakersUseCase:
 
         try:
             # BAMLPoliticianMatchingServiceのfind_best_matchを呼び出し
+            # 役職-人名マッピングを渡す（Issue #946）
             result = await self.baml_matching_service.find_best_match(
                 speaker_name=speaker.name,
                 speaker_type=speaker.type,
                 speaker_party=speaker.political_party_name,
+                role_name_mappings=role_name_mappings,
             )
 
             if result.matched and result.politician_id:
@@ -276,6 +294,50 @@ class MatchSpeakersUseCase:
                 f"BAML matching failed for speaker {speaker.name}: {e}",
                 speaker_id=speaker.id,
                 error=str(e),
+            )
+            return None
+
+    async def _get_role_name_mappings_for_speaker(
+        self, speaker: Speaker
+    ) -> dict[str, str] | None:
+        """発言者が属するMinutesのrole_name_mappingsを取得する
+
+        Speaker→Conversation→Minutesの経路でマッピングを取得します。
+
+        Args:
+            speaker: マッチング対象の発言者
+
+        Returns:
+            役職-人名マッピング辞書（取得できない場合はNone）
+        """
+        if not self.minutes_repo:
+            return None
+
+        if speaker.id is None:
+            return None
+
+        try:
+            # Speaker→Conversationの経路でminutes_idを取得
+            conversations = await self.conversation_repo.get_by_speaker(
+                speaker.id, limit=1
+            )
+            if not conversations:
+                return None
+
+            minutes_id = conversations[0].minutes_id
+            if not minutes_id:
+                return None
+
+            # MinutesRepository経由でマッピングを取得
+            minutes = await self.minutes_repo.get_by_id(minutes_id)
+            if not minutes:
+                return None
+
+            return minutes.role_name_mappings
+
+        except Exception as e:
+            logger.warning(
+                f"役職-人名マッピング取得に失敗: speaker_id={speaker.id}, error={e}"
             )
             return None
 
