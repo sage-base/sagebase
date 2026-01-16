@@ -36,7 +36,7 @@ class BAMLRoleNameMappingService(IRoleNameMappingService):
     """
 
     async def extract_role_name_mapping(
-        self, attendee_text: str
+        self, attendee_text: str | None
     ) -> RoleNameMappingResultDTO:
         """出席者テキストから役職-人名マッピングを抽出
 
@@ -52,15 +52,17 @@ class BAMLRoleNameMappingService(IRoleNameMappingService):
             - エラー時は空の結果と低い信頼度を返します
         """
         logger.info("=== extract_role_name_mapping started ===")
-        logger.info(f"Attendee text length: {len(attendee_text)}")
 
-        if not attendee_text or not attendee_text.strip():
-            logger.warning("No attendee text provided")
+        # None または空文字列のチェック（len()呼び出し前に実施）
+        if attendee_text is None or not attendee_text.strip():
+            logger.warning("No attendee text provided (None or empty)")
             return RoleNameMappingResultDTO(
                 mappings=[],
                 attendee_section_found=False,
                 confidence=0.0,
             )
+
+        logger.info(f"Attendee text length: {len(attendee_text)}")
 
         try:
             # テキストが長すぎる場合は切り詰める

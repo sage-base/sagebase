@@ -83,6 +83,20 @@ class TestBAMLRoleNameMappingService:
         mock_baml_client.ExtractRoleNameMapping.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_extract_role_name_mapping_none_input(self, mock_baml_client):
+        """Noneが渡された場合のテスト"""
+        service = BAMLRoleNameMappingService()
+
+        result = await service.extract_role_name_mapping(None)
+
+        assert result.attendee_section_found is False
+        assert result.confidence == 0.0
+        assert len(result.mappings) == 0
+
+        # BAML呼び出しがないことを検証
+        mock_baml_client.ExtractRoleNameMapping.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_extract_role_name_mapping_empty_text(self, mock_baml_client):
         """空のテキストの場合のテスト"""
         service = BAMLRoleNameMappingService()
@@ -246,3 +260,26 @@ class TestRoleNameMappingResultDTO:
         assert result.mappings == []
         assert result.attendee_section_found is False
         assert result.confidence == 0.0
+
+    def test_to_dict_with_duplicate_roles(self):
+        """同一役職が複数存在する場合のto_dict()テスト
+
+        同一役職が複数存在する場合、後の値で上書きされることを確認します。
+        """
+        result = RoleNameMappingResultDTO(
+            mappings=[
+                RoleNameMappingDTO(role="委員", name="田中一郎", member_number=None),
+                RoleNameMappingDTO(role="委員", name="高橋二郎", member_number=None),
+                RoleNameMappingDTO(role="委員長", name="山田太郎", member_number=None),
+            ],
+            attendee_section_found=True,
+            confidence=0.9,
+        )
+
+        # 同一役職「委員」は後の値（高橋二郎）で上書きされる
+        expected = {"委員": "高橋二郎", "委員長": "山田太郎"}
+        assert result.to_dict() == expected
+
+        # 全ての委員を取得したい場合はmappingsリストを直接参照
+        all_members = [m.name for m in result.mappings if m.role == "委員"]
+        assert all_members == ["田中一郎", "高橋二郎"]

@@ -38,5 +38,10 @@ class RoleNameMappingResultDTO(BaseModel):
 
         Returns:
             dict[str, str]: 役職をキー、人名を値とする辞書
+
+        Note:
+            同一役職が複数存在する場合（例: 委員が複数名）、
+            後に出現する人名で上書きされます。
+            全ての人名を取得したい場合は、mappingsリストを直接参照してください。
         """
         return {m.role: m.name for m in self.mappings}
