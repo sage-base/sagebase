@@ -40,6 +40,8 @@ from src.application.usecases.view_data_coverage_usecase import (
     ViewMeetingCoverageUseCase,
     ViewSpeakerMatchingStatsUseCase,
 )
+from src.domain.interfaces.minutes_divider_service import IMinutesDividerService
+from src.domain.interfaces.role_name_mapping_service import IRoleNameMappingService
 from src.domain.services.interfaces.llm_service import ILLMService
 from src.domain.services.interfaces.minutes_processing_service import (
     IMinutesProcessingService,
@@ -49,11 +51,17 @@ from src.domain.services.politician_domain_service import PoliticianDomainServic
 from src.domain.services.speaker_domain_service import SpeakerDomainService
 from src.infrastructure.external.gcs_storage_service import GCSStorageService
 from src.infrastructure.external.llm_service import GeminiLLMService
+from src.infrastructure.external.minutes_divider.baml_minutes_divider import (
+    BAMLMinutesDivider,
+)
 from src.infrastructure.external.minutes_processing_service import (
     MinutesProcessAgentService,
 )
 from src.infrastructure.external.politician_matching import (
     BAMLPoliticianMatchingService,
+)
+from src.infrastructure.external.role_name_mapping.baml_role_name_mapping_service import (
+    BAMLRoleNameMappingService,
 )
 from src.infrastructure.external.web_scraper_service import (
     IWebScraperService,
@@ -464,6 +472,16 @@ class ServiceContainer(containers.DeclarativeContainer):
         lambda: _create_conference_member_extraction_agent()
     )
 
+    # Role name mapping service (Issue #944)
+    role_name_mapping_service: providers.Provider[IRoleNameMappingService] = (
+        providers.Factory(BAMLRoleNameMappingService)
+    )
+
+    # Minutes divider service (境界検出用)
+    minutes_divider_service: providers.Provider[IMinutesDividerService] = (
+        providers.Factory(BAMLMinutesDivider)
+    )
+
 
 class UseCaseContainer(containers.DeclarativeContainer):
     """Container for use case implementations."""
@@ -565,6 +583,8 @@ class UseCaseContainer(containers.DeclarativeContainer):
         storage_service=services.storage_service,
         unit_of_work=unit_of_work,
         update_statement_usecase=update_statement_usecase,
+        role_name_mapping_service=services.role_name_mapping_service,
+        minutes_divider_service=services.minutes_divider_service,
     )
 
     extract_proposal_judges_usecase = providers.Factory(

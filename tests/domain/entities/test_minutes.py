@@ -15,22 +15,26 @@ class TestMinutes:
         assert minutes.meeting_id == 1
         assert minutes.url is None
         assert minutes.processed_at is None
+        assert minutes.role_name_mappings is None
         assert minutes.id is None
 
     def test_initialization_with_all_fields(self) -> None:
         """Test entity initialization with all fields."""
         processed_time = datetime(2024, 1, 15, 10, 30, 0)
+        role_mappings = {"議長": "伊藤条一", "副議長": "梶谷大志"}
         minutes = Minutes(
             id=10,
             meeting_id=5,
             url="https://example.com/minutes/123.pdf",
             processed_at=processed_time,
+            role_name_mappings=role_mappings,
         )
 
         assert minutes.id == 10
         assert minutes.meeting_id == 5
         assert minutes.url == "https://example.com/minutes/123.pdf"
         assert minutes.processed_at == processed_time
+        assert minutes.role_name_mappings == role_mappings
 
     def test_str_representation(self) -> None:
         """Test string representation."""
@@ -187,3 +191,45 @@ class TestMinutes:
         for url in urls_special:
             minutes = Minutes(meeting_id=1, url=url)
             assert minutes.url == url
+
+    def test_role_name_mappings(self) -> None:
+        """役職-人名マッピングフィールドのテスト"""
+        # Noneの場合
+        minutes_none = Minutes(meeting_id=1)
+        assert minutes_none.role_name_mappings is None
+
+        # 空辞書の場合
+        minutes_empty = Minutes(meeting_id=1, role_name_mappings={})
+        assert minutes_empty.role_name_mappings == {}
+
+        # 一般的なマッピング
+        mappings = {
+            "議長": "伊藤条一",
+            "副議長": "梶谷大志",
+            "知事": "鈴木直道",
+        }
+        minutes_with_mappings = Minutes(meeting_id=1, role_name_mappings=mappings)
+        assert minutes_with_mappings.role_name_mappings == mappings
+        assert minutes_with_mappings.role_name_mappings["議長"] == "伊藤条一"
+
+    def test_role_name_mappings_with_various_roles(self) -> None:
+        """様々な役職を含むマッピングのテスト"""
+        mappings = {
+            "委員長": "田中太郎",
+            "副委員長": "山田花子",
+            "事務局長": "佐藤次郎",
+            "書記": "鈴木三郎",
+        }
+        minutes = Minutes(meeting_id=1, role_name_mappings=mappings)
+        assert len(minutes.role_name_mappings) == 4
+        assert minutes.role_name_mappings["委員長"] == "田中太郎"
+
+    def test_role_name_mappings_japanese_characters(self) -> None:
+        """日本語文字を含む役職-人名マッピングのテスト"""
+        mappings = {
+            "第１副議長": "高橋一郎",
+            "常任委員会委員長": "渡辺二郎",
+            "特別委員会副委員長": "伊藤三郎",
+        }
+        minutes = Minutes(meeting_id=1, role_name_mappings=mappings)
+        assert minutes.role_name_mappings["第１副議長"] == "高橋一郎"

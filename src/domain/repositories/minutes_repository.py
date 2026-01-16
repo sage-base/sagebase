@@ -28,3 +28,18 @@ class MinutesRepository(BaseRepository[Minutes]):
     async def count_processed(self) -> int:
         """Count minutes that have been processed (processed_at IS NOT NULL)."""
         pass
+
+    @abstractmethod
+    async def update_role_name_mappings(
+        self, minutes_id: int, mappings: dict[str, str]
+    ) -> bool:
+        """議事録の役職-人名マッピングを更新する
+
+        Args:
+            minutes_id: 議事録ID
+            mappings: 役職-人名マッピング辞書
+
+        Returns:
+            bool: 更新成功の場合True
+        """
+        pass
