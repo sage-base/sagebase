@@ -411,6 +411,8 @@ class MinutesProcessAgent:
         )
 
         print(f"Normalizing {len(unique_speakers)} unique speaker names with LLM...")
+        print(f"Input speakers: {unique_speakers}")
+        print(f"Role name mappings: {state.role_name_mappings}")
 
         # BAMLでLLM呼び出し（発言者名の正規化）
         normalized_results = await b.NormalizeSpeakerNames(
@@ -418,15 +420,44 @@ class MinutesProcessAgent:
             role_name_mappings=state.role_name_mappings,
         )
 
+        print(f"LLM returned {len(normalized_results)} results")
+
         # 正規化結果をマッピングとして構築
-        # LLMの出力数が入力数と一致しない場合に対応
+        # インデックスベースでマッピング（LLMのoriginal_speakerに依存しない）
         normalization_map: dict[str, tuple[str, bool, str]] = {}
-        for normalized in normalized_results:
-            normalization_map[normalized.original_speaker] = (
-                normalized.normalized_name,
-                normalized.is_valid,
-                normalized.extraction_method,
+
+        # まずインデックスベースでマッピングを試みる
+        if len(normalized_results) == len(unique_speakers):
+            print("Using index-based mapping (counts match)")
+            for i, (speaker, normalized) in enumerate(
+                zip(unique_speakers, normalized_results, strict=True)
+            ):
+                normalization_map[speaker] = (
+                    normalized.normalized_name,
+                    normalized.is_valid,
+                    normalized.extraction_method,
+                )
+                print(
+                    f"  [{i}] '{speaker}' → '{normalized.normalized_name}' "
+                    f"(valid={normalized.is_valid}, "
+                    f"method={normalized.extraction_method})"
+                )
+        else:
+            # 数が一致しない場合はoriginal_speakerベースでマッピング
+            print(
+                f"Warning: Count mismatch ({len(unique_speakers)} vs "
+                f"{len(normalized_results)}), using original_speaker-based mapping"
             )
+            for normalized in normalized_results:
+                normalization_map[normalized.original_speaker] = (
+                    normalized.normalized_name,
+                    normalized.is_valid,
+                    normalized.extraction_method,
+                )
+                print(
+                    f"  '{normalized.original_speaker}' → "
+                    f"'{normalized.normalized_name}' (valid={normalized.is_valid})"
+                )
 
         # 正規化結果を元の発言データに適用
         normalized_speech_list: list[SpeakerAndSpeechContent] = []
