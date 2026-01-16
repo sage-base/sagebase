@@ -1,3 +1,4 @@
+import re
 import uuid
 
 from typing import TYPE_CHECKING, Any
@@ -379,16 +380,124 @@ class MinutesProcessAgent:
         print(f"incremented_speech_divide_index: {incremented_index}")
         return {"divided_speech_list_memory_id": memory_id, "index": incremented_index}
 
+    def _normalize_speaker_name_rule_based(
+        self,
+        speaker: str,
+        role_name_mappings: dict[str, str] | None,
+    ) -> tuple[str, bool, str]:
+        """ルールベースで発言者名を正規化する。
+
+        Args:
+            speaker: 元の発言者名
+            role_name_mappings: 役職-人名マッピング
+
+        Returns:
+            (正規化された名前, 有効かどうか, 抽出方法)
+        """
+        if not speaker or not speaker.strip():
+            return ("", False, "empty")
+
+        # 先頭の記号を除去（○◆◇■□●など）
+        cleaned = re.sub(r"^[○◆◇■□●◎△▲▽▼☆★]+", "", speaker).strip()
+
+        # 括弧内の人名を抽出（全角・半角両対応）
+        # パターン: 役職（人名）、役職(人名)
+        bracket_pattern = r"^.+?[（(](.+?)[）)]$"
+        match = re.match(bracket_pattern, cleaned)
+        if match:
+            name = match.group(1)
+            # 敬称を除去
+            name = self._remove_honorifics(name)
+            if name:
+                return (name, True, "pattern")
+
+        # 役職のみの場合はマッピングを参照
+        role_keywords = [
+            "議長",
+            "副議長",
+            "委員長",
+            "副委員長",
+            "会長",
+            "副会長",
+            "理事",
+            "幹事",
+            "書記",
+            "議員",
+            "委員",
+            "市長",
+            "副市長",
+            "町長",
+            "副町長",
+            "村長",
+            "副村長",
+            "区長",
+            "副区長",
+            "知事",
+            "副知事",
+            "部長",
+            "局長",
+            "課長",
+            "事務局長",
+            "事務局次長",
+            "参考人",
+            "証人",
+            "説明員",
+            "政府参考人",
+            "大臣",
+            "副大臣",
+            "政務官",
+        ]
+
+        # 役職+人名パターン（括弧なし）: 「松井市長」→「松井」を抽出
+        for role in role_keywords:
+            if cleaned.endswith(role) and len(cleaned) > len(role):
+                name = cleaned[: -len(role)]
+                name = self._remove_honorifics(name)
+                if name:
+                    return (name, True, "role_suffix")
+
+        # 役職のみかどうかチェック
+        is_role_only = cleaned in role_keywords
+        if is_role_only:
+            if role_name_mappings and cleaned in role_name_mappings:
+                return (role_name_mappings[cleaned], True, "mapping")
+            else:
+                return (cleaned, False, "role_only_no_mapping")
+
+        # 人名として扱う（敬称除去）
+        name = self._remove_honorifics(cleaned)
+        if name:
+            return (name, True, "as_is")
+        return (cleaned, True, "as_is")
+
+    def _remove_honorifics(self, name: str) -> str:
+        """敬称を除去する。"""
+        honorifics = [
+            "君",
+            "氏",
+            "議員",
+            "委員",
+            "参考人",
+            "証人",
+            "説明員",
+            "さん",
+            "様",
+            "先生",
+        ]
+        result = name
+        for h in honorifics:
+            if result.endswith(h):
+                result = result[: -len(h)]
+        return result.strip()
+
     async def _normalize_speaker_names(
         self, state: MinutesProcessState
     ) -> dict[str, str]:
-        """発言者名をLLMで正規化する（Issue #946）
+        """発言者名をルールベースで正規化する（Issue #946）
 
         役職（人名）パターンから人名を抽出し、役職のみの場合はマッピングを参照して
         人名を取得します。無効な発言者はフィルタリングされます。
         """
-        from baml_client.async_client import b
-
         # 分割済み発言リストを取得
         memory_id = state.divided_speech_list_memory_id
         memory_data = self._get_from_memory("divided_speech_list", memory_id)
@@ -405,59 +514,28 @@ class MinutesProcessAgent:
             memory_id = self._put_to_memory("normalized_speech_list", memory)
             return {"normalized_speech_list_memory_id": memory_id}
 
-        # ユニークな発言者名のリストを抽出（LLM呼び出し回数を削減）
+        # ユニークな発言者名のリストを抽出
         unique_speakers = list(
             dict.fromkeys(speech.speaker for speech in divided_speech_list)
         )
 
-        print(f"Normalizing {len(unique_speakers)} unique speaker names with LLM...")
+        print(
+            f"Normalizing {len(unique_speakers)} unique speaker names (rule-based)..."
+        )
         print(f"Input speakers: {unique_speakers}")
         print(f"Role name mappings: {state.role_name_mappings}")
 
-        # BAMLでLLM呼び出し（発言者名の正規化）
-        normalized_results = await b.NormalizeSpeakerNames(
-            speakers=unique_speakers,
-            role_name_mappings=state.role_name_mappings,
-        )
-
-        print(f"LLM returned {len(normalized_results)} results")
-
-        # 正規化結果をマッピングとして構築
-        # インデックスベースでマッピング（LLMのoriginal_speakerに依存しない）
+        # ルールベースで正規化マッピングを構築
         normalization_map: dict[str, tuple[str, bool, str]] = {}
-
-        # まずインデックスベースでマッピングを試みる
-        if len(normalized_results) == len(unique_speakers):
-            print("Using index-based mapping (counts match)")
-            for i, (speaker, normalized) in enumerate(
-                zip(unique_speakers, normalized_results, strict=True)
-            ):
-                normalization_map[speaker] = (
-                    normalized.normalized_name,
-                    normalized.is_valid,
-                    normalized.extraction_method,
-                )
-                print(
-                    f"  [{i}] '{speaker}' → '{normalized.normalized_name}' "
-                    f"(valid={normalized.is_valid}, "
-                    f"method={normalized.extraction_method})"
-                )
-        else:
-            # 数が一致しない場合はoriginal_speakerベースでマッピング
-            print(
-                f"Warning: Count mismatch ({len(unique_speakers)} vs "
-                f"{len(normalized_results)}), using original_speaker-based mapping"
+        for speaker in unique_speakers:
+            normalized_name, is_valid, method = self._normalize_speaker_name_rule_based(
+                speaker, state.role_name_mappings
             )
-            for normalized in normalized_results:
-                normalization_map[normalized.original_speaker] = (
-                    normalized.normalized_name,
-                    normalized.is_valid,
-                    normalized.extraction_method,
-                )
-                print(
-                    f"  '{normalized.original_speaker}' → "
-                    f"'{normalized.normalized_name}' (valid={normalized.is_valid})"
-                )
+            normalization_map[speaker] = (normalized_name, is_valid, method)
+            print(
+                f"  '{speaker}' → '{normalized_name}' "
+                f"(valid={is_valid}, method={method})"
+            )
 
         # 正規化結果を元の発言データに適用
         normalized_speech_list: list[SpeakerAndSpeechContent] = []
@@ -466,12 +544,9 @@ class MinutesProcessAgent:
         for speech in divided_speech_list:
             speaker_name = speech.speaker
 
-            # マッピングに存在しない場合はそのまま使用
-            # （LLMが返さなかった場合のフォールバック）
+            # マッピングに存在しない場合はそのまま使用（フォールバック）
             if speaker_name not in normalization_map:
-                print(
-                    f"Warning: Speaker '{speaker_name}' not in LLM results, using as-is"
-                )
+                print(f"Warning: Speaker '{speaker_name}' not in map, using as-is")
                 normalized_name = speaker_name
                 is_valid = bool(speaker_name and speaker_name.strip())
                 extraction_method = "fallback"
