@@ -191,6 +191,7 @@ class ExecuteMinutesProcessingUseCase:
                 processing_time_seconds=processing_time,
                 processed_at=end_time,
                 errors=errors if errors else None,
+                role_name_mappings=role_name_mappings,
             )
 
         except Exception as e:

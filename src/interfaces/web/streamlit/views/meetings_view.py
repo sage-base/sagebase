@@ -594,6 +594,12 @@ def execute_extract_minutes(
                         f"発言者数: {result.data.get('unique_speakers', 0)}\n"
                         f"処理時間: {result.data.get('processing_time', 0):.2f}秒"
                     )
+                    # 役職-人名マッピングを表示
+                    role_mappings = result.data.get("role_name_mappings")
+                    if role_mappings:
+                        with st.expander("📋 役職-人名マッピング", expanded=True):
+                            for role, name in role_mappings.items():
+                                st.write(f"**{role}**: {name}")
                 st.rerun()
             else:
                 st.error(result.message)

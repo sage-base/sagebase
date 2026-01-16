@@ -22,6 +22,9 @@ from src.application.usecases.execute_speaker_extraction_usecase import (
     ExecuteSpeakerExtractionDTO,
     ExecuteSpeakerExtractionUseCase,
 )
+from src.application.usecases.update_statement_from_extraction_usecase import (
+    UpdateStatementFromExtractionUseCase,
+)
 from src.common.logging import get_logger
 from src.domain.entities.meeting import Meeting
 from src.domain.services.interfaces.minutes_processing_service import (
@@ -554,6 +557,17 @@ class MeetingPresenter(CRUDPresenter[list[Meeting]]):
             )
             speaker_domain_service = SpeakerDomainService()
 
+            # Initialize role name mapping services
+            from src.infrastructure.external.minutes_divider.baml_minutes_divider import (  # noqa: E501
+                BAMLMinutesDivider,
+            )
+            from src.infrastructure.external.role_name_mapping.baml_role_name_mapping_service import (  # noqa: E501
+                BAMLRoleNameMappingService,
+            )
+
+            role_name_mapping_service = BAMLRoleNameMappingService()
+            minutes_divider_service = BAMLMinutesDivider()
+
             # Initialize Unit of Work
             from src.infrastructure.config.async_database import get_async_session
             from src.infrastructure.persistence.sqlalchemy_session_adapter import (
@@ -565,12 +579,28 @@ class MeetingPresenter(CRUDPresenter[list[Meeting]]):
                 session_adapter = SQLAlchemySessionAdapter(session)
                 uow: IUnitOfWork = UnitOfWorkImpl(session=session_adapter)
 
+                # Initialize update statement usecase
+                from src.infrastructure.persistence.extraction_log_repository_impl import (  # noqa: E501
+                    ExtractionLogRepositoryImpl,
+                )
+
+                conversation_repo = ConversationRepositoryImpl(session_adapter)
+                extraction_log_repo = ExtractionLogRepositoryImpl(session_adapter)
+                update_statement_usecase = UpdateStatementFromExtractionUseCase(
+                    conversation_repo=conversation_repo,
+                    extraction_log_repo=extraction_log_repo,
+                    session_adapter=session_adapter,
+                )
+
                 # Initialize use case
                 minutes_usecase = ExecuteMinutesProcessingUseCase(
                     speaker_domain_service=speaker_domain_service,
                     minutes_processing_service=minutes_processing_service,
                     storage_service=storage_service,
                     unit_of_work=uow,
+                    update_statement_usecase=update_statement_usecase,
+                    role_name_mapping_service=role_name_mapping_service,
+                    minutes_divider_service=minutes_divider_service,
                 )
 
                 # Execute processing
@@ -585,6 +615,7 @@ class MeetingPresenter(CRUDPresenter[list[Meeting]]):
                         "total_conversations": result.total_conversations,
                         "unique_speakers": result.unique_speakers,
                         "processing_time": result.processing_time_seconds,
+                        "role_name_mappings": result.role_name_mappings,
                     },
                     f"会議 {meeting_id} の発言抽出が完了しました",
                 )

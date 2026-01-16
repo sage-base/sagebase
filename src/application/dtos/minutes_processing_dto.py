@@ -34,3 +34,4 @@ class MinutesProcessingResultDTO:
     processing_time_seconds: float
     processed_at: datetime
     errors: list[str] | None = None
+    role_name_mappings: dict[str, str] | None = None
