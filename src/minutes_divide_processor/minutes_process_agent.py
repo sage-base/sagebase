@@ -1,6 +1,9 @@
+import re
 import uuid
 
 from typing import TYPE_CHECKING, Any
+
+import structlog
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
@@ -17,6 +20,9 @@ from .models import (
 from src.domain.services.interfaces.llm_service import ILLMService
 from src.infrastructure.external.instrumented_llm_service import InstrumentedLLMService
 from src.infrastructure.external.minutes_divider.factory import MinutesDividerFactory
+
+
+logger = structlog.get_logger(__name__)
 
 
 # 循環インポートを避けるため、TYPE_CHECKINGで型ヒントのみに使用
@@ -63,10 +69,13 @@ class MinutesProcessAgent:
 
         新しいフロー:
         process_minutes → extract_speech_boundary → divide_minutes_to_keyword
-        → divide_minutes_to_string → check_length → divide_speech (loop) → END
+        → divide_minutes_to_string → check_length → divide_speech (loop)
+        → normalize_speaker_names → END
 
         extract_speech_boundaryノードでSpeechExtractionAgentサブグラフを実行し、
         議事録から出席者部分と発言部分を分離します。
+        normalize_speaker_namesノードでLLMを使用して発言者名を正規化します
+        （Issue #946）。
         """
         # グラフの初期化
         workflow = StateGraph(MinutesProcessState)
@@ -79,6 +88,7 @@ class MinutesProcessAgent:
         workflow.add_node("divide_minutes_to_string", self._divide_minutes_to_string)  # type: ignore[arg-type]
         workflow.add_node("check_length", self._check_length)  # type: ignore[arg-type]
         workflow.add_node("divide_speech", self._divide_speech)  # type: ignore[arg-type]
+        workflow.add_node("normalize_speaker_names", self._normalize_speaker_names)  # type: ignore[arg-type]  # Issue #946
 
         # エッジの設定（フロー変更）
         workflow.set_entry_point("process_minutes")
@@ -93,8 +103,13 @@ class MinutesProcessAgent:
             "divide_speech",
             # indexは1から始まるので、<= で比較する必要がある
             lambda state: state.index <= state.section_list_length,  # type: ignore[arg-type, no-any-return]
-            {True: "divide_speech", False: END},
+            {
+                True: "divide_speech",
+                False: "normalize_speaker_names",
+            },  # ENDの代わりに正規化ノードへ
         )
+        # 発言者名正規化後に終了
+        workflow.add_edge("normalize_speaker_names", END)
 
         return workflow.compile(checkpointer=checkpointer, store=self.in_memory_store)  # type: ignore[return-value]  # type: ignore[return-value]
 
@@ -251,7 +266,7 @@ class MinutesProcessAgent:
         # 議事録を分割する（発言部分のみ）
         section_info_list = await self.minutes_divider.section_divide_run(speech_part)
         section_list_length = len(section_info_list.section_info_list)
-        print("divide_minutes_to_keyword_done")
+        logger.debug("キーワード分割完了", section_count=section_list_length)
         return {
             # リストとして返す
             "section_info_list": section_info_list.section_info_list,
@@ -295,7 +310,7 @@ class MinutesProcessAgent:
         memory_id = self._put_to_memory(
             namespace="redivide_section_string_list", memory=memory
         )
-        print("check_length_done")
+        logger.debug("セクション長チェック完了")
         return {"redivide_section_string_list_memory_id": memory_id}
 
     async def _divide_speech(self, state: MinutesProcessState) -> dict[str, Any]:
@@ -317,14 +332,16 @@ class MinutesProcessAgent:
                 )
             )
         else:
-            print(
-                f"Warning: Index {state.index - 1} is out of range "
-                + "for section_string_list."
+            logger.warning(
+                "インデックスが範囲外",
+                index=state.index - 1,
+                section_count=len(section_string_list.section_string_list),
             )
             speaker_and_speech_content_list = None
-        print(
-            f"divide_speech_done on index_number: {state.index} "
-            + f"all_length: {state.section_list_length}"
+        logger.debug(
+            "発言分割処理中",
+            current_index=state.index,
+            total_sections=state.section_list_length,
         )
         # 現在のdivide_speech_listを取得
         memory_id = state.divided_speech_list_memory_id
@@ -343,10 +360,7 @@ class MinutesProcessAgent:
         # もしspeaker_and_speech_content_listがNoneの場合は、
         # 現在のリストを更新用リストとして返す
         if speaker_and_speech_content_list is None:
-            print(
-                "Warning: speaker_and_speech_content_list is None. "
-                + "Skipping this section."
-            )
+            logger.warning("発言リストがNullのためスキップ", index=state.index)
             updated_speaker_and_speech_content_list = divided_speech_list
             memory: dict[str, list[SpeakerAndSpeechContent]] = {
                 "divided_speech_list": updated_speaker_and_speech_content_list
@@ -367,18 +381,139 @@ class MinutesProcessAgent:
                 namespace="divided_speech_list", memory=memory
             )
         incremented_index = state.index + 1
-        print(f"incremented_speech_divide_index: {incremented_index}")
+        logger.debug("発言分割インデックス更新", next_index=incremented_index)
         return {"divided_speech_list_memory_id": memory_id, "index": incremented_index}
 
-    async def run(self, original_minutes: str) -> list[SpeakerAndSpeechContent]:
-        # 初期状態の設定
-        initial_state = MinutesProcessState(original_minutes=original_minutes)
-        # グラフの実行
-        final_state = await self.graph.ainvoke(
-            initial_state, config={"recursion_limit": 300, "thread_id": "example-1"}
-        )
-        # 分割結果の取得
-        memory_id = final_state["divided_speech_list_memory_id"]
+    def _normalize_speaker_name_rule_based(
+        self,
+        speaker: str,
+        role_name_mappings: dict[str, str] | None,
+    ) -> tuple[str, bool, str]:
+        """ルールベースで発言者名を正規化する。
+
+        Args:
+            speaker: 元の発言者名
+            role_name_mappings: 役職-人名マッピング
+
+        Returns:
+            (正規化された名前, 有効かどうか, 抽出方法)
+        """
+        if not speaker or not speaker.strip():
+            return ("", False, "empty")
+
+        # 先頭の記号を除去（○◆◇■□●など）
+        cleaned = re.sub(r"^[○◆◇■□●◎△▲▽▼☆★]+", "", speaker).strip()
+
+        # 括弧内の人名を抽出（全角・半角両対応）
+        # パターン: 役職（人名）、役職(人名)
+        bracket_pattern = r"^.+?[（(](.+?)[）)]$"
+        match = re.match(bracket_pattern, cleaned)
+        if match:
+            name = match.group(1)
+            # 敬称を除去
+            name = self._remove_honorifics(name)
+            if name:
+                return (name, True, "pattern")
+
+        # 役職のみの場合はマッピングを参照
+        role_keywords = [
+            "議長",
+            "副議長",
+            "委員長",
+            "副委員長",
+            "会長",
+            "副会長",
+            "理事",
+            "幹事",
+            "書記",
+            "議員",
+            "委員",
+            "市長",
+            "副市長",
+            "町長",
+            "副町長",
+            "村長",
+            "副村長",
+            "区長",
+            "副区長",
+            "知事",
+            "副知事",
+            "部長",
+            "局長",
+            "課長",
+            "事務局長",
+            "事務局次長",
+            "参考人",
+            "証人",
+            "説明員",
+            "政府参考人",
+            "大臣",
+            "副大臣",
+            "政務官",
+        ]
+
+        # 役職のみかどうかを先にチェック
+        # （「副市長」が「副」+「市長」と誤解釈されるのを防ぐ）
+        is_role_only = cleaned in role_keywords
+        if is_role_only:
+            if role_name_mappings and cleaned in role_name_mappings:
+                return (role_name_mappings[cleaned], True, "mapping")
+            else:
+                return (cleaned, False, "role_only_no_mapping")
+
+        # 役職+人名パターン（括弧なし）: 「松井市長」→「松井」を抽出
+        for role in role_keywords:
+            if cleaned.endswith(role) and len(cleaned) > len(role):
+                name = cleaned[: -len(role)]
+                name = self._remove_honorifics(name)
+                if name:
+                    return (name, True, "role_suffix")
+
+        # 人名として扱う（敬称除去）
+        name = self._remove_honorifics(cleaned)
+        if name:
+            return (name, True, "as_is")
+        return (cleaned, True, "as_is")
+
+    def _remove_honorifics(self, name: str) -> str:
+        """敬称を除去する（複数の敬称にも対応）。"""
+        honorifics = [
+            "君",
+            "氏",
+            "議員",
+            "委員",
+            "参考人",
+            "証人",
+            "説明員",
+            "さん",
+            "様",
+            "先生",
+        ]
+        result = name
+        # 複数の敬称がネストしている場合にも対応（例: 「山田太郎議員先生」）
+        changed = True
+        while changed:
+            changed = False
+            for h in honorifics:
+                if result.endswith(h):
+                    result = result[: -len(h)]
+                    changed = True
+                    break
+        return result.strip()
+
+    async def _normalize_speaker_names(
+        self, state: MinutesProcessState
+    ) -> dict[str, str]:
+        """発言者名をLLMで正規化する（Issue #946）
+
+        役職（人名）パターンから人名を抽出し、役職のみの場合はマッピングを参照して
+        人名を取得します。無効な発言者はフィルタリングされます。
+        LLMが失敗した場合はルールベースにフォールバックします。
+        """
+        from baml_client.async_client import b
+
+        # 分割済み発言リストを取得
+        memory_id = state.divided_speech_list_memory_id
         memory_data = self._get_from_memory("divided_speech_list", memory_id)
         if memory_data is None or "divided_speech_list" not in memory_data:
             raise ValueError("Failed to retrieve divided_speech_list from memory")
@@ -387,4 +522,175 @@ class MinutesProcessAgent:
         if not isinstance(divided_speech_list, list):
             raise TypeError("divided_speech_list must be a list")
 
-        return divided_speech_list  # type: ignore[return-value]
+        if not divided_speech_list:
+            # 空の場合はそのまま返す
+            memory = {"normalized_speech_list": []}
+            memory_id = self._put_to_memory("normalized_speech_list", memory)
+            return {"normalized_speech_list_memory_id": memory_id}
+
+        # ユニークな発言者名のリストを抽出
+        unique_speakers = list(
+            dict.fromkeys(speech.speaker for speech in divided_speech_list)
+        )
+
+        logger.info(
+            "発言者名の正規化を開始",
+            unique_speaker_count=len(unique_speakers),
+            has_mappings=bool(state.role_name_mappings),
+        )
+        logger.debug("正規化対象発言者", speakers=unique_speakers)
+        if state.role_name_mappings:
+            logger.debug("役職-人名マッピング", mappings=state.role_name_mappings)
+
+        # 正規化マッピングを構築
+        normalization_map: dict[str, tuple[str, bool, str]] = {}
+
+        # まずLLMで正規化を試みる
+        try:
+            logger.debug("LLMベース正規化を試行")
+            normalized_results = await b.NormalizeSpeakerNames(
+                speakers=unique_speakers,
+                role_name_mappings=state.role_name_mappings,
+            )
+            logger.debug("LLM正規化結果", result_count=len(normalized_results))
+
+            if len(normalized_results) == len(unique_speakers):
+                # LLM成功: インデックスベースでマッピング
+                logger.info("LLMベースの正規化を使用")
+                for speaker, normalized in zip(
+                    unique_speakers, normalized_results, strict=True
+                ):
+                    normalization_map[speaker] = (
+                        normalized.normalized_name,
+                        normalized.is_valid,
+                        normalized.extraction_method,
+                    )
+                    logger.debug(
+                        "LLM正規化結果",
+                        original=speaker,
+                        normalized=normalized.normalized_name,
+                        is_valid=normalized.is_valid,
+                        method=normalized.extraction_method,
+                    )
+            else:
+                # LLMの出力数が一致しない場合はルールベースにフォールバック
+                logger.warning(
+                    "LLM結果数不一致のためルールベースにフォールバック",
+                    llm_count=len(normalized_results),
+                    expected_count=len(unique_speakers),
+                )
+                raise ValueError("LLM result count mismatch")
+        except Exception as e:
+            # LLM失敗時はルールベースにフォールバック
+            logger.warning("LLM正規化失敗、ルールベースを使用", error=str(e))
+            for speaker in unique_speakers:
+                normalized_name, is_valid, method = (
+                    self._normalize_speaker_name_rule_based(
+                        speaker, state.role_name_mappings
+                    )
+                )
+                normalization_map[speaker] = (normalized_name, is_valid, method)
+                logger.debug(
+                    "ルールベース正規化結果",
+                    original=speaker,
+                    normalized=normalized_name,
+                    is_valid=is_valid,
+                    method=method,
+                )
+
+        # 正規化結果を元の発言データに適用
+        normalized_speech_list: list[SpeakerAndSpeechContent] = []
+        skipped_count = 0
+
+        for speech in divided_speech_list:
+            speaker_name = speech.speaker
+
+            # マッピングに存在しない場合はそのまま使用（フォールバック）
+            if speaker_name not in normalization_map:
+                logger.warning(
+                    "発言者がマッピングに存在しないためそのまま使用",
+                    speaker=speaker_name,
+                )
+                normalized_name = speaker_name
+                is_valid = bool(speaker_name and speaker_name.strip())
+                extraction_method = "fallback"
+            else:
+                normalized_name, is_valid, extraction_method = normalization_map[
+                    speaker_name
+                ]
+
+            if not is_valid:
+                logger.debug(
+                    "無効な発言者をスキップ",
+                    speaker=speaker_name,
+                    method=extraction_method,
+                )
+                skipped_count += 1
+                continue
+
+            # 発言者名を正規化された名前に置き換え
+            normalized_speech = SpeakerAndSpeechContent(
+                speaker=normalized_name,
+                speech_content=speech.speech_content,
+                chapter_number=speech.chapter_number,
+                sub_chapter_number=speech.sub_chapter_number,
+                speech_order=speech.speech_order,
+            )
+            normalized_speech_list.append(normalized_speech)
+
+            # ログ出力（変換があった場合のみ）
+            if speaker_name != normalized_name:
+                logger.debug(
+                    "発言者名を正規化",
+                    original=speaker_name,
+                    normalized=normalized_name,
+                    method=extraction_method,
+                )
+
+        logger.info(
+            "発言者名正規化完了",
+            valid_count=len(normalized_speech_list),
+            skipped_count=skipped_count,
+        )
+
+        # 正規化済みリストをメモリに保存
+        memory = {"normalized_speech_list": normalized_speech_list}
+        memory_id = self._put_to_memory("normalized_speech_list", memory)
+        return {"normalized_speech_list_memory_id": memory_id}
+
+    async def run(
+        self,
+        original_minutes: str,
+        role_name_mappings: dict[str, str] | None = None,
+    ) -> list[SpeakerAndSpeechContent]:
+        """議事録を処理し、発言者名を正規化した発言リストを返す。
+
+        Args:
+            original_minutes: 元の議事録テキスト
+            role_name_mappings: 役職-人名マッピング（例: {"議長": "伊藤条一"}）
+                発言者名が役職のみの場合に実名に変換（Issue #946）
+
+        Returns:
+            list[SpeakerAndSpeechContent]: 正規化された発言リスト
+        """
+        # 初期状態の設定（role_name_mappingsを含む）
+        initial_state = MinutesProcessState(
+            original_minutes=original_minutes,
+            role_name_mappings=role_name_mappings,
+        )
+        # グラフの実行
+        final_state = await self.graph.ainvoke(
+            initial_state, config={"recursion_limit": 300, "thread_id": "example-1"}
+        )
+
+        # 正規化済み発言リストを取得（Issue #946）
+        memory_id = final_state["normalized_speech_list_memory_id"]
+        memory_data = self._get_from_memory("normalized_speech_list", memory_id)
+        if memory_data is None or "normalized_speech_list" not in memory_data:
+            raise ValueError("Failed to retrieve normalized_speech_list from memory")
+
+        normalized_speech_list = memory_data["normalized_speech_list"]
+        if not isinstance(normalized_speech_list, list):
+            raise TypeError("normalized_speech_list must be a list")
+
+        return normalized_speech_list  # type: ignore[return-value]

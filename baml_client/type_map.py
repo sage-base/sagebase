@@ -34,6 +34,9 @@ type_map = {
     "types.MinutesBoundary": types.MinutesBoundary,
     "stream_types.MinutesBoundary": stream_types.MinutesBoundary,
 
+    "types.NormalizedSpeaker": types.NormalizedSpeaker,
+    "stream_types.NormalizedSpeaker": stream_types.NormalizedSpeaker,
+
     "types.PageClassification": types.PageClassification,
     "stream_types.PageClassification": stream_types.PageClassification,
 

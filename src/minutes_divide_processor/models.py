@@ -115,6 +115,9 @@ class AttendeesMapping(BaseModel):
 
 class MinutesProcessState(BaseModel):
     original_minutes: str = Field(..., description="元の議事録全体")
+    role_name_mappings: dict[str, str] | None = Field(
+        default=None, description="役職-人名マッピング（例: {'議長': '伊藤条一'}）"
+    )
     processed_minutes_memory_id: str = Field(
         default="", description="LLMに渡す前処理を施した議事録を保存したメモリID"
     )
@@ -129,6 +132,10 @@ class MinutesProcessState(BaseModel):
     ] = Field(default_factory=lambda: [], description="再分割対象の文字列リスト")
     divided_speech_list_memory_id: str = Field(
         default="", description="分割された各発言者と発言内容のリストを保存したメモリID"
+    )
+    normalized_speech_list_memory_id: str = Field(
+        default="",
+        description="発言者名正規化後の発言リストを保存したメモリID（Issue #946）",
     )
     section_list_length: int = Field(default=0, description="分割できたsectionnの数")
     index: int = Field(default=1, description="現在処理しているsection数")

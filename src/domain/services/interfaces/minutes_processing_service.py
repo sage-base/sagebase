@@ -13,11 +13,17 @@ class IMinutesProcessingService(Protocol):
     core business capability for extracting speeches from meeting minutes text.
     """
 
-    async def process_minutes(self, original_minutes: str) -> list[SpeakerSpeech]:
+    async def process_minutes(
+        self,
+        original_minutes: str,
+        role_name_mappings: dict[str, str] | None = None,
+    ) -> list[SpeakerSpeech]:
         """Process meeting minutes text and extract speeches.
 
         Args:
             original_minutes: Raw meeting minutes text content
+            role_name_mappings: 役職-人名マッピング辞書（例: {"議長": "伊藤条一"}）
+                発言者名が役職のみの場合に実名に変換するために使用（Issue #946）
 
         Returns:
             List of extracted speeches with speaker information

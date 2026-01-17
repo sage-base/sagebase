@@ -41,7 +41,7 @@ def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
 # #########################################################################
 
 # #########################################################################
-# Generated classes (17)
+# Generated classes (18)
 # #########################################################################
 
 class AttendeesMapping(BaseModel):
@@ -80,6 +80,12 @@ class MinutesBoundary(BaseModel):
     boundary_type: str = Field(description='境界の種類: separator_line, speech_start, time_marker, none')
     confidence: float = Field(description='境界検出の信頼度（0.0-1.0）')
     reason: str = Field(description='境界判定の理由')
+
+class NormalizedSpeaker(BaseModel):
+    original_speaker: str = Field(description='元の発言者名')
+    normalized_name: str = Field(description='正規化された人名（役職を除いた人名）')
+    is_valid: bool = Field(description='有効な人名かどうか（役職のみでマッピングもない場合はfalse）')
+    extraction_method: str = Field(description='抽出方法: pattern（括弧内から抽出）, mapping（マッピングから取得）, as_is（そのまま使用）, skipped（スキップ）')
 
 class PageClassification(BaseModel):
     page_type: str = Field(description='Type of page: index_page, member_list_page, other')

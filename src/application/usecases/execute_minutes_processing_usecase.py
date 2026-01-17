@@ -161,8 +161,10 @@ class ExecuteMinutesProcessingUseCase:
                     )
                     logger.info(f"Updated role_name_mappings for minutes {minutes.id}")
 
-            # 議事録を処理
-            results = await self._process_minutes(extracted_text, meeting.id)
+            # 議事録を処理（役職-人名マッピングを渡す: Issue #946）
+            results = await self._process_minutes(
+                extracted_text, meeting.id, role_name_mappings
+            )
 
             # Conversationsを保存
             if minutes.id is None:
@@ -241,12 +243,19 @@ class ExecuteMinutesProcessingUseCase:
 
         raise ValueError(f"No valid source found for meeting {meeting.id}")
 
-    async def _process_minutes(self, text: str, meeting_id: int) -> list[SpeakerSpeech]:
+    async def _process_minutes(
+        self,
+        text: str,
+        meeting_id: int,
+        role_name_mappings: dict[str, str] | None = None,
+    ) -> list[SpeakerSpeech]:
         """議事録を処理して発言を抽出する
 
         Args:
             text: 議事録テキスト
             meeting_id: 会議ID
+            role_name_mappings: 役職-人名マッピング辞書（例: {"議長": "伊藤条一"}）
+                発言者名が役職のみの場合に実名に変換（Issue #946）
 
         Returns:
             list[SpeakerSpeech]: 抽出された発言リスト（ドメイン値オブジェクト）
@@ -256,8 +265,10 @@ class ExecuteMinutesProcessingUseCase:
 
         logger.info(f"Processing minutes (text length: {len(text)})")
 
-        # 注入された議事録処理サービスを使用
-        results = await self.minutes_processing_service.process_minutes(text)
+        # 注入された議事録処理サービスを使用（マッピングを渡す: Issue #946）
+        results = await self.minutes_processing_service.process_minutes(
+            text, role_name_mappings=role_name_mappings
+        )
 
         logger.info(f"Extracted {len(results)} conversations")
         return results
@@ -447,6 +458,9 @@ class ExecuteMinutesProcessingUseCase:
                     f"Extracted {len(mappings_dict)} role-name mappings "
                     f"with confidence {result.confidence}"
                 )
+                # マッピング内容を詳細ログで出力（Issue #946）
+                for role, name in mappings_dict.items():
+                    logger.info(f"  役職マッピング: {role} → {name}")
                 return mappings_dict
 
             logger.debug("No role-name mappings found in minutes")
