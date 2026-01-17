@@ -146,9 +146,14 @@ class MinutesRepositoryImpl(BaseRepositoryImpl[Minutes], MinutesRepository):
             offset: スキップする件数（Noneの場合は0）
 
         Returns:
-            list[Minutes]: 議事録リスト
+            list[Minutes]: 議事録リスト（IDの昇順でソート）
+
+        Note:
+            offset/limitを使用する際にデータの一貫性を保つため、
+            必ずIDの昇順でソートして返します。
         """
-        query = select(MinutesModel)
+        # offset/limitとの組み合わせでデータの一貫性を保つためORDER BYを追加
+        query = select(MinutesModel).order_by(MinutesModel.id)
         if offset:
             query = query.offset(offset)
         if limit:

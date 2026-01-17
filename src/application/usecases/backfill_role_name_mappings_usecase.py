@@ -21,7 +21,17 @@ logger = get_logger(__name__)
 
 @dataclass
 class BackfillResultDTO:
-    """バックフィル結果DTO"""
+    """バックフィル結果DTO
+
+    Attributes:
+        total_processed: 実際に処理を試みた議事録数
+            （skip_existingフィルター後の件数。フィルターでスキップされた件数は含まない）
+        success_count: マッピング抽出・保存に成功した件数
+        skip_count: スキップされた件数
+            （skip_existingによるフィルター分 + 処理中のスキップ分の合計）
+        error_count: エラーが発生した件数
+        errors: エラーメッセージのリスト
+    """
 
     total_processed: int = 0
     success_count: int = 0

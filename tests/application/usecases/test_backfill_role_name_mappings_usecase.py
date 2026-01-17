@@ -473,3 +473,136 @@ class TestBackfillResultDTO:
         assert result.skip_count == 1
         assert result.error_count == 1
         assert len(result.errors) == 1
+
+
+class TestBackfillEdgeCases:
+    """追加のエッジケーステスト（レビュー指摘対応）"""
+
+    @pytest.mark.asyncio
+    async def test_execute_meeting_not_found(
+        self,
+        use_case,
+        mock_unit_of_work,
+        sample_minutes,
+    ):
+        """会議が見つからない場合にスキップすることをテスト"""
+        # モック設定: 議事録は存在するがMeetingが見つからない
+        mock_unit_of_work.minutes_repository.get_all.return_value = [sample_minutes]
+        # Meetingが見つからないケース
+        mock_unit_of_work.meeting_repository.get_by_id.return_value = None
+
+        # 実行
+        result = await use_case.execute()
+
+        # 検証: 処理は行われるがMeetingが見つからずスキップ
+        assert result.total_processed == 1
+        assert result.success_count == 0
+        assert result.skip_count == 1  # スキップとしてカウント
+        assert result.error_count == 0
+
+    @pytest.mark.asyncio
+    async def test_execute_empty_text_content(
+        self,
+        use_case,
+        mock_unit_of_work,
+        mock_storage_service,
+        sample_meeting,
+        sample_minutes,
+    ):
+        """GCSから空のテキストが返された場合にスキップすることをテスト"""
+        # モック設定
+        mock_unit_of_work.minutes_repository.get_all.return_value = [sample_minutes]
+        mock_unit_of_work.meeting_repository.get_by_id.return_value = sample_meeting
+        mock_storage_service.download_file.return_value = b""  # 空のバイト列
+
+        # 実行
+        result = await use_case.execute()
+
+        # 検証: 空テキストでスキップ
+        assert result.total_processed == 1
+        assert result.success_count == 0
+        assert result.skip_count == 1  # スキップとしてカウント
+        assert result.error_count == 0
+
+    @pytest.mark.asyncio
+    async def test_execute_minutes_id_is_none(
+        self,
+        use_case,
+        mock_unit_of_work,
+    ):
+        """議事録IDがNoneの場合にスキップすることをテスト"""
+        # IDがNoneの議事録
+        minutes_with_no_id = Minutes(
+            id=None,
+            meeting_id=1,
+            url="https://example.com",
+            role_name_mappings=None,
+        )
+
+        # モック設定
+        mock_unit_of_work.minutes_repository.get_all.return_value = [minutes_with_no_id]
+
+        # 実行
+        result = await use_case.execute()
+
+        # 検証: IDがNoneでスキップ
+        assert result.total_processed == 1
+        assert result.success_count == 0
+        assert result.skip_count == 1  # スキップとしてカウント
+        assert result.error_count == 0
+        # Meetingリポジトリは呼ばれない（IDチェックで早期リターン）
+        mock_unit_of_work.meeting_repository.get_by_id.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_execute_rollback_on_fatal_error(
+        self,
+        use_case,
+        mock_unit_of_work,
+    ):
+        """致命的エラー時にrollbackが呼ばれることをテスト"""
+        # モック設定: get_allで致命的エラーを発生させる
+        mock_unit_of_work.minutes_repository.get_all.side_effect = RuntimeError(
+            "Database connection lost"
+        )
+
+        # 実行: 例外が発生することを確認
+        with pytest.raises(RuntimeError, match="Database connection lost"):
+            await use_case.execute()
+
+        # 検証: rollbackが呼ばれたことを確認
+        mock_unit_of_work.rollback.assert_called_once()
+        # commitは呼ばれない
+        mock_unit_of_work.commit.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_execute_update_failure(
+        self,
+        use_case,
+        mock_unit_of_work,
+        mock_storage_service,
+        mock_role_name_mapping_service,
+        sample_meeting,
+        sample_minutes,
+        sample_mapping_result,
+    ):
+        """DB更新が失敗した場合の処理をテスト"""
+        # モック設定
+        mock_unit_of_work.minutes_repository.get_all.return_value = [sample_minutes]
+        mock_unit_of_work.meeting_repository.get_by_id.return_value = sample_meeting
+        mock_storage_service.download_file.return_value = "議事録テキスト".encode()
+        mock_role_name_mapping_service.extract_role_name_mapping.return_value = (
+            sample_mapping_result
+        )
+        # 更新失敗
+        mock_unit_of_work.minutes_repository.update_role_name_mappings.return_value = (
+            False
+        )
+
+        # 実行
+        result = await use_case.execute()
+
+        # 検証: 更新失敗でスキップ
+        assert result.total_processed == 1
+        assert result.success_count == 0
+        assert result.skip_count == 1  # 更新失敗はスキップとしてカウント
+        assert result.error_count == 0
