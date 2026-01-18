@@ -41,9 +41,10 @@ def test_render_matching_tab_requires_login(mock_auth, mock_st):
     )
 
 
+@patch("src.interfaces.web.streamlit.views.conversations_view.RepositoryAdapter")
 @patch("src.interfaces.web.streamlit.views.conversations_view.st")
 @patch("src.interfaces.web.streamlit.views.conversations_view.google_sign_in")
-def test_render_matching_tab_with_login(mock_auth, mock_st):
+def test_render_matching_tab_with_login(mock_auth, mock_st, mock_repo_adapter):
     """発言マッチングタブがログイン時にユーザー情報を表示することを確認"""
     # Arrange
     from src.interfaces.web.streamlit.views.conversations_view import (
@@ -59,6 +60,25 @@ def test_render_matching_tab_with_login(mock_auth, mock_st):
 
     # st.button()をモック（クリックされていない）
     mock_st.button.return_value = False
+
+    # st.number_input()をモック
+    mock_st.number_input.return_value = 10
+
+    # st.selectbox()をモック
+    mock_st.selectbox.return_value = "すべて"
+
+    # st.columns()をモック
+    mock_col1 = MagicMock()
+    mock_col2 = MagicMock()
+    mock_st.columns.return_value = (mock_col1, mock_col2)
+
+    # st.session_state.get()をモック
+    mock_st.session_state.get.return_value = []
+
+    # RepositoryAdapterのモック
+    mock_meeting_repo = MagicMock()
+    mock_meeting_repo.get_all.return_value = []
+    mock_repo_adapter.return_value = mock_meeting_repo
 
     # Act
     render_matching_tab()
