@@ -20,6 +20,9 @@ from src.application.usecases.execute_speaker_extraction_usecase import (
 from src.application.usecases.extract_proposal_judges_usecase import (
     ExtractProposalJudgesUseCase,
 )
+from src.application.usecases.link_speaker_to_politician_usecase import (
+    LinkSpeakerToPoliticianUseCase,
+)
 from src.application.usecases.manage_conference_members_usecase import (
     ManageConferenceMembersUseCase,
 )
@@ -545,6 +548,13 @@ class UseCaseContainer(containers.DeclarativeContainer):
         llm_service=services.async_llm_service,  # Use async service directly
         update_speaker_usecase=update_speaker_usecase,
         baml_matching_service=baml_politician_matching_service,  # Issue #885
+    )
+
+    # Link Speaker to Politician UseCase (PR #957)
+    # 発言者と政治家の手動紐付け用ユースケース
+    link_speaker_to_politician_usecase = providers.Factory(
+        LinkSpeakerToPoliticianUseCase,
+        speaker_repository=repositories.speaker_repository,
     )
 
     manage_conference_members_usecase = providers.Factory(
