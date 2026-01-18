@@ -348,11 +348,6 @@ def mock_baml_client():
             {"speaker": "テスト議員1", "content": "テスト発言1"},
             {"speaker": "テスト議員2", "content": "テスト発言2"},
         ],
-        "MatchSpeaker": {
-            "politician_id": 1,
-            "confidence": 0.95,
-            "reason": "モックマッチング",
-        },
         "DivideMinutes": {
             "sections": [
                 {"title": "議事開始", "content": "テスト議事録セクション1"},
