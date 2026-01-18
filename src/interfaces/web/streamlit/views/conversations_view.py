@@ -13,12 +13,14 @@ from src.application.dtos.speaker_dto import SpeakerMatchingDTO
 from src.application.usecases.authenticate_user_usecase import (
     AuthenticateUserUseCase,
 )
+from src.application.usecases.link_speaker_to_politician_usecase import (
+    LinkSpeakerToPoliticianInputDto,
+)
 from src.application.usecases.mark_entity_as_verified_usecase import (
     EntityType,
     MarkEntityAsVerifiedInputDto,
     MarkEntityAsVerifiedUseCase,
 )
-from src.domain.entities.speaker import Speaker
 from src.infrastructure.di.container import Container
 from src.infrastructure.external.langgraph_tools.politician_matching_tools import (
     create_politician_matching_tools,
@@ -30,7 +32,6 @@ from src.infrastructure.persistence.meeting_repository_impl import (
     MeetingRepositoryImpl,
 )
 from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
-from src.infrastructure.persistence.speaker_repository_impl import SpeakerRepositoryImpl
 from src.interfaces.web.streamlit.auth import google_sign_in
 from src.interfaces.web.streamlit.components import (
     get_verification_badge_text,
@@ -297,16 +298,18 @@ def render_politician_creation_form(
     party_map = {p.name: p.id for p in parties}
 
     # 発言者情報を取得（政党名の自動選択用）
-    # RepositoryAdapterは同期的なラッパーなのでasyncio.runは不要
-    speaker_repo = RepositoryAdapter(SpeakerRepositoryImpl)
-    speaker: Speaker | None = speaker_repo.get_by_id(result.speaker_id)
+    # UseCaseを通じて取得するのが理想だが、Presenterにget_speaker_by_idがないため
+    # session_stateから政党名を取得（軽微な妥協）
+    speaker_party_name = st.session_state.get(
+        f"speaker_party_{result.speaker_id}", None
+    )
 
     # 政党の自動選択を試行
     default_party_index = 0
-    if speaker and speaker.political_party_name:
+    if speaker_party_name:
         # 部分一致で検索
         for i, party in enumerate(parties):
-            if speaker.political_party_name in party.name:
+            if speaker_party_name in party.name:
                 default_party_index = i + 1  # "無所属"の分オフセット
                 break
 
@@ -366,12 +369,22 @@ def render_politician_creation_form(
                 )
 
                 if success and politician_id:
-                    # 自動マッチング: 発言者のpolitician_idを更新
-                    if speaker:
-                        speaker.politician_id = politician_id
-                        speaker.matched_by_user_id = user_uuid
-                        speaker_repo.upsert(speaker)
+                    # UseCaseを使用して発言者と政治家を紐付け
+                    link_usecase = (
+                        container.use_cases.link_speaker_to_politician_usecase()
+                    )
+                    link_result = asyncio.run(
+                        link_usecase.execute(
+                            LinkSpeakerToPoliticianInputDto(
+                                speaker_id=result.speaker_id,
+                                politician_id=politician_id,
+                                politician_name=name,
+                                user_id=user_uuid,
+                            )
+                        )
+                    )
 
+                    if link_result.success:
                         st.success(
                             f"✅ 政治家「{name}」を作成し、"
                             f"発言者と紐付けました（ID: {politician_id}）"
@@ -380,20 +393,12 @@ def render_politician_creation_form(
                         # フォームを閉じてマッチング結果を更新
                         st.session_state[f"show_form_{result.speaker_id}"] = False
 
-                        # マッチング結果を更新（該当の発言者を更新）
+                        # マッチング結果を更新（UseCaseから返されたDTOを使用）
                         results = st.session_state.get("matching_results", [])
                         for i, r in enumerate(results):
                             if r.speaker_id == result.speaker_id:
                                 # 更新された結果を反映
-                                results[i] = SpeakerMatchingDTO(
-                                    speaker_id=r.speaker_id,
-                                    speaker_name=r.speaker_name,
-                                    matched_politician_id=politician_id,
-                                    matched_politician_name=name,
-                                    confidence_score=1.0,
-                                    matching_method="manual",
-                                    matching_reason="手動で政治家を作成・紐付け",
-                                )
+                                results[i] = link_result.updated_matching_dto
                                 break
                         st.session_state["matching_results"] = results
                         st.rerun()
@@ -401,9 +406,7 @@ def render_politician_creation_form(
                         st.success(
                             f"✅ 政治家「{name}」を作成しました（ID: {politician_id}）"
                         )
-                        st.warning(
-                            "発言者情報が取得できなかったため、紐付けは手動で行ってください"
-                        )
+                        st.warning(f"紐付けに失敗しました: {link_result.error_message}")
                 else:
                     st.error(f"登録に失敗しました: {error}")
 
