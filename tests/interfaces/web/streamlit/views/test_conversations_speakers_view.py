@@ -1,6 +1,6 @@
 """発言・発言者管理ビューのテスト
 
-統合ページ（conversations_view.py）のテスト
+統合ページ（conversations/）のテスト
 """
 
 from unittest.mock import MagicMock, patch
@@ -11,11 +11,11 @@ from src.application.usecases.link_speaker_to_politician_usecase import (
 )
 
 
-@patch("src.interfaces.web.streamlit.views.conversations_view.st")
+@patch("src.interfaces.web.streamlit.views.conversations.tabs.speakers_list_tab.st")
 def test_render_speakers_list_tab_displays_placeholder(mock_st):
     """発言者一覧タブがプレースホルダーを表示することを確認"""
     # Arrange
-    from src.interfaces.web.streamlit.views.conversations_view import (
+    from src.interfaces.web.streamlit.views.conversations.tabs.speakers_list_tab import (  # noqa: E501
         render_speakers_list_tab,
     )
 
@@ -26,12 +26,14 @@ def test_render_speakers_list_tab_displays_placeholder(mock_st):
     mock_st.info.assert_called_once_with("発言者リストの表示機能は実装中です")
 
 
-@patch("src.interfaces.web.streamlit.views.conversations_view.st")
-@patch("src.interfaces.web.streamlit.views.conversations_view.google_sign_in")
+@patch("src.interfaces.web.streamlit.views.conversations.tabs.matching_tab.st")
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.tabs.matching_tab.google_sign_in"
+)
 def test_render_matching_tab_requires_login(mock_auth, mock_st):
     """発言マッチングタブがログインを要求することを確認"""
     # Arrange
-    from src.interfaces.web.streamlit.views.conversations_view import (
+    from src.interfaces.web.streamlit.views.conversations.tabs.matching_tab import (
         render_matching_tab,
     )
 
@@ -46,13 +48,17 @@ def test_render_matching_tab_requires_login(mock_auth, mock_st):
     )
 
 
-@patch("src.interfaces.web.streamlit.views.conversations_view.RepositoryAdapter")
-@patch("src.interfaces.web.streamlit.views.conversations_view.st")
-@patch("src.interfaces.web.streamlit.views.conversations_view.google_sign_in")
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.tabs.matching_tab.RepositoryAdapter"
+)
+@patch("src.interfaces.web.streamlit.views.conversations.tabs.matching_tab.st")
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.tabs.matching_tab.google_sign_in"
+)
 def test_render_matching_tab_with_login(mock_auth, mock_st, mock_repo_adapter):
     """発言マッチングタブがログイン時にユーザー情報を表示することを確認"""
     # Arrange
-    from src.interfaces.web.streamlit.views.conversations_view import (
+    from src.interfaces.web.streamlit.views.conversations.tabs.matching_tab import (
         render_matching_tab,
     )
 
@@ -95,11 +101,11 @@ def test_render_matching_tab_with_login(mock_auth, mock_st, mock_repo_adapter):
     mock_auth.get_user_info.assert_called_once()
 
 
-@patch("src.interfaces.web.streamlit.views.conversations_view.st")
+@patch("src.interfaces.web.streamlit.views.conversations.tabs.statistics_tab.st")
 def test_render_statistics_tab_displays_metrics(mock_st):
     """統計情報タブがメトリックを表示することを確認"""
     # Arrange
-    from src.interfaces.web.streamlit.views.conversations_view import (
+    from src.interfaces.web.streamlit.views.conversations.tabs.statistics_tab import (
         render_statistics_tab,
     )
 
@@ -121,7 +127,7 @@ def test_render_conversations_page_return_type():
     """render_conversations_page関数の戻り値型がNoneであることを確認"""
     import inspect
 
-    from src.interfaces.web.streamlit.views.conversations_view import (
+    from src.interfaces.web.streamlit.views.conversations.page import (
         render_conversations_page,
     )
 
@@ -133,7 +139,7 @@ def test_user_info_type_hint_is_correct():
     """user_infoの型ヒントが正しいことを確認"""
     import inspect
 
-    from src.interfaces.web.streamlit.views.conversations_view import (
+    from src.interfaces.web.streamlit.views.conversations.tabs.matching_tab import (
         render_matching_tab,
     )
 
@@ -146,15 +152,21 @@ def test_user_info_type_hint_is_correct():
 # ===== render_politician_creation_form のテスト =====
 
 
-@patch("src.interfaces.web.streamlit.views.conversations_view.Container")
-@patch("src.interfaces.web.streamlit.views.conversations_view.PoliticianPresenter")
-@patch("src.interfaces.web.streamlit.views.conversations_view.st")
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.components.politician_creation_form.Container"
+)
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.components.politician_creation_form.PoliticianPresenter"
+)
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.components.politician_creation_form.st"
+)
 def test_render_politician_creation_form_displays_form(
     mock_st, mock_presenter_class, mock_container
 ):
     """政治家作成フォームが表示されることを確認"""
     # Arrange
-    from src.interfaces.web.streamlit.views.conversations_view import (
+    from src.interfaces.web.streamlit.views.conversations.components.politician_creation_form import (  # noqa: E501
         render_politician_creation_form,
     )
 
@@ -198,16 +210,24 @@ def test_render_politician_creation_form_displays_form(
     mock_st.form.assert_called_once()
 
 
-@patch("src.interfaces.web.streamlit.views.conversations_view.asyncio")
-@patch("src.interfaces.web.streamlit.views.conversations_view.Container")
-@patch("src.interfaces.web.streamlit.views.conversations_view.PoliticianPresenter")
-@patch("src.interfaces.web.streamlit.views.conversations_view.st")
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.components.politician_creation_form.asyncio"
+)
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.components.politician_creation_form.Container"
+)
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.components.politician_creation_form.PoliticianPresenter"
+)
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.components.politician_creation_form.st"
+)
 def test_render_politician_creation_form_creates_politician_and_links(
     mock_st, mock_presenter_class, mock_container, mock_asyncio
 ):
     """政治家作成と紐付けが成功することを確認"""
     # Arrange
-    from src.interfaces.web.streamlit.views.conversations_view import (
+    from src.interfaces.web.streamlit.views.conversations.components.politician_creation_form import (  # noqa: E501
         render_politician_creation_form,
     )
 
@@ -274,15 +294,21 @@ def test_render_politician_creation_form_creates_politician_and_links(
     mock_presenter.create.assert_called_once()
 
 
-@patch("src.interfaces.web.streamlit.views.conversations_view.Container")
-@patch("src.interfaces.web.streamlit.views.conversations_view.PoliticianPresenter")
-@patch("src.interfaces.web.streamlit.views.conversations_view.st")
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.components.politician_creation_form.Container"
+)
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.components.politician_creation_form.PoliticianPresenter"
+)
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.components.politician_creation_form.st"
+)
 def test_render_politician_creation_form_validates_required_fields(
     mock_st, mock_presenter_class, mock_container
 ):
     """必須フィールドのバリデーションが機能することを確認"""
     # Arrange
-    from src.interfaces.web.streamlit.views.conversations_view import (
+    from src.interfaces.web.streamlit.views.conversations.components.politician_creation_form import (  # noqa: E501
         render_politician_creation_form,
     )
 
@@ -328,15 +354,21 @@ def test_render_politician_creation_form_validates_required_fields(
     mock_st.error.assert_called_with("名前を入力してください")
 
 
-@patch("src.interfaces.web.streamlit.views.conversations_view.Container")
-@patch("src.interfaces.web.streamlit.views.conversations_view.PoliticianPresenter")
-@patch("src.interfaces.web.streamlit.views.conversations_view.st")
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.components.politician_creation_form.Container"
+)
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.components.politician_creation_form.PoliticianPresenter"
+)
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.components.politician_creation_form.st"
+)
 def test_render_politician_creation_form_cancel_closes_form(
     mock_st, mock_presenter_class, mock_container
 ):
     """キャンセルボタンでフォームが閉じることを確認"""
     # Arrange
-    from src.interfaces.web.streamlit.views.conversations_view import (
+    from src.interfaces.web.streamlit.views.conversations.components.politician_creation_form import (  # noqa: E501
         render_politician_creation_form,
     )
 
@@ -383,15 +415,19 @@ def test_render_politician_creation_form_cancel_closes_form(
 # ===== 会議フィルター機能のテスト =====
 
 
-@patch("src.interfaces.web.streamlit.views.conversations_view.RepositoryAdapter")
-@patch("src.interfaces.web.streamlit.views.conversations_view.st")
-@patch("src.interfaces.web.streamlit.views.conversations_view.google_sign_in")
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.tabs.matching_tab.RepositoryAdapter"
+)
+@patch("src.interfaces.web.streamlit.views.conversations.tabs.matching_tab.st")
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.tabs.matching_tab.google_sign_in"
+)
 def test_render_matching_tab_displays_meeting_filter(
     mock_auth, mock_st, mock_repo_adapter
 ):
     """会議選択フィルターが表示されることを確認"""
     # Arrange
-    from src.interfaces.web.streamlit.views.conversations_view import (
+    from src.interfaces.web.streamlit.views.conversations.tabs.matching_tab import (
         render_matching_tab,
     )
 
@@ -444,15 +480,19 @@ def test_render_matching_tab_displays_meeting_filter(
     assert any("会議選択" in str(call) for call in selectbox_calls)
 
 
-@patch("src.interfaces.web.streamlit.views.conversations_view.RepositoryAdapter")
-@patch("src.interfaces.web.streamlit.views.conversations_view.st")
-@patch("src.interfaces.web.streamlit.views.conversations_view.google_sign_in")
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.tabs.matching_tab.RepositoryAdapter"
+)
+@patch("src.interfaces.web.streamlit.views.conversations.tabs.matching_tab.st")
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.tabs.matching_tab.google_sign_in"
+)
 def test_render_matching_tab_shows_speaker_count_for_selected_meeting(
     mock_auth, mock_st, mock_repo_adapter
 ):
     """選択した会議の発言者数が表示されることを確認"""
     # Arrange
-    from src.interfaces.web.streamlit.views.conversations_view import (
+    from src.interfaces.web.streamlit.views.conversations.tabs.matching_tab import (
         render_matching_tab,
     )
 
