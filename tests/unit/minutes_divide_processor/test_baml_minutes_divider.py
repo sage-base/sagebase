@@ -188,6 +188,93 @@ class TestBAMLMinutesDivider:
             # Assert - should return empty list on error
             assert result.redivided_section_info_list == []
 
+    @pytest.mark.asyncio
+    async def test_do_redivide_logs_multiple_errors(self, divider, caplog):
+        """Issue #965: 複数エラー発生時にまとめてログ出力されることを確認"""
+        import logging
+
+        from baml_py.errors import BamlValidationError
+
+        # 複数セクションの入力を作成
+        redivide_list = RedivideSectionStringList(
+            redivide_section_string_list=[
+                RedivideSectionString(
+                    original_index=0,
+                    redivide_section_string_bytes=7000,
+                    redivide_section_string=SectionString(
+                        chapter_number=1,
+                        sub_chapter_number=1,
+                        section_string="セクション1" * 1000,
+                    ),
+                ),
+                RedivideSectionString(
+                    original_index=1,
+                    redivide_section_string_bytes=7000,
+                    redivide_section_string=SectionString(
+                        chapter_number=2,
+                        sub_chapter_number=1,
+                        section_string="セクション2" * 1000,
+                    ),
+                ),
+            ]
+        )
+
+        with patch(
+            "src.infrastructure.external.minutes_divider.baml_minutes_divider.b.RedivideSection"
+        ) as mock_baml:
+            # 両方のセクションでエラーを発生させる
+            mock_baml.side_effect = [
+                BamlValidationError(
+                    prompt="p1",
+                    message="m1",
+                    raw_output="r1",
+                    detailed_message="d1",
+                ),
+                Exception("General error"),
+            ]
+
+            with caplog.at_level(logging.WARNING):
+                result = await divider.do_redivide(redivide_list)
+
+            # 結果が空であることを確認
+            assert result.redivided_section_info_list == []
+            # エラーカウントがログに含まれていることを確認
+            assert "2 errors" in caplog.text or "2 error" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_do_redivide_baml_validation_error_returns_empty(self, divider):
+        """Issue #965: BamlValidationError時に空リストが返される"""
+        from baml_py.errors import BamlValidationError
+
+        redivide_list = RedivideSectionStringList(
+            redivide_section_string_list=[
+                RedivideSectionString(
+                    original_index=0,
+                    redivide_section_string_bytes=7000,
+                    redivide_section_string=SectionString(
+                        chapter_number=1,
+                        sub_chapter_number=1,
+                        section_string="セクション" * 1000,
+                    ),
+                )
+            ]
+        )
+
+        with patch(
+            "src.infrastructure.external.minutes_divider.baml_minutes_divider.b.RedivideSection"
+        ) as mock_baml:
+            mock_baml.side_effect = BamlValidationError(
+                prompt="test",
+                message="validation failed",
+                raw_output="invalid",
+                detailed_message="detail",
+            )
+
+            result = await divider.do_redivide(redivide_list)
+
+            # BamlValidationErrorでも空リストが返される
+            assert result.redivided_section_info_list == []
+
     # ========================================
     # detect_attendee_boundary tests
     # ========================================
