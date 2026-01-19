@@ -105,12 +105,48 @@ Application-specific business rules:
 - エラーハンドリング
 - ビジネスロジックのオーケストレーション
 
-#### DTOs (16 files)
+#### DTOs (16+ files)
 Data Transfer Objects for clean layer separation:
 - Input/Output DTOs for each use case
 - Prevents domain model leakage to outer layers
 - Includes validation logic
 - 例: `ProcessMinutesInputDTO`, `ProcessMinutesOutputDTO`
+
+**DTOの配置ルール（Issue #969）**:
+- ✅ DTOは `src/application/dtos/` に専用ファイルとして配置
+- ✅ 関連するDTOは同一ファイルにまとめる（例: `politician_dto.py`）
+- ❌ **UseCaseファイル内にDTO定義を混在させない**
+- ✅ 後方互換性のため、UseCaseファイルからre-exportは許容
+
+```python
+# ✅ GOOD: DTOは専用ファイルに配置
+# src/application/dtos/politician_dto.py
+@dataclass
+class CreatePoliticianInputDto: ...
+
+@dataclass
+class CreatePoliticianOutputDto: ...
+
+# src/application/usecases/manage_politicians_usecase.py
+from src.application.dtos.politician_dto import (
+    CreatePoliticianInputDto,
+    CreatePoliticianOutputDto,
+)
+
+class ManagePoliticiansUseCase:
+    async def create(self, dto: CreatePoliticianInputDto) -> CreatePoliticianOutputDto:
+        ...
+```
+
+```python
+# ❌ BAD: UseCaseファイル内にDTO定義が混在
+# src/application/usecases/manage_politicians_usecase.py
+@dataclass
+class CreatePoliticianInputDto: ...  # ← ここに書かない！
+
+class ManagePoliticiansUseCase:
+    ...
+```
 
 **Rules**:
 - ✅ Import only from Domain layer
@@ -402,6 +438,72 @@ class CreatePoliticianUseCase:
             message=f"Successfully created politician: {saved_politician.name}",
         )
 ```
+
+## UseCase間依存（Orchestratorパターン）（Issue #969）
+
+### 許容されるUseCase間依存
+
+Clean Architectureでは通常UseCase間の直接依存は避けるべきですが、以下のケースは**Orchestratorパターン**として許容されます：
+
+```
+ExecuteMinutesProcessingUseCase（Orchestrator）
+  └── UpdateStatementFromExtractionUseCase（抽出ログ統合）
+
+MatchSpeakersUseCase（Orchestrator）
+  └── UpdateSpeakerFromExtractionUseCase（抽出ログ統合）
+```
+
+### 許容の理由
+
+1. **Bronze Layer / Gold Layer アーキテクチャの保護**（ADR-0005）
+   - `UpdateEntityFromExtractionUseCase` 基底クラスは、人間の手動修正を保護する重要な機能を持つ
+   - `is_manually_verified` フラグのチェックが組み込まれている
+   - この保護機構をバイパスすると、人間の修正がAI抽出結果で上書きされる危険性がある
+
+2. **トランザクション境界の管理**
+   - 抽出ログ保存とエンティティ更新は同一トランザクション内で行う必要がある
+   - UseCase分離よりもデータ整合性を優先
+
+### ガイドライン
+
+```python
+# ✅ GOOD: OrchestratorパターンによるUseCase間依存
+class ExecuteMinutesProcessingUseCase:
+    def __init__(
+        self,
+        update_statement_usecase: UpdateStatementFromExtractionUseCase,  # 許容
+        # 他の依存性...
+    ):
+        self.update_statement_usecase = update_statement_usecase
+
+    async def execute(self, dto: ExecuteMinutesProcessingDTO) -> None:
+        # 処理実行...
+
+        # 抽出ログ統合UseCaseを呼び出し（保護機構が働く）
+        await self.update_statement_usecase.execute(extraction_result)
+```
+
+```python
+# ❌ BAD: 保護機構をバイパスして直接更新
+class ExecuteMinutesProcessingUseCase:
+    def __init__(
+        self,
+        conversation_repo: ConversationRepository,
+        extraction_log_repo: ExtractionLogRepository,
+    ):
+        ...
+
+    async def execute(self, dto: ExecuteMinutesProcessingDTO) -> None:
+        # ❌ 直接更新すると is_manually_verified チェックが行われない！
+        await self.conversation_repo.update(conversation)
+        await self.extraction_log_repo.create(log)
+```
+
+### UseCase間依存を避けるべきケース
+
+- 循環依存が発生する場合
+- 単純なCRUD操作のみの場合
+- 保護機構が不要な場合
 
 ## Domain Service vs Entity
 
