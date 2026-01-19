@@ -16,26 +16,18 @@ from src.interfaces.web.streamlit.middleware.security_headers import (
     inject_security_headers,
 )
 
-# Import new Clean Architecture views
-from src.interfaces.web.streamlit.views.conferences_view import render_conferences_page
-from src.interfaces.web.streamlit.views.conversations_view import (
+# Import Clean Architecture views
+from src.interfaces.web.streamlit.views import (
+    render_conferences_page,
     render_conversations_page,
-)
-from src.interfaces.web.streamlit.views.extraction_logs_view import (
     render_extraction_logs_page,
-)
-from src.interfaces.web.streamlit.views.governing_bodies_view import (
     render_governing_bodies_page,
-)
-from src.interfaces.web.streamlit.views.llm_history_view import render_llm_history_page
-from src.interfaces.web.streamlit.views.meetings_view import render_meetings_page
-from src.interfaces.web.streamlit.views.parliamentary_groups_view import (
+    render_llm_history_page,
+    render_meetings_page,
     render_parliamentary_groups_page,
-)
-from src.interfaces.web.streamlit.views.political_parties_view import (
     render_political_parties_page,
+    render_politicians_page,
 )
-from src.interfaces.web.streamlit.views.politicians_view import render_politicians_page
 from src.interfaces.web.streamlit.views.proposals_view import render_proposals_page
 from src.interfaces.web.streamlit.views.user_statistics_view import (
     render_user_statistics_page,
