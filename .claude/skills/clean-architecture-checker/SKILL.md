@@ -22,6 +22,8 @@ Before approving code, verify:
 - [ ] **Entity Independence**: Domain entities have no framework dependencies (no SQLAlchemy, Streamlit, etc.)
 - [ ] **Repository Pattern**: All repos inherit from `BaseRepository[T]` and use async/await
 - [ ] **DTO Usage**: DTOs used for layer boundaries, not raw entities
+- [ ] **DTO Placement**: DTOは`src/application/dtos/`に配置（UseCaseファイル内に混在させない）
+- [ ] **UseCase間依存**: Orchestratorパターンとして許容される場合のみ（抽出ログ統合等）
 - [ ] **Type Safety**: Complete type hints with proper `Optional` handling
 - [ ] **Tests**: Unit tests for domain services and use cases
 
@@ -52,11 +54,20 @@ Before approving code, verify:
 ### 4. DTO Pattern
 **Always use DTOs between layers**
 
-✅ DTOs in `src/application/dto/`
+✅ DTOs in `src/application/dtos/`（専用ファイルに配置）
 ✅ Input DTO → Use Case → Output DTO
 ❌ Never expose domain entities directly to outer layers
+❌ **UseCaseファイル内にDTO定義を混在させない**（Issue #969）
 
-### 5. Type Safety
+### 5. UseCase間依存（Orchestratorパターン）
+**UseCase間依存は条件付きで許容**
+
+✅ Orchestrator UseCase が 子UseCase を呼び出すパターンは許容
+✅ 抽出ログ統合（`UpdateEntityFromExtractionUseCase`）への依存は許容（ADR-0005）
+❌ UseCase間で循環依存を作らない
+❌ Bronze Layer / Gold Layer の保護機構をバイパスしない
+
+### 6. Type Safety
 **Leverage Python 3.11+ type hints**
 
 ✅ All public methods have type hints
