@@ -7,6 +7,12 @@ import pytest
 
 from click.testing import CliRunner
 
+from src.application.usecases.manage_conference_members_usecase import (
+    CreateAffiliationsInputDTO,
+    CreateAffiliationsOutputDTO,
+    MatchMembersInputDTO,
+    MatchMembersOutputDTO,
+)
 from src.interfaces.cli.commands.conference_member_commands import (
     ConferenceMemberCommands,
 )
@@ -166,150 +172,209 @@ class TestConferenceMemberCommands:
     def test_match_conference_members_success(self, runner, mock_progress):
         """Test successful matching of conference members"""
         with patch(
-            "src.interfaces.cli.commands.conference_member_commands.ConferenceMemberCommands._create_manage_members_usecase"
-        ) as mock_usecase_creator:
-            # Import DTO to create proper return value
-            from src.application.usecases.manage_conference_members_usecase import (
-                MatchMembersOutputDTO,
-            )
+            "src.interfaces.cli.commands.conference_member_commands.RepositoryAdapter"
+        ) as mock_adapter_class:
+            with patch(
+                "src.interfaces.cli.commands.conference_member_commands.ManageConferenceMembersUseCase"
+            ) as mock_usecase_class:
+                with patch(
+                    "src.interfaces.cli.commands.conference_member_commands.ConferenceDomainService"
+                ):
+                    with patch(
+                        "src.interfaces.cli.commands.conference_member_commands.PlaywrightScraperService"
+                    ):
+                        with patch(
+                            "src.interfaces.cli.commands.conference_member_commands.GeminiLLMService"
+                        ):
+                            # Setup repository adapter mocks
+                            mock_adapter = MagicMock()
+                            mock_adapter.close = Mock()
+                            mock_adapter_class.return_value = mock_adapter
 
-            # Setup mocks
-            mock_usecase = Mock()
-            mock_usecase.match_members = AsyncMock(
-                return_value=MatchMembersOutputDTO(
-                    matched_count=3,
-                    needs_review_count=1,
-                    no_match_count=1,
-                    results=[],
-                )
-            )
-            mock_usecase_creator.return_value = mock_usecase
+                            # Setup usecase mock
+                            mock_usecase = Mock()
+                            mock_usecase.match_members = AsyncMock(
+                                return_value=MatchMembersOutputDTO(
+                                    matched_count=3,
+                                    needs_review_count=1,
+                                    no_match_count=1,
+                                    results=[],
+                                )
+                            )
+                            mock_usecase_class.return_value = mock_usecase
 
-            # Execute
-            result = runner.invoke(
-                ConferenceMemberCommands.match_conference_members,
-                ["--conference-id", "1"],
-            )
+                            # Execute
+                            result = runner.invoke(
+                                ConferenceMemberCommands.match_conference_members,
+                                ["--conference-id", "1"],
+                            )
 
-            # Assert
-            assert result.exit_code == 0
-            assert "🔍 議員情報のマッチングを開始します（ステップ2/3）" in result.output
-            assert "=== マッチング完了 ===" in result.output
-            assert "処理総数: 5件" in result.output
-            assert "✅ マッチ成功: 3件" in result.output
-            assert "⚠️  要確認: 1件" in result.output
-            assert "❌ 該当なし: 1件" in result.output
+                            # Assert
+                            assert result.exit_code == 0
+                            assert (
+                                "🔍 議員情報のマッチングを開始します（ステップ2/3）"
+                                in result.output
+                            )
+                            assert "=== マッチング完了 ===" in result.output
+                            assert "処理総数: 5件" in result.output
+                            assert "✅ マッチ成功: 3件" in result.output
+                            assert "⚠️  要確認: 1件" in result.output
+                            assert "❌ 該当なし: 1件" in result.output
 
     def test_match_conference_members_no_conference_id(self, runner, mock_progress):
         """Test matching without conference_id (processes all)"""
         with patch(
-            "src.interfaces.cli.commands.conference_member_commands.ConferenceMemberCommands._create_manage_members_usecase"
-        ) as mock_usecase_creator:
-            # Import DTO to create proper return value
-            from src.application.usecases.manage_conference_members_usecase import (
-                MatchMembersInputDTO,
-                MatchMembersOutputDTO,
-            )
+            "src.interfaces.cli.commands.conference_member_commands.RepositoryAdapter"
+        ) as mock_adapter_class:
+            with patch(
+                "src.interfaces.cli.commands.conference_member_commands.ManageConferenceMembersUseCase"
+            ) as mock_usecase_class:
+                with patch(
+                    "src.interfaces.cli.commands.conference_member_commands.ConferenceDomainService"
+                ):
+                    with patch(
+                        "src.interfaces.cli.commands.conference_member_commands.PlaywrightScraperService"
+                    ):
+                        with patch(
+                            "src.interfaces.cli.commands.conference_member_commands.GeminiLLMService"
+                        ):
+                            # Setup repository adapter mocks
+                            mock_adapter = MagicMock()
+                            mock_adapter.close = Mock()
+                            mock_adapter_class.return_value = mock_adapter
 
-            # Setup mocks
-            mock_usecase = Mock()
-            mock_usecase.match_members = AsyncMock(
-                return_value=MatchMembersOutputDTO(
-                    matched_count=8,
-                    needs_review_count=1,
-                    no_match_count=1,
-                    results=[],
-                )
-            )
-            mock_usecase_creator.return_value = mock_usecase
+                            # Setup usecase mock
+                            mock_usecase = Mock()
+                            mock_usecase.match_members = AsyncMock(
+                                return_value=MatchMembersOutputDTO(
+                                    matched_count=8,
+                                    needs_review_count=1,
+                                    no_match_count=1,
+                                    results=[],
+                                )
+                            )
+                            mock_usecase_class.return_value = mock_usecase
 
-            # Execute without conference-id
-            result = runner.invoke(ConferenceMemberCommands.match_conference_members)
+                            # Execute without conference-id
+                            result = runner.invoke(
+                                ConferenceMemberCommands.match_conference_members
+                            )
 
-            # Assert
-            assert result.exit_code == 0
-            assert "🔍 議員情報のマッチングを開始します（ステップ2/3）" in result.output
-            mock_usecase.match_members.assert_called_once_with(
-                MatchMembersInputDTO(conference_id=None)
-            )
+                            # Assert
+                            assert result.exit_code == 0
+                            assert (
+                                "🔍 議員情報のマッチングを開始します（ステップ2/3）"
+                                in result.output
+                            )
+                            mock_usecase.match_members.assert_called_once_with(
+                                MatchMembersInputDTO(conference_id=None)
+                            )
 
     def test_create_affiliations_success(self, runner, mock_progress):
         """Test successful creation of affiliations"""
         with patch(
-            "src.interfaces.cli.commands.conference_member_commands.ConferenceMemberCommands._create_manage_members_usecase"
-        ) as mock_usecase_creator:
-            # Import DTO to create proper return value
-            from src.application.usecases.manage_conference_members_usecase import (
-                CreateAffiliationsOutputDTO,
-            )
+            "src.interfaces.cli.commands.conference_member_commands.RepositoryAdapter"
+        ) as mock_adapter_class:
+            with patch(
+                "src.interfaces.cli.commands.conference_member_commands.ManageConferenceMembersUseCase"
+            ) as mock_usecase_class:
+                with patch(
+                    "src.interfaces.cli.commands.conference_member_commands.ConferenceDomainService"
+                ):
+                    with patch(
+                        "src.interfaces.cli.commands.conference_member_commands.PlaywrightScraperService"
+                    ):
+                        with patch(
+                            "src.interfaces.cli.commands.conference_member_commands.GeminiLLMService"
+                        ):
+                            # Setup repository adapter mocks
+                            mock_adapter = MagicMock()
+                            mock_adapter.close = Mock()
+                            mock_adapter_class.return_value = mock_adapter
 
-            # Setup mocks
-            mock_usecase = Mock()
-            mock_usecase.create_affiliations = AsyncMock(
-                return_value=CreateAffiliationsOutputDTO(
-                    created_count=3,
-                    skipped_count=0,
-                    affiliations=[],
-                )
-            )
-            mock_usecase_creator.return_value = mock_usecase
+                            # Setup usecase mock
+                            mock_usecase = Mock()
+                            mock_usecase.create_affiliations = AsyncMock(
+                                return_value=CreateAffiliationsOutputDTO(
+                                    created_count=3,
+                                    skipped_count=0,
+                                    affiliations=[],
+                                )
+                            )
+                            mock_usecase_class.return_value = mock_usecase
 
-            # Execute
-            result = runner.invoke(
-                ConferenceMemberCommands.create_affiliations,
-                ["--conference-id", "1", "--start-date", "2024-01-01"],
-            )
+                            # Execute
+                            result = runner.invoke(
+                                ConferenceMemberCommands.create_affiliations,
+                                ["--conference-id", "1", "--start-date", "2024-01-01"],
+                            )
 
-            # Assert
-            assert result.exit_code == 0
-            assert "🏛️ 政治家所属情報の作成を開始します（ステップ3/3）" in result.output
-            assert "=== 所属情報作成完了 ===" in result.output
-            assert "処理総数: 3件" in result.output
-            assert "✅ 作成/更新: 3件" in result.output
+                            # Assert
+                            assert result.exit_code == 0
+                            assert (
+                                "🏛️ 政治家所属情報の作成を開始します（ステップ3/3）"
+                                in result.output
+                            )
+                            assert "=== 所属情報作成完了 ===" in result.output
+                            assert "処理総数: 3件" in result.output
+                            assert "✅ 作成/更新: 3件" in result.output
 
     def test_create_affiliations_with_default_date(self, runner, mock_progress):
         """Test creating affiliations with default date (today)"""
         with patch(
-            "src.interfaces.cli.commands.conference_member_commands.ConferenceMemberCommands._create_manage_members_usecase"
-        ) as mock_usecase_creator:
+            "src.interfaces.cli.commands.conference_member_commands.RepositoryAdapter"
+        ) as mock_adapter_class:
             with patch(
-                "src.interfaces.cli.commands.conference_member_commands.date"
-            ) as mock_date:
-                # Import DTOs
-                from src.application.usecases.manage_conference_members_usecase import (
-                    CreateAffiliationsInputDTO,
-                    CreateAffiliationsOutputDTO,
-                )
+                "src.interfaces.cli.commands.conference_member_commands.ManageConferenceMembersUseCase"
+            ) as mock_usecase_class:
+                with patch(
+                    "src.interfaces.cli.commands.conference_member_commands.ConferenceDomainService"
+                ):
+                    with patch(
+                        "src.interfaces.cli.commands.conference_member_commands.PlaywrightScraperService"
+                    ):
+                        with patch(
+                            "src.interfaces.cli.commands.conference_member_commands.GeminiLLMService"
+                        ):
+                            with patch(
+                                "src.interfaces.cli.commands.conference_member_commands.date"
+                            ) as mock_date:
+                                # Mock today's date
+                                mock_date.today.return_value = date(2024, 3, 15)
+                                mock_date.side_effect = lambda *args, **kw: date(
+                                    *args, **kw
+                                )
 
-                # Mock today's date
-                mock_date.today.return_value = date(2024, 3, 15)
-                mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
+                                # Setup repository adapter mocks
+                                mock_adapter = MagicMock()
+                                mock_adapter.close = Mock()
+                                mock_adapter_class.return_value = mock_adapter
 
-                # Setup mocks
-                mock_usecase = Mock()
-                mock_usecase.create_affiliations = AsyncMock(
-                    return_value=CreateAffiliationsOutputDTO(
-                        created_count=1,
-                        skipped_count=0,
-                        affiliations=[],
-                    )
-                )
-                mock_usecase_creator.return_value = mock_usecase
+                                # Setup usecase mock
+                                mock_usecase = Mock()
+                                mock_usecase.create_affiliations = AsyncMock(
+                                    return_value=CreateAffiliationsOutputDTO(
+                                        created_count=1,
+                                        skipped_count=0,
+                                        affiliations=[],
+                                    )
+                                )
+                                mock_usecase_class.return_value = mock_usecase
 
-                # Execute without start-date
-                result = runner.invoke(
-                    ConferenceMemberCommands.create_affiliations,
-                    ["--conference-id", "1"],
-                )
+                                # Execute without start-date
+                                result = runner.invoke(
+                                    ConferenceMemberCommands.create_affiliations,
+                                    ["--conference-id", "1"],
+                                )
 
-                # Assert
-                assert result.exit_code == 0
-                # Check that today's date was used
-                mock_usecase.create_affiliations.assert_called_once_with(
-                    CreateAffiliationsInputDTO(
-                        conference_id=1, start_date=date(2024, 3, 15)
-                    )
-                )
+                                # Assert
+                                assert result.exit_code == 0
+                                # Check that today's date was used
+                                mock_usecase.create_affiliations.assert_called_once_with(
+                                    CreateAffiliationsInputDTO(
+                                        conference_id=1, start_date=date(2024, 3, 15)
+                                    )
+                                )
 
     def test_member_status_success(self, runner):
         """Test member status command"""
