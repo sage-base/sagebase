@@ -18,6 +18,7 @@ from .models import (
 )
 
 from src.domain.services.interfaces.llm_service import ILLMService
+from src.infrastructure.config.settings import get_settings
 from src.infrastructure.external.instrumented_llm_service import InstrumentedLLMService
 from src.infrastructure.external.minutes_divider.factory import MinutesDividerFactory
 
@@ -57,8 +58,7 @@ class MinutesProcessAgent:
             SpeechExtractionAgent,
         )
 
-        # モデル名の環境変数化（See: Issue #977）
-        llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
+        llm = ChatGoogleGenerativeAI(model=get_settings().llm_model)
         self.speech_extraction_agent = SpeechExtractionAgent(llm)
 
         self.in_memory_store = InMemoryStore()
