@@ -64,7 +64,11 @@ def sample_histories():
 
 @pytest.fixture
 def presenter(mock_repo):
-    """LLMHistoryPresenterのインスタンス"""
+    """LLMHistoryPresenterのインスタンス
+
+    依存性をpatchで注入し、内部属性の直接上書きを避ける。
+    yieldベースのフィクスチャでpatchのコンテキストをテスト全体で維持する。
+    """
     with (
         patch(
             "src.interfaces.web.streamlit.presenters.llm_history_presenter.RepositoryAdapter"
@@ -84,9 +88,8 @@ def presenter(mock_repo):
             LLMHistoryPresenter,
         )
 
-        presenter = LLMHistoryPresenter()
-        presenter.history_repo = mock_repo
-        return presenter
+        # patchにより依存性が注入されたPresenterを作成
+        yield LLMHistoryPresenter()
 
 
 class TestLLMHistoryPresenterInit:

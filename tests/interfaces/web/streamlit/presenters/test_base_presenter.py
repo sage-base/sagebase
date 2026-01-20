@@ -1,69 +1,50 @@
-"""BasePresenterとCRUDPresenterのテスト"""
+"""BasePresenterとCRUDPresenterのテスト
 
-from unittest.mock import MagicMock
+プロダクションコードのBasePresenterとCRUDPresenterを継承してテストする。
+"""
+
+import asyncio
+
+from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.infrastructure.di.container import Container
+from src.interfaces.web.streamlit.presenters.base import BasePresenter, CRUDPresenter
 
 
-class ConcretePresenter:
-    """テスト用の具象プレゼンタークラス"""
+class ConcreteBasePresenter(BasePresenter[list]):
+    """BasePresenterを継承したテスト用具象クラス"""
 
-    def __init__(self, container=None):
-        self.container = container or MagicMock()
-        self.logger = MagicMock()
-
-    def load_data(self):
+    def load_data(self) -> list:
         return []
 
-    def handle_action(self, action: str, **kwargs):
+    def handle_action(self, action: str, **kwargs: Any) -> Any:
         if action == "test":
             return "success"
         raise ValueError(f"Unknown action: {action}")
 
-    def handle_error(self, error, context=""):
-        error_msg = f"Error in {context}: {str(error)}" if context else str(error)
-        self.logger.error(error_msg, exc_info=True)
-        return error_msg
 
-    def validate_input(self, data: dict, required_fields: list) -> tuple[bool, str]:
-        missing_fields = [field for field in required_fields if not data.get(field)]
-        if missing_fields:
-            return False, f"必須フィールドが不足しています: {', '.join(missing_fields)}"
-        return True, ""
+class ConcreteCRUDPresenter(CRUDPresenter[dict]):
+    """CRUDPresenterを継承したテスト用具象クラス"""
 
+    def load_data(self) -> dict:
+        return {}
 
-class ConcreteCRUDPresenter(ConcretePresenter):
-    """テスト用の具象CRUDプレゼンタークラス"""
-
-    def handle_action(self, action: str, **kwargs):
-        if action == "create":
-            return self.create(**kwargs)
-        elif action == "read":
-            return self.read(**kwargs)
-        elif action == "update":
-            return self.update(**kwargs)
-        elif action == "delete":
-            return self.delete(**kwargs)
-        elif action == "list":
-            return self.list(**kwargs)
-        else:
-            raise ValueError(f"Unknown action: {action}")
-
-    def create(self, **kwargs):
+    def create(self, **kwargs: Any) -> dict:
         return {"id": 1, **kwargs}
 
-    def read(self, **kwargs):
+    def read(self, **kwargs: Any) -> dict:
         return {"id": kwargs.get("id")}
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: Any) -> dict:
         return {"updated": True, **kwargs}
 
-    def delete(self, **kwargs):
+    def delete(self, **kwargs: Any) -> dict:
         return {"deleted": True, "id": kwargs.get("id")}
 
-    def list(self, **kwargs):
+    def list(self, **kwargs: Any) -> list:
         return [{"id": 1}, {"id": 2}]
 
 
@@ -72,8 +53,11 @@ class TestBasePresenter:
 
     @pytest.fixture
     def presenter(self):
-        """ConcretePresenterのインスタンス"""
-        return ConcretePresenter()
+        """ConcreteBasePresenterのインスタンス"""
+        with patch.object(Container, "create_for_environment") as mock_create:
+            mock_container = MagicMock(spec=Container)
+            mock_create.return_value = mock_container
+            return ConcreteBasePresenter()
 
     def test_init_creates_instance(self, presenter):
         """Presenterが正しく初期化されることを確認"""
@@ -84,8 +68,17 @@ class TestBasePresenter:
     def test_init_with_container(self):
         """コンテナを指定して初期化できることを確認"""
         mock_container = MagicMock(spec=Container)
-        presenter = ConcretePresenter(container=mock_container)
+        presenter = ConcreteBasePresenter(container=mock_container)
         assert presenter.container == mock_container
+
+    def test_init_creates_container_if_none(self):
+        """コンテナが指定されない場合、自動生成されることを確認"""
+        with patch.object(Container, "create_for_environment") as mock_create:
+            mock_container = MagicMock(spec=Container)
+            mock_create.return_value = mock_container
+            presenter = ConcreteBasePresenter()
+            mock_create.assert_called_once()
+            assert presenter.container == mock_container
 
     def test_load_data_returns_empty_list(self, presenter):
         """load_dataが空リストを返すことを確認"""
@@ -139,13 +132,66 @@ class TestBasePresenter:
         assert "name" in error
 
 
+class TestBasePresenterRunAsync:
+    """BasePresenterの_run_asyncメソッドのテスト"""
+
+    @pytest.fixture
+    def presenter(self):
+        """ConcreteBasePresenterのインスタンス"""
+        with patch.object(Container, "create_for_environment") as mock_create:
+            mock_container = MagicMock(spec=Container)
+            mock_create.return_value = mock_container
+            return ConcreteBasePresenter()
+
+    def test_run_async_executes_coroutine(self, presenter):
+        """非同期コルーチンが正しく実行されることを確認"""
+
+        async def sample_coro():
+            return "async_result"
+
+        result = presenter._run_async(sample_coro())
+        assert result == "async_result"
+
+    def test_run_async_with_await(self, presenter):
+        """awaitを含むコルーチンが正しく実行されることを確認"""
+
+        async def coro_with_await():
+            await asyncio.sleep(0.001)
+            return "awaited_result"
+
+        result = presenter._run_async(coro_with_await())
+        assert result == "awaited_result"
+
+    def test_run_async_raises_exception(self, presenter):
+        """非同期処理で例外が発生した場合、伝播することを確認"""
+
+        async def failing_coro():
+            raise ValueError("Async error")
+
+        with pytest.raises(ValueError, match="Async error"):
+            presenter._run_async(failing_coro())
+
+    def test_run_async_handles_nested_loop(self, presenter):
+        """ネストしたイベントループでも動作することを確認"""
+
+        async def nested_coro():
+            return "nested_result"
+
+        # nest_asyncioが適用されているため、ネストしたループでも動作する
+        result = presenter._run_async(nested_coro())
+        assert result == "nested_result"
+
+
 class TestCRUDPresenter:
     """CRUDPresenterのテスト"""
 
     @pytest.fixture
     def presenter(self):
         """ConcreteCRUDPresenterのインスタンス"""
-        return ConcreteCRUDPresenter()
+        with patch.object(Container, "create_for_environment") as mock_create:
+            mock_container = MagicMock(spec=Container)
+            mock_create.return_value = mock_container
+            return ConcreteCRUDPresenter()
 
     def test_handle_action_create(self, presenter):
         """createアクションが正しく処理されることを確認"""
@@ -178,8 +224,9 @@ class TestCRUDPresenter:
 
     def test_handle_action_unknown_raises_error(self, presenter):
         """不明なアクションでエラーが発生することを確認"""
-        with pytest.raises(ValueError, match="Unknown action"):
+        with pytest.raises(Exception) as exc_info:
             presenter.handle_action("unknown")
+        assert "Unknown action" in str(exc_info.value)
 
     def test_create_method(self, presenter):
         """createメソッドが正しく動作することを確認"""
@@ -208,3 +255,70 @@ class TestCRUDPresenter:
         result = presenter.list()
         assert isinstance(result, list)
         assert len(result) == 2
+
+    def test_load_data_returns_empty_dict(self, presenter):
+        """load_dataが空辞書を返すことを確認"""
+        result = presenter.load_data()
+        assert result == {}
+
+
+class TestCRUDPresenterErrorHandling:
+    """CRUDPresenterのエラーハンドリングテスト"""
+
+    @pytest.fixture
+    def failing_presenter(self):
+        """エラーを発生させるPresenter"""
+
+        class FailingCRUDPresenter(CRUDPresenter[dict]):
+            def load_data(self) -> dict:
+                return {}
+
+            def create(self, **kwargs):
+                raise ValueError("Create failed")
+
+            def read(self, **kwargs):
+                raise ValueError("Read failed")
+
+            def update(self, **kwargs):
+                raise ValueError("Update failed")
+
+            def delete(self, **kwargs):
+                raise ValueError("Delete failed")
+
+            def list(self, **kwargs):
+                raise ValueError("List failed")
+
+        with patch.object(Container, "create_for_environment") as mock_create:
+            mock_container = MagicMock(spec=Container)
+            mock_create.return_value = mock_container
+            return FailingCRUDPresenter()
+
+    def test_handle_action_create_error(self, failing_presenter):
+        """createアクションでエラーが発生した場合の処理を確認"""
+        with pytest.raises(Exception) as exc_info:
+            failing_presenter.handle_action("create")
+        assert "Create failed" in str(exc_info.value)
+
+    def test_handle_action_read_error(self, failing_presenter):
+        """readアクションでエラーが発生した場合の処理を確認"""
+        with pytest.raises(Exception) as exc_info:
+            failing_presenter.handle_action("read", id=1)
+        assert "Read failed" in str(exc_info.value)
+
+    def test_handle_action_update_error(self, failing_presenter):
+        """updateアクションでエラーが発生した場合の処理を確認"""
+        with pytest.raises(Exception) as exc_info:
+            failing_presenter.handle_action("update", id=1)
+        assert "Update failed" in str(exc_info.value)
+
+    def test_handle_action_delete_error(self, failing_presenter):
+        """deleteアクションでエラーが発生した場合の処理を確認"""
+        with pytest.raises(Exception) as exc_info:
+            failing_presenter.handle_action("delete", id=1)
+        assert "Delete failed" in str(exc_info.value)
+
+    def test_handle_action_list_error(self, failing_presenter):
+        """listアクションでエラーが発生した場合の処理を確認"""
+        with pytest.raises(Exception) as exc_info:
+            failing_presenter.handle_action("list")
+        assert "List failed" in str(exc_info.value)

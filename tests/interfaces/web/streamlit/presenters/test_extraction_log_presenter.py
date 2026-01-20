@@ -56,7 +56,11 @@ def sample_logs():
 
 @pytest.fixture
 def presenter(mock_usecase, mock_repo):
-    """ExtractionLogPresenterのインスタンス"""
+    """ExtractionLogPresenterのインスタンス
+
+    依存性をpatchで注入し、内部属性の直接上書きを避ける。
+    yieldベースのフィクスチャでpatchのコンテキストをテスト全体で維持する。
+    """
     with (
         patch(
             "src.interfaces.web.streamlit.presenters.extraction_log_presenter.create_repository_adapter"
@@ -80,10 +84,9 @@ def presenter(mock_usecase, mock_repo):
             ExtractionLogPresenter,
         )
 
-        presenter = ExtractionLogPresenter()
-        presenter._usecase = mock_usecase
-        presenter._extraction_log_repo = mock_repo
-        return presenter
+        # patchにより依存性が注入されたPresenterを作成
+        # 内部属性への直接アクセスは避け、patchで設定したモックが使われる
+        yield ExtractionLogPresenter()
 
 
 class TestExtractionLogPresenterInit:
