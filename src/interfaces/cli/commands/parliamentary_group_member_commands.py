@@ -23,6 +23,7 @@ from src.infrastructure.external.llm_service import GeminiLLMService
 from src.infrastructure.external.parliamentary_group_member_extractor.factory import (
     ParliamentaryGroupMemberExtractorFactory,
 )
+from src.infrastructure.persistence.async_session_adapter import AsyncSessionAdapter
 from src.infrastructure.persistence.extracted_parliamentary_group_member_repository_impl import (  # noqa: E501
     ExtractedParliamentaryGroupMemberRepositoryImpl,
 )
@@ -69,16 +70,14 @@ class ParliamentaryGroupMemberCommands(BaseCommand):
 
     @staticmethod
     def _create_match_members_usecase() -> MatchParliamentaryGroupMembersUseCase:
-        """Create MatchParliamentaryGroupMembersUseCase with dependencies
-
-        Note: Uses sync session temporarily. Should be refactored to use async session.
-        """
+        """Create MatchParliamentaryGroupMembersUseCase with dependencies"""
         session = get_db_session()
+        session_adapter = AsyncSessionAdapter(session)
 
-        # リポジトリの初期化（非同期セッション化: See Issue #980）
-        member_repo = ExtractedParliamentaryGroupMemberRepositoryImpl(session)  # type: ignore
-        politician_repo = PoliticianRepositoryImpl(session)  # type: ignore
-        speaker_repo = SpeakerRepositoryImpl(session)  # type: ignore
+        # リポジトリの初期化（AsyncSessionAdapterで型安全に）
+        member_repo = ExtractedParliamentaryGroupMemberRepositoryImpl(session_adapter)
+        politician_repo = PoliticianRepositoryImpl(session_adapter)
+        speaker_repo = SpeakerRepositoryImpl(session_adapter)
 
         # サービスの初期化
         llm_service = GeminiLLMService()
@@ -96,15 +95,13 @@ class ParliamentaryGroupMemberCommands(BaseCommand):
 
     @staticmethod
     def _create_memberships_usecase() -> CreateParliamentaryGroupMembershipsUseCase:
-        """Create CreateParliamentaryGroupMembershipsUseCase with dependencies
-
-        Note: Uses sync session temporarily. Should be refactored to use async session.
-        """
+        """Create CreateParliamentaryGroupMembershipsUseCase with dependencies"""
         session = get_db_session()
+        session_adapter = AsyncSessionAdapter(session)
 
-        # リポジトリの初期化（非同期セッション化: See Issue #980）
-        member_repo = ExtractedParliamentaryGroupMemberRepositoryImpl(session)  # type: ignore
-        membership_repo = ParliamentaryGroupMembershipRepositoryImpl(session)  # type: ignore
+        # リポジトリの初期化（AsyncSessionAdapterで型安全に）
+        member_repo = ExtractedParliamentaryGroupMemberRepositoryImpl(session_adapter)
+        membership_repo = ParliamentaryGroupMembershipRepositoryImpl(session_adapter)
 
         return CreateParliamentaryGroupMembershipsUseCase(
             member_repository=member_repo,
