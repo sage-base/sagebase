@@ -10,6 +10,7 @@ from src.application.usecases.manage_governing_bodies_usecase import (
     DeleteGoverningBodyOutputDto,
     GoverningBodyListOutputDto,
     GoverningBodyStatistics,
+    ManageGoverningBodiesUseCase,
     UpdateGoverningBodyOutputDto,
 )
 from src.domain.entities import GoverningBody
@@ -18,13 +19,7 @@ from src.domain.entities import GoverningBody
 @pytest.fixture
 def mock_use_case():
     """ManageGoverningBodiesUseCaseのモック"""
-    use_case = AsyncMock()
-    use_case.list_governing_bodies = AsyncMock()
-    use_case.create_governing_body = AsyncMock()
-    use_case.update_governing_body = AsyncMock()
-    use_case.delete_governing_body = AsyncMock()
-    use_case.generate_seed_file = AsyncMock()
-    return use_case
+    return AsyncMock(spec=ManageGoverningBodiesUseCase)
 
 
 @pytest.fixture

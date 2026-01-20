@@ -7,18 +7,15 @@ import pandas as pd
 import pytest
 
 from src.domain.entities.meeting import Meeting
-
-
-@pytest.fixture
-def mock_container():
-    """Containerのモック"""
-    return MagicMock()
+from src.domain.repositories.conference_repository import ConferenceRepository
+from src.domain.repositories.governing_body_repository import GoverningBodyRepository
+from src.domain.repositories.meeting_repository import MeetingRepository
 
 
 @pytest.fixture
 def mock_meeting_repo():
     """MeetingRepositoryのモック"""
-    repo = MagicMock()
+    repo = MagicMock(spec=MeetingRepository)
     repo.get_all = MagicMock(return_value=[])
     repo.get_by_id = MagicMock(return_value=None)
     repo.create = MagicMock()
@@ -30,7 +27,7 @@ def mock_meeting_repo():
 @pytest.fixture
 def mock_governing_body_repo():
     """GoverningBodyRepositoryのモック"""
-    repo = MagicMock()
+    repo = MagicMock(spec=GoverningBodyRepository)
     repo.get_all = MagicMock(return_value=[])
     repo.get_by_id = MagicMock(return_value=None)
     return repo
@@ -39,7 +36,7 @@ def mock_governing_body_repo():
 @pytest.fixture
 def mock_conference_repo():
     """ConferenceRepositoryのモック"""
-    repo = MagicMock()
+    repo = MagicMock(spec=ConferenceRepository)
     repo.get_all = MagicMock(return_value=[])
     repo.get_by_id = MagicMock(return_value=None)
     repo.get_by_governing_body = MagicMock(return_value=[])

@@ -13,19 +13,14 @@ from src.application.dtos.politician_dto import (
     PoliticianListOutputDto,
     UpdatePoliticianOutputDto,
 )
+from src.application.usecases.manage_politicians_usecase import ManagePoliticiansUseCase
 from src.domain.entities import PoliticalParty, Politician
 
 
 @pytest.fixture
 def mock_use_case():
     """ManagePoliticiansUseCaseのモック"""
-    use_case = AsyncMock()
-    use_case.list_politicians = AsyncMock()
-    use_case.create_politician = AsyncMock()
-    use_case.update_politician = AsyncMock()
-    use_case.delete_politician = AsyncMock()
-    use_case.merge_politicians = AsyncMock()
-    return use_case
+    return AsyncMock(spec=ManagePoliticiansUseCase)
 
 
 @pytest.fixture
@@ -122,21 +117,6 @@ class TestPoliticianPresenterInit:
 
 class TestLoadData:
     """load_dataメソッドのテスト"""
-
-    def test_load_data_success(self, presenter, mock_use_case, sample_politicians):
-        """政治家リストを読み込めることを確認"""
-        # Arrange
-        mock_use_case.list_politicians.return_value = PoliticianListOutputDto(
-            politicians=sample_politicians
-        )
-
-        # Act
-        with patch(
-            "src.interfaces.web.streamlit.presenters.politician_presenter.asyncio.run",
-            side_effect=lambda coro: coro.send(None),
-        ):
-            # asyncio.runをバイパスして直接非同期メソッドをテスト
-            pass
 
     async def test_load_data_async_success(
         self, presenter, mock_use_case, sample_politicians
