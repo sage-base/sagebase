@@ -28,10 +28,26 @@ class TestManageParliamentaryGroupsUseCase:
         return repo
 
     @pytest.fixture
+    def mock_membership_repository(self):
+        """Create mock membership repository."""
+        repo = AsyncMock()
+        return repo
+
+    @pytest.fixture
     def use_case(self, mock_parliamentary_group_repository):
         """Create ManageParliamentaryGroupsUseCase instance."""
         return ManageParliamentaryGroupsUseCase(
             parliamentary_group_repository=mock_parliamentary_group_repository
+        )
+
+    @pytest.fixture
+    def use_case_with_membership_repo(
+        self, mock_parliamentary_group_repository, mock_membership_repository
+    ):
+        """Create UseCase instance with membership repository."""
+        return ManageParliamentaryGroupsUseCase(
+            parliamentary_group_repository=mock_parliamentary_group_repository,
+            membership_repository=mock_membership_repository,
         )
 
     @pytest.mark.asyncio
@@ -361,3 +377,102 @@ class TestManageParliamentaryGroupsUseCase:
         # Assert
         assert result.success is False
         assert "Database error" in result.error_message
+
+    @pytest.mark.asyncio
+    async def test_delete_parliamentary_group_with_members_error(
+        self,
+        use_case_with_membership_repo,
+        mock_parliamentary_group_repository,
+        mock_membership_repository,
+    ):
+        """Test deleting a parliamentary group that has members."""
+        # Arrange
+        from datetime import date
+
+        from src.domain.entities.parliamentary_group_membership import (
+            ParliamentaryGroupMembership,
+        )
+
+        inactive_group = ParliamentaryGroup(
+            id=1, name="解散した会派", conference_id=1, is_active=False
+        )
+        mock_parliamentary_group_repository.get_by_id.return_value = inactive_group
+
+        # メンバーが存在する
+        existing_members = [
+            ParliamentaryGroupMembership(
+                id=1,
+                politician_id=100,
+                parliamentary_group_id=1,
+                start_date=date(2024, 1, 1),
+            ),
+            ParliamentaryGroupMembership(
+                id=2,
+                politician_id=101,
+                parliamentary_group_id=1,
+                start_date=date(2024, 1, 1),
+            ),
+        ]
+        mock_membership_repository.get_by_group.return_value = existing_members
+
+        input_dto = DeleteParliamentaryGroupInputDto(id=1)
+
+        # Act
+        result = await use_case_with_membership_repo.delete_parliamentary_group(
+            input_dto
+        )
+
+        # Assert
+        assert result.success is False
+        assert "メンバーが所属している議員団は削除できません" in result.error_message
+        mock_membership_repository.get_by_group.assert_called_once_with(1)
+        mock_parliamentary_group_repository.delete.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_delete_parliamentary_group_no_members_success(
+        self,
+        use_case_with_membership_repo,
+        mock_parliamentary_group_repository,
+        mock_membership_repository,
+    ):
+        """Test deleting a parliamentary group with no members successfully."""
+        # Arrange
+        inactive_group = ParliamentaryGroup(
+            id=1, name="解散した会派", conference_id=1, is_active=False
+        )
+        mock_parliamentary_group_repository.get_by_id.return_value = inactive_group
+
+        # メンバーが存在しない
+        mock_membership_repository.get_by_group.return_value = []
+
+        input_dto = DeleteParliamentaryGroupInputDto(id=1)
+
+        # Act
+        result = await use_case_with_membership_repo.delete_parliamentary_group(
+            input_dto
+        )
+
+        # Assert
+        assert result.success is True
+        mock_membership_repository.get_by_group.assert_called_once_with(1)
+        mock_parliamentary_group_repository.delete.assert_called_once_with(1)
+
+    @pytest.mark.asyncio
+    async def test_delete_parliamentary_group_without_membership_repo_success(
+        self, use_case, mock_parliamentary_group_repository
+    ):
+        """Test backward compatibility: deleting without membership repository."""
+        # Arrange
+        inactive_group = ParliamentaryGroup(
+            id=1, name="解散した会派", conference_id=1, is_active=False
+        )
+        mock_parliamentary_group_repository.get_by_id.return_value = inactive_group
+
+        input_dto = DeleteParliamentaryGroupInputDto(id=1)
+
+        # Act
+        result = await use_case.delete_parliamentary_group(input_dto)
+
+        # Assert
+        assert result.success is True
+        mock_parliamentary_group_repository.delete.assert_called_once_with(1)

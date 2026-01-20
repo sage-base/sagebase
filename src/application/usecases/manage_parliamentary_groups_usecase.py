@@ -23,6 +23,9 @@ from src.domain.interfaces.parliamentary_group_member_extractor_service import (
 from src.domain.repositories.extracted_parliamentary_group_member_repository import (
     ExtractedParliamentaryGroupMemberRepository,
 )
+from src.domain.repositories.parliamentary_group_membership_repository import (
+    ParliamentaryGroupMembershipRepository,
+)
 from src.domain.repositories.parliamentary_group_repository import (
     ParliamentaryGroupRepository,
 )
@@ -153,6 +156,7 @@ class ManageParliamentaryGroupsUseCase:
         | None = None,
         update_usecase: UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase
         | None = None,
+        membership_repository: ParliamentaryGroupMembershipRepository | None = None,
     ):
         """Initialize the use case.
 
@@ -161,11 +165,13 @@ class ManageParliamentaryGroupsUseCase:
             member_extractor: Member extractor service instance (injected)
             extracted_member_repository: Extracted member repository instance
             update_usecase: 抽出ログを記録するためのUseCase（オプション）
+            membership_repository: メンバーシップリポジトリ（削除時チェック用）
         """
         self.parliamentary_group_repository = parliamentary_group_repository
         self.extractor = member_extractor  # Injected instead of created by Factory
         self.extracted_member_repository = extracted_member_repository
         self._update_usecase = update_usecase
+        self.membership_repository = membership_repository
 
     async def list_parliamentary_groups(
         self, input_dto: ParliamentaryGroupListInputDto
@@ -270,7 +276,15 @@ class ManageParliamentaryGroupsUseCase:
                     error_message="活動中の議員団は削除できません。先に非活動にしてください。",
                 )
 
-            # メンバー存在チェック（See: Issue #982）
+            # メンバー存在チェック
+            if self.membership_repository:
+                members = await self.membership_repository.get_by_group(input_dto.id)
+                if members:
+                    return DeleteParliamentaryGroupOutputDto(
+                        success=False,
+                        error_message="メンバーが所属している議員団は削除できません。先にメンバーを削除してください。",
+                    )
+
             await self.parliamentary_group_repository.delete(input_dto.id)
             return DeleteParliamentaryGroupOutputDto(success=True)
         except Exception as e:
