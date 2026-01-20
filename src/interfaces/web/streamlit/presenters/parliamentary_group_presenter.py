@@ -90,6 +90,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
             member_extractor=self.member_extractor,  # Injected extractor
             extracted_member_repository=self.extracted_member_repo,  # type: ignore[arg-type]
             update_usecase=self.update_usecase,  # 抽出ログ記録用UseCase
+            membership_repository=self.membership_repo,  # type: ignore[arg-type]
         )
         self.session = SessionManager()
         self.form_state = self._get_or_create_form_state()
