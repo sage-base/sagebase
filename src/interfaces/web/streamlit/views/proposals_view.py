@@ -862,7 +862,7 @@ def render_parliamentary_group_judges_tab(presenter: ProposalPresenter) -> None:
 
         # 議案プルダウン
         proposal_options = {
-            f"#{p.id}: {p.proposal_number or p.content[:30]}...": p
+            f"#{p.id}: {p.title[:30] if len(p.title) > 30 else p.title}": p
             for p in proposals
             if p.id is not None
         }
@@ -884,13 +884,11 @@ def render_parliamentary_group_judges_tab(presenter: ProposalPresenter) -> None:
 
         # 議案情報の表示
         with st.expander("📋 議案詳細", expanded=False):
-            st.markdown(
-                f"**議案番号**: {selected_proposal.proposal_number or '未設定'}"
-            )
-            st.markdown(f"**内容**: {selected_proposal.content[:200]}...")
-            st.markdown(f"**状態**: {selected_proposal.status or '未設定'}")
+            st.markdown(f"**タイトル**: {selected_proposal.title}")
             if selected_proposal.meeting_id:
                 st.markdown(f"**会議ID**: {selected_proposal.meeting_id}")
+            if selected_proposal.conference_id:
+                st.markdown(f"**会議体ID**: {selected_proposal.conference_id}")
 
         # 会派賛否一覧
         render_parliamentary_group_judges_list(presenter, proposal_id)
