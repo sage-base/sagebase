@@ -718,3 +718,58 @@ class TestManageParliamentaryGroupJudgesUseCase:
 
         with pytest.raises(Exception, match="Database error"):
             await use_case.list_by_proposal(proposal_id=10)
+
+    @pytest.mark.asyncio
+    async def test_create_repository_error(
+        self,
+        use_case,
+        mock_judge_repository,
+        mock_parliamentary_group_repository,
+    ):
+        """異常系: 作成時のリポジトリエラーはOutputDTOで返す."""
+        mock_judge_repository.get_by_proposal_and_groups.return_value = None
+        mock_judge_repository.create.side_effect = Exception("Database error")
+
+        result = await use_case.create(
+            proposal_id=10,
+            judgment="賛成",
+            judge_type="parliamentary_group",
+            parliamentary_group_ids=[20],
+        )
+
+        assert result.success is False
+        assert "エラー" in result.message
+
+    @pytest.mark.asyncio
+    async def test_update_repository_error(
+        self,
+        use_case,
+        mock_judge_repository,
+        mock_parliamentary_group_repository,
+        sample_judge,
+    ):
+        """異常系: 更新時のリポジトリエラーはOutputDTOで返す."""
+        mock_judge_repository.get_by_id.return_value = sample_judge
+        mock_judge_repository.update.side_effect = Exception("Database error")
+
+        result = await use_case.update(
+            judge_id=1,
+            judgment="反対",
+        )
+
+        assert result.success is False
+        assert "エラー" in result.message
+
+    @pytest.mark.asyncio
+    async def test_delete_repository_error(
+        self,
+        use_case,
+        mock_judge_repository,
+    ):
+        """異常系: 削除時のリポジトリエラーはOutputDTOで返す."""
+        mock_judge_repository.delete.side_effect = Exception("Database error")
+
+        result = await use_case.delete(judge_id=1)
+
+        assert result.success is False
+        assert "エラー" in result.message

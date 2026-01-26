@@ -958,7 +958,7 @@ def render_parliamentary_group_judge_row(
 
     Many-to-Many構造対応: 複数の会派名・政治家名をカンマ区切りで表示。
     """
-    is_parliamentary_group = judge.judge_type == "parliamentary_group"
+    is_parliamentary_group = judge.is_parliamentary_group_judge()
 
     with st.container():
         col1, col2, col3, col4, col5, col6 = st.columns([1, 3, 2, 1, 2, 1])
@@ -1134,7 +1134,7 @@ def render_parliamentary_group_judge_row(
                 # 削除確認
                 if st.session_state.get(delete_key, False):
                     # 会派/政治家の名前を適切に表示（複数対応）
-                    if judge.judge_type == "parliamentary_group":
+                    if judge.is_parliamentary_group_judge():
                         if judge.parliamentary_group_names:
                             display_name = ", ".join(judge.parliamentary_group_names)
                         else:

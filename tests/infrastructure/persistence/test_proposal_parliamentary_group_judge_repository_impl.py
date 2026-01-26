@@ -251,7 +251,97 @@ class TestProposalParliamentaryGroupJudgeRepositoryImpl:
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Complex mock setup needs investigation")
+    async def test_get_by_politician_found(
+        self,
+        repository: ProposalParliamentaryGroupJudgeRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_politician returns list of judges."""
+        main_dict = {
+            "id": 1,
+            "proposal_id": 10,
+            "judge_type": "politician",
+            "judgment": "賛成",
+            "member_count": None,
+            "note": None,
+            "created_at": None,
+            "updated_at": None,
+        }
+        self._setup_mock_for_many_to_many(
+            mock_session, main_dict, pg_ids=[], politician_ids=[30]
+        )
+
+        result = await repository.get_by_politician(30)
+
+        assert len(result) == 1
+        assert result[0].id == 1
+        assert result[0].politician_ids == [30]
+        assert result[0].proposal_id == 10
+        assert result[0].judgment == "賛成"
+
+    @pytest.mark.asyncio
+    async def test_get_by_politician_empty(
+        self,
+        repository: ProposalParliamentaryGroupJudgeRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_politician returns empty list when no judges found."""
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_politician(999)
+
+        assert result == []
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_proposal_and_politicians_found(
+        self,
+        repository: ProposalParliamentaryGroupJudgeRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_proposal_and_politicians when judge is found."""
+        main_dict = {
+            "id": 1,
+            "proposal_id": 10,
+            "judge_type": "politician",
+            "judgment": "反対",
+            "member_count": None,
+            "note": None,
+            "created_at": None,
+            "updated_at": None,
+        }
+        self._setup_mock_for_many_to_many(
+            mock_session, main_dict, pg_ids=[], politician_ids=[30]
+        )
+
+        result = await repository.get_by_proposal_and_politicians(10, [30])
+
+        assert result is not None
+        assert result.id == 1
+        assert result.proposal_id == 10
+        assert result.politician_ids == [30]
+        assert result.judgment == "反対"
+
+    @pytest.mark.asyncio
+    async def test_get_by_proposal_and_politicians_not_found(
+        self,
+        repository: ProposalParliamentaryGroupJudgeRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_proposal_and_politicians when judge is not found."""
+        mock_result = MagicMock()
+        mock_result.fetchone = MagicMock(return_value=None)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_proposal_and_politicians(999, [999])
+
+        assert result is None
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    @pytest.mark.skip(reason="Complex mock setup needs investigation - Many-to-Many")
     async def test_bulk_create(
         self,
         repository: ProposalParliamentaryGroupJudgeRepositoryImpl,

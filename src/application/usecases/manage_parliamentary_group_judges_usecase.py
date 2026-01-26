@@ -396,7 +396,10 @@ class ManageParliamentaryGroupJudgesUseCase:
                 else:
                     politician_names.append("（不明）")
 
+        # タイムスタンプはエンティティから取得、なければ現在時刻を使用
         now = datetime.now(UTC)
+        created_at = getattr(entity, "created_at", None) or now
+        updated_at = getattr(entity, "updated_at", None) or now
 
         return ProposalParliamentaryGroupJudgeDTO(
             id=entity.id or 0,
@@ -409,6 +412,6 @@ class ManageParliamentaryGroupJudgesUseCase:
             politician_names=politician_names,
             member_count=entity.member_count,
             note=entity.note,
-            created_at=now,
-            updated_at=now,
+            created_at=created_at,
+            updated_at=updated_at,
         )

@@ -28,6 +28,14 @@ class ProposalParliamentaryGroupJudgeDTO:
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+    def is_parliamentary_group_judge(self) -> bool:
+        """会派単位の賛否かどうかを判定する."""
+        return self.judge_type == "parliamentary_group"
+
+    def is_politician_judge(self) -> bool:
+        """政治家単位の賛否かどうかを判定する."""
+        return self.judge_type == "politician"
+
 
 @dataclass
 class CreateProposalParliamentaryGroupJudgeInputDTO:
