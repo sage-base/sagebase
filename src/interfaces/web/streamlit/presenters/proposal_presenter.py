@@ -553,6 +553,8 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         proposal_id: int,
         politician_ids: list[int] | None = None,
         conference_ids: list[int] | None = None,
+        parliamentary_group_id: int | None = None,
+        other_submitter: tuple[SubmitterType, str] | None = None,
     ) -> list[ProposalSubmitter]:
         """Update submitters for a proposal.
 
@@ -562,13 +564,19 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
             proposal_id: ID of the proposal
             politician_ids: List of politician IDs to set as submitters
             conference_ids: List of conference IDs to set as submitters
+            parliamentary_group_id: Parliamentary group ID (single)
+            other_submitter: Tuple of (SubmitterType, raw_name) for other types
 
         Returns:
             List of created ProposalSubmitter entities
         """
         return self._run_async(
             self._update_submitters_async(
-                proposal_id, politician_ids or [], conference_ids or []
+                proposal_id,
+                politician_ids or [],
+                conference_ids or [],
+                parliamentary_group_id,
+                other_submitter,
             )
         )
 
@@ -577,13 +585,21 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         proposal_id: int,
         politician_ids: list[int],
         conference_ids: list[int],
+        parliamentary_group_id: int | None = None,
+        other_submitter: tuple[SubmitterType, str] | None = None,
     ) -> list[ProposalSubmitter]:
         """Update submitters for a proposal (async implementation)."""
         # Delete existing submitters
         await self.submitter_repository.delete_by_proposal(proposal_id)  # type: ignore[attr-defined]
 
         # Create new submitters
-        if not politician_ids and not conference_ids:
+        has_submitters = (
+            politician_ids
+            or conference_ids
+            or parliamentary_group_id
+            or other_submitter
+        )
+        if not has_submitters:
             return []
 
         submitters = []
@@ -612,6 +628,30 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
             )
             submitters.append(submitter)
             display_order += 1
+
+        # Add parliamentary group submitter
+        if parliamentary_group_id:
+            submitter = ProposalSubmitter(
+                proposal_id=proposal_id,
+                submitter_type=SubmitterType.PARLIAMENTARY_GROUP,
+                parliamentary_group_id=parliamentary_group_id,
+                is_representative=True,
+                display_order=display_order,
+            )
+            submitters.append(submitter)
+            display_order += 1
+
+        # Add other submitter (mayor, committee, other)
+        if other_submitter:
+            submitter_type, raw_name = other_submitter
+            submitter = ProposalSubmitter(
+                proposal_id=proposal_id,
+                submitter_type=submitter_type,
+                raw_name=raw_name,
+                is_representative=True,
+                display_order=display_order,
+            )
+            submitters.append(submitter)
 
         return await self.submitter_repository.bulk_create(submitters)  # type: ignore[attr-defined]
 
