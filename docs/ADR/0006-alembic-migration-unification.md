@@ -34,7 +34,7 @@ Sagebaseプロジェクトでは、データベースマイグレーションに
 1. **Alembicに統一**: 新規マイグレーションは全てAlembicで管理
 2. **init.sqlの更新**: レガシーマイグレーション（001〜048）とAlembicマイグレーション（003〜007）を統合した完全なスキーマを `init.sql` に反映
 3. **レガシーファイルの削除**: `database/migrations/` を削除（履歴はgitに残る）
-4. **migrate-legacyの非推奨化**: justfileの `migrate-legacy` コマンドをエラーで終了するよう変更
+4. **migrate-legacyの削除**: justfileの `migrate-legacy` コマンドを削除
 
 ### 具体的な変更
 
