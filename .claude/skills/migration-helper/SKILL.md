@@ -59,7 +59,6 @@ just migrate-rollback
 | `just migrate-current` | 現在適用されているバージョンを表示 |
 | `just migrate-history` | マイグレーション履歴を表示 |
 | `just migrate-new "説明"` | 新しいマイグレーションファイルを作成 |
-| `just migrate-legacy` | レガシーSQL方式で実行（互換性用） |
 
 ### sagebase CLI コマンド
 
@@ -184,9 +183,10 @@ def downgrade() -> None:
 
 **重要**: レガシーマイグレーション方式は廃止されました。
 
-- `database/migrations/` 配下の48個のSQLファイルは**履歴として保持**されています
-- 全てのスキーマ変更は `database/init.sql` に統合されました
-- **新規マイグレーションは必ずAlembicを使用してください**
-- `just migrate-legacy` は非推奨となり、実行するとエラーになります
+- `database/migrations/` 配下の48個のSQLファイルは**削除されました**（gitの履歴で参照可能）
+- 全てのスキーマ定義は Alembic migration 001 (`alembic/versions/001_baseline.py`) に統合されました
+- `database/init.sql` は最小限のブートストラップのみ（extensions + enum型）
+- **Alembicが唯一のスキーマ定義源（Single Source of Truth）です**
+- `just migrate-legacy` コマンドは削除されました
 
-詳細は [ADR 0006: マイグレーションのAlembic統一](../../../docs/ADR/0006-alembic-migration-unification.md) を参照してください。
+詳細は [ADR 0006: マイグレーションのAlembic完全統一](../../../docs/ADR/0006-alembic-migration-unification.md) を参照してください。
