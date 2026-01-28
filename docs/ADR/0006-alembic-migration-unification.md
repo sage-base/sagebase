@@ -33,7 +33,7 @@ Sagebaseプロジェクトでは、データベースマイグレーションに
 
 1. **Alembicに統一**: 新規マイグレーションは全てAlembicで管理
 2. **init.sqlの更新**: レガシーマイグレーション（001〜048）とAlembicマイグレーション（003〜007）を統合した完全なスキーマを `init.sql` に反映
-3. **レガシーファイルの保持**: `database/migrations/` は履歴として保持（削除しない）
+3. **レガシーファイルの削除**: `database/migrations/` を削除（履歴はgitに残る）
 4. **migrate-legacyの非推奨化**: justfileの `migrate-legacy` コマンドをエラーで終了するよう変更
 
 ### 具体的な変更
@@ -64,7 +64,7 @@ Sagebaseプロジェクトでは、データベースマイグレーションに
 ### トレードオフ
 
 1. **既存環境の移行作業**: 既存のデータベースでは `alembic stamp head` の実行が必要
-2. **履歴の断絶**: レガシーマイグレーションの履歴はAlembicでは追跡されない
+2. **履歴の断絶**: レガシーマイグレーションの履歴はAlembicでは追跡されない（gitの履歴で参照可能）
 
 ### 移行ガイド
 
@@ -83,5 +83,5 @@ docker compose exec sagebase uv run alembic stamp head
 
 - Issue: #1032
 - 関連ADR: なし
-- レガシーマイグレーション: `database/migrations/001_*.sql` 〜 `048_*.sql`
+- レガシーマイグレーション: 削除済み（gitの履歴で `database/migrations/001_*.sql` 〜 `048_*.sql` を参照可能）
 - Alembicマイグレーション: `alembic/versions/001_*.py` 〜 `007_*.py`
