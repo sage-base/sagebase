@@ -1257,22 +1257,23 @@ def render_parliamentary_group_judge_statistics(
     if not all_judgments:
         return
 
-    # 表示
-    cols = st.columns(len(all_judgments) + 1)
+    # 統計を横並びで表示
+    stats_parts = []
+    for judgment in sorted(all_judgments):
+        pg_count = judgment_pg_counts.get(judgment, 0)
+        pol_count = judgment_pol_counts.get(judgment, 0)
+        count_parts = []
+        if pg_count > 0:
+            count_parts.append(f"{pg_count}会派")
+        if pol_count > 0:
+            count_parts.append(f"{pol_count}名")
+        count_str = " / ".join(count_parts) if count_parts else "-"
+        stats_parts.append(f"**{judgment}**: {count_str}")
 
-    for i, judgment in enumerate(sorted(all_judgments)):
-        with cols[i]:
-            pg_count = judgment_pg_counts.get(judgment, 0)
-            pol_count = judgment_pol_counts.get(judgment, 0)
-            parts = []
-            if pg_count > 0:
-                parts.append(f"{pg_count}会派")
-            if pol_count > 0:
-                parts.append(f"{pol_count}名")
-            st.metric(judgment, " / ".join(parts) if parts else "-")
+    if total_members > 0:
+        stats_parts.append(f"**総人数**: {total_members}人")
 
-    with cols[-1]:
-        st.metric("総人数", total_members if total_members > 0 else "-")
+    st.markdown(" ｜ ".join(stats_parts))
 
 
 def render_parliamentary_group_judge_row(
