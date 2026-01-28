@@ -228,11 +228,22 @@ SELECT setval('table_name_id_seq',
     COALESCE((SELECT MAX(id) FROM table_name), 0) + 1, false);
 ```
 
-2. マイグレーションを追加（永続的な修正）
-```sql
--- database/migrations/XXX_reset_table_sequence.sql
-SELECT setval('table_name_id_seq',
-    COALESCE((SELECT MAX(id) FROM table_name), 0) + 1, false);
+2. Alembicマイグレーションを追加（永続的な修正）
+```bash
+# マイグレーション作成
+just migrate-new "reset_table_sequence"
+```
+
+```python
+# alembic/versions/XXX_reset_table_sequence.py
+def upgrade() -> None:
+    op.execute("""
+        SELECT setval('table_name_id_seq',
+            COALESCE((SELECT MAX(id) FROM table_name), 0) + 1, false);
+    """)
+
+def downgrade() -> None:
+    pass  # シーケンスリセットはロールバック不要
 ```
 
 ### Q: シードファイルを再実行するとエラーになる
