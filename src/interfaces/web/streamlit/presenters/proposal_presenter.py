@@ -37,6 +37,7 @@ from src.application.usecases.manage_proposal_submitter_usecase import (
     ClearSubmitterOutputDTO,
     ManageProposalSubmitterUseCase,
     SetSubmitterOutputDTO,
+    UpdateSubmittersOutputDTO,
 )
 from src.application.usecases.manage_proposals_usecase import (
     CreateProposalInputDto,
@@ -555,10 +556,11 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         conference_ids: list[int] | None = None,
         parliamentary_group_id: int | None = None,
         other_submitter: tuple[SubmitterType, str] | None = None,
-    ) -> list[ProposalSubmitter]:
+    ) -> UpdateSubmittersOutputDTO:
         """Update submitters for a proposal.
 
         This method deletes existing submitters and creates new ones.
+        Uses ManageProposalSubmitterUseCase for business logic.
 
         Args:
             proposal_id: ID of the proposal
@@ -568,13 +570,13 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
             other_submitter: Tuple of (SubmitterType, raw_name) for other types
 
         Returns:
-            List of created ProposalSubmitter entities
+            UpdateSubmittersOutputDTO with operation result
         """
         return self._run_async(
             self._update_submitters_async(
                 proposal_id,
-                politician_ids or [],
-                conference_ids or [],
+                politician_ids,
+                conference_ids,
                 parliamentary_group_id,
                 other_submitter,
             )
@@ -583,77 +585,22 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
     async def _update_submitters_async(
         self,
         proposal_id: int,
-        politician_ids: list[int],
-        conference_ids: list[int],
+        politician_ids: list[int] | None = None,
+        conference_ids: list[int] | None = None,
         parliamentary_group_id: int | None = None,
         other_submitter: tuple[SubmitterType, str] | None = None,
-    ) -> list[ProposalSubmitter]:
-        """Update submitters for a proposal (async implementation)."""
-        # Delete existing submitters
-        await self.submitter_repository.delete_by_proposal(proposal_id)  # type: ignore[attr-defined]
+    ) -> UpdateSubmittersOutputDTO:
+        """Update submitters for a proposal (async implementation).
 
-        # Create new submitters
-        has_submitters = (
-            politician_ids
-            or conference_ids
-            or parliamentary_group_id
-            or other_submitter
+        Delegates to ManageProposalSubmitterUseCase.
+        """
+        return await self.manage_submitter_usecase.update_submitters(
+            proposal_id=proposal_id,
+            politician_ids=politician_ids,
+            conference_ids=conference_ids,
+            parliamentary_group_id=parliamentary_group_id,
+            other_submitter=other_submitter,
         )
-        if not has_submitters:
-            return []
-
-        submitters = []
-        display_order = 0
-
-        # Add politician submitters
-        for idx, politician_id in enumerate(politician_ids):
-            submitter = ProposalSubmitter(
-                proposal_id=proposal_id,
-                submitter_type=SubmitterType.POLITICIAN,
-                politician_id=politician_id,
-                is_representative=(idx == 0),  # First politician is representative
-                display_order=display_order,
-            )
-            submitters.append(submitter)
-            display_order += 1
-
-        # Add conference submitters
-        for conference_id in conference_ids:
-            submitter = ProposalSubmitter(
-                proposal_id=proposal_id,
-                submitter_type=SubmitterType.CONFERENCE,
-                conference_id=conference_id,
-                is_representative=False,
-                display_order=display_order,
-            )
-            submitters.append(submitter)
-            display_order += 1
-
-        # Add parliamentary group submitter
-        if parliamentary_group_id:
-            submitter = ProposalSubmitter(
-                proposal_id=proposal_id,
-                submitter_type=SubmitterType.PARLIAMENTARY_GROUP,
-                parliamentary_group_id=parliamentary_group_id,
-                is_representative=True,
-                display_order=display_order,
-            )
-            submitters.append(submitter)
-            display_order += 1
-
-        # Add other submitter (mayor, committee, other)
-        if other_submitter:
-            submitter_type, raw_name = other_submitter
-            submitter = ProposalSubmitter(
-                proposal_id=proposal_id,
-                submitter_type=submitter_type,
-                raw_name=raw_name,
-                is_representative=True,
-                display_order=display_order,
-            )
-            submitters.append(submitter)
-
-        return await self.submitter_repository.bulk_create(submitters)  # type: ignore[attr-defined]
 
     # ========== Parliamentary Group Judge Methods (Issue #1007) ==========
 
