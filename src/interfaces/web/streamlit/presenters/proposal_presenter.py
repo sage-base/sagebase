@@ -16,6 +16,7 @@ import pandas as pd
 from src.application.dtos.proposal_parliamentary_group_judge_dto import (
     ProposalParliamentaryGroupJudgeDTO,
 )
+from src.application.dtos.submitter_candidates_dto import SubmitterCandidatesDTO
 from src.application.usecases.authenticate_user_usecase import AuthenticateUserUseCase
 from src.application.usecases.extract_proposal_judges_usecase import (
     CreateProposalJudgesInputDTO,
@@ -31,6 +32,11 @@ from src.application.usecases.manage_parliamentary_group_judges_usecase import (
     DeleteJudgeOutputDTO,
     ManageParliamentaryGroupJudgesUseCase,
     UpdateJudgeOutputDTO,
+)
+from src.application.usecases.manage_proposal_submitter_usecase import (
+    ClearSubmitterOutputDTO,
+    ManageProposalSubmitterUseCase,
+    SetSubmitterOutputDTO,
 )
 from src.application.usecases.manage_proposals_usecase import (
     CreateProposalInputDto,
@@ -66,6 +72,9 @@ from src.infrastructure.persistence.meeting_repository_impl import (
 )
 from src.infrastructure.persistence.parliamentary_group_repository_impl import (
     ParliamentaryGroupRepositoryImpl,
+)
+from src.infrastructure.persistence.politician_affiliation_repository_impl import (
+    PoliticianAffiliationRepositoryImpl,
 )
 from src.infrastructure.persistence.politician_repository_impl import (
     PoliticianRepositoryImpl,
@@ -120,6 +129,9 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
             ProposalOperationLogRepositoryImpl
         )
         self.submitter_repository = RepositoryAdapter(ProposalSubmitterRepositoryImpl)
+        self.politician_affiliation_repository = RepositoryAdapter(
+            PoliticianAffiliationRepositoryImpl
+        )
 
         # Initialize use cases
         self.manage_usecase = ManageProposalsUseCase(
@@ -132,6 +144,14 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
                 parliamentary_group_repository=self.parliamentary_group_repository,  # type: ignore[arg-type]
                 politician_repository=self.politician_repository,  # type: ignore[arg-type]
             )
+        )
+        self.manage_submitter_usecase = ManageProposalSubmitterUseCase(
+            proposal_repository=self.proposal_repository,  # type: ignore[arg-type]
+            proposal_submitter_repository=self.submitter_repository,  # type: ignore[arg-type]
+            meeting_repository=self.meeting_repository,  # type: ignore[arg-type]
+            politician_affiliation_repository=self.politician_affiliation_repository,  # type: ignore[arg-type]
+            parliamentary_group_repository=self.parliamentary_group_repository,  # type: ignore[arg-type]
+            politician_repository=self.politician_repository,  # type: ignore[arg-type]
         )
 
         # Session management
@@ -883,3 +903,115 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
             )
 
         return pd.DataFrame(data)
+
+    # ========== Submitter Management Methods (Issue #1023) ==========
+
+    def set_submitter(
+        self,
+        proposal_id: int,
+        submitter: str,
+        submitter_type: SubmitterType,
+        submitter_politician_id: int | None = None,
+        submitter_parliamentary_group_id: int | None = None,
+    ) -> SetSubmitterOutputDTO:
+        """議案の提出者情報を設定する.
+
+        Args:
+            proposal_id: 議案ID
+            submitter: 生の提出者文字列
+            submitter_type: 提出者種別
+            submitter_politician_id: 議員提出の場合のPolitician ID
+            submitter_parliamentary_group_id: 会派提出の場合のParliamentaryGroup ID
+
+        Returns:
+            設定結果DTO
+        """
+        return self._run_async(
+            self._set_submitter_async(
+                proposal_id,
+                submitter,
+                submitter_type,
+                submitter_politician_id,
+                submitter_parliamentary_group_id,
+            )
+        )
+
+    async def _set_submitter_async(
+        self,
+        proposal_id: int,
+        submitter: str,
+        submitter_type: SubmitterType,
+        submitter_politician_id: int | None = None,
+        submitter_parliamentary_group_id: int | None = None,
+    ) -> SetSubmitterOutputDTO:
+        """議案の提出者情報を設定する（非同期実装）."""
+        return await self.manage_submitter_usecase.set_submitter(
+            proposal_id=proposal_id,
+            submitter=submitter,
+            submitter_type=submitter_type,
+            submitter_politician_id=submitter_politician_id,
+            submitter_parliamentary_group_id=submitter_parliamentary_group_id,
+        )
+
+    def clear_submitter(self, proposal_id: int) -> ClearSubmitterOutputDTO:
+        """議案の提出者情報をクリアする.
+
+        Args:
+            proposal_id: 議案ID
+
+        Returns:
+            クリア結果DTO
+        """
+        return self._run_async(self._clear_submitter_async(proposal_id))
+
+    async def _clear_submitter_async(self, proposal_id: int) -> ClearSubmitterOutputDTO:
+        """議案の提出者情報をクリアする（非同期実装）."""
+        return await self.manage_submitter_usecase.clear_submitter(proposal_id)
+
+    def get_submitter_candidates(self, conference_id: int) -> SubmitterCandidatesDTO:
+        """会議体に所属する議員/会派の候補一覧を取得する.
+
+        Args:
+            conference_id: 会議体ID
+
+        Returns:
+            提出者候補一覧DTO
+        """
+        return self._run_async(self._get_submitter_candidates_async(conference_id))
+
+    async def _get_submitter_candidates_async(
+        self, conference_id: int
+    ) -> SubmitterCandidatesDTO:
+        """会議体に所属する議員/会派の候補一覧を取得する（非同期実装）."""
+        return await self.manage_submitter_usecase.get_submitter_candidates(
+            conference_id
+        )
+
+    def get_conference_id_for_proposal(self, proposal_id: int) -> int | None:
+        """議案に関連する会議体IDを取得する.
+
+        Args:
+            proposal_id: 議案ID
+
+        Returns:
+            会議体ID（取得できない場合はNone）
+        """
+        return self._run_async(self._get_conference_id_for_proposal_async(proposal_id))
+
+    async def _get_conference_id_for_proposal_async(
+        self, proposal_id: int
+    ) -> int | None:
+        """議案に関連する会議体IDを取得する（非同期実装）."""
+        proposal = await self.proposal_repository.get_by_id(proposal_id)  # type: ignore[attr-defined]
+        if not proposal:
+            return None
+
+        if proposal.conference_id:
+            return proposal.conference_id
+
+        if proposal.meeting_id:
+            meeting = await self.meeting_repository.get_by_id(proposal.meeting_id)  # type: ignore[attr-defined]
+            if meeting:
+                return meeting.conference_id
+
+        return None

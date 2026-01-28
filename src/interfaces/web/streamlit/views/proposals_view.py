@@ -14,8 +14,40 @@ from src.application.dtos.proposal_parliamentary_group_judge_dto import (
 from src.domain.entities.extracted_proposal_judge import ExtractedProposalJudge
 from src.domain.entities.proposal import Proposal
 from src.domain.entities.proposal_judge import ProposalJudge
+from src.domain.value_objects.submitter_type import SubmitterType
 from src.interfaces.web.streamlit.presenters.proposal_presenter import ProposalPresenter
 from src.interfaces.web.streamlit.utils.error_handler import handle_ui_error
+
+
+# 提出者種別のアイコンマッピング
+SUBMITTER_TYPE_ICONS: dict[str, str] = {
+    "mayor": "👤",
+    "politician": "👥",
+    "parliamentary_group": "🏛️",
+    "committee": "📋",
+    "conference": "🏢",
+    "other": "❓",
+}
+
+# 提出者種別の日本語ラベル
+SUBMITTER_TYPE_LABELS: dict[str, str] = {
+    "mayor": "市長",
+    "politician": "議員",
+    "parliamentary_group": "会派",
+    "committee": "委員会",
+    "conference": "会議体",
+    "other": "その他",
+}
+
+
+def get_submitter_type_icon(submitter_type: str) -> str:
+    """提出者種別のアイコンを取得する."""
+    return SUBMITTER_TYPE_ICONS.get(submitter_type, "❓")
+
+
+def get_submitter_type_label(submitter_type: str) -> str:
+    """提出者種別の日本語ラベルを取得する."""
+    return SUBMITTER_TYPE_LABELS.get(submitter_type, "その他")
 
 
 def render_proposals_page() -> None:
@@ -155,42 +187,87 @@ def render_new_proposal_form(presenter: ProposalPresenter) -> None:
                     conference_id = None
                     st.warning("会議体一覧の読み込みに失敗しました")
 
-            # Load politicians for submitter selection
-            st.markdown("**提出者の選択**")
-            submitter_politician_ids: list[int] = []
-            submitter_conference_ids: list[int] = []
+            # 提出者情報の設定
+            st.markdown("---")
+            st.markdown("**提出者情報**")
 
-            try:
-                politicians = presenter.load_politicians()
-                politician_options = {
-                    f"{p.name} (ID: {p.id})": p.id for p in politicians if p.id
-                }
-                selected_politicians = st.multiselect(
-                    "政治家から選択（複数選択可能）",
-                    options=list(politician_options.keys()),
-                )
-                submitter_politician_ids = [
-                    politician_options[name] for name in selected_politicians
-                ]
-            except Exception:
-                st.warning("政治家一覧の読み込みに失敗しました")
+            # 提出者種別の選択肢
+            submitter_type_options_new = {
+                "未設定": None,
+                "👤 市長": "mayor",
+                "👥 議員": "politician",
+                "🏛️ 会派": "parliamentary_group",
+                "📋 委員会": "committee",
+                "❓ その他": "other",
+            }
 
-            try:
-                # Use already loaded conferences for submitter selection
-                submitter_conference_options: dict[str, int] = {}
-                for c in conferences:
-                    key = f"{c['name']} (ID: {c['id']})"
-                    submitter_conference_options[key] = c["id"]
-                selected_submitter_conferences = st.multiselect(
-                    "会議体から選択（複数選択可能）",
-                    options=list(submitter_conference_options.keys()),
+            selected_type_label_new = st.selectbox(
+                "提出者種別",
+                options=list(submitter_type_options_new.keys()),
+                key="new_submitter_type",
+            )
+            selected_type_new = submitter_type_options_new[selected_type_label_new]
+
+            # 種別に応じた追加入力
+            submitter_name_new = ""
+            submitter_politician_id_new: int | None = None
+            submitter_parliamentary_group_id_new: int | None = None
+
+            if selected_type_new == "politician":
+                try:
+                    politicians = presenter.load_politicians()
+                    politician_opts: dict[str, int | None] = {"選択してください": None}
+                    politician_opts.update(
+                        {f"{p.name} (ID: {p.id})": p.id for p in politicians if p.id}
+                    )
+                    selected_pol_new = st.selectbox(
+                        "議員を選択",
+                        options=list(politician_opts.keys()),
+                        key="new_submitter_politician",
+                    )
+                    submitter_politician_id_new = politician_opts[selected_pol_new]
+                    if submitter_politician_id_new:
+                        for p in politicians:
+                            if p.id == submitter_politician_id_new:
+                                submitter_name_new = p.name
+                                break
+                except Exception:
+                    st.warning("議員情報の読み込みに失敗しました")
+
+            elif selected_type_new == "parliamentary_group":
+                st.info("会派を選択するには、先に会議体を選択してください。")
+                # 会議体が選択されている場合のみ会派を表示
+                if conference_id:
+                    try:
+                        candidates = presenter.get_submitter_candidates(conference_id)
+                        pg_opts: dict[str, int | None] = {"選択してください": None}
+                        pg_opts.update(
+                            {
+                                f"{pg.name} (ID: {pg.id})": pg.id
+                                for pg in candidates.parliamentary_groups
+                            }
+                        )
+                        selected_pg_new = st.selectbox(
+                            "会派を選択",
+                            options=list(pg_opts.keys()),
+                            key="new_submitter_pg",
+                        )
+                        submitter_parliamentary_group_id_new = pg_opts[selected_pg_new]
+                        if submitter_parliamentary_group_id_new:
+                            for pg in candidates.parliamentary_groups:
+                                if pg.id == submitter_parliamentary_group_id_new:
+                                    submitter_name_new = pg.name
+                                    break
+                    except Exception:
+                        st.warning("会派情報の読み込みに失敗しました")
+
+            elif selected_type_new in ("mayor", "committee", "other"):
+                default_name_new = "市長" if selected_type_new == "mayor" else ""
+                submitter_name_new = st.text_input(
+                    "提出者名",
+                    value=default_name_new,
+                    key="new_submitter_name",
                 )
-                submitter_conference_ids = [
-                    submitter_conference_options[name]
-                    for name in selected_submitter_conferences
-                ]
-            except Exception:
-                st.warning("会議体一覧の読み込みに失敗しました")
 
             submitted = st.form_submit_button("登録")
 
@@ -210,16 +287,22 @@ def render_new_proposal_form(presenter: ProposalPresenter) -> None:
                             user_id=user_id,
                         )
 
-                        if result.success:
-                            # Register submitters if selected
-                            if (
-                                submitter_politician_ids or submitter_conference_ids
-                            ) and result.proposal:
-                                presenter.update_submitters(
-                                    result.proposal.id,  # type: ignore[arg-type]
-                                    politician_ids=submitter_politician_ids,
-                                    conference_ids=submitter_conference_ids,
+                        if result.success and result.proposal:
+                            # Register submitter if selected
+                            if selected_type_new:
+                                submitter_result = presenter.set_submitter(
+                                    proposal_id=result.proposal.id,  # type: ignore[arg-type]
+                                    submitter=submitter_name_new,
+                                    submitter_type=SubmitterType(selected_type_new),
+                                    submitter_politician_id=submitter_politician_id_new,
+                                    submitter_parliamentary_group_id=submitter_parliamentary_group_id_new,
                                 )
+                                if not submitter_result.success:
+                                    msg = submitter_result.message
+                                    st.warning(f"提出者の設定に失敗: {msg}")
+                            st.success(result.message)
+                            st.rerun()
+                        elif result.success:
                             st.success(result.message)
                             st.rerun()
                         else:
@@ -277,6 +360,66 @@ def render_proposal_row(presenter: ProposalPresenter, proposal: Proposal) -> Non
         render_proposal_display(presenter, proposal)
 
 
+def render_submitters_display(presenter: ProposalPresenter, proposal: Proposal) -> None:
+    """提出者情報を種別アイコン付きで表示する.
+
+    Args:
+        presenter: ProposalPresenter
+        proposal: 議案エンティティ
+    """
+    try:
+        submitters = presenter.load_submitters(proposal.id)  # type: ignore[arg-type]
+        if not submitters:
+            st.markdown("**提出者**: 未設定")
+            return
+
+        # 名前解決用のデータを取得
+        politicians = presenter.load_politicians()
+        politician_names = {p.id: p.name for p in politicians}
+
+        parliamentary_groups = presenter.load_parliamentary_groups_for_proposal(
+            proposal.id  # type: ignore[arg-type]
+        )
+        pg_names = {pg.id: pg.name for pg in parliamentary_groups if pg.id}
+
+        conferences = presenter.load_conferences()
+        conference_names = {c["id"]: c["name"] for c in conferences}
+
+        submitter_display_parts = []
+
+        for s in submitters:
+            submitter_type = s.submitter_type.value
+            icon = get_submitter_type_icon(submitter_type)
+            label = get_submitter_type_label(submitter_type)
+
+            # 名前を解決
+            name = s.raw_name or ""
+            if s.politician_id:
+                name = politician_names.get(
+                    s.politician_id, name or f"ID:{s.politician_id}"
+                )
+            elif s.parliamentary_group_id:
+                name = pg_names.get(
+                    s.parliamentary_group_id, name or f"ID:{s.parliamentary_group_id}"
+                )
+            elif s.conference_id:
+                name = conference_names.get(
+                    s.conference_id, name or f"ID:{s.conference_id}"
+                )
+            elif not name:
+                name = label
+
+            submitter_display_parts.append(f"{icon} {name}")
+
+        if submitter_display_parts:
+            st.markdown(f"**提出者**: {', '.join(submitter_display_parts)}")
+        else:
+            st.markdown("**提出者**: 未設定")
+
+    except Exception:
+        st.markdown("**提出者**: （読み込みエラー）")
+
+
 def render_proposal_display(presenter: ProposalPresenter, proposal: Proposal) -> None:
     """Render proposal in display mode."""
     with st.container():
@@ -292,37 +435,8 @@ def render_proposal_display(presenter: ProposalPresenter, proposal: Proposal) ->
             with col_info2:
                 st.markdown(f"**会議体ID**: {proposal.conference_id or '未設定'}")
 
-            # Display submitters
-            try:
-                submitters = presenter.load_submitters(proposal.id)  # type: ignore[arg-type]
-                if submitters:
-                    politicians = presenter.load_politicians()
-                    politician_names = {p.id: p.name for p in politicians}
-                    conferences = presenter.load_conferences()
-                    conference_names = {c["id"]: c["name"] for c in conferences}
-
-                    submitter_display_parts = []
-
-                    # Politician submitters
-                    for s in submitters:
-                        if s.politician_id:
-                            name = politician_names.get(
-                                s.politician_id, f"政治家ID:{s.politician_id}"
-                            )
-                            submitter_display_parts.append(name)
-
-                    # Conference submitters
-                    for s in submitters:
-                        if s.conference_id:
-                            conf_name = conference_names.get(
-                                s.conference_id, f"ID:{s.conference_id}"
-                            )
-                            submitter_display_parts.append(f"[会議体] {conf_name}")
-
-                    if submitter_display_parts:
-                        st.markdown(f"**提出者**: {', '.join(submitter_display_parts)}")
-            except Exception:
-                pass
+            # Display submitters with type icons
+            render_submitters_display(presenter, proposal)
 
             if proposal.detail_url:
                 st.markdown(f"[詳細URL]({proposal.detail_url})")
@@ -457,72 +571,134 @@ def render_edit_proposal_form(presenter: ProposalPresenter, proposal: Proposal) 
                     conference_id = proposal.conference_id
                     st.warning("会議体一覧の読み込みに失敗しました")
 
-            # Load current submitters and politicians/conferences for selection
-            st.markdown("**提出者の選択**")
-            submitter_politician_ids: list[int] = []
-            submitter_conference_ids: list[int] = []
-            current_conference_ids: list[int] = []
+            # 提出者編集セクション
+            st.markdown("---")
+            st.markdown("**提出者情報の編集**")
 
-            try:
-                politicians = presenter.load_politicians()
-                politician_options = {
-                    f"{p.name} (ID: {p.id})": p.id for p in politicians if p.id
-                }
+            # 現在の提出者を取得
+            current_submitters = presenter.load_submitters(proposal.id)  # type: ignore[arg-type]
+            current_submitter = current_submitters[0] if current_submitters else None
 
-                # Get current submitters
-                current_submitters = presenter.load_submitters(proposal.id)  # type: ignore[arg-type]
-                current_politician_ids = [
-                    s.politician_id for s in current_submitters if s.politician_id
-                ]
-                current_conference_ids = [
-                    s.conference_id for s in current_submitters if s.conference_id
-                ]
+            # 提出者種別の選択肢
+            submitter_type_options = {
+                "未設定": None,
+                "👤 市長": "mayor",
+                "👥 議員": "politician",
+                "🏛️ 会派": "parliamentary_group",
+                "📋 委員会": "committee",
+                "❓ その他": "other",
+            }
 
-                # Find option names for current politician submitters
-                current_politician_selections = [
-                    name
-                    for name, pid in politician_options.items()
-                    if pid in current_politician_ids
-                ]
+            # 現在の種別を取得
+            current_type_key = "未設定"
+            if current_submitter:
+                current_type = current_submitter.submitter_type.value
+                for key, val in submitter_type_options.items():
+                    if val == current_type:
+                        current_type_key = key
+                        break
 
-                selected_politicians = st.multiselect(
-                    "政治家から選択（複数選択可能）",
-                    options=list(politician_options.keys()),
-                    default=current_politician_selections,
-                    key=f"edit_submitters_{proposal.id}",
+            selected_type_label = st.selectbox(
+                "提出者種別",
+                options=list(submitter_type_options.keys()),
+                index=list(submitter_type_options.keys()).index(current_type_key),
+                key=f"edit_submitter_type_{proposal.id}",
+            )
+            selected_type = submitter_type_options[selected_type_label]
+
+            # 種別に応じた追加入力
+            submitter_name = ""
+            submitter_politician_id: int | None = None
+            submitter_parliamentary_group_id: int | None = None
+
+            if selected_type == "politician":
+                # 議員選択
+                try:
+                    politicians = presenter.load_politicians()
+                    politician_options: dict[str, int | None] = {
+                        "選択してください": None
+                    }
+                    politician_options.update(
+                        {f"{p.name} (ID: {p.id})": p.id for p in politicians if p.id}
+                    )
+
+                    # 現在選択中を特定
+                    current_pol_idx = 0
+                    if current_submitter and current_submitter.politician_id:
+                        for idx, (_, pid) in enumerate(politician_options.items()):
+                            if pid == current_submitter.politician_id:
+                                current_pol_idx = idx
+                                break
+
+                    selected_pol = st.selectbox(
+                        "議員を選択",
+                        options=list(politician_options.keys()),
+                        index=current_pol_idx,
+                        key=f"edit_submitter_politician_{proposal.id}",
+                    )
+                    submitter_politician_id = politician_options[selected_pol]
+                    if submitter_politician_id:
+                        # 名前を取得
+                        for p in politicians:
+                            if p.id == submitter_politician_id:
+                                submitter_name = p.name
+                                break
+                except Exception:
+                    st.warning("議員情報の読み込みに失敗しました")
+
+            elif selected_type == "parliamentary_group":
+                # 会派選択
+                try:
+                    parliamentary_groups = (
+                        presenter.load_parliamentary_groups_for_proposal(
+                            proposal.id  # type: ignore[arg-type]
+                        )
+                    )
+                    pg_options: dict[str, int | None] = {"選択してください": None}
+                    pg_options.update(
+                        {
+                            f"{pg.name} (ID: {pg.id})": pg.id
+                            for pg in parliamentary_groups
+                            if pg.id
+                        }
+                    )
+
+                    # 現在選択中を特定
+                    current_pg_idx = 0
+                    if current_submitter and current_submitter.parliamentary_group_id:
+                        for idx, (_, pgid) in enumerate(pg_options.items()):
+                            if pgid == current_submitter.parliamentary_group_id:
+                                current_pg_idx = idx
+                                break
+
+                    selected_pg = st.selectbox(
+                        "会派を選択",
+                        options=list(pg_options.keys()),
+                        index=current_pg_idx,
+                        key=f"edit_submitter_pg_{proposal.id}",
+                    )
+                    submitter_parliamentary_group_id = pg_options[selected_pg]
+                    if submitter_parliamentary_group_id:
+                        # 名前を取得
+                        for pg in parliamentary_groups:
+                            if pg.id == submitter_parliamentary_group_id:
+                                submitter_name = pg.name
+                                break
+                except Exception:
+                    st.warning("会派情報の読み込みに失敗しました")
+
+            elif selected_type in ("mayor", "committee", "other"):
+                # 自由入力
+                default_name = ""
+                if current_submitter and current_submitter.raw_name:
+                    default_name = current_submitter.raw_name
+                elif selected_type == "mayor":
+                    default_name = "市長"
+                submitter_name = st.text_input(
+                    "提出者名",
+                    value=default_name,
+                    key=f"edit_submitter_name_{proposal.id}",
                 )
-                submitter_politician_ids = [
-                    politician_options[name] for name in selected_politicians
-                ]
-            except Exception:
-                st.warning("政治家情報の読み込みに失敗しました")
-
-            try:
-                # Use already loaded conferences for submitter selection
-                submitter_conference_options: dict[str, int] = {}
-                for c in conferences:
-                    key = f"{c['name']} (ID: {c['id']})"
-                    submitter_conference_options[key] = c["id"]
-
-                # Find option names for current conference submitters
-                current_conference_selections = [
-                    name
-                    for name, cid in submitter_conference_options.items()
-                    if cid in current_conference_ids
-                ]
-
-                selected_submitter_conferences = st.multiselect(
-                    "会議体から選択（複数選択可能）",
-                    options=list(submitter_conference_options.keys()),
-                    default=current_conference_selections,
-                    key=f"edit_submitter_conferences_{proposal.id}",
-                )
-                submitter_conference_ids = [
-                    submitter_conference_options[name]
-                    for name in selected_submitter_conferences
-                ]
-            except Exception:
-                st.warning("会議体情報の読み込みに失敗しました")
 
             col_btn1, col_btn2 = st.columns(2)
             with col_btn1:
@@ -548,12 +724,22 @@ def render_edit_proposal_form(presenter: ProposalPresenter, proposal: Proposal) 
                         )
 
                         if result.success:
-                            # Update submitters
-                            presenter.update_submitters(
-                                proposal.id,  # type: ignore[arg-type]
-                                politician_ids=submitter_politician_ids,
-                                conference_ids=submitter_conference_ids,
-                            )
+                            # Update submitter
+                            if selected_type:
+                                submitter_result = presenter.set_submitter(
+                                    proposal_id=proposal.id,  # type: ignore[arg-type]
+                                    submitter=submitter_name,
+                                    submitter_type=SubmitterType(selected_type),
+                                    submitter_politician_id=submitter_politician_id,
+                                    submitter_parliamentary_group_id=submitter_parliamentary_group_id,
+                                )
+                                if not submitter_result.success:
+                                    msg = submitter_result.message
+                                    st.warning(f"提出者の設定に失敗: {msg}")
+                            else:
+                                # 提出者をクリア
+                                presenter.clear_submitter(proposal.id)  # type: ignore[arg-type]
+
                             st.success(result.message)
                             presenter.cancel_editing()
                             st.rerun()
