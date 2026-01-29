@@ -235,14 +235,16 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
 
     # Load data
     try:
-        # 開催主体フィルターの場合は、その開催主体に属する会議体を取得してフィルター
+        # 開催主体フィルターの場合は、その開催主体に属する会議体IDを取得してフィルター
         actual_conference_filter = conference_filter
+        governing_body_conference_ids: set[int] | None = None
         if filter_type == "by_governing_body" and governing_body_filter:
-            # 開催主体に属する会議体を取得
-            conferences = presenter.load_conferences()
-            # 注: conferencesにはgoverning_body_idが含まれていないので、
-            # 現状は会議体を全件取得して、関連データマップでフィルターする
-            filter_type = "all"  # まず全件取得して後でフィルター
+            # 開催主体に属する会議体をDB側で取得
+            gb_conferences = presenter.load_conferences_by_governing_body(
+                governing_body_filter
+            )
+            governing_body_conference_ids = {c["id"] for c in gb_conferences}
+            filter_type = "all"  # 全件取得して後で会議体IDでフィルター
             actual_conference_filter = None
 
         result = presenter.load_data_filtered(
@@ -255,31 +257,16 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
         proposals = result.proposals
         related_data_map: dict[int, dict[str, str | None]] = {}
         if proposals:
+            # 開催主体フィルターが指定されている場合は、会議体IDで直接フィルタリング
+            if governing_body_conference_ids is not None:
+                proposals = [
+                    p
+                    for p in proposals
+                    if p.conference_id
+                    and p.conference_id in governing_body_conference_ids
+                ]
+
             related_data_map = presenter.build_proposal_related_data_map(proposals)
-
-            # 開催主体フィルターが指定されている場合は、マップを使ってフィルタリング
-            if governing_body_filter:
-                # 開催主体名を取得
-                try:
-                    governing_bodies = presenter.load_governing_bodies()
-                    target_gb_name: str | None = None
-                    for gb in governing_bodies:
-                        if gb["id"] == governing_body_filter:
-                            target_gb_name = gb["name"]
-                            break
-
-                    if target_gb_name:
-                        proposals = [
-                            p
-                            for p in proposals
-                            if p.id
-                            and related_data_map.get(p.id, {}).get(
-                                "governing_body_name"
-                            )
-                            == target_gb_name
-                        ]
-                except Exception:
-                    logger.exception("開催主体フィルターの適用に失敗")
 
         # Store related data map in session for use in render functions
         st.session_state["proposal_related_data_map"] = related_data_map
