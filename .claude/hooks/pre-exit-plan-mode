@@ -1,0 +1,115 @@
+#!/bin/bash
+
+# Pre-ExitPlanMode hook - Codex CLIでplanファイルをレビューしてからplan modeを終了する
+#
+# 動作:
+# 1. tmp/ 配下の最新 .md ファイルをplanファイルとして検出
+# 2. Codex CLI (codex exec) でレビューを実行
+# 3. レビュー結果を additionalContext として Claude に返す
+# 4. ExitPlanMode は allow（レビュー結果は参考情報として提供）
+
+set -euo pipefail
+
+# stdin から JSON を読み取る
+json_input=$(cat)
+
+# プロジェクトルートを特定
+PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+
+# tmp/ ディレクトリの存在チェック
+if [ ! -d "$PROJECT_ROOT/tmp" ]; then
+    python3 -c '
+import json, sys
+json.dump({
+    "hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "additionalContext": "⚠️ tmp/ ディレクトリが存在しません。planファイルの検出をスキップしました。"
+    }
+}, sys.stdout)
+'
+    exit 0
+fi
+
+# tmp/ 配下の最新 .md ファイルを検出
+PLAN_FILE=$(ls -t "$PROJECT_ROOT/tmp/"*.md 2>/dev/null | head -1 || true)
+
+if [ -z "$PLAN_FILE" ]; then
+    python3 -c '
+import json, sys
+json.dump({
+    "hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "additionalContext": "⚠️ tmp/ ディレクトリにplanファイル(.md)が見つかりませんでした。Codexレビューをスキップします。"
+    }
+}, sys.stdout)
+'
+    exit 0
+fi
+
+PLAN_FILENAME=$(basename "$PLAN_FILE")
+
+# Codex CLI でレビューを実行
+# プロンプトを構築して stdin 経由で渡す
+CODEX_REVIEW=$(
+{
+    cat <<'PROMPT_HEADER'
+以下の実装計画をレビューしてください。
+問題点、改善提案、リスクを日本語で簡潔にまとめてください。
+
+レビュー観点:
+1. 実装手順の妥当性と完全性
+2. 技術的リスクや考慮漏れ
+3. 既存アーキテクチャとの整合性
+4. テスト戦略の十分性
+
+簡潔に箇条書きでレビュー結果を出力してください。
+問題がなければ「問題なし」と明記してください。
+
+---
+実装計画:
+PROMPT_HEADER
+    cat "$PLAN_FILE"
+} | codex exec - 2>&1
+) || true
+
+CODEX_EXIT=${PIPESTATUS[0]:-$?}
+
+# Python で JSON を安全に生成して出力
+export PLAN_FILENAME
+export CODEX_REVIEW
+export CODEX_EXIT
+
+python3 -c '
+import json, sys, os
+
+plan_filename = os.environ.get("PLAN_FILENAME", "unknown")
+codex_review = os.environ.get("CODEX_REVIEW", "")
+codex_exit = int(os.environ.get("CODEX_EXIT", "1"))
+
+if codex_exit != 0 or not codex_review.strip():
+    context = (
+        f"⚠️ Codexレビューの実行に失敗しました (exit: {codex_exit})\n\n"
+        f"planファイル: {plan_filename}\n\n"
+        f"Codex出力:\n{codex_review}\n\n"
+        "Codexレビューなしでplan modeを終了します。"
+    )
+else:
+    context = (
+        f"## 📋 Codex Plan Review\n\n"
+        f"planファイル: {plan_filename}\n\n"
+        f"### レビュー結果\n\n"
+        f"{codex_review}\n\n"
+        "---\n"
+        "上記はCodex CLIによるplanファイルのレビュー結果です。"
+    )
+
+output = {
+    "hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "additionalContext": context
+    }
+}
+json.dump(output, sys.stdout)
+'
+
+exit 0
