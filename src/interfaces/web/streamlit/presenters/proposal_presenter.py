@@ -399,13 +399,12 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         """
         meetings = await self.meeting_repository.get_all()  # type: ignore[attr-defined]
 
-        # 会議体のマップを構築（N+1問題対策）
+        # 会議体のマップを一括取得で構築（N+1問題対策）
         conference_ids = {m.conference_id for m in meetings if m.conference_id}
-        conference_map: dict[int, str] = {}
-        for cid in conference_ids:
-            conference = await self.conference_repository.get_by_id(cid)  # type: ignore[attr-defined]
-            if conference:
-                conference_map[cid] = conference.name
+        all_conferences = await self.conference_repository.get_all()  # type: ignore[attr-defined]
+        conference_map: dict[int, str] = {
+            c.id: c.name for c in all_conferences if c.id in conference_ids
+        }
 
         result = []
         for m in meetings:
@@ -435,6 +434,23 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
     async def _load_conferences_async(self) -> list[dict[str, Any]]:
         """Load all conferences (async implementation)."""
         conferences = await self.conference_repository.get_all()  # type: ignore[attr-defined]
+        return [{"id": c.id, "name": c.name} for c in conferences]
+
+    def load_conferences_by_governing_body(
+        self, governing_body_id: int
+    ) -> list[dict[str, Any]]:
+        """指定された開催主体に属する会議体を取得する."""
+        return self._run_async(
+            self._load_conferences_by_governing_body_async(governing_body_id)
+        )
+
+    async def _load_conferences_by_governing_body_async(
+        self, governing_body_id: int
+    ) -> list[dict[str, Any]]:
+        """指定された開催主体に属する会議体を取得する（非同期実装）."""
+        conferences = await self.conference_repository.get_by_governing_body(  # type: ignore[attr-defined]
+            governing_body_id
+        )
         return [{"id": c.id, "name": c.name} for c in conferences]
 
     def load_governing_bodies(self) -> list[dict[str, Any]]:
@@ -467,7 +483,7 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         """議案一覧から、会議体名・開催主体名のマップを構築する（非同期実装）."""
         result: dict[int, dict[str, str | None]] = {}
 
-        # 議案からconference_idを収集
+        # 議案からconference_idとmeeting_idを収集
         conference_ids: set[int] = set()
         meeting_ids: set[int] = set()
         for p in proposals:
@@ -476,34 +492,34 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
             if p.meeting_id:
                 meeting_ids.add(p.meeting_id)
 
-        # 会議情報を取得してconference_idを追加収集
+        # 会議情報を一括取得してconference_idを追加収集
         meeting_conference_map: dict[int, int | None] = {}
         if meeting_ids:
-            for mid in meeting_ids:
-                meeting = await self.meeting_repository.get_by_id(mid)  # type: ignore[attr-defined]
-                if meeting:
-                    meeting_conference_map[mid] = meeting.conference_id
+            all_meetings = await self.meeting_repository.get_all()  # type: ignore[attr-defined]
+            for meeting in all_meetings:
+                if meeting.id in meeting_ids:
+                    meeting_conference_map[meeting.id] = meeting.conference_id
                     if meeting.conference_id:
                         conference_ids.add(meeting.conference_id)
 
-        # 会議体情報を取得
+        # 会議体情報を一括取得
         conference_map: dict[int, dict[str, Any]] = {}
         governing_body_ids: set[int] = set()
-        for cid in conference_ids:
-            conference = await self.conference_repository.get_by_id(cid)  # type: ignore[attr-defined]
-            if conference:
-                conference_map[cid] = {
+        all_conferences = await self.conference_repository.get_all()  # type: ignore[attr-defined]
+        for conference in all_conferences:
+            if conference.id in conference_ids:
+                conference_map[conference.id] = {
                     "name": conference.name,
                     "governing_body_id": conference.governing_body_id,
                 }
                 governing_body_ids.add(conference.governing_body_id)
 
-        # 開催主体情報を取得
+        # 開催主体情報を一括取得
         governing_body_map: dict[int, str] = {}
-        for gid in governing_body_ids:
-            governing_body = await self.governing_body_repository.get_by_id(gid)  # type: ignore[attr-defined]
-            if governing_body:
-                governing_body_map[gid] = governing_body.name
+        all_governing_bodies = await self.governing_body_repository.get_all()  # type: ignore[attr-defined]
+        for governing_body in all_governing_bodies:
+            if governing_body.id in governing_body_ids:
+                governing_body_map[governing_body.id] = governing_body.name
 
         # 各議案のマップを構築
         for p in proposals:

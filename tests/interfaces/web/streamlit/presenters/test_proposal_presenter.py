@@ -846,12 +846,12 @@ class TestBuildProposalRelatedDataMap:
             Proposal(id=2, title="議案B", conference_id=10),
         ]
 
-        mock_conference_repo.get_by_id.return_value = Conference(
-            id=10, name="東京都議会本会議", governing_body_id=100
-        )
-        mock_governing_body_repo.get_by_id.return_value = GoverningBody(
-            id=100, name="東京都"
-        )
+        mock_conference_repo.get_all.return_value = [
+            Conference(id=10, name="東京都議会本会議", governing_body_id=100)
+        ]
+        mock_governing_body_repo.get_all.return_value = [
+            GoverningBody(id=100, name="東京都")
+        ]
 
         # Act
         result = await presenter._build_proposal_related_data_map_async(proposals)
@@ -883,15 +883,15 @@ class TestBuildProposalRelatedDataMap:
             Proposal(id=1, title="議案A", meeting_id=200),
         ]
 
-        mock_meeting_repo.get_by_id.return_value = Meeting(
-            id=200, name="第1回定例会", conference_id=10
-        )
-        mock_conference_repo.get_by_id.return_value = Conference(
-            id=10, name="横浜市議会", governing_body_id=101
-        )
-        mock_governing_body_repo.get_by_id.return_value = GoverningBody(
-            id=101, name="横浜市"
-        )
+        mock_meeting_repo.get_all.return_value = [
+            Meeting(id=200, name="第1回定例会", conference_id=10)
+        ]
+        mock_conference_repo.get_all.return_value = [
+            Conference(id=10, name="横浜市議会", governing_body_id=101)
+        ]
+        mock_governing_body_repo.get_all.return_value = [
+            GoverningBody(id=101, name="横浜市")
+        ]
 
         # Act
         result = await presenter._build_proposal_related_data_map_async(proposals)
@@ -927,6 +927,17 @@ class TestBuildProposalRelatedDataMap:
 
     async def test_build_related_data_map_empty_proposals(self, presenter):
         """空の議案リストの場合を確認"""
+        # Arrange
+        mock_conference_repo = AsyncMock()
+        mock_governing_body_repo = AsyncMock()
+        mock_meeting_repo = AsyncMock()
+        presenter.conference_repository = mock_conference_repo
+        presenter.governing_body_repository = mock_governing_body_repo
+        presenter.meeting_repository = mock_meeting_repo
+
+        mock_conference_repo.get_all.return_value = []
+        mock_governing_body_repo.get_all.return_value = []
+
         # Act
         result = await presenter._build_proposal_related_data_map_async([])
 
