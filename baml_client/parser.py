@@ -24,12 +24,6 @@ class LlmResponseParser:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
-    def ClassifyLinks(
-        self, llm_response: str, baml_options: BamlCallOptions = {},
-    ) -> typing.List["types.LinkClassification"]:
-        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ClassifyLinks", llm_response=llm_response, mode="request")
-        return typing.cast(typing.List["types.LinkClassification"], __result__)
-
     def ClassifyPage(
         self, llm_response: str, baml_options: BamlCallOptions = {},
     ) -> types.PageClassification:
@@ -109,12 +103,6 @@ class LlmStreamParser:
 
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
-
-    def ClassifyLinks(
-        self, llm_response: str, baml_options: BamlCallOptions = {},
-    ) -> typing.List["stream_types.LinkClassification"]:
-        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ClassifyLinks", llm_response=llm_response, mode="stream")
-        return typing.cast(typing.List["stream_types.LinkClassification"], __result__)
 
     def ClassifyPage(
         self, llm_response: str, baml_options: BamlCallOptions = {},

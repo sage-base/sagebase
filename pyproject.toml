@@ -23,7 +23,7 @@ dependencies = [
     "selenium>=4.0.0,<5",
     "playwright>=1.40.0,<2",
     "beautifulsoup4>=4.12.0,<5",
-    "baml-py==0.217.0",
+    "baml-py==0.218.1",
     "aiohttp>=3.9.0,<4",
     "requests>=2.31.0,<3",
     "google-cloud-storage>=2.10.0,<3",
@@ -132,7 +132,6 @@ forced-separate = ["src"]
 
 [tool.ruff.lint.per-file-ignores]
 # Ignore E501 (line too long) for debug print statements
-"src/domain/services/link_analysis_domain_service.py" = ["E501"]
 "src/infrastructure/di/providers.py" = ["E501"]
 "src/interfaces/web/streamlit/presenters/political_party_presenter.py" = ["E501"]
 # Alembic migrations contain long SQL strings

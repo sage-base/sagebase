@@ -22,9 +22,6 @@ type_map = {
     "types.ExtractedMember": types.ExtractedMember,
     "stream_types.ExtractedMember": stream_types.ExtractedMember,
 
-    "types.LinkClassification": types.LinkClassification,
-    "stream_types.LinkClassification": stream_types.LinkClassification,
-
     "types.MinutesBoundary": types.MinutesBoundary,
     "stream_types.MinutesBoundary": stream_types.MinutesBoundary,
 
