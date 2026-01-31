@@ -16,7 +16,6 @@ class TestProposalJudge:
         assert judge.proposal_id == 1
         assert judge.politician_id == 2
         assert judge.approve is None
-        assert judge.politician_party_id is None
         assert judge.id is None
 
     def test_initialization_with_all_fields(self) -> None:
@@ -26,14 +25,12 @@ class TestProposalJudge:
             proposal_id=5,
             politician_id=3,
             approve="賛成",
-            politician_party_id=7,
         )
 
         assert judge.id == 10
         assert judge.proposal_id == 5
         assert judge.politician_id == 3
         assert judge.approve == "賛成"
-        assert judge.politician_party_id == 7
 
     def test_is_approve(self) -> None:
         """Test is_approve method."""
@@ -137,19 +134,3 @@ class TestProposalJudge:
         assert judge.is_oppose() is False
         assert judge.is_abstain() is False
         assert judge.is_absent() is False
-
-    def test_with_different_party_ids(self) -> None:
-        """Test with different politician_party_id values."""
-        judge_with_party = ProposalJudge(
-            proposal_id=1,
-            politician_id=2,
-            politician_party_id=5,
-        )
-        judge_without_party = ProposalJudge(
-            proposal_id=1,
-            politician_id=2,
-            politician_party_id=None,
-        )
-
-        assert judge_with_party.politician_party_id == 5
-        assert judge_without_party.politician_party_id is None
