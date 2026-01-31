@@ -76,20 +76,25 @@ def downgrade() -> None:
         ALTER TABLE parliamentary_groups
         ALTER COLUMN conference_id SET NOT NULL;
 
-        -- 4. 新ユニーク制約を削除
+        -- 4. 外部キー制約を復元
+        ALTER TABLE parliamentary_groups
+        ADD CONSTRAINT parliamentary_groups_conference_id_fkey
+        FOREIGN KEY (conference_id) REFERENCES conferences(id);
+
+        -- 5. 新ユニーク制約を削除
         ALTER TABLE parliamentary_groups
         DROP CONSTRAINT IF EXISTS parliamentary_groups_name_governing_body_id_key;
 
-        -- 5. 旧ユニーク制約を復元
+        -- 6. 旧ユニーク制約を復元
         ALTER TABLE parliamentary_groups
         ADD CONSTRAINT parliamentary_groups_name_conference_id_key
         UNIQUE (name, conference_id);
 
-        -- 6. 外部キー制約を削除
+        -- 7. governing_body_id外部キー制約を削除
         ALTER TABLE parliamentary_groups
         DROP CONSTRAINT IF EXISTS fk_parliamentary_groups_governing_body;
 
-        -- 7. governing_body_idカラムを削除
+        -- 8. governing_body_idカラムを削除
         ALTER TABLE parliamentary_groups
         DROP COLUMN IF EXISTS governing_body_id;
     """)
