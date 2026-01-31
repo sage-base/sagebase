@@ -470,71 +470,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             if meetings_count and meetings_count > 0:
                 return False  # Cannot delete if there are related meetings
 
-            # Get parliamentary_group IDs for this conference
-            get_groups_query = text("""
-                SELECT id FROM parliamentary_groups WHERE conference_id = :conference_id
-            """)
-            result = await self.session.execute(
-                get_groups_query, {"conference_id": entity_id}
-            )
-            group_ids = [row[0] for row in result.fetchall()]
-
-            if group_ids:
-                # Delete related extracted_parliamentary_group_members
-                await self.session.execute(
-                    text("""
-                        DELETE FROM extracted_parliamentary_group_members
-                        WHERE parliamentary_group_id = ANY(:group_ids)
-                    """),
-                    {"group_ids": group_ids},
-                )
-
-                # Delete related parliamentary_group_memberships
-                await self.session.execute(
-                    text("""
-                        DELETE FROM parliamentary_group_memberships
-                        WHERE parliamentary_group_id = ANY(:group_ids)
-                    """),
-                    {"group_ids": group_ids},
-                )
-
-                # Delete related proposal_parliamentary_group_judges
-                await self.session.execute(
-                    text("""
-                        DELETE FROM proposal_parliamentary_group_judges
-                        WHERE parliamentary_group_id = ANY(:group_ids)
-                    """),
-                    {"group_ids": group_ids},
-                )
-
-                # Set parliamentary_group_id to NULL in proposal_judges
-                await self.session.execute(
-                    text("""
-                        UPDATE proposal_judges
-                        SET parliamentary_group_id = NULL
-                        WHERE parliamentary_group_id = ANY(:group_ids)
-                    """),
-                    {"group_ids": group_ids},
-                )
-
-                # Set matched_parliamentary_group_id to NULL in extracted_proposal_judges  # noqa: E501
-                await self.session.execute(
-                    text("""
-                        UPDATE extracted_proposal_judges
-                        SET matched_parliamentary_group_id = NULL
-                        WHERE matched_parliamentary_group_id = ANY(:group_ids)
-                    """),
-                    {"group_ids": group_ids},
-                )
-
-                # Delete parliamentary_groups
-                await self.session.execute(
-                    text("""
-                        DELETE FROM parliamentary_groups
-                        WHERE conference_id = :conference_id
-                    """),
-                    {"conference_id": entity_id},
-                )
+            # 会派は開催主体に属するため、会議体削除時に会派を削除する必要はない
 
             # Delete related extracted_conference_members
             await self.session.execute(

@@ -57,7 +57,7 @@ async def test_get_work_history_all_types():
     speaker_repo.find_by_matched_user = AsyncMock(return_value=[speaker_dto])
 
     # 議員団メンバー作成作業のテストデータ
-    group = ParliamentaryGroup(id=1, name="Test Group", conference_id=1)
+    group = ParliamentaryGroup(id=1, name="Test Group", governing_body_id=1)
     membership = ParliamentaryGroupMembership(
         id=1,
         politician_id=1,
@@ -192,7 +192,7 @@ async def test_get_work_history_filter_by_work_type_membership_creation():
     membership_repo = MagicMock()
     user_repo = MagicMock()
 
-    group = ParliamentaryGroup(id=1, name="Test Group", conference_id=1)
+    group = ParliamentaryGroup(id=1, name="Test Group", governing_body_id=1)
     politician = Politician(
         id=1, name="Test Politician", prefecture="東京都", district="東京1区"
     )
@@ -440,7 +440,7 @@ async def test_get_work_history_membership_without_created_at():
     politician1 = Politician(
         id=1, name="Politician 1", prefecture="東京都", district="東京1区"
     )
-    parliamentary_group1 = ParliamentaryGroup(id=1, name="Group 1", conference_id=1)
+    parliamentary_group1 = ParliamentaryGroup(id=1, name="Group 1", governing_body_id=1)
     membership1 = ParliamentaryGroupMembership(
         id=1,
         politician_id=1,
@@ -459,7 +459,7 @@ async def test_get_work_history_membership_without_created_at():
     politician2 = Politician(
         id=2, name="Politician 2", prefecture="東京都", district="東京2区"
     )
-    parliamentary_group2 = ParliamentaryGroup(id=2, name="Group 2", conference_id=1)
+    parliamentary_group2 = ParliamentaryGroup(id=2, name="Group 2", governing_body_id=1)
     membership2 = ParliamentaryGroupMembership(
         id=2,
         politician_id=2,
@@ -521,7 +521,7 @@ async def test_get_work_history_sorted_by_date_descending():
     politician2 = Politician(
         id=2, name="Politician 2", prefecture="東京都", district="東京2区"
     )
-    parliamentary_group = ParliamentaryGroup(id=1, name="Group 1", conference_id=1)
+    parliamentary_group = ParliamentaryGroup(id=1, name="Group 1", governing_body_id=1)
     membership = ParliamentaryGroupMembership(
         id=1,
         politician_id=2,

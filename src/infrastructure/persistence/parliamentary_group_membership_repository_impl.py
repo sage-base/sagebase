@@ -32,8 +32,8 @@ INTERVAL_FUNCTIONS = {
     "month": "DATE_TRUNC('month', created_at)::date",
 }
 
-# Placeholder for lazy-loaded conference_id in partial entity construction
-PLACEHOLDER_CONFERENCE_ID = 0
+# Placeholder for lazy-loaded governing_body_id in partial entity construction
+PLACEHOLDER_GOVERNING_BODY_ID = 0
 
 
 class ParliamentaryGroupMembershipRepositoryImpl(
@@ -344,7 +344,7 @@ class ParliamentaryGroupMembershipRepositoryImpl(
                 parliamentary_group = ParliamentaryGroup(
                     id=row.parliamentary_group_id,
                     name=row.parliamentary_group_name,
-                    conference_id=PLACEHOLDER_CONFERENCE_ID,
+                    governing_body_id=PLACEHOLDER_GOVERNING_BODY_ID,
                 )
 
             politician = None

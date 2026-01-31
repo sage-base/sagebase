@@ -59,8 +59,8 @@ def sample_extracted_members():
 def sample_parliamentary_groups():
     """サンプル議員団リスト"""
     return [
-        ParliamentaryGroup(id=100, name="自民党会派", conference_id=1),
-        ParliamentaryGroup(id=101, name="立憲民主党会派", conference_id=1),
+        ParliamentaryGroup(id=100, name="自民党会派", governing_body_id=1),
+        ParliamentaryGroup(id=101, name="立憲民主党会派", governing_body_id=1),
     ]
 
 
@@ -369,7 +369,9 @@ class TestToDataframe:
         # Arrange
         presenter.parliamentary_group_repo = MagicMock()
         presenter.parliamentary_group_repo.get_by_id = MagicMock(
-            return_value=ParliamentaryGroup(id=100, name="自民党会派", conference_id=1)
+            return_value=ParliamentaryGroup(
+                id=100, name="自民党会派", governing_body_id=1
+            )
         )
 
         # Act

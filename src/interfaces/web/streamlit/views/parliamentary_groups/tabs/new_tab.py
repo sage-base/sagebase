@@ -16,32 +16,27 @@ def render_new_parliamentary_group_tab(presenter: ParliamentaryGroupPresenter) -
     """Render the new parliamentary group registration tab.
 
     議員団の新規登録タブをレンダリングします。
-    会議体の選択、議員団情報の入力、登録処理を行います。
+    開催主体の選択、議員団情報の入力、登録処理を行います。
 
     Args:
         presenter: 議員団プレゼンター
     """
     st.subheader("議員団の新規登録")
 
-    # Get conferences
-    conferences = presenter.get_all_conferences()
-    if not conferences:
-        st.error("会議体が登録されていません。先に会議体を登録してください。")
+    # Get governing bodies
+    governing_bodies = presenter.get_all_governing_bodies()
+    if not governing_bodies:
+        st.error("開催主体が登録されていません。先に開催主体を登録してください。")
         return
 
-    def get_conf_display_name(c: Any) -> str:
-        gb_name = (
-            c.governing_body.name
-            if hasattr(c, "governing_body") and c.governing_body
-            else ""
-        )
-        return f"{gb_name} - {c.name}"
+    def get_gb_display_name(gb: Any) -> str:
+        return gb.name
 
-    conf_options = [get_conf_display_name(c) for c in conferences]
-    conf_map = {get_conf_display_name(c): c.id for c in conferences}
+    gb_options = [get_gb_display_name(gb) for gb in governing_bodies]
+    gb_map = {get_gb_display_name(gb): gb.id for gb in governing_bodies}
 
     with st.form("new_parliamentary_group_form", clear_on_submit=False):
-        selected_conf = st.selectbox("所属会議体", conf_options)
+        selected_gb = st.selectbox("所属開催主体", gb_options)
 
         # Input fields
         group_name = st.text_input("議員団名", placeholder="例: 自民党市議団")
@@ -58,21 +53,21 @@ def render_new_parliamentary_group_tab(presenter: ParliamentaryGroupPresenter) -
         submitted = st.form_submit_button("登録")
 
     if submitted:
-        conf_id = conf_map[selected_conf]
+        gb_id = gb_map[selected_gb]
         if not group_name:
             st.error("議員団名を入力してください")
-        elif conf_id is None:
-            st.error("会議体を選択してください")
+        elif gb_id is None:
+            st.error("開催主体を選択してください")
         else:
             success, group, error = presenter.create(
                 group_name,
-                conf_id,
+                gb_id,
                 group_url if group_url else None,
                 group_description if group_description else None,
                 is_active,
             )
             if success and group:
-                presenter.add_created_group(group, selected_conf)
+                presenter.add_created_group(group, selected_gb)
                 st.success(f"議員団「{group.name}」を登録しました（ID: {group.id}）")
             else:
                 st.error(f"登録に失敗しました: {error}")
@@ -89,7 +84,7 @@ def render_new_parliamentary_group_tab(presenter: ParliamentaryGroupPresenter) -
                 with col1:
                     st.write(f"**議員団名**: {group['name']}")
                     st.write(f"**議員団ID**: {group['id']}")
-                    st.write(f"**所属会議体**: {group['conference_name']}")
+                    st.write(f"**所属開催主体**: {group['governing_body_name']}")
                     if group["url"]:
                         st.write(f"**URL**: {group['url']}")
                     if group["description"]:

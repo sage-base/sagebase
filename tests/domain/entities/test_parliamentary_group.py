@@ -12,11 +12,11 @@ class TestParliamentaryGroup:
         """Test entity initialization with required fields only."""
         group = ParliamentaryGroup(
             name="自民党議員団",
-            conference_id=1,
+            governing_body_id=1,
         )
 
         assert group.name == "自民党議員団"
-        assert group.conference_id == 1
+        assert group.governing_body_id == 1
         assert group.url is None
         assert group.description is None
         assert group.is_active is True  # Default value
@@ -27,7 +27,7 @@ class TestParliamentaryGroup:
         group = ParliamentaryGroup(
             id=10,
             name="立憲民主党会派",
-            conference_id=5,
+            governing_body_id=5,
             url="https://example.com/group",
             description="立憲民主党所属の議員で構成される会派",
             is_active=False,
@@ -35,7 +35,7 @@ class TestParliamentaryGroup:
 
         assert group.id == 10
         assert group.name == "立憲民主党会派"
-        assert group.conference_id == 5
+        assert group.governing_body_id == 5
         assert group.url == "https://example.com/group"
         assert group.description == "立憲民主党所属の議員で構成される会派"
         assert group.is_active is False
@@ -44,14 +44,14 @@ class TestParliamentaryGroup:
         """Test string representation."""
         group = ParliamentaryGroup(
             name="公明党議員団",
-            conference_id=1,
+            governing_body_id=1,
         )
         assert str(group) == "公明党議員団"
 
         group_with_id = ParliamentaryGroup(
             id=42,
             name="日本維新の会",
-            conference_id=2,
+            governing_body_id=2,
         )
         assert str(group_with_id) == "日本維新の会"
 
@@ -61,7 +61,7 @@ class TestParliamentaryGroup:
 
         assert group.id == 1
         assert group.name == "自民党議員団"
-        assert group.conference_id == 1
+        assert group.governing_body_id == 1
         assert group.description is None
         assert group.is_active is True
 
@@ -70,7 +70,7 @@ class TestParliamentaryGroup:
         group = create_parliamentary_group(
             id=99,
             name="国民民主党会派",
-            conference_id=10,
+            governing_body_id=10,
             url="https://example.com/kokumin",
             description="国民民主党の議員団",
             is_active=False,
@@ -78,7 +78,7 @@ class TestParliamentaryGroup:
 
         assert group.id == 99
         assert group.name == "国民民主党会派"
-        assert group.conference_id == 10
+        assert group.governing_body_id == 10
         assert group.url == "https://example.com/kokumin"
         assert group.description == "国民民主党の議員団"
         assert group.is_active is False
@@ -99,7 +99,7 @@ class TestParliamentaryGroup:
         ]
 
         for name in names:
-            group = ParliamentaryGroup(name=name, conference_id=1)
+            group = ParliamentaryGroup(name=name, governing_body_id=1)
             assert group.name == name
             assert str(group) == name
 
@@ -108,14 +108,14 @@ class TestParliamentaryGroup:
         # Default is True
         group_default = ParliamentaryGroup(
             name="Test Group",
-            conference_id=1,
+            governing_body_id=1,
         )
         assert group_default.is_active is True
 
         # Explicitly set to True
         group_active = ParliamentaryGroup(
             name="Active Group",
-            conference_id=1,
+            governing_body_id=1,
             is_active=True,
         )
         assert group_active.is_active is True
@@ -123,7 +123,7 @@ class TestParliamentaryGroup:
         # Explicitly set to False
         group_inactive = ParliamentaryGroup(
             name="Inactive Group",
-            conference_id=1,
+            governing_body_id=1,
             is_active=False,
         )
         assert group_inactive.is_active is False
@@ -140,7 +140,7 @@ class TestParliamentaryGroup:
         for url in urls:
             group = ParliamentaryGroup(
                 name="Test Group",
-                conference_id=1,
+                governing_body_id=1,
                 url=url,
             )
             assert group.url == url
@@ -158,21 +158,21 @@ class TestParliamentaryGroup:
         for desc in descriptions:
             group = ParliamentaryGroup(
                 name="Test Group",
-                conference_id=1,
+                governing_body_id=1,
                 description=desc,
             )
             assert group.description == desc
 
-    def test_conference_id_variations(self) -> None:
-        """Test various conference IDs."""
+    def test_governing_body_id_variations(self) -> None:
+        """Test various governing body IDs."""
         ids = [1, 10, 100, 1000, 9999]
 
-        for conf_id in ids:
+        for gb_id in ids:
             group = ParliamentaryGroup(
                 name="Test Group",
-                conference_id=conf_id,
+                governing_body_id=gb_id,
             )
-            assert group.conference_id == conf_id
+            assert group.governing_body_id == gb_id
 
     def test_inheritance_from_base_entity(self) -> None:
         """Test that ParliamentaryGroup properly inherits from BaseEntity."""
@@ -184,7 +184,7 @@ class TestParliamentaryGroup:
         # Create without id
         group_no_id = ParliamentaryGroup(
             name="Test Group",
-            conference_id=1,
+            governing_body_id=1,
         )
         assert group_no_id.id is None
 
@@ -194,7 +194,7 @@ class TestParliamentaryGroup:
         major_party = ParliamentaryGroup(
             id=1,
             name="自由民主党議員団",
-            conference_id=1,
+            governing_body_id=1,
             url="https://example.com/ldp-group",
             description="自由民主党所属議員で構成される最大会派",
             is_active=True,
@@ -206,7 +206,7 @@ class TestParliamentaryGroup:
         opposition = ParliamentaryGroup(
             id=2,
             name="立憲民主党・無所属の会",
-            conference_id=1,
+            governing_body_id=1,
             url="https://example.com/cdp-group",
             description="立憲民主党と無所属議員による野党第一会派",
             is_active=True,
@@ -217,7 +217,7 @@ class TestParliamentaryGroup:
         dissolved = ParliamentaryGroup(
             id=3,
             name="旧民主党会派",
-            conference_id=1,
+            governing_body_id=1,
             description="2016年に解散した会派",
             is_active=False,
         )
@@ -228,7 +228,7 @@ class TestParliamentaryGroup:
         # Empty strings
         group_empty = ParliamentaryGroup(
             name="Name",
-            conference_id=1,
+            governing_body_id=1,
             url="",
             description="",
         )
@@ -240,7 +240,7 @@ class TestParliamentaryGroup:
         long_name = "自由民主党" * 50
         group_long = ParliamentaryGroup(
             name=long_name,
-            conference_id=1,
+            governing_body_id=1,
         )
         assert group_long.name == long_name
         assert str(group_long) == long_name
@@ -249,7 +249,7 @@ class TestParliamentaryGroup:
         special_name = "立憲民主党・無所属の会（市民派）"
         group_special = ParliamentaryGroup(
             name=special_name,
-            conference_id=1,
+            governing_body_id=1,
         )
         assert group_special.name == special_name
         assert str(group_special) == special_name
@@ -258,7 +258,7 @@ class TestParliamentaryGroup:
         long_url = "https://example.com/" + "a" * 200
         group_long_url = ParliamentaryGroup(
             name="Test",
-            conference_id=1,
+            governing_body_id=1,
             url=long_url,
         )
         assert group_long_url.url == long_url
@@ -267,7 +267,7 @@ class TestParliamentaryGroup:
         long_desc = "説明" * 100
         group_long_desc = ParliamentaryGroup(
             name="Test",
-            conference_id=1,
+            governing_body_id=1,
             description=long_desc,
         )
         assert group_long_desc.description == long_desc
@@ -276,7 +276,7 @@ class TestParliamentaryGroup:
         """Test behavior when optional fields are explicitly set to None."""
         group = ParliamentaryGroup(
             name="Test Group",
-            conference_id=1,
+            governing_body_id=1,
             url=None,
             description=None,
         )
@@ -288,15 +288,15 @@ class TestParliamentaryGroup:
     def test_id_assignment(self) -> None:
         """Test ID assignment behavior."""
         # Without ID
-        group1 = ParliamentaryGroup(name="Test 1", conference_id=1)
+        group1 = ParliamentaryGroup(name="Test 1", governing_body_id=1)
         assert group1.id is None
 
         # With ID
-        group2 = ParliamentaryGroup(name="Test 2", conference_id=1, id=100)
+        group2 = ParliamentaryGroup(name="Test 2", governing_body_id=1, id=100)
         assert group2.id == 100
 
         # ID can be any integer
-        group3 = ParliamentaryGroup(name="Test 3", conference_id=1, id=999999)
+        group3 = ParliamentaryGroup(name="Test 3", governing_body_id=1, id=999999)
         assert group3.id == 999999
 
     def test_coalition_and_opposition_groups(self) -> None:
@@ -304,7 +304,7 @@ class TestParliamentaryGroup:
         # Coalition group
         coalition = ParliamentaryGroup(
             name="与党会派",
-            conference_id=1,
+            governing_body_id=1,
             description="自民党と公明党による連立与党会派",
             is_active=True,
         )
@@ -313,7 +313,7 @@ class TestParliamentaryGroup:
         # Opposition group
         opposition = ParliamentaryGroup(
             name="野党統一会派",
-            conference_id=1,
+            governing_body_id=1,
             description="野党各党による統一会派",
             is_active=True,
         )
@@ -322,7 +322,7 @@ class TestParliamentaryGroup:
         # Independent group
         independent = ParliamentaryGroup(
             name="無所属の会",
-            conference_id=1,
+            governing_body_id=1,
             description="無所属議員による会派",
             is_active=True,
         )
@@ -333,7 +333,7 @@ class TestParliamentaryGroup:
         # Prefectural group
         prefectural = ParliamentaryGroup(
             name="都民ファーストの会",
-            conference_id=1,
+            governing_body_id=1,
             description="東京都議会における地域政党",
             is_active=True,
         )
@@ -342,7 +342,7 @@ class TestParliamentaryGroup:
         # City council group
         city = ParliamentaryGroup(
             name="市民の声",
-            conference_id=2,
+            governing_body_id=2,
             description="市民の声を代表する会派",
             is_active=True,
         )
@@ -351,7 +351,7 @@ class TestParliamentaryGroup:
         # Reform group
         reform = ParliamentaryGroup(
             name="改革ネット",
-            conference_id=3,
+            governing_body_id=3,
             description="地方議会改革を目指す超党派の会派",
             is_active=True,
         )

@@ -44,7 +44,7 @@ logger = get_logger(__name__)
 class ParliamentaryGroupListInputDto:
     """Input DTO for listing parliamentary groups."""
 
-    conference_id: int | None = None
+    governing_body_id: int | None = None
     active_only: bool = False
 
 
@@ -60,7 +60,7 @@ class CreateParliamentaryGroupInputDto:
     """Input DTO for creating a parliamentary group."""
 
     name: str
-    conference_id: int
+    governing_body_id: int
     url: str | None = None
     description: str | None = None
     is_active: bool = True
@@ -178,9 +178,11 @@ class ManageParliamentaryGroupsUseCase:
     ) -> ParliamentaryGroupListOutputDto:
         """List parliamentary groups with optional filters."""
         try:
-            if input_dto.conference_id:
-                groups = await self.parliamentary_group_repository.get_by_conference_id(
-                    input_dto.conference_id, input_dto.active_only
+            if input_dto.governing_body_id:
+                groups = (
+                    await self.parliamentary_group_repository.get_by_governing_body_id(
+                        input_dto.governing_body_id, input_dto.active_only
+                    )
                 )
             else:
                 groups = await self.parliamentary_group_repository.get_all()
@@ -198,10 +200,9 @@ class ManageParliamentaryGroupsUseCase:
         """Create a new parliamentary group."""
         try:
             # Check for duplicates
-            existing = (
-                await self.parliamentary_group_repository.get_by_name_and_conference(
-                    input_dto.name, input_dto.conference_id
-                )
+            repo = self.parliamentary_group_repository
+            existing = await repo.get_by_name_and_governing_body(
+                input_dto.name, input_dto.governing_body_id
             )
             if existing:
                 return CreateParliamentaryGroupOutputDto(
@@ -212,7 +213,7 @@ class ManageParliamentaryGroupsUseCase:
             # Create new parliamentary group
             parliamentary_group = ParliamentaryGroup(
                 name=input_dto.name,
-                conference_id=input_dto.conference_id,
+                governing_body_id=input_dto.governing_body_id,
                 url=input_dto.url,
                 description=input_dto.description,
                 is_active=input_dto.is_active,
@@ -396,7 +397,7 @@ class ManageParliamentaryGroupsUseCase:
             seed_content += "-- Generated from current database\n\n"
             seed_content += (
                 "INSERT INTO parliamentary_groups "
-                "(id, name, conference_id, url, description, is_active) VALUES\n"
+                "(id, name, governing_body_id, url, description, is_active) VALUES\n"
             )
 
             values: list[str] = []
@@ -405,14 +406,14 @@ class ManageParliamentaryGroupsUseCase:
                 description = f"'{group.description}'" if group.description else "NULL"
                 is_active = "true" if group.is_active else "false"
                 values.append(
-                    f"    ({group.id}, '{group.name}', {group.conference_id}, "
+                    f"    ({group.id}, '{group.name}', {group.governing_body_id}, "
                     f"{url}, {description}, {is_active})"
                 )
 
             seed_content += ",\n".join(values) + "\n"
             seed_content += "ON CONFLICT (id) DO UPDATE SET\n"
             seed_content += "    name = EXCLUDED.name,\n"
-            seed_content += "    conference_id = EXCLUDED.conference_id,\n"
+            seed_content += "    governing_body_id = EXCLUDED.governing_body_id,\n"
             seed_content += "    url = EXCLUDED.url,\n"
             seed_content += "    description = EXCLUDED.description,\n"
             seed_content += "    is_active = EXCLUDED.is_active;\n\n"

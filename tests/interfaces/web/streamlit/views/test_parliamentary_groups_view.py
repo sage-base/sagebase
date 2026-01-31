@@ -11,7 +11,7 @@ import pytest
 def mock_presenter():
     """ParliamentaryGroupPresenterのモック"""
     mock = MagicMock()
-    mock.get_all_conferences.return_value = []
+    mock.get_all_governing_bodies.return_value = []
     mock.load_data.return_value = []
     return mock
 
@@ -24,7 +24,7 @@ def test_render_parliamentary_groups_list_tab_with_no_data(mock_st, mock_present
         render_parliamentary_groups_list_tab,
     )
 
-    mock_presenter.get_all_conferences.return_value = []
+    mock_presenter.get_all_governing_bodies.return_value = []
     mock_presenter.load_data.return_value = []
 
     # st.selectbox()がコンテキストマネージャーを返すようにモック
@@ -38,23 +38,23 @@ def test_render_parliamentary_groups_list_tab_with_no_data(mock_st, mock_present
 
 
 @patch("src.interfaces.web.streamlit.views.parliamentary_groups.tabs.new_tab.st")
-def test_render_new_parliamentary_group_tab_requires_conferences(
+def test_render_new_parliamentary_group_tab_requires_governing_bodies(
     mock_st, mock_presenter
 ):
-    """新規登録タブが会議体の存在を要求することを確認"""
+    """新規登録タブが開催主体の存在を要求することを確認"""
     # Arrange
     from src.interfaces.web.streamlit.views.parliamentary_groups.tabs.new_tab import (
         render_new_parliamentary_group_tab,
     )
 
-    mock_presenter.get_all_conferences.return_value = []
+    mock_presenter.get_all_governing_bodies.return_value = []
 
     # Act
     render_new_parliamentary_group_tab(mock_presenter)
 
     # Assert
     mock_st.error.assert_called_once_with(
-        "会議体が登録されていません。先に会議体を登録してください。"
+        "開催主体が登録されていません。先に開催主体を登録してください。"
     )
 
 

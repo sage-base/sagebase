@@ -10,17 +10,17 @@ class ParliamentaryGroupRepository(BaseRepository[ParliamentaryGroup]):
     """Repository interface for parliamentary groups."""
 
     @abstractmethod
-    async def get_by_name_and_conference(
-        self, name: str, conference_id: int
+    async def get_by_name_and_governing_body(
+        self, name: str, governing_body_id: int
     ) -> ParliamentaryGroup | None:
-        """Get parliamentary group by name and conference."""
+        """Get parliamentary group by name and governing body."""
         pass
 
     @abstractmethod
-    async def get_by_conference_id(
-        self, conference_id: int, active_only: bool = True
+    async def get_by_governing_body_id(
+        self, governing_body_id: int, active_only: bool = True
     ) -> list[ParliamentaryGroup]:
-        """Get all parliamentary groups for a conference."""
+        """Get all parliamentary groups for a governing body."""
         pass
 
     @abstractmethod

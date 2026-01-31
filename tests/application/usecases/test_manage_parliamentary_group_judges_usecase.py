@@ -65,7 +65,7 @@ class TestManageParliamentaryGroupJudgesUseCase:
         return ParliamentaryGroup(
             id=1,
             name="自民党会派",
-            conference_id=100,
+            governing_body_id=100,
         )
 
     @pytest.fixture
@@ -74,7 +74,7 @@ class TestManageParliamentaryGroupJudgesUseCase:
         return ParliamentaryGroup(
             id=2,
             name="公明党会派",
-            conference_id=100,
+            governing_body_id=100,
         )
 
     @pytest.fixture

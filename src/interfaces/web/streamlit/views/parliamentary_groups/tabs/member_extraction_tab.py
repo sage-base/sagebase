@@ -36,24 +36,18 @@ def render_member_extraction_tab(presenter: ParliamentaryGroupPresenter) -> None
         )
         return
 
-    # Get conferences for display
-    conferences = presenter.get_all_conferences()
+    # Get governing bodies for display
+    governing_bodies = presenter.get_all_governing_bodies()
 
     # Select parliamentary group
     group_options = []
     group_map = {}
     for group in groups_with_url:
-        conf = next((c for c in conferences if c.id == group.conference_id), None)
-        if conf:
-            gb_name = (
-                conf.governing_body.name  # type: ignore[attr-defined]
-                if hasattr(conf, "governing_body") and conf.governing_body  # type: ignore[attr-defined]
-                else ""
-            )
-            conf_name = f"{gb_name} - {conf.name}"
-        else:
-            conf_name = "不明"
-        display_name = f"{group.name} ({conf_name})"
+        gb = next(
+            (g for g in governing_bodies if g.id == group.governing_body_id), None
+        )
+        gb_name = gb.name if gb else "不明"
+        display_name = f"{group.name} ({gb_name})"
         group_options.append(display_name)
         group_map[display_name] = group
 

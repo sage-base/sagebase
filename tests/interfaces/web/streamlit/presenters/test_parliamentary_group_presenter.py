@@ -14,7 +14,8 @@ from src.application.usecases.manage_parliamentary_groups_usecase import (
     ParliamentaryGroupListOutputDto,
     UpdateParliamentaryGroupOutputDto,
 )
-from src.domain.entities import Conference, ParliamentaryGroup
+from src.domain.entities import ParliamentaryGroup
+from src.domain.entities.governing_body import GoverningBody
 
 
 @pytest.fixture
@@ -30,22 +31,22 @@ def sample_parliamentary_groups():
         ParliamentaryGroup(
             id=1,
             name="自民党会派",
-            conference_id=100,
+            governing_body_id=100,
         ),
         ParliamentaryGroup(
             id=2,
             name="立憲民主党会派",
-            conference_id=100,
+            governing_body_id=100,
         ),
     ]
 
 
 @pytest.fixture
-def sample_conferences():
-    """サンプル会議体リスト"""
+def sample_governing_bodies():
+    """サンプル開催主体リスト"""
     return [
-        Conference(id=100, name="本会議", governing_body_id=1),
-        Conference(id=101, name="予算委員会", governing_body_id=1),
+        GoverningBody(id=100, name="東京都議会"),
+        GoverningBody(id=101, name="大阪府議会"),
     ]
 
 
@@ -83,7 +84,7 @@ def presenter(mock_use_case):
             return_value={
                 "editing_mode": None,
                 "editing_id": None,
-                "conference_filter": "すべて",
+                "governing_body_filter": "すべて",
                 "created_parliamentary_groups": [],
             }
         )
@@ -179,10 +180,10 @@ class TestLoadData:
 class TestLoadParliamentaryGroupsWithFilters:
     """load_parliamentary_groups_with_filtersメソッドのテスト"""
 
-    async def test_with_conference_filter(
+    async def test_with_governing_body_filter(
         self, presenter, mock_use_case, sample_parliamentary_groups
     ):
-        """会議体フィルタで絞り込めることを確認"""
+        """開催主体フィルタで絞り込めることを確認"""
         # Arrange
         mock_use_case.list_parliamentary_groups.return_value = (
             ParliamentaryGroupListOutputDto(
@@ -192,7 +193,7 @@ class TestLoadParliamentaryGroupsWithFilters:
 
         # Act
         result = await presenter._load_parliamentary_groups_with_filters_async(
-            conference_id=100
+            governing_body_id=100
         )
 
         # Assert
@@ -218,17 +219,21 @@ class TestLoadParliamentaryGroupsWithFilters:
         assert len(result) == 1
 
 
-class TestGetAllConferences:
-    """get_all_conferencesメソッドのテスト"""
+class TestGetAllGoverningBodies:
+    """get_all_governing_bodiesメソッドのテスト"""
 
-    async def test_get_all_conferences_success(self, presenter, sample_conferences):
-        """会議体リストを取得できることを確認"""
+    async def test_get_all_governing_bodies_success(
+        self, presenter, sample_governing_bodies
+    ):
+        """開催主体リストを取得できることを確認"""
         # Arrange
-        presenter.conference_repo = MagicMock()
-        presenter.conference_repo.get_all = AsyncMock(return_value=sample_conferences)
+        presenter.governing_body_repo = MagicMock()
+        presenter.governing_body_repo.get_all = AsyncMock(
+            return_value=sample_governing_bodies
+        )
 
         # Act
-        result = await presenter._get_all_conferences_async()
+        result = await presenter._get_all_governing_bodies_async()
 
         # Assert
         assert len(result) == 2
@@ -240,7 +245,7 @@ class TestCreate:
     async def test_create_success(self, presenter, mock_use_case):
         """議員団の作成が成功することを確認"""
         # Arrange
-        created_group = ParliamentaryGroup(id=1, name="新規会派", conference_id=100)
+        created_group = ParliamentaryGroup(id=1, name="新規会派", governing_body_id=100)
         mock_use_case.create_parliamentary_group.return_value = (
             CreateParliamentaryGroupOutputDto(
                 success=True, parliamentary_group=created_group, error_message=None
@@ -250,7 +255,7 @@ class TestCreate:
         # Act
         success, group, error_message = await presenter._create_async(
             name="新規会派",
-            conference_id=100,
+            governing_body_id=100,
         )
 
         # Assert
@@ -271,7 +276,7 @@ class TestCreate:
 
         # Act
         success, group, error_message = await presenter._create_async(
-            name="新規会派", conference_id=100
+            name="新規会派", governing_body_id=100
         )
 
         # Assert
@@ -392,11 +397,13 @@ class TestToDataframe:
     """to_dataframeメソッドのテスト"""
 
     def test_to_dataframe_success(
-        self, presenter, sample_parliamentary_groups, sample_conferences
+        self, presenter, sample_parliamentary_groups, sample_governing_bodies
     ):
         """議員団リストをDataFrameに変換できることを確認"""
         # Act
-        df = presenter.to_dataframe(sample_parliamentary_groups, sample_conferences)
+        df = presenter.to_dataframe(
+            sample_parliamentary_groups, sample_governing_bodies
+        )
 
         # Assert
         assert isinstance(df, pd.DataFrame)
@@ -404,10 +411,10 @@ class TestToDataframe:
         assert "ID" in df.columns
         assert "議員団名" in df.columns
 
-    def test_to_dataframe_empty(self, presenter, sample_conferences):
+    def test_to_dataframe_empty(self, presenter, sample_governing_bodies):
         """空のリストを処理できることを確認"""
         # Act
-        df = presenter.to_dataframe([], sample_conferences)
+        df = presenter.to_dataframe([], sample_governing_bodies)
 
         # Assert
         assert df is None
@@ -587,10 +594,10 @@ class TestCreatedGroupsManagement:
         """作成した議員団を追加できることを確認"""
         # Arrange
         presenter._save_form_state = MagicMock()
-        group = ParliamentaryGroup(id=1, name="新規会派", conference_id=100)
+        group = ParliamentaryGroup(id=1, name="新規会派", governing_body_id=100)
 
         # Act
-        presenter.add_created_group(group, "本会議")
+        presenter.add_created_group(group, "東京都議会")
 
         # Assert
         assert len(presenter.form_state["created_parliamentary_groups"]) == 1

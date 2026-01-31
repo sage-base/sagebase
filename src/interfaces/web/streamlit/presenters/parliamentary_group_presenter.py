@@ -17,21 +17,22 @@ from src.application.usecases.update_extracted_parliamentary_group_member_from_e
     UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase,
 )
 from src.common.logging import get_logger
-from src.domain.entities import Conference, ParliamentaryGroup
+from src.domain.entities import ParliamentaryGroup
+from src.domain.entities.governing_body import GoverningBody
 from src.infrastructure.di.container import Container
 from src.infrastructure.external.llm_service import GeminiLLMService
 from src.infrastructure.external.parliamentary_group_member_extractor.factory import (
     ParliamentaryGroupMemberExtractorFactory,
 )
 from src.infrastructure.persistence.async_session_adapter import NoOpSessionAdapter
-from src.infrastructure.persistence.conference_repository_impl import (
-    ConferenceRepositoryImpl,
-)
 from src.infrastructure.persistence.extracted_parliamentary_group_member_repository_impl import (  # noqa: E501
     ExtractedParliamentaryGroupMemberRepositoryImpl,
 )
 from src.infrastructure.persistence.extraction_log_repository_impl import (
     ExtractionLogRepositoryImpl,
+)
+from src.infrastructure.persistence.governing_body_repository_impl import (
+    GoverningBodyRepositoryImpl,
 )
 from src.infrastructure.persistence.parliamentary_group_membership_repository_impl import (  # noqa: E501
     ParliamentaryGroupMembershipRepositoryImpl,
@@ -57,7 +58,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         self.parliamentary_group_repo = RepositoryAdapter(
             ParliamentaryGroupRepositoryImpl
         )
-        self.conference_repo = RepositoryAdapter(ConferenceRepositoryImpl)
+        self.governing_body_repo = RepositoryAdapter(GoverningBodyRepositoryImpl)
         self.politician_repo = RepositoryAdapter(PoliticianRepositoryImpl)
         self.membership_repo = RepositoryAdapter(
             ParliamentaryGroupMembershipRepositoryImpl
@@ -101,7 +102,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         default_state = {
             "editing_mode": None,
             "editing_id": None,
-            "conference_filter": "すべて",
+            "governing_body_filter": "すべて",
             "created_parliamentary_groups": [],
         }
         return self.session.get_or_create(
@@ -128,23 +129,23 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
             return []
 
     def load_parliamentary_groups_with_filters(
-        self, conference_id: int | None = None, active_only: bool = False
+        self, governing_body_id: int | None = None, active_only: bool = False
     ) -> list[ParliamentaryGroup]:
         """Load parliamentary groups with filters."""
         return self._run_async(
             self._load_parliamentary_groups_with_filters_async(
-                conference_id, active_only
+                governing_body_id, active_only
             )
         )
 
     async def _load_parliamentary_groups_with_filters_async(
-        self, conference_id: int | None = None, active_only: bool = False
+        self, governing_body_id: int | None = None, active_only: bool = False
     ) -> list[ParliamentaryGroup]:
         """Load parliamentary groups with filters (async implementation)."""
         try:
             result = await self.use_case.list_parliamentary_groups(
                 ParliamentaryGroupListInputDto(
-                    conference_id=conference_id, active_only=active_only
+                    governing_body_id=governing_body_id, active_only=active_only
                 )
             )
             return result.parliamentary_groups
@@ -152,35 +153,35 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
             self.logger.error(f"Failed to load parliamentary groups with filters: {e}")
             return []
 
-    def get_all_conferences(self) -> list[Conference]:
-        """Get all conferences."""
-        return self._run_async(self._get_all_conferences_async())
+    def get_all_governing_bodies(self) -> list[GoverningBody]:
+        """Get all governing bodies."""
+        return self._run_async(self._get_all_governing_bodies_async())
 
-    async def _get_all_conferences_async(self) -> list[Conference]:
-        """Get all conferences (async implementation)."""
+    async def _get_all_governing_bodies_async(self) -> list[GoverningBody]:
+        """Get all governing bodies (async implementation)."""
         try:
-            return await self.conference_repo.get_all()
+            return await self.governing_body_repo.get_all()
         except Exception as e:
-            self.logger.error(f"Failed to get conferences: {e}")
+            self.logger.error(f"Failed to get governing bodies: {e}")
             return []
 
     def create(
         self,
         name: str,
-        conference_id: int,
+        governing_body_id: int,
         url: str | None = None,
         description: str | None = None,
         is_active: bool = True,
     ) -> tuple[bool, ParliamentaryGroup | None, str | None]:
         """Create a new parliamentary group."""
         return self._run_async(
-            self._create_async(name, conference_id, url, description, is_active)
+            self._create_async(name, governing_body_id, url, description, is_active)
         )
 
     async def _create_async(
         self,
         name: str,
-        conference_id: int,
+        governing_body_id: int,
         url: str | None = None,
         description: str | None = None,
         is_active: bool = True,
@@ -190,7 +191,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
             result = await self.use_case.create_parliamentary_group(
                 CreateParliamentaryGroupInputDto(
                     name=name,
-                    conference_id=conference_id,
+                    governing_body_id=governing_body_id,
                     url=url,
                     description=description,
                     is_active=is_active,
@@ -375,7 +376,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
     def to_dataframe(
         self,
         parliamentary_groups: list[ParliamentaryGroup],
-        conferences: list[Conference],
+        governing_bodies: list[GoverningBody],
     ) -> pd.DataFrame | None:
         """Convert parliamentary groups to DataFrame."""
         if not parliamentary_groups:
@@ -383,15 +384,17 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
 
         df_data = []
         for group in parliamentary_groups:
-            # Find conference name
-            conf = next((c for c in conferences if c.id == group.conference_id), None)
-            conf_name = f"{conf.name}" if conf else "不明"
+            # Find governing body name
+            gb = next(
+                (g for g in governing_bodies if g.id == group.governing_body_id), None
+            )
+            gb_name = f"{gb.name}" if gb else "不明"
 
             df_data.append(
                 {
                     "ID": group.id,
                     "議員団名": group.name,
-                    "会議体": conf_name,
+                    "開催主体": gb_name,
                     "URL": group.url or "未設定",
                     "説明": group.description or "",
                     "状態": "活動中" if group.is_active else "非活動",
@@ -434,12 +437,12 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         """Handle user actions."""
         if action == "list":
             return self.load_parliamentary_groups_with_filters(
-                kwargs.get("conference_id"), kwargs.get("active_only", False)
+                kwargs.get("governing_body_id"), kwargs.get("active_only", False)
             )
         elif action == "create":
             return self.create(
                 kwargs.get("name", ""),
-                kwargs.get("conference_id", 0),
+                kwargs.get("governing_body_id", 0),
                 kwargs.get("url"),
                 kwargs.get("description"),
                 kwargs.get("is_active", True),
@@ -468,14 +471,14 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
             raise ValueError(f"Unknown action: {action}")
 
     def add_created_group(
-        self, group: ParliamentaryGroup, conference_name: str
+        self, group: ParliamentaryGroup, governing_body_name: str
     ) -> None:
         """Add a created group to the session state."""
         created_group = {
             "id": group.id,
             "name": group.name,
-            "conference_id": group.conference_id,
-            "conference_name": conference_name,
+            "governing_body_id": group.governing_body_id,
+            "governing_body_name": governing_body_name,
             "url": group.url or "",
             "description": group.description or "",
             "is_active": group.is_active,

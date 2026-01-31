@@ -58,10 +58,10 @@ class TestManageParliamentaryGroupsUseCase:
         # Arrange
         groups = [
             ParliamentaryGroup(
-                id=1, name="自由民主党", conference_id=1, is_active=True
+                id=1, name="自由民主党", governing_body_id=1, is_active=True
             ),
             ParliamentaryGroup(
-                id=2, name="立憲民主党", conference_id=1, is_active=True
+                id=2, name="立憲民主党", governing_body_id=1, is_active=True
             ),
         ]
         mock_parliamentary_group_repository.get_all.return_value = groups
@@ -84,20 +84,22 @@ class TestManageParliamentaryGroupsUseCase:
         # Arrange
         groups = [
             ParliamentaryGroup(
-                id=1, name="自由民主党", conference_id=1, is_active=True
+                id=1, name="自由民主党", governing_body_id=1, is_active=True
             ),
         ]
-        mock_parliamentary_group_repository.get_by_conference_id.return_value = groups
+        mock_parliamentary_group_repository.get_by_governing_body_id.return_value = (
+            groups
+        )
 
-        input_dto = ParliamentaryGroupListInputDto(conference_id=1)
+        input_dto = ParliamentaryGroupListInputDto(governing_body_id=1)
 
         # Act
         result = await use_case.list_parliamentary_groups(input_dto)
 
         # Assert
         assert len(result.parliamentary_groups) == 1
-        assert result.parliamentary_groups[0].conference_id == 1
-        mock_parliamentary_group_repository.get_by_conference_id.assert_called_once_with(
+        assert result.parliamentary_groups[0].governing_body_id == 1
+        mock_parliamentary_group_repository.get_by_governing_body_id.assert_called_once_with(
             1, False
         )
 
@@ -108,10 +110,10 @@ class TestManageParliamentaryGroupsUseCase:
         """Test listing active parliamentary groups only."""
         # Arrange
         active_group = ParliamentaryGroup(
-            id=1, name="自由民主党", conference_id=1, is_active=True
+            id=1, name="自由民主党", governing_body_id=1, is_active=True
         )
         inactive_group = ParliamentaryGroup(
-            id=2, name="解散した会派", conference_id=1, is_active=False
+            id=2, name="解散した会派", governing_body_id=1, is_active=False
         )
         all_groups = [active_group, inactive_group]
         mock_parliamentary_group_repository.get_all.return_value = all_groups
@@ -147,13 +149,12 @@ class TestManageParliamentaryGroupsUseCase:
     ):
         """Test creating a parliamentary group successfully."""
         # Arrange
-        mock_parliamentary_group_repository.get_by_name_and_conference.return_value = (
-            None
-        )
+        mock_repo = mock_parliamentary_group_repository
+        mock_repo.get_by_name_and_governing_body.return_value = None
         created_group = ParliamentaryGroup(
             id=1,
             name="新しい会派",
-            conference_id=1,
+            governing_body_id=1,
             url="https://example.com",
             description="テスト会派",
             is_active=True,
@@ -162,7 +163,7 @@ class TestManageParliamentaryGroupsUseCase:
 
         input_dto = CreateParliamentaryGroupInputDto(
             name="新しい会派",
-            conference_id=1,
+            governing_body_id=1,
             url="https://example.com",
             description="テスト会派",
             is_active=True,
@@ -185,13 +186,14 @@ class TestManageParliamentaryGroupsUseCase:
         """Test creating a parliamentary group with duplicate name."""
         # Arrange
         existing_group = ParliamentaryGroup(
-            id=1, name="既存の会派", conference_id=1, is_active=True
+            id=1, name="既存の会派", governing_body_id=1, is_active=True
         )
-        mock_parliamentary_group_repository.get_by_name_and_conference.return_value = (
-            existing_group
-        )
+        mock_repo = mock_parliamentary_group_repository
+        mock_repo.get_by_name_and_governing_body.return_value = existing_group
 
-        input_dto = CreateParliamentaryGroupInputDto(name="既存の会派", conference_id=1)
+        input_dto = CreateParliamentaryGroupInputDto(
+            name="既存の会派", governing_body_id=1
+        )
 
         # Act
         result = await use_case.create_parliamentary_group(input_dto)
@@ -207,14 +209,13 @@ class TestManageParliamentaryGroupsUseCase:
     ):
         """Test creating a parliamentary group with repository error."""
         # Arrange
-        mock_parliamentary_group_repository.get_by_name_and_conference.return_value = (
-            None
-        )
-        mock_parliamentary_group_repository.create.side_effect = Exception(
-            "Database error"
-        )
+        mock_repo = mock_parliamentary_group_repository
+        mock_repo.get_by_name_and_governing_body.return_value = None
+        mock_repo.create.side_effect = Exception("Database error")
 
-        input_dto = CreateParliamentaryGroupInputDto(name="新しい会派", conference_id=1)
+        input_dto = CreateParliamentaryGroupInputDto(
+            name="新しい会派", governing_body_id=1
+        )
 
         # Act
         result = await use_case.create_parliamentary_group(input_dto)
@@ -230,7 +231,7 @@ class TestManageParliamentaryGroupsUseCase:
         """Test updating a parliamentary group successfully."""
         # Arrange
         existing_group = ParliamentaryGroup(
-            id=1, name="自由民主党", conference_id=1, is_active=True
+            id=1, name="自由民主党", governing_body_id=1, is_active=True
         )
         mock_parliamentary_group_repository.get_by_id.return_value = existing_group
 
@@ -277,7 +278,7 @@ class TestManageParliamentaryGroupsUseCase:
         """Test updating a parliamentary group with repository error."""
         # Arrange
         existing_group = ParliamentaryGroup(
-            id=1, name="自由民主党", conference_id=1, is_active=True
+            id=1, name="自由民主党", governing_body_id=1, is_active=True
         )
         mock_parliamentary_group_repository.get_by_id.return_value = existing_group
         mock_parliamentary_group_repository.update.side_effect = Exception(
@@ -302,7 +303,7 @@ class TestManageParliamentaryGroupsUseCase:
         """Test deleting a parliamentary group successfully."""
         # Arrange
         inactive_group = ParliamentaryGroup(
-            id=1, name="解散した会派", conference_id=1, is_active=False
+            id=1, name="解散した会派", governing_body_id=1, is_active=False
         )
         mock_parliamentary_group_repository.get_by_id.return_value = inactive_group
 
@@ -341,7 +342,7 @@ class TestManageParliamentaryGroupsUseCase:
         """Test deleting an active parliamentary group."""
         # Arrange
         active_group = ParliamentaryGroup(
-            id=1, name="自由民主党", conference_id=1, is_active=True
+            id=1, name="自由民主党", governing_body_id=1, is_active=True
         )
         mock_parliamentary_group_repository.get_by_id.return_value = active_group
 
@@ -362,7 +363,7 @@ class TestManageParliamentaryGroupsUseCase:
         """Test deleting a parliamentary group with repository error."""
         # Arrange
         inactive_group = ParliamentaryGroup(
-            id=1, name="解散した会派", conference_id=1, is_active=False
+            id=1, name="解散した会派", governing_body_id=1, is_active=False
         )
         mock_parliamentary_group_repository.get_by_id.return_value = inactive_group
         mock_parliamentary_group_repository.delete.side_effect = Exception(
@@ -394,7 +395,7 @@ class TestManageParliamentaryGroupsUseCase:
         )
 
         inactive_group = ParliamentaryGroup(
-            id=1, name="解散した会派", conference_id=1, is_active=False
+            id=1, name="解散した会派", governing_body_id=1, is_active=False
         )
         mock_parliamentary_group_repository.get_by_id.return_value = inactive_group
 
@@ -438,7 +439,7 @@ class TestManageParliamentaryGroupsUseCase:
         """Test deleting a parliamentary group with no members successfully."""
         # Arrange
         inactive_group = ParliamentaryGroup(
-            id=1, name="解散した会派", conference_id=1, is_active=False
+            id=1, name="解散した会派", governing_body_id=1, is_active=False
         )
         mock_parliamentary_group_repository.get_by_id.return_value = inactive_group
 
@@ -464,7 +465,7 @@ class TestManageParliamentaryGroupsUseCase:
         """Test backward compatibility: deleting without membership repository."""
         # Arrange
         inactive_group = ParliamentaryGroup(
-            id=1, name="解散した会派", conference_id=1, is_active=False
+            id=1, name="解散した会派", governing_body_id=1, is_active=False
         )
         mock_parliamentary_group_repository.get_by_id.return_value = inactive_group
 
@@ -486,13 +487,12 @@ class TestManageParliamentaryGroupsUseCase:
         シーケンス衝突を防ぐため、新規エンティティのIDはNoneである必要がある。
         """
         # Arrange
-        mock_parliamentary_group_repository.get_by_name_and_conference.return_value = (
-            None
-        )
+        mock_repo = mock_parliamentary_group_repository
+        mock_repo.get_by_name_and_governing_body.return_value = None
         created_group = ParliamentaryGroup(
             id=10,
             name="新しい会派",
-            conference_id=1,
+            governing_body_id=1,
             url="https://example.com",
             description="テスト会派",
             is_active=True,
@@ -501,7 +501,7 @@ class TestManageParliamentaryGroupsUseCase:
 
         input_dto = CreateParliamentaryGroupInputDto(
             name="新しい会派",
-            conference_id=1,
+            governing_body_id=1,
             url="https://example.com",
             description="テスト会派",
             is_active=True,
@@ -517,7 +517,7 @@ class TestManageParliamentaryGroupsUseCase:
         created_entity = create_call[0][0]
         assert created_entity.id is None, "新規作成時のエンティティIDはNoneであるべき"
         assert created_entity.name == "新しい会派"
-        assert created_entity.conference_id == 1
+        assert created_entity.governing_body_id == 1
 
     @pytest.mark.asyncio
     async def test_create_multiple_parliamentary_groups_sequentially(
@@ -528,16 +528,15 @@ class TestManageParliamentaryGroupsUseCase:
         シーケンスが正しく機能している場合、連続作成でもIDが衝突しない。
         """
         # Arrange
-        mock_parliamentary_group_repository.get_by_name_and_conference.return_value = (
-            None
-        )
+        mock_repo = mock_parliamentary_group_repository
+        mock_repo.get_by_name_and_governing_body.return_value = None
 
         # 連続して異なるIDで作成される
         created_groups = [
             ParliamentaryGroup(
                 id=i + 1,
                 name=f"会派{i + 1}",
-                conference_id=1,
+                governing_body_id=1,
                 is_active=True,
             )
             for i in range(3)
@@ -548,7 +547,7 @@ class TestManageParliamentaryGroupsUseCase:
         for i in range(3):
             input_dto = CreateParliamentaryGroupInputDto(
                 name=f"会派{i + 1}",
-                conference_id=1,
+                governing_body_id=1,
                 is_active=True,
             )
             result = await use_case.create_parliamentary_group(input_dto)
