@@ -26,7 +26,6 @@ class ProposalJudgeModel(PydanticBaseModel):
     id: int | None = None
     proposal_id: int
     politician_id: int
-    politician_party_id: int | None = None
     approve: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -67,7 +66,6 @@ class ProposalJudgeRepositoryImpl(
                     pj.id,
                     pj.proposal_id,
                     pj.politician_id,
-                    pj.politician_party_id,
                     pj.approve,
                     pj.created_at,
                     pj.updated_at
@@ -112,7 +110,6 @@ class ProposalJudgeRepositoryImpl(
                     pj.id,
                     pj.proposal_id,
                     pj.politician_id,
-                    pj.politician_party_id,
                     pj.approve,
                     pj.created_at,
                     pj.updated_at
@@ -160,7 +157,6 @@ class ProposalJudgeRepositoryImpl(
                     id,
                     proposal_id,
                     politician_id,
-                    politician_party_id,
                     approve,
                     created_at,
                     updated_at
@@ -217,7 +213,6 @@ class ProposalJudgeRepositoryImpl(
                     {
                         "proposal_id": judge.proposal_id,
                         "politician_id": judge.politician_id,
-                        "politician_party_id": judge.politician_party_id,
                         "approve": judge.approve,
                     }
                 )
@@ -225,10 +220,10 @@ class ProposalJudgeRepositoryImpl(
             # Create bulk insert query
             query = text("""
                 INSERT INTO proposal_judges (
-                    proposal_id, politician_id, politician_party_id, approve
+                    proposal_id, politician_id, approve
                 )
-                VALUES (:proposal_id, :politician_id, :politician_party_id, :approve)
-                RETURNING id, proposal_id, politician_id, politician_party_id,
+                VALUES (:proposal_id, :politician_id, :approve)
+                RETURNING id, proposal_id, politician_id,
                           approve, created_at, updated_at
             """)
 
@@ -274,7 +269,6 @@ class ProposalJudgeRepositoryImpl(
                     pj.id,
                     pj.proposal_id,
                     pj.politician_id,
-                    pj.politician_party_id,
                     pj.approve,
                     pj.created_at,
                     pj.updated_at
@@ -322,7 +316,6 @@ class ProposalJudgeRepositoryImpl(
                     id,
                     proposal_id,
                     politician_id,
-                    politician_party_id,
                     approve,
                     created_at,
                     updated_at
@@ -362,10 +355,10 @@ class ProposalJudgeRepositoryImpl(
         try:
             query = text("""
                 INSERT INTO proposal_judges (
-                    proposal_id, politician_id, politician_party_id, approve
+                    proposal_id, politician_id, approve
                 )
-                VALUES (:proposal_id, :politician_id, :politician_party_id, :approve)
-                RETURNING id, proposal_id, politician_id, politician_party_id,
+                VALUES (:proposal_id, :politician_id, :approve)
+                RETURNING id, proposal_id, politician_id,
                           approve, created_at, updated_at
             """)
 
@@ -374,7 +367,6 @@ class ProposalJudgeRepositoryImpl(
                 {
                     "proposal_id": entity.proposal_id,
                     "politician_id": entity.politician_id,
-                    "politician_party_id": entity.politician_party_id,
                     "approve": entity.approve,
                 },
             )
@@ -416,11 +408,10 @@ class ProposalJudgeRepositoryImpl(
                 UPDATE proposal_judges
                 SET proposal_id = :proposal_id,
                     politician_id = :politician_id,
-                    politician_party_id = :politician_party_id,
                     approve = :approve,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = :id
-                RETURNING id, proposal_id, politician_id, politician_party_id,
+                RETURNING id, proposal_id, politician_id,
                           approve, created_at, updated_at
             """)
 
@@ -430,7 +421,6 @@ class ProposalJudgeRepositoryImpl(
                     "id": entity.id,
                     "proposal_id": entity.proposal_id,
                     "politician_id": entity.politician_id,
-                    "politician_party_id": entity.politician_party_id,
                     "approve": entity.approve,
                 },
             )
@@ -493,7 +483,6 @@ class ProposalJudgeRepositoryImpl(
             id=model.id,
             proposal_id=model.proposal_id,
             politician_id=model.politician_id,
-            politician_party_id=model.politician_party_id,
             approve=model.approve,
         )
 
@@ -510,7 +499,6 @@ class ProposalJudgeRepositoryImpl(
             id=entity.id,
             proposal_id=entity.proposal_id,
             politician_id=entity.politician_id,
-            politician_party_id=entity.politician_party_id,
             approve=entity.approve,
         )
 
@@ -523,7 +511,6 @@ class ProposalJudgeRepositoryImpl(
         """
         model.proposal_id = entity.proposal_id
         model.politician_id = entity.politician_id
-        model.politician_party_id = entity.politician_party_id
         model.approve = entity.approve
 
     def _dict_to_entity(self, data: dict[str, Any]) -> ProposalJudge:
@@ -539,6 +526,5 @@ class ProposalJudgeRepositoryImpl(
             id=data.get("id"),
             proposal_id=data["proposal_id"],
             politician_id=data["politician_id"],
-            politician_party_id=data.get("politician_party_id"),
             approve=data.get("approve"),
         )

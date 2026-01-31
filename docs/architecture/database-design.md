@@ -401,7 +401,6 @@ erDiagram
 | id | SERIAL | PRIMARY KEY | 主キー |
 | proposal_id | INTEGER | NOT NULL, REFERENCES proposals(id) | 議案ID |
 | politician_id | INTEGER | REFERENCES politicians(id) | 政治家ID |
-| politician_party_id | INTEGER | REFERENCES political_parties(id) | 投票時の所属政党ID |
 | parliamentary_group_id | INTEGER | REFERENCES parliamentary_groups(id) | 投票時の所属議員団ID |
 | approve | VARCHAR | | 賛否（賛成、反対、棄権、欠席） |
 | created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 作成日時 |

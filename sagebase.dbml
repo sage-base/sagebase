@@ -126,7 +126,6 @@ Table ProposalJudges {
   id int [pk, increment]
   proposal_id int [ref: > Proposals.id, not null] // どの議案に対する賛否か
   politician_id int [ref: > Politicians.id, not null] // どの政治家の賛否か
-  politician_party_id int [ref: > PoliticalParties.id] // 票決時の所属政党
   parliamentary_group_id int [ref: > ParliamentaryGroups.id] // 賛否投票時の所属議員団
   approve varchar // 例: "賛成", "反対", "棄権", "欠席"
   created_at timestamp [default: `now()`]

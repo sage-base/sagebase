@@ -45,7 +45,6 @@ class TestProposalJudgeRepositoryImpl:
             "id": 1,
             "proposal_id": 10,
             "politician_id": 20,
-            "politician_party_id": 5,
             "approve": "賛成",
             "created_at": None,
             "updated_at": None,
@@ -58,7 +57,6 @@ class TestProposalJudgeRepositoryImpl:
             id=1,
             proposal_id=10,
             politician_id=20,
-            politician_party_id=5,
             approve="賛成",
         )
 
@@ -173,7 +171,6 @@ class TestProposalJudgeRepositoryImpl:
                 "id": 1,
                 "proposal_id": 10,
                 "politician_id": 20,
-                "politician_party_id": 5,
                 "approve": "賛成",
                 "created_at": None,
                 "updated_at": None,
@@ -182,7 +179,6 @@ class TestProposalJudgeRepositoryImpl:
                 "id": 2,
                 "proposal_id": 10,
                 "politician_id": 21,
-                "politician_party_id": 5,
                 "approve": "反対",
                 "created_at": None,
                 "updated_at": None,
@@ -205,13 +201,11 @@ class TestProposalJudgeRepositoryImpl:
             ProposalJudge(
                 proposal_id=10,
                 politician_id=20,
-                politician_party_id=5,
                 approve="賛成",
             ),
             ProposalJudge(
                 proposal_id=10,
                 politician_id=21,
-                politician_party_id=5,
                 approve="反対",
             ),
         ]
@@ -259,7 +253,6 @@ class TestProposalJudgeRepositoryImpl:
         entity = ProposalJudge(
             proposal_id=10,
             politician_id=20,
-            politician_party_id=5,
             approve="賛成",
         )
 
@@ -286,7 +279,6 @@ class TestProposalJudgeRepositoryImpl:
             "id": 1,
             "proposal_id": 10,
             "politician_id": 20,
-            "politician_party_id": 6,
             "approve": "反対",
             "created_at": None,
             "updated_at": None,
@@ -303,7 +295,6 @@ class TestProposalJudgeRepositoryImpl:
             id=1,
             proposal_id=10,
             politician_id=20,
-            politician_party_id=6,
             approve="反対",
         )
 
@@ -313,7 +304,6 @@ class TestProposalJudgeRepositoryImpl:
         # Assert
         assert result.id == 1
         assert result.approve == "反対"
-        assert result.politician_party_id == 6
         mock_session.execute.assert_called_once()
         mock_session.commit.assert_called_once()
 
@@ -382,7 +372,6 @@ class TestProposalJudgeRepositoryImpl:
             id=1,
             proposal_id=10,
             politician_id=20,
-            politician_party_id=5,
             approve="賛成",
         )
 
@@ -391,7 +380,6 @@ class TestProposalJudgeRepositoryImpl:
         assert entity.id == 1
         assert entity.proposal_id == 10
         assert entity.politician_id == 20
-        assert entity.politician_party_id == 5
         assert entity.approve == "賛成"
 
     def test_to_model(self, repository: ProposalJudgeRepositoryImpl) -> None:
@@ -400,7 +388,6 @@ class TestProposalJudgeRepositoryImpl:
             id=1,
             proposal_id=10,
             politician_id=20,
-            politician_party_id=5,
             approve="賛成",
         )
 
@@ -409,7 +396,6 @@ class TestProposalJudgeRepositoryImpl:
         assert model.id == 1
         assert model.proposal_id == 10
         assert model.politician_id == 20
-        assert model.politician_party_id == 5
         assert model.approve == "賛成"
 
     def test_update_model(self, repository: ProposalJudgeRepositoryImpl) -> None:
@@ -418,14 +404,12 @@ class TestProposalJudgeRepositoryImpl:
             id=1,
             proposal_id=10,
             politician_id=20,
-            politician_party_id=5,
             approve="賛成",
         )
         entity = ProposalJudge(
             id=1,
             proposal_id=11,
             politician_id=21,
-            politician_party_id=6,
             approve="反対",
         )
 
@@ -433,5 +417,4 @@ class TestProposalJudgeRepositoryImpl:
 
         assert model.proposal_id == 11
         assert model.politician_id == 21
-        assert model.politician_party_id == 6
         assert model.approve == "反対"
