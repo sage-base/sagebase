@@ -24,12 +24,6 @@ class LlmResponseParser:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
-    def ClassifyPage(
-        self, llm_response: str, baml_options: BamlCallOptions = {},
-    ) -> types.PageClassification:
-        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ClassifyPage", llm_response=llm_response, mode="request")
-        return typing.cast(types.PageClassification, __result__)
-
     def DetectBoundary(
         self, llm_response: str, baml_options: BamlCallOptions = {},
     ) -> types.MinutesBoundary:
@@ -103,12 +97,6 @@ class LlmStreamParser:
 
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
-
-    def ClassifyPage(
-        self, llm_response: str, baml_options: BamlCallOptions = {},
-    ) -> stream_types.PageClassification:
-        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ClassifyPage", llm_response=llm_response, mode="stream")
-        return typing.cast(stream_types.PageClassification, __result__)
 
     def DetectBoundary(
         self, llm_response: str, baml_options: BamlCallOptions = {},

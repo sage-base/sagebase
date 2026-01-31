@@ -28,9 +28,6 @@ type_map = {
     "types.NormalizedSpeaker": types.NormalizedSpeaker,
     "stream_types.NormalizedSpeaker": stream_types.NormalizedSpeaker,
 
-    "types.PageClassification": types.PageClassification,
-    "stream_types.PageClassification": stream_types.PageClassification,
-
     "types.ParliamentaryGroupMember": types.ParliamentaryGroupMember,
     "stream_types.ParliamentaryGroupMember": stream_types.ParliamentaryGroupMember,
 
