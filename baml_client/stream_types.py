@@ -23,7 +23,7 @@ class StreamState(BaseModel, typing.Generic[StreamStateValueT]):
     value: StreamStateValueT
     state: typing_extensions.Literal["Pending", "Incomplete", "Complete"]
 # #########################################################################
-# Generated classes (15)
+# Generated classes (14)
 # #########################################################################
 
 class AttendeesMapping(BaseModel):
@@ -36,12 +36,6 @@ class ExtractedMember(BaseModel):
     role: typing.Optional[str] = Field(default=None, description='役職（議長、副議長、委員長、委員など）')
     party_name: typing.Optional[str] = Field(default=None, description='所属政党名')
     additional_info: typing.Optional[str] = Field(default=None, description='その他の情報')
-
-class LinkClassification(BaseModel):
-    url: typing.Optional[str] = Field(default=None, description='The URL being classified')
-    link_type: typing.Optional[str] = Field(default=None, description='Type of link: prefecture_list, city_list, member_list, member_profile, other')
-    confidence: typing.Optional[float] = Field(default=None, description='Confidence score (0.0-1.0)')
-    reason: typing.Optional[str] = Field(default=None, description='Reason for classification')
 
 class MinutesBoundary(BaseModel):
     boundary_found: typing.Optional[bool] = Field(default=None, description='境界が見つかったかどうか')

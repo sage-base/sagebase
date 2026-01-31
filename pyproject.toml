@@ -132,7 +132,6 @@ forced-separate = ["src"]
 
 [tool.ruff.lint.per-file-ignores]
 # Ignore E501 (line too long) for debug print statements
-"src/domain/services/link_analysis_domain_service.py" = ["E501"]
 "src/infrastructure/di/providers.py" = ["E501"]
 "src/interfaces/web/streamlit/presenters/political_party_presenter.py" = ["E501"]
 # Alembic migrations contain long SQL strings

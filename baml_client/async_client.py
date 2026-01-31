@@ -82,21 +82,6 @@ class BamlAsyncClient:
     def parse_stream(self):
       return self.__llm_stream_parser
 
-    async def ClassifyLinks(self, links: str,party_name: str,context: str,
-        baml_options: BamlCallOptions = {},
-    ) -> typing.List["types.LinkClassification"]:
-        # Check if on_tick is provided
-        if 'on_tick' in baml_options:
-            # Use streaming internally when on_tick is provided
-            __stream__ = self.stream.ClassifyLinks(links=links,party_name=party_name,context=context,
-                baml_options=baml_options)
-            return await __stream__.get_final_response()
-        else:
-            # Original non-streaming code
-            __result__ = await self.__options.merge_options(baml_options).call_function_async(function_name="ClassifyLinks", args={
-                "links": links,"party_name": party_name,"context": context,
-            })
-            return typing.cast(typing.List["types.LinkClassification"], __result__.cast_to(types, types, stream_types, False, __runtime__))
     async def ClassifyPage(self, html_excerpt: str,current_url: str,party_name: str,
         baml_options: BamlCallOptions = {},
     ) -> types.PageClassification:
@@ -286,18 +271,6 @@ class BamlStreamClient:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
-    def ClassifyLinks(self, links: str,party_name: str,context: str,
-        baml_options: BamlCallOptions = {},
-    ) -> baml_py.BamlStream[typing.List["stream_types.LinkClassification"], typing.List["types.LinkClassification"]]:
-        __ctx__, __result__ = self.__options.merge_options(baml_options).create_async_stream(function_name="ClassifyLinks", args={
-            "links": links,"party_name": party_name,"context": context,
-        })
-        return baml_py.BamlStream[typing.List["stream_types.LinkClassification"], typing.List["types.LinkClassification"]](
-          __result__,
-          lambda x: typing.cast(typing.List["stream_types.LinkClassification"], x.cast_to(types, types, stream_types, True, __runtime__)),
-          lambda x: typing.cast(typing.List["types.LinkClassification"], x.cast_to(types, types, stream_types, False, __runtime__)),
-          __ctx__,
-        )
     def ClassifyPage(self, html_excerpt: str,current_url: str,party_name: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlStream[stream_types.PageClassification, types.PageClassification]:
@@ -450,13 +423,6 @@ class BamlHttpRequestClient:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
-    async def ClassifyLinks(self, links: str,party_name: str,context: str,
-        baml_options: BamlCallOptions = {},
-    ) -> baml_py.baml_py.HTTPRequest:
-        __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="ClassifyLinks", args={
-            "links": links,"party_name": party_name,"context": context,
-        }, mode="request")
-        return __result__
     async def ClassifyPage(self, html_excerpt: str,current_url: str,party_name: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
@@ -549,13 +515,6 @@ class BamlHttpStreamRequestClient:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
-    async def ClassifyLinks(self, links: str,party_name: str,context: str,
-        baml_options: BamlCallOptions = {},
-    ) -> baml_py.baml_py.HTTPRequest:
-        __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="ClassifyLinks", args={
-            "links": links,"party_name": party_name,"context": context,
-        }, mode="stream")
-        return __result__
     async def ClassifyPage(self, html_excerpt: str,current_url: str,party_name: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
