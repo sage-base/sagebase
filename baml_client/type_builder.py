@@ -20,7 +20,7 @@ from .globals import DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIM
 class TypeBuilder(type_builder.TypeBuilder):
     def __init__(self):
         super().__init__(classes=set(
-          ["AttendeesMapping","ExtractedMember","MinutesBoundary","NormalizedSpeaker","PageClassification","ParliamentaryGroupMember","PoliticianMatch","RedividedSectionInfo","Resume","RoleNameMapping","RoleNameMappingResult","SectionInfo","SectionString","SpeakerAndSpeechContent",]
+          ["AttendeesMapping","ExtractedMember","MinutesBoundary","NormalizedSpeaker","ParliamentaryGroupMember","PoliticianMatch","RedividedSectionInfo","Resume","RoleNameMapping","RoleNameMappingResult","SectionInfo","SectionString","SpeakerAndSpeechContent",]
         ), enums=set(
           []
         ), runtime=DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME)
@@ -31,7 +31,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
     # #########################################################################
-    # Generated classes 14
+    # Generated classes 13
     # #########################################################################
 
     @property
@@ -49,10 +49,6 @@ class TypeBuilder(type_builder.TypeBuilder):
     @property
     def NormalizedSpeaker(self) -> "NormalizedSpeakerViewer":
         return NormalizedSpeakerViewer(self)
-
-    @property
-    def PageClassification(self) -> "PageClassificationViewer":
-        return PageClassificationViewer(self)
 
     @property
     def ParliamentaryGroupMember(self) -> "ParliamentaryGroupMemberViewer":
@@ -98,7 +94,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
 # #########################################################################
-# Generated classes 14
+# Generated classes 13
 # #########################################################################
 
 class AttendeesMappingAst:
@@ -301,61 +297,6 @@ class NormalizedSpeakerProperties:
     @property
     def extraction_method(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("extraction_method"))
-
-
-
-
-class PageClassificationAst:
-    def __init__(self, tb: type_builder.TypeBuilder):
-        _tb = tb._tb # type: ignore (we know how to use this private attribute)
-        self._bldr = _tb.class_("PageClassification")
-        self._properties: typing.Set[str] = set([  "page_type",  "confidence",  "reason",  "has_child_links",  "has_member_info",  ])
-        self._props = PageClassificationProperties(self._bldr, self._properties)
-
-    def type(self) -> baml_py.FieldType:
-        return self._bldr.field()
-
-    @property
-    def props(self) -> "PageClassificationProperties":
-        return self._props
-
-
-class PageClassificationViewer(PageClassificationAst):
-    def __init__(self, tb: type_builder.TypeBuilder):
-        super().__init__(tb)
-
-
-    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
-        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
-
-
-
-class PageClassificationProperties:
-    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
-        self.__bldr = bldr
-        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
-
-
-
-    @property
-    def page_type(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("page_type"))
-
-    @property
-    def confidence(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("confidence"))
-
-    @property
-    def reason(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("reason"))
-
-    @property
-    def has_child_links(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("has_child_links"))
-
-    @property
-    def has_member_info(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("has_member_info"))
 
 
 

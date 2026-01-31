@@ -41,7 +41,7 @@ def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
 # #########################################################################
 
 # #########################################################################
-# Generated classes (14)
+# Generated classes (13)
 # #########################################################################
 
 class AttendeesMapping(BaseModel):
@@ -67,13 +67,6 @@ class NormalizedSpeaker(BaseModel):
     normalized_name: str = Field(description='正規化された人名（役職を除いた人名）')
     is_valid: bool = Field(description='有効な人名かどうか（役職のみでマッピングもない場合はfalse）')
     extraction_method: str = Field(description='抽出方法: pattern（括弧内から抽出）, mapping（マッピングから取得）, as_is（そのまま使用）, skipped（スキップ）')
-
-class PageClassification(BaseModel):
-    page_type: str = Field(description='Type of page: index_page, member_list_page, other')
-    confidence: float = Field(description='Confidence score (0.0-1.0)')
-    reason: str = Field(description='Reason for classification')
-    has_child_links: bool = Field(description='Whether the page has child links')
-    has_member_info: bool = Field(description='Whether the page has member information')
 
 class ParliamentaryGroupMember(BaseModel):
     name: str = Field(description='議員名（フルネーム）')
