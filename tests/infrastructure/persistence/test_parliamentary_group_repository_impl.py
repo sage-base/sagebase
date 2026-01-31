@@ -36,7 +36,7 @@ class TestParliamentaryGroupRepositoryImpl:
         return ParliamentaryGroup(
             id=1,
             name="自民党会派",
-            conference_id=10,
+            governing_body_id=10,
             url="https://example.com/group",
             description="自由民主党の会派",
             is_active=True,
@@ -53,7 +53,7 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row = MagicMock()
         mock_row.id = 1
         mock_row.name = "自民党会派"
-        mock_row.conference_id = 10
+        mock_row.governing_body_id = 10
         mock_row.url = "https://example.com/group"
         mock_row.description = "自由民主党の会派"
         mock_row.is_active = True
@@ -66,7 +66,7 @@ class TestParliamentaryGroupRepositoryImpl:
 
         assert result.id == 1
         assert result.name == "自民党会派"
-        assert result.conference_id == 10
+        assert result.governing_body_id == 10
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
@@ -95,7 +95,7 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row = MagicMock()
         mock_row.id = 1
         mock_row.name = "自民党会派（更新）"
-        mock_row.conference_id = 10
+        mock_row.governing_body_id = 10
         mock_row.url = "https://example.com/group"
         mock_row.description = "自由民主党の会派"
         mock_row.is_active = True
@@ -119,7 +119,7 @@ class TestParliamentaryGroupRepositoryImpl:
         """Test update raises error when entity has no ID."""
         entity = ParliamentaryGroup(
             name="自民党会派",
-            conference_id=10,
+            governing_body_id=10,
             is_active=True,
         )
 
@@ -142,16 +142,16 @@ class TestParliamentaryGroupRepositoryImpl:
             await repository.update(sample_group_entity)
 
     @pytest.mark.asyncio
-    async def test_get_by_name_and_conference_found(
+    async def test_get_by_name_and_governing_body_found(
         self,
         repository: ParliamentaryGroupRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test get_by_name_and_conference when group is found."""
+        """Test get_by_name_and_governing_body when group is found."""
         mock_row = MagicMock()
         mock_row.id = 1
         mock_row.name = "自民党会派"
-        mock_row.conference_id = 10
+        mock_row.governing_body_id = 10
         mock_row.url = "https://example.com/group"
         mock_row.description = "自由民主党の会派"
         mock_row.is_active = True
@@ -160,41 +160,41 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_result.fetchone = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
 
-        result = await repository.get_by_name_and_conference("自民党会派", 10)
+        result = await repository.get_by_name_and_governing_body("自民党会派", 10)
 
         assert result is not None
         assert result.id == 1
         assert result.name == "自民党会派"
-        assert result.conference_id == 10
+        assert result.governing_body_id == 10
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_by_name_and_conference_not_found(
+    async def test_get_by_name_and_governing_body_not_found(
         self,
         repository: ParliamentaryGroupRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test get_by_name_and_conference when group is not found."""
+        """Test get_by_name_and_governing_body when group is not found."""
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=None)
         mock_session.execute.return_value = mock_result
 
-        result = await repository.get_by_name_and_conference("存在しない会派", 10)
+        result = await repository.get_by_name_and_governing_body("存在しない会派", 10)
 
         assert result is None
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_by_conference_id_active_only(
+    async def test_get_by_governing_body_id_active_only(
         self,
         repository: ParliamentaryGroupRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test get_by_conference_id with active_only=True."""
+        """Test get_by_governing_body_id with active_only=True."""
         mock_row = MagicMock()
         mock_row.id = 1
         mock_row.name = "自民党会派"
-        mock_row.conference_id = 10
+        mock_row.governing_body_id = 10
         mock_row.url = "https://example.com/group"
         mock_row.description = "自由民主党の会派"
         mock_row.is_active = True
@@ -203,36 +203,36 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
 
-        result = await repository.get_by_conference_id(10, active_only=True)
+        result = await repository.get_by_governing_body_id(10, active_only=True)
 
         assert len(result) == 1
         assert result[0].is_active is True
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_by_conference_id_all(
+    async def test_get_by_governing_body_id_all(
         self,
         repository: ParliamentaryGroupRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test get_by_conference_id with active_only=False."""
+        """Test get_by_governing_body_id with active_only=False."""
         mock_row1 = MagicMock()
         mock_row1.id = 1
         mock_row1.name = "自民党会派"
-        mock_row1.conference_id = 10
+        mock_row1.governing_body_id = 10
         mock_row1.is_active = True
 
         mock_row2 = MagicMock()
         mock_row2.id = 2
         mock_row2.name = "民主党会派"
-        mock_row2.conference_id = 10
+        mock_row2.governing_body_id = 10
         mock_row2.is_active = False
 
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
         mock_session.execute.return_value = mock_result
 
-        result = await repository.get_by_conference_id(10, active_only=False)
+        result = await repository.get_by_governing_body_id(10, active_only=False)
 
         assert len(result) == 2
         mock_session.execute.assert_called_once()
@@ -247,7 +247,7 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row = MagicMock()
         mock_row.id = 1
         mock_row.name = "自民党会派"
-        mock_row.conference_id = 10
+        mock_row.governing_body_id = 10
         mock_row.is_active = True
 
         mock_result = MagicMock()
@@ -270,7 +270,7 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row = MagicMock()
         mock_row.id = 1
         mock_row.name = "自民党会派"
-        mock_row.conference_id = 10
+        mock_row.governing_body_id = 10
         mock_row.is_active = True
 
         mock_result = MagicMock()
@@ -313,7 +313,6 @@ class TestParliamentaryGroupRepositoryImpl:
             "https://example.com/group",
             "説明",
             True,
-            "東京都議会",
             "東京都",
         )
 
@@ -323,11 +322,10 @@ class TestParliamentaryGroupRepositoryImpl:
             return_value=[
                 "id",
                 "name",
-                "conference_id",
+                "governing_body_id",
                 "url",
                 "description",
                 "is_active",
-                "conference_name",
                 "governing_body_name",
             ]
         )
@@ -337,7 +335,7 @@ class TestParliamentaryGroupRepositoryImpl:
 
         assert len(result) == 1
         assert result[0]["name"] == "自民党会派"
-        assert result[0]["conference_name"] == "東京都議会"
+        assert result[0]["governing_body_name"] == "東京都"
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
@@ -353,7 +351,7 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_all_with_details(
-            conference_id=10, active_only=True, with_url_only=True
+            governing_body_id=10, active_only=True, with_url_only=True
         )
 
         assert result == []
@@ -369,7 +367,7 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row = MagicMock()
         mock_row.id = 1
         mock_row.name = "自民党会派"
-        mock_row.conference_id = 10
+        mock_row.governing_body_id = 10
         mock_row.is_active = True
 
         mock_result = MagicMock()
@@ -404,7 +402,7 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row = MagicMock()
         mock_row.id = 1
         mock_row.name = "自民党会派"
-        mock_row.conference_id = 10
+        mock_row.governing_body_id = 10
         mock_row.url = "https://example.com/group"
         mock_row.description = "自由民主党の会派"
         mock_row.is_active = True
@@ -414,7 +412,7 @@ class TestParliamentaryGroupRepositoryImpl:
         assert isinstance(entity, ParliamentaryGroup)
         assert entity.id == 1
         assert entity.name == "自民党会派"
-        assert entity.conference_id == 10
+        assert entity.governing_body_id == 10
         assert entity.url == "https://example.com/group"
         assert entity.is_active is True
 
@@ -423,7 +421,7 @@ class TestParliamentaryGroupRepositoryImpl:
         model = ParliamentaryGroupModel(
             id=1,
             name="自民党会派",
-            conference_id=10,
+            governing_body_id=10,
             url="https://example.com/group",
             description="自由民主党の会派",
             is_active=True,
@@ -446,7 +444,7 @@ class TestParliamentaryGroupRepositoryImpl:
         assert isinstance(model, ParliamentaryGroupModel)
         assert model.id == 1
         assert model.name == "自民党会派"
-        assert model.conference_id == 10
+        assert model.governing_body_id == 10
         assert model.is_active is True
 
     def test_update_model(
@@ -458,7 +456,7 @@ class TestParliamentaryGroupRepositoryImpl:
         model = ParliamentaryGroupModel(
             id=1,
             name="旧会派名",
-            conference_id=5,
+            governing_body_id=5,
             description="旧説明",
             is_active=False,
         )
@@ -466,7 +464,7 @@ class TestParliamentaryGroupRepositoryImpl:
         repository._update_model(model, sample_group_entity)
 
         assert model.name == "自民党会派"
-        assert model.conference_id == 10
+        assert model.governing_body_id == 10
         assert model.description == "自由民主党の会派"
         assert model.is_active is True
         assert model.url == "https://example.com/group"

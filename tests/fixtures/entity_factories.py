@@ -140,7 +140,7 @@ def create_parliamentary_group(**kwargs: Any) -> ParliamentaryGroup:
     defaults = {
         "id": 1,
         "name": "自民党議員団",
-        "conference_id": 1,
+        "governing_body_id": 1,
         "description": None,
         "is_active": True,
     }

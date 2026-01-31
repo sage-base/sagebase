@@ -157,6 +157,7 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
             politician_affiliation_repository=self.politician_affiliation_repository,  # type: ignore[arg-type]
             parliamentary_group_repository=self.parliamentary_group_repository,  # type: ignore[arg-type]
             politician_repository=self.politician_repository,  # type: ignore[arg-type]
+            conference_repository=self.conference_repository,  # type: ignore[arg-type]
         )
 
         # Session management
@@ -941,9 +942,13 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         if not conference_id:
             return []
 
-        # 会議体IDから会派一覧を取得
-        groups = await self.parliamentary_group_repository.get_by_conference_id(  # type: ignore[attr-defined]
-            conference_id, active_only=True
+        # conference_id → governing_body_id を解決して会派一覧を取得
+        conference = await self.conference_repository.get_by_id(conference_id)  # type: ignore[attr-defined]
+        if not conference:
+            return []
+
+        groups = await self.parliamentary_group_repository.get_by_governing_body_id(  # type: ignore[attr-defined]
+            conference.governing_body_id, active_only=True
         )
         return cast(list[ParliamentaryGroup], groups)
 

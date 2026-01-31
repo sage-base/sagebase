@@ -30,16 +30,18 @@ def render_edit_delete_tab(presenter: ParliamentaryGroupPresenter) -> None:
         st.info("編集する議員団がありません")
         return
 
-    # Get conferences for display
-    conferences = presenter.get_all_conferences()
+    # Get governing bodies for display
+    governing_bodies = presenter.get_all_governing_bodies()
 
     # Select parliamentary group to edit
     group_options: list[str] = []
     group_map: dict[str, Any] = {}
     for group in groups:
-        conf = next((c for c in conferences if c.id == group.conference_id), None)
-        conf_name = conf.name if conf else "不明"
-        display_name = f"{group.name} ({conf_name})"
+        gb = next(
+            (g for g in governing_bodies if g.id == group.governing_body_id), None
+        )
+        gb_name = gb.name if gb else "不明"
+        display_name = f"{group.name} ({gb_name})"
         group_options.append(display_name)
         group_map[display_name] = group
 

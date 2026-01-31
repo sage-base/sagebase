@@ -18,38 +18,31 @@ def render_parliamentary_groups_list_tab(
     """Render the parliamentary groups list tab.
 
     議員団一覧タブをレンダリングします。
-    会議体でのフィルタリング、SEEDファイル生成、メンバー数表示などの機能を提供します。
+    開催主体でのフィルタリング、SEEDファイル生成、メンバー数表示などの機能を提供します。
 
     Args:
         presenter: 議員団プレゼンター
     """
     st.subheader("議員団一覧")
 
-    # Get conferences for filter
-    conferences = presenter.get_all_conferences()
+    # Get governing bodies for filter
+    governing_bodies = presenter.get_all_governing_bodies()
 
-    # Conference filter
-    def get_conf_display_name(c: Any) -> str:
-        gb_name = (
-            c.governing_body.name
-            if hasattr(c, "governing_body") and c.governing_body
-            else ""
-        )
-        return f"{gb_name} - {c.name}"
+    # Governing body filter
+    def get_gb_display_name(gb: Any) -> str:
+        return gb.name
 
-    conf_options = ["すべて"] + [get_conf_display_name(c) for c in conferences]
-    conf_map = {get_conf_display_name(c): c.id for c in conferences}
+    gb_options = ["すべて"] + [get_gb_display_name(gb) for gb in governing_bodies]
+    gb_map = {get_gb_display_name(gb): gb.id for gb in governing_bodies}
 
-    selected_conf_filter = st.selectbox(
-        "会議体でフィルタ", conf_options, key="conf_filter"
-    )
+    selected_gb_filter = st.selectbox("開催主体でフィルタ", gb_options, key="gb_filter")
 
     # Load parliamentary groups
-    if selected_conf_filter == "すべて":
+    if selected_gb_filter == "すべて":
         groups = presenter.load_data()
     else:
-        conf_id = conf_map[selected_conf_filter]
-        groups = presenter.load_parliamentary_groups_with_filters(conf_id, False)
+        gb_id = gb_map[selected_gb_filter]
+        groups = presenter.load_parliamentary_groups_with_filters(gb_id, False)
 
     if groups:
         # Seed file generation section
@@ -83,7 +76,7 @@ def render_parliamentary_groups_list_tab(
         st.markdown("---")
 
         # Display data in DataFrame
-        df = presenter.to_dataframe(groups, conferences)
+        df = presenter.to_dataframe(groups, governing_bodies)
         if df is not None:
             st.dataframe(df, use_container_width=True, hide_index=True)
 

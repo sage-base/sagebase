@@ -7,9 +7,9 @@ from src.infrastructure.di.container import get_container, init_container
 
 @click.command("list-parliamentary-groups")
 @click.option(
-    "--conference-id",
+    "--governing-body-id",
     type=int,
-    help="特定の会議体の議員団のみ表示",
+    help="特定の開催主体の議員団のみ表示",
 )
 @click.option(
     "--with-members",
@@ -22,7 +22,7 @@ from src.infrastructure.di.container import get_container, init_container
     help="活動中の議員団のみ表示するか",
 )
 def list_parliamentary_groups(
-    conference_id: int | None,
+    governing_body_id: int | None,
     with_members: bool,
     active_only: bool,
 ):
@@ -47,9 +47,9 @@ def list_parliamentary_groups(
         ParliamentaryGroupMembershipRepositoryImpl, session
     )
 
-    # 議員団を取得（会議体・行政機関情報も含む）
+    # 議員団を取得（開催主体情報も含む）
     groups = group_repo.get_all_with_details(
-        conference_id=conference_id, active_only=active_only
+        governing_body_id=governing_body_id, active_only=active_only
     )
 
     if not groups:
@@ -61,7 +61,7 @@ def list_parliamentary_groups(
     click.echo("-" * 80)
 
     # ヘッダー
-    headers = ["ID", "議員団名", "会議体", "行政機関", "URL", "状態"]
+    headers = ["ID", "議員団名", "開催主体", "URL", "状態"]
     if with_members:
         headers.append("メンバー数")
 
@@ -75,7 +75,6 @@ def list_parliamentary_groups(
         row_data: list[str] = [
             str(group["id"]).ljust(6),
             group["name"][:15].ljust(15),
-            group.get("conference_name", "N/A")[:15].ljust(15),
             group.get("governing_body_name", "N/A")[:15].ljust(15),
             (group.get("url", "未設定") if group.get("url") else "未設定")[:15].ljust(
                 15

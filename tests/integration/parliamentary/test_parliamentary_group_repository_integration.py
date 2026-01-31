@@ -36,7 +36,7 @@ pytestmark = pytest.mark.skipif(
 def setup_master_data():
     """テストモジュール全体で一度だけマスターデータを作成
 
-    parliamentary group testsが使用する conference_id=1 を作成する。
+    parliamentary group testsが使用する governing_body_id=1 を作成する。
     """
     engine = create_engine(DATABASE_URL)
     connection = engine.connect()
@@ -141,7 +141,7 @@ def db_session():
             text("DELETE FROM political_parties WHERE name LIKE 'テスト党%'")
         )
 
-        # Note: conference_id=1 はマスターデータなので削除しない
+        # Note: governing_body_id=1 はマスターデータなので削除しない
         # 新しい conference を作成した場合のみ削除（現在は作成していない）
 
         session.commit()
@@ -166,10 +166,10 @@ def setup_test_data(db_session):
     # Generate unique test identifier
     test_id = str(uuid.uuid4())[:8]
 
-    # Use existing conference_id=1 (created by module-scoped fixture)
+    # Use existing governing_body_id=1 (created by module-scoped fixture)
     # Note: governing_body and conference are already created by
     # setup_master_data in test_repository_adapter_integration.py
-    conference_id = 1
+    governing_body_id = 1
 
     # Insert test political parties with unique names
     party_result1 = db_session.execute(
@@ -264,7 +264,7 @@ def setup_test_data(db_session):
     db_session.commit()
 
     return {
-        "conference_id": conference_id,
+        "governing_body_id": governing_body_id,
         "party_ids": [party_id1, party_id2],
         "politician_ids": [politician_id1, politician_id2, politician_id3],
     }
@@ -295,7 +295,7 @@ class TestParliamentaryGroupRepositoryIntegration:
         # Create a parliamentary group entity
         group_entity = ParliamentaryGroup(
             name="テスト会派",
-            conference_id=setup_test_data["conference_id"],
+            governing_body_id=setup_test_data["governing_body_id"],
             url="http://test-group.example.com",
             description="テスト用の会派です",
             is_active=True,
@@ -306,7 +306,7 @@ class TestParliamentaryGroupRepositoryIntegration:
 
         # Verify the created group
         assert created_group.name == "テスト会派"
-        assert created_group.conference_id == setup_test_data["conference_id"]
+        assert created_group.governing_body_id == setup_test_data["governing_body_id"]
         assert created_group.url == "http://test-group.example.com"
         assert created_group.description == "テスト用の会派です"
         assert created_group.is_active is True
@@ -320,7 +320,7 @@ class TestParliamentaryGroupRepositoryIntegration:
         # Create a group
         group_entity = ParliamentaryGroup(
             name="取得テスト会派",
-            conference_id=setup_test_data["conference_id"],
+            governing_body_id=setup_test_data["governing_body_id"],
         )
         created_group = await group_repository.create(group_entity)
 
@@ -336,71 +336,75 @@ class TestParliamentaryGroupRepositoryIntegration:
         assert non_existent is None
 
     @pytest.mark.asyncio
-    async def test_get_parliamentary_groups_by_conference(
+    async def test_get_parliamentary_groups_by_governing_body(
         self, db_session, setup_test_data, group_repository
     ):
-        """Test retrieving parliamentary groups by conference"""
-        conference_id = setup_test_data["conference_id"]
+        """Test retrieving parliamentary groups by governing body"""
+        governing_body_id = setup_test_data["governing_body_id"]
 
         # Create multiple groups
         await group_repository.create(
             ParliamentaryGroup(
-                name="会派A", conference_id=conference_id, is_active=True
+                name="会派A", governing_body_id=governing_body_id, is_active=True
             )
         )
         await group_repository.create(
             ParliamentaryGroup(
-                name="会派B", conference_id=conference_id, is_active=True
+                name="会派B", governing_body_id=governing_body_id, is_active=True
             )
         )
         await group_repository.create(
             ParliamentaryGroup(
-                name="会派C(解散)", conference_id=conference_id, is_active=False
+                name="会派C(解散)", governing_body_id=governing_body_id, is_active=False
             )
         )
 
         # Get active groups only
-        active_groups = await group_repository.get_by_conference_id(
-            conference_id, active_only=True
+        active_groups = await group_repository.get_by_governing_body_id(
+            governing_body_id, active_only=True
         )
         assert len(active_groups) == 2
         assert all(g.is_active for g in active_groups)
 
         # Get all groups
-        all_groups = await group_repository.get_by_conference_id(
-            conference_id, active_only=False
+        all_groups = await group_repository.get_by_governing_body_id(
+            governing_body_id, active_only=False
         )
         assert len(all_groups) == 3
         assert any(not g.is_active for g in all_groups)
 
     @pytest.mark.asyncio
-    async def test_get_by_name_and_conference(
+    async def test_get_by_name_and_governing_body(
         self, db_session, setup_test_data, group_repository
     ):
-        """Test searching parliamentary groups by name and conference"""
-        conference_id = setup_test_data["conference_id"]
+        """Test searching parliamentary groups by name and governing body"""
+        governing_body_id = setup_test_data["governing_body_id"]
 
         # Create test groups
         await group_repository.create(
-            ParliamentaryGroup(name="自由民主党会派", conference_id=conference_id)
+            ParliamentaryGroup(
+                name="自由民主党会派", governing_body_id=governing_body_id
+            )
         )
         await group_repository.create(
-            ParliamentaryGroup(name="立憲民主党会派", conference_id=conference_id)
+            ParliamentaryGroup(
+                name="立憲民主党会派", governing_body_id=governing_body_id
+            )
         )
         await group_repository.create(
-            ParliamentaryGroup(name="公明党会派", conference_id=conference_id)
+            ParliamentaryGroup(name="公明党会派", governing_body_id=governing_body_id)
         )
 
-        # Search by name and conference
-        result = await group_repository.get_by_name_and_conference(
-            "立憲民主党会派", conference_id
+        # Search by name and governing body
+        result = await group_repository.get_by_name_and_governing_body(
+            "立憲民主党会派", governing_body_id
         )
         assert result is not None
         assert result.name == "立憲民主党会派"
 
         # Search non-existent
-        result = await group_repository.get_by_name_and_conference(
-            "存在しない会派", conference_id
+        result = await group_repository.get_by_name_and_governing_body(
+            "存在しない会派", governing_body_id
         )
         assert result is None
 
@@ -412,7 +416,7 @@ class TestParliamentaryGroupRepositoryIntegration:
         # Create a group
         group = ParliamentaryGroup(
             name="更新前会派",
-            conference_id=setup_test_data["conference_id"],
+            governing_body_id=setup_test_data["governing_body_id"],
             description="更新前の説明",
         )
         created_group = await group_repository.create(group)
@@ -447,14 +451,14 @@ class TestParliamentaryGroupRepositoryIntegration:
 
         シーケンスが正しく機能していれば、連続作成でもユニークなIDが割り当てられる。
         """
-        conference_id = setup_test_data["conference_id"]
+        governing_body_id = setup_test_data["governing_body_id"]
         created_ids = []
 
         # 複数の議員団を連続して作成
         for i in range(5):
             group = ParliamentaryGroup(
                 name=f"シーケンステスト会派{i + 1}",
-                conference_id=conference_id,
+                governing_body_id=governing_body_id,
                 is_active=True,
             )
             created_group = await group_repository.create(group)
@@ -475,7 +479,7 @@ class TestParliamentaryGroupRepositoryIntegration:
         group = ParliamentaryGroup(
             id=None,
             name="IDがNoneの会派",
-            conference_id=setup_test_data["conference_id"],
+            governing_body_id=setup_test_data["governing_body_id"],
             is_active=True,
         )
 
@@ -489,25 +493,25 @@ class TestParliamentaryGroupRepositoryIntegration:
 @pytest.fixture
 def setup_membership_group(db_session, setup_test_data, group_repository):
     """Create a parliamentary group for membership tests"""
-    # Ensure we have a valid conference_id from setup_test_data
-    conference_id = setup_test_data["conference_id"]
-    if not conference_id:
-        pytest.fail("No conference_id available from setup_test_data")
+    # Ensure we have a valid governing_body_id from setup_test_data
+    governing_body_id = setup_test_data["governing_body_id"]
+    if not governing_body_id:
+        pytest.fail("No governing_body_id available from setup_test_data")
 
     # Create a group for membership tests (sync call since fixture isn't async)
     # We'll insert directly via SQL for the fixture
     result = db_session.execute(
         text("""
-        INSERT INTO parliamentary_groups (name, conference_id)
-        VALUES ('メンバーシップテスト会派', :conference_id)
+        INSERT INTO parliamentary_groups (name, governing_body_id)
+        VALUES ('メンバーシップテスト会派', :governing_body_id)
         RETURNING id
         """),
-        {"conference_id": conference_id},
+        {"governing_body_id": governing_body_id},
     )
     group_id = result.scalar()
     db_session.commit()
 
-    return {"id": group_id, "conference_id": conference_id}
+    return {"id": group_id, "governing_body_id": governing_body_id}
 
 
 class TestParliamentaryGroupMembershipRepositoryIntegration:
@@ -609,11 +613,11 @@ class TestParliamentaryGroupMembershipRepositoryIntegration:
         # Create another group
         result = db_session.execute(
             text("""
-            INSERT INTO parliamentary_groups (name, conference_id)
-            VALUES ('別の会派', :conference_id)
+            INSERT INTO parliamentary_groups (name, governing_body_id)
+            VALUES ('別の会派', :governing_body_id)
             RETURNING id
             """),
-            {"conference_id": setup_membership_group["conference_id"]},
+            {"governing_body_id": setup_membership_group["governing_body_id"]},
         )
         another_group_id = result.scalar()
         db_session.commit()

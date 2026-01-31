@@ -111,7 +111,7 @@ class ParliamentaryGroupModel(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
-    conference_id: Mapped[int] = mapped_column(Integer)
+    governing_body_id: Mapped[int] = mapped_column(Integer)
     url: Mapped[str | None] = mapped_column(String(500))
     description: Mapped[str | None] = mapped_column()
     is_active: Mapped[bool] = mapped_column(default=True)
@@ -127,7 +127,7 @@ class ParliamentaryGroupModel(Base):
             f"<ParliamentaryGroupModel("
             f"id={self.id}, "
             f"name={self.name}, "
-            f"conference_id={self.conference_id}"
+            f"governing_body_id={self.governing_body_id}"
             f")>"
         )
 

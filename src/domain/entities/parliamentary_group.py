@@ -9,7 +9,7 @@ class ParliamentaryGroup(BaseEntity):
     def __init__(
         self,
         name: str,
-        conference_id: int,
+        governing_body_id: int,
         url: str | None = None,
         description: str | None = None,
         is_active: bool = True,
@@ -17,7 +17,7 @@ class ParliamentaryGroup(BaseEntity):
     ) -> None:
         super().__init__(id)
         self.name = name
-        self.conference_id = conference_id
+        self.governing_body_id = governing_body_id
         self.url = url
         self.description = description
         self.is_active = is_active

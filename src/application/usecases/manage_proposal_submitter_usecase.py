@@ -14,6 +14,7 @@ from src.application.dtos.submitter_candidates_dto import (
 )
 from src.common.logging import get_logger
 from src.domain.entities.proposal_submitter import ProposalSubmitter
+from src.domain.repositories.conference_repository import ConferenceRepository
 from src.domain.repositories.meeting_repository import MeetingRepository
 from src.domain.repositories.parliamentary_group_repository import (
     ParliamentaryGroupRepository,
@@ -70,6 +71,7 @@ class ManageProposalSubmitterUseCase:
         politician_affiliation_repository: PoliticianAffiliationRepository,
         parliamentary_group_repository: ParliamentaryGroupRepository,
         politician_repository: PoliticianRepository,
+        conference_repository: ConferenceRepository | None = None,
     ) -> None:
         """UseCaseを初期化する.
 
@@ -80,6 +82,7 @@ class ManageProposalSubmitterUseCase:
             politician_affiliation_repository: 政治家所属リポジトリ
             parliamentary_group_repository: 会派リポジトリ
             politician_repository: 政治家リポジトリ
+            conference_repository: 会議体リポジトリ（ID解決用）
         """
         self.proposal_repository = proposal_repository
         self.proposal_submitter_repository = proposal_submitter_repository
@@ -87,6 +90,7 @@ class ManageProposalSubmitterUseCase:
         self.politician_affiliation_repository = politician_affiliation_repository
         self.parliamentary_group_repository = parliamentary_group_repository
         self.politician_repository = politician_repository
+        self.conference_repository = conference_repository
         self.logger = get_logger(self.__class__.__name__)
 
     async def set_submitter(
@@ -375,12 +379,16 @@ class ManageProposalSubmitterUseCase:
         Returns:
             提出者候補一覧DTO
         """
-        # 会派一覧を取得
-        parliamentary_groups = (
-            await self.parliamentary_group_repository.get_by_conference_id(
-                conference_id, active_only=True
-            )
-        )
+        # conference_id → governing_body_id を解決して会派一覧を取得
+        parliamentary_groups = []
+        if self.conference_repository:
+            conference = await self.conference_repository.get_by_id(conference_id)
+            if conference:
+                parliamentary_groups = list(
+                    await self.parliamentary_group_repository.get_by_governing_body_id(
+                        conference.governing_body_id, active_only=True
+                    )
+                )
         parliamentary_group_candidates = [
             ParliamentaryGroupCandidateDTO(
                 id=pg.id,

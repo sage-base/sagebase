@@ -24,7 +24,7 @@ class TestParliamentaryGroupDomainService:
         return ParliamentaryGroup(
             id=1,
             name="自民党議員団",
-            conference_id=1,
+            governing_body_id=1,
             description="自由民主党の議員団",
             is_active=True,
         )
@@ -258,10 +258,10 @@ class TestParliamentaryGroupDomainService:
     def test_find_similar_groups(self, service):
         """Test finding similar parliamentary groups."""
         groups = [
-            ParliamentaryGroup(id=1, name="自民党議員団", conference_id=1),
-            ParliamentaryGroup(id=2, name="自民党会派", conference_id=1),
-            ParliamentaryGroup(id=3, name="公明党議員団", conference_id=1),
-            ParliamentaryGroup(id=4, name="立憲民主", conference_id=1),
+            ParliamentaryGroup(id=1, name="自民党議員団", governing_body_id=1),
+            ParliamentaryGroup(id=2, name="自民党会派", governing_body_id=1),
+            ParliamentaryGroup(id=3, name="公明党議員団", governing_body_id=1),
+            ParliamentaryGroup(id=4, name="立憲民主", governing_body_id=1),
         ]
 
         # Find by normalized name

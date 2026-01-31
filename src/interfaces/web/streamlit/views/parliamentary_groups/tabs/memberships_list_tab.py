@@ -17,7 +17,7 @@ def render_memberships_list_tab(presenter: ParliamentaryGroupPresenter) -> None:
     """Render the memberships list tab.
 
     議員団メンバーシップ一覧タブをレンダリングします。
-    会議体・議員団でのフィルタリング、メンバーシップの一覧表示などの機能を提供します。
+    開催主体・議員団でのフィルタリング、メンバーシップの一覧表示などの機能を提供します。
 
     Args:
         presenter: 議員団プレゼンター
@@ -26,39 +26,34 @@ def render_memberships_list_tab(presenter: ParliamentaryGroupPresenter) -> None:
 
     # Get all parliamentary groups for filter
     all_groups = presenter.load_data()
-    conferences = presenter.get_all_conferences()
+    governing_bodies = presenter.get_all_governing_bodies()
 
-    # Create conference to groups mapping
-    conf_to_groups: dict[int, list[Any]] = {}
+    # Create governing body to groups mapping
+    gb_to_groups: dict[int, list[Any]] = {}
     for group in all_groups:
-        if group.conference_id not in conf_to_groups:
-            conf_to_groups[group.conference_id] = []
-        conf_to_groups[group.conference_id].append(group)
+        if group.governing_body_id not in gb_to_groups:
+            gb_to_groups[group.governing_body_id] = []
+        gb_to_groups[group.governing_body_id].append(group)
 
-    # Conference filter
-    def get_conf_display_name(c: Any) -> str:
-        gb_name = (
-            c.governing_body.name
-            if hasattr(c, "governing_body") and c.governing_body
-            else ""
-        )
-        return f"{gb_name} - {c.name}"
+    # Governing body filter
+    def get_gb_display_name(gb: Any) -> str:
+        return gb.name
 
-    conf_options = ["すべて"] + [get_conf_display_name(c) for c in conferences]
-    conf_map = {get_conf_display_name(c): c.id for c in conferences}
+    gb_options = ["すべて"] + [get_gb_display_name(gb) for gb in governing_bodies]
+    gb_map = {get_gb_display_name(gb): gb.id for gb in governing_bodies}
 
-    selected_conf = st.selectbox(
-        "会議体でフィルタ", conf_options, key="membership_conf_filter"
+    selected_gb = st.selectbox(
+        "開催主体でフィルタ", gb_options, key="membership_gb_filter"
     )
 
     # Parliamentary group filter
-    if selected_conf == "すべて":
+    if selected_gb == "すべて":
         group_options = ["すべて"] + [g.name for g in all_groups]
         group_map = {g.name: g.id for g in all_groups}
     else:
-        conf_id = conf_map.get(selected_conf)
-        if conf_id is not None:
-            filtered_groups = conf_to_groups.get(conf_id, [])
+        gb_id = gb_map.get(selected_gb)
+        if gb_id is not None:
+            filtered_groups = gb_to_groups.get(gb_id, [])
             group_options = ["すべて"] + [g.name for g in filtered_groups]
             group_map = {g.name: g.id for g in filtered_groups}
         else:
@@ -73,10 +68,10 @@ def render_memberships_list_tab(presenter: ParliamentaryGroupPresenter) -> None:
     try:
         all_memberships = _get_memberships(
             presenter,
-            selected_conf,
+            selected_gb,
             selected_group,
-            conf_map,
-            conf_to_groups,
+            gb_map,
+            gb_to_groups,
             all_groups,
             group_map,
         )
@@ -92,10 +87,10 @@ def render_memberships_list_tab(presenter: ParliamentaryGroupPresenter) -> None:
 
 def _get_memberships(
     presenter: ParliamentaryGroupPresenter,
-    selected_conf: str,
+    selected_gb: str,
     selected_group: str,
-    conf_map: dict[str, int | None],
-    conf_to_groups: dict[int, list[Any]],
+    gb_map: dict[str, int | None],
+    gb_to_groups: dict[int, list[Any]],
     all_groups: list[Any],
     group_map: dict[str, int | None],
 ) -> list[dict[str, Any]]:
@@ -105,10 +100,10 @@ def _get_memberships(
 
     Args:
         presenter: 議員団プレゼンター
-        selected_conf: 選択された会議体
+        selected_gb: 選択された開催主体
         selected_group: 選択された議員団
-        conf_map: 会議体名からIDへのマップ
-        conf_to_groups: 会議体IDから議員団リストへのマップ
+        gb_map: 開催主体名からIDへのマップ
+        gb_to_groups: 開催主体IDから議員団リストへのマップ
         all_groups: すべての議員団
         group_map: 議員団名からIDへのマップ
 
@@ -116,13 +111,13 @@ def _get_memberships(
         メンバーシップ情報のリスト（dict形式）
     """
     if selected_group == "すべて":
-        # Get all memberships for selected conference or all
-        if selected_conf == "すべて":
+        # Get all memberships for selected governing body or all
+        if selected_gb == "すべて":
             groups_to_query = all_groups
         else:
-            conf_id = conf_map.get(selected_conf)
-            if conf_id is not None:
-                groups_to_query = conf_to_groups.get(conf_id, [])
+            gb_id = gb_map.get(selected_gb)
+            if gb_id is not None:
+                groups_to_query = gb_to_groups.get(gb_id, [])
             else:
                 groups_to_query = []
 
