@@ -41,7 +41,7 @@ def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
 # #########################################################################
 
 # #########################################################################
-# Generated classes (15)
+# Generated classes (14)
 # #########################################################################
 
 class AttendeesMapping(BaseModel):
@@ -54,12 +54,6 @@ class ExtractedMember(BaseModel):
     role: typing.Optional[str] = Field(default=None, description='役職（議長、副議長、委員長、委員など）')
     party_name: typing.Optional[str] = Field(default=None, description='所属政党名')
     additional_info: typing.Optional[str] = Field(default=None, description='その他の情報')
-
-class LinkClassification(BaseModel):
-    url: str = Field(description='The URL being classified')
-    link_type: str = Field(description='Type of link: prefecture_list, city_list, member_list, member_profile, other')
-    confidence: float = Field(description='Confidence score (0.0-1.0)')
-    reason: str = Field(description='Reason for classification')
 
 class MinutesBoundary(BaseModel):
     boundary_found: bool = Field(description='境界が見つかったかどうか')
