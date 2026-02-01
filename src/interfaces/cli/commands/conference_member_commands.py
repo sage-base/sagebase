@@ -79,7 +79,7 @@ class ConferenceMemberCommands(BaseCommand):
         affiliation_repo = PoliticianAffiliationRepositoryImpl(session)  # type: ignore
 
         # サービスの初期化
-        conference_service = ConferenceDomainService(conference_repo)
+        conference_service = ConferenceDomainService()
         web_scraper = PlaywrightScraperService()  # type: ignore
         llm_service = GeminiLLMService()
 
