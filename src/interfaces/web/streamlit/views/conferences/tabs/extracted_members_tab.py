@@ -441,7 +441,9 @@ def _render_member_details(
     st.markdown("### メンバー詳細と検証状態更新")
     for member in members[:20]:  # 最大20件表示
         badge = get_verification_badge_text(member.is_manually_verified)
-        status_label = _get_status_label(member.matching_status)
+        status_label = _get_status_label(
+            member.matching_status, member.is_manually_verified
+        )
         with st.expander(f"{member.extracted_name} - {status_label} - {badge}"):
             col1, col2 = st.columns([2, 1])
 
@@ -461,31 +463,58 @@ def _render_member_details(
 
             # 手動レビューUI（needs_review / no_match ステータスのみ）
             if member.matching_status in ("needs_review", "no_match", "pending"):
-                _render_manual_review(member, extracted_member_repo, politician_repo)
+                _render_manual_review(
+                    member, extracted_member_repo, politician_repo, verify_use_case
+                )
 
 
-def _get_status_label(status: str) -> str:
+def _get_status_label(status: str, is_manually_verified: bool = False) -> str:
     """ステータスの日本語ラベルを取得する
+
+    matchedステータスの場合、is_manually_verifiedフラグにより
+    手動マッチングかLLMマッチングかを区別して表示します。
 
     Args:
         status: ステータス文字列
+        is_manually_verified: 手動検証済みフラグ
 
     Returns:
         日本語ラベル
     """
+    if status == "matched":
+        return "手動マッチング済み" if is_manually_verified else "LLMマッチング済み"
+
     labels = {
         "pending": "未マッチング",
-        "matched": "マッチング済み",
         "no_match": "マッチなし",
         "needs_review": "要確認",
     }
     return labels.get(status, status)
 
 
+def _mark_as_manually_verified(verify_use_case: Any, member_id: int) -> None:
+    """手動操作後にis_manually_verifiedフラグをTrueに設定する
+
+    Args:
+        verify_use_case: 検証UseCase
+        member_id: メンバーID
+    """
+    asyncio.run(
+        verify_use_case.execute(
+            MarkEntityAsVerifiedInputDto(
+                entity_type=EntityType.CONFERENCE_MEMBER,
+                entity_id=member_id,
+                is_verified=True,
+            )
+        )
+    )
+
+
 def _render_manual_review(
     member: Any,
     extracted_member_repo: RepositoryAdapter,
     politician_repo: RepositoryAdapter,
+    verify_use_case: Any,
 ) -> None:
     """手動レビューUIを表示する
 
@@ -496,6 +525,7 @@ def _render_manual_review(
         member: メンバーエンティティ
         extracted_member_repo: 抽出メンバーリポジトリ
         politician_repo: 政治家リポジトリ
+        verify_use_case: 検証UseCase
     """
     st.markdown("---")
     st.markdown("**手動マッチング操作**")
@@ -515,6 +545,7 @@ def _render_manual_review(
                     confidence=1.0,
                     status="matched",
                 )
+                _mark_as_manually_verified(verify_use_case, member.id)
                 st.success("マッチングを承認しました")
                 st.rerun()
 
@@ -576,6 +607,7 @@ def _render_manual_review(
                         confidence=1.0,
                         status="matched",
                     )
+                    _mark_as_manually_verified(verify_use_case, member.id)
                     st.success("手動マッチングが完了しました")
                     st.rerun()
 
