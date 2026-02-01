@@ -13,10 +13,16 @@ from .tabs.list_tab import render_conferences_list
 from .tabs.new_tab import render_new_conference_form
 from .tabs.seed_generator_tab import render_seed_generator
 
+from src.application.usecases.manage_conference_members_usecase import (
+    ManageConferenceMembersUseCase,
+)
 from src.application.usecases.manage_conferences_usecase import (
     ManageConferencesUseCase,
 )
 from src.domain.repositories import ConferenceRepository, GoverningBodyRepository
+from src.domain.services.conference_domain_service import ConferenceDomainService
+from src.infrastructure.external.llm_service import GeminiLLMService
+from src.infrastructure.external.web_scraper_service import PlaywrightScraperService
 from src.infrastructure.persistence.conference_repository_impl import (
     ConferenceRepositoryImpl,
 )
@@ -28,6 +34,12 @@ from src.infrastructure.persistence.governing_body_repository_impl import (
 )
 from src.infrastructure.persistence.meeting_repository_impl import (
     MeetingRepositoryImpl,
+)
+from src.infrastructure.persistence.politician_affiliation_repository_impl import (
+    PoliticianAffiliationRepositoryImpl,
+)
+from src.infrastructure.persistence.politician_repository_impl import (
+    PoliticianRepositoryImpl,
 )
 from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
 from src.interfaces.web.streamlit.presenters.conference_presenter import (
@@ -48,6 +60,8 @@ def render_conferences_page() -> None:
     governing_body_repo = RepositoryAdapter(GoverningBodyRepositoryImpl)
     extracted_member_repo = RepositoryAdapter(ExtractedConferenceMemberRepositoryImpl)
     meeting_repo = RepositoryAdapter(MeetingRepositoryImpl)
+    politician_repo = RepositoryAdapter(PoliticianRepositoryImpl)
+    affiliation_repo = RepositoryAdapter(PoliticianAffiliationRepositoryImpl)
 
     # Initialize use case and presenter
     # Type: ignore - RepositoryAdapter duck-types as repository protocol
@@ -56,6 +70,18 @@ def render_conferences_page() -> None:
         meeting_repo,  # type: ignore[arg-type]
     )
     presenter = ConferencePresenter(use_case)
+
+    # 会議体メンバー管理UseCase初期化
+    conference_service = ConferenceDomainService(conference_repo)  # type: ignore[arg-type]
+    manage_members_usecase = ManageConferenceMembersUseCase(
+        conference_repository=conference_repo,  # type: ignore[arg-type]
+        politician_repository=politician_repo,  # type: ignore[arg-type]
+        conference_domain_service=conference_service,
+        extracted_member_repository=extracted_member_repo,  # type: ignore[arg-type]
+        politician_affiliation_repository=affiliation_repo,  # type: ignore[arg-type]
+        web_scraper_service=PlaywrightScraperService(),
+        llm_service=GeminiLLMService(),
+    )
 
     # Create tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs(
@@ -83,4 +109,9 @@ def render_conferences_page() -> None:
         render_seed_generator(presenter)
 
     with tab5:
-        render_extracted_members(extracted_member_repo, conference_repo)
+        render_extracted_members(
+            extracted_member_repo,
+            conference_repo,
+            politician_repo,
+            manage_members_usecase,
+        )
