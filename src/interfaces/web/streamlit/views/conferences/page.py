@@ -72,7 +72,7 @@ def render_conferences_page() -> None:
     presenter = ConferencePresenter(use_case)
 
     # 会議体メンバー管理UseCase初期化
-    conference_service = ConferenceDomainService(conference_repo)  # type: ignore[arg-type]
+    conference_service = ConferenceDomainService()
     manage_members_usecase = ManageConferenceMembersUseCase(
         conference_repository=conference_repo,  # type: ignore[arg-type]
         politician_repository=politician_repo,  # type: ignore[arg-type]
