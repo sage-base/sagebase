@@ -543,7 +543,9 @@ def _render_manual_review(
     )
 
     if search_name:
-        candidates = politician_repo.search_by_name(search_name)
+        # 政治家データはスペース除去済みのため、検索名からもスペースを除去
+        normalized_name = search_name.replace(" ", "").replace("\u3000", "")
+        candidates = politician_repo.search_by_name(normalized_name)
 
         if not candidates:
             st.warning(f"「{search_name}」に該当する政治家が見つかりません。")
