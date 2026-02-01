@@ -1,8 +1,18 @@
 """ExtractedConferenceMember entity."""
 
 from datetime import datetime
+from enum import Enum
 
 from src.domain.entities.base import BaseEntity
+
+
+class MatchingStatus(str, Enum):
+    """マッチングステータスを表す列挙型."""
+
+    PENDING = "pending"
+    MATCHED = "matched"
+    NO_MATCH = "no_match"
+    NEEDS_REVIEW = "needs_review"
 
 
 class ExtractedConferenceMember(BaseEntity):
@@ -22,7 +32,7 @@ class ExtractedConferenceMember(BaseEntity):
         extracted_at: datetime | None = None,
         matched_politician_id: int | None = None,
         matching_confidence: float | None = None,
-        matching_status: str = "pending",
+        matching_status: str = MatchingStatus.PENDING,
         matched_at: datetime | None = None,
         additional_data: str | None = None,
         is_manually_verified: bool = False,
@@ -46,11 +56,11 @@ class ExtractedConferenceMember(BaseEntity):
 
     def is_matched(self) -> bool:
         """Check if the member has been successfully matched."""
-        return self.matching_status == "matched"
+        return self.matching_status == MatchingStatus.MATCHED
 
     def needs_review(self) -> bool:
         """Check if the member needs manual review."""
-        return self.matching_status == "needs_review"
+        return self.matching_status == MatchingStatus.NEEDS_REVIEW
 
     def mark_as_manually_verified(self) -> None:
         """手動検証済みとしてマークする."""

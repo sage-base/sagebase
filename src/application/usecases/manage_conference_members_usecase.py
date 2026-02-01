@@ -117,6 +117,60 @@ class CreateAffiliationsOutputDTO:
     affiliations: list[PoliticianAffiliationDTO]
 
 
+@dataclass
+class ApproveMatchInputDTO:
+    """手動マッチング承認の入力DTO."""
+
+    member_id: int
+
+
+@dataclass
+class RejectMatchInputDTO:
+    """手動マッチング却下の入力DTO."""
+
+    member_id: int
+
+
+@dataclass
+class ManualMatchInputDTO:
+    """手動政治家マッチングの入力DTO."""
+
+    member_id: int
+    politician_id: int
+
+
+@dataclass
+class ManualMatchOutputDTO:
+    """手動マッチング操作の出力DTO."""
+
+    success: bool
+    member_id: int
+    new_status: str
+    message: str
+
+
+@dataclass
+class SearchPoliticiansInputDTO:
+    """政治家検索の入力DTO."""
+
+    name: str
+
+
+@dataclass
+class PoliticianCandidateDTO:
+    """政治家候補のDTO."""
+
+    id: int
+    name: str
+
+
+@dataclass
+class SearchPoliticiansOutputDTO:
+    """政治家検索の出力DTO."""
+
+    candidates: list[PoliticianCandidateDTO]
+
+
 # Protocol for external repositories
 class ExtractedMemberEntity:
     """Minimal entity for extracted member."""
@@ -486,6 +540,161 @@ class ManageConferenceMembersUseCase:
             created_count=len(created_affiliations),
             skipped_count=skipped_count,
             affiliations=created_affiliations,
+        )
+
+    async def approve_match(
+        self, request: ApproveMatchInputDTO
+    ) -> ManualMatchOutputDTO:
+        """マッチング結果を承認する
+
+        needs_reviewステータスのメンバーのマッチングを確定します。
+        is_manually_verifiedフラグもTrueに設定します。
+
+        Args:
+            request: 承認リクエストDTO
+
+        Returns:
+            ManualMatchOutputDTO: 操作結果
+        """
+        member = await self.extracted_repo.get_by_id(request.member_id)
+        if not member:
+            return ManualMatchOutputDTO(
+                success=False,
+                member_id=request.member_id,
+                new_status="",
+                message="メンバーが見つかりません",
+            )
+
+        if not member.matched_politician_id:
+            return ManualMatchOutputDTO(
+                success=False,
+                member_id=request.member_id,
+                new_status=member.matching_status,
+                message="マッチ先の政治家が設定されていません",
+            )
+
+        await self.extracted_repo.update_matching_result(
+            member.id or 0,
+            member.matched_politician_id,
+            1.0,
+            "matched",
+        )
+        member.mark_as_manually_verified()
+        await self.extracted_repo.update(member)
+
+        return ManualMatchOutputDTO(
+            success=True,
+            member_id=request.member_id,
+            new_status="matched",
+            message="マッチングを承認しました",
+        )
+
+    async def reject_match(self, request: RejectMatchInputDTO) -> ManualMatchOutputDTO:
+        """マッチング結果を却下する
+
+        メンバーのステータスをno_matchに変更します。
+        人間の判断であるためis_manually_verifiedをTrueに設定し、
+        AI再実行での上書きを防止します。
+
+        Args:
+            request: 却下リクエストDTO
+
+        Returns:
+            ManualMatchOutputDTO: 操作結果
+        """
+        member = await self.extracted_repo.get_by_id(request.member_id)
+        if not member:
+            return ManualMatchOutputDTO(
+                success=False,
+                member_id=request.member_id,
+                new_status="",
+                message="メンバーが見つかりません",
+            )
+
+        await self.extracted_repo.update_matching_result(
+            member.id or 0,
+            None,
+            0.0,
+            "no_match",
+        )
+        member.mark_as_manually_verified()
+        await self.extracted_repo.update(member)
+
+        return ManualMatchOutputDTO(
+            success=True,
+            member_id=request.member_id,
+            new_status="no_match",
+            message="マッチングを却下しました",
+        )
+
+    async def manual_match(self, request: ManualMatchInputDTO) -> ManualMatchOutputDTO:
+        """手動で政治家をマッチングする
+
+        メンバーに指定された政治家をマッチングし、
+        is_manually_verifiedフラグをTrueに設定します。
+
+        Args:
+            request: 手動マッチングリクエストDTO
+
+        Returns:
+            ManualMatchOutputDTO: 操作結果
+        """
+        member = await self.extracted_repo.get_by_id(request.member_id)
+        if not member:
+            return ManualMatchOutputDTO(
+                success=False,
+                member_id=request.member_id,
+                new_status="",
+                message="メンバーが見つかりません",
+            )
+
+        politician = await self.politician_repo.get_by_id(request.politician_id)
+        if not politician:
+            return ManualMatchOutputDTO(
+                success=False,
+                member_id=request.member_id,
+                new_status=member.matching_status,
+                message=f"政治家ID {request.politician_id} が見つかりません",
+            )
+
+        await self.extracted_repo.update_matching_result(
+            member.id or 0,
+            request.politician_id,
+            1.0,
+            "matched",
+        )
+        member.mark_as_manually_verified()
+        await self.extracted_repo.update(member)
+
+        return ManualMatchOutputDTO(
+            success=True,
+            member_id=request.member_id,
+            new_status="matched",
+            message="手動マッチングが完了しました",
+        )
+
+    async def search_politicians(
+        self, request: SearchPoliticiansInputDTO
+    ) -> SearchPoliticiansOutputDTO:
+        """政治家を名前で検索する
+
+        名前の正規化（スペース除去）を行い、政治家を検索します。
+
+        Args:
+            request: 検索リクエストDTO
+
+        Returns:
+            SearchPoliticiansOutputDTO: 検索結果
+        """
+        normalized = request.name.replace(" ", "").replace("\u3000", "")
+        if not normalized:
+            return SearchPoliticiansOutputDTO(candidates=[])
+
+        candidates = await self.politician_repo.search_by_name(normalized)
+        return SearchPoliticiansOutputDTO(
+            candidates=[
+                PoliticianCandidateDTO(id=c.id or 0, name=c.name) for c in candidates
+            ]
         )
 
     async def _match_member_to_politician(
