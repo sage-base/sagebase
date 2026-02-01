@@ -19,6 +19,9 @@ from src.application.usecases.manage_conference_members_usecase import (
 from src.application.usecases.manage_conferences_usecase import (
     ManageConferencesUseCase,
 )
+from src.application.usecases.mark_entity_as_verified_usecase import (
+    MarkEntityAsVerifiedUseCase,
+)
 from src.domain.repositories import ConferenceRepository, GoverningBodyRepository
 from src.domain.services.conference_domain_service import ConferenceDomainService
 from src.infrastructure.external.llm_service import GeminiLLMService
@@ -47,10 +50,21 @@ from src.interfaces.web.streamlit.presenters.conference_presenter import (
 )
 
 
-def render_conferences_page() -> None:
-    """Render conferences management page.
+@st.cache_resource
+def _create_scraper_service() -> PlaywrightScraperService:
+    """PlaywrightScraperServiceのキャッシュされたインスタンスを返す."""
+    return PlaywrightScraperService()
 
-    会議体管理のメインページをレンダリングします。
+
+@st.cache_resource
+def _create_llm_service() -> GeminiLLMService:
+    """GeminiLLMServiceのキャッシュされたインスタンスを返す."""
+    return GeminiLLMService()
+
+
+def render_conferences_page() -> None:
+    """会議体管理のメインページをレンダリングする.
+
     5つのタブ（会議体一覧、新規登録、編集・削除、SEED生成、抽出結果確認）を提供します。
     """
     st.title("会議体管理")
@@ -79,8 +93,13 @@ def render_conferences_page() -> None:
         conference_domain_service=conference_service,
         extracted_member_repository=extracted_member_repo,  # type: ignore[arg-type]
         politician_affiliation_repository=affiliation_repo,  # type: ignore[arg-type]
-        web_scraper_service=PlaywrightScraperService(),
-        llm_service=GeminiLLMService(),
+        web_scraper_service=_create_scraper_service(),
+        llm_service=_create_llm_service(),
+    )
+
+    # 検証UseCase初期化
+    verify_use_case = MarkEntityAsVerifiedUseCase(
+        conference_member_repository=extracted_member_repo,  # type: ignore[arg-type]
     )
 
     # Create tabs
@@ -112,6 +131,6 @@ def render_conferences_page() -> None:
         render_extracted_members(
             extracted_member_repo,
             conference_repo,
-            politician_repo,
             manage_members_usecase,
+            verify_use_case,
         )
