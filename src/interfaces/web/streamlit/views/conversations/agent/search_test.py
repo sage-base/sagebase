@@ -72,8 +72,8 @@ def _execute_search(
             container = Container.create_for_environment()
             tools = create_politician_matching_tools(
                 politician_repo=container.repositories.politician_repository(),
-                affiliation_repo=(
-                    container.repositories.politician_affiliation_repository()
+                conference_member_repo=(
+                    container.repositories.conference_member_repository()
                 ),
             )
             search_tool = tools[0]

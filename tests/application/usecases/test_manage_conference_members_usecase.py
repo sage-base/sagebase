@@ -15,8 +15,8 @@ from src.application.usecases.manage_conference_members_usecase import (
     MatchMembersInputDTO,
 )
 from src.domain.entities.conference import Conference
+from src.domain.entities.conference_member import ConferenceMember
 from src.domain.entities.politician import Politician
-from src.domain.entities.politician_affiliation import PoliticianAffiliation
 
 
 def create_mock_extracted_member(**kwargs: Any) -> Mock:
@@ -80,7 +80,7 @@ class TestManageConferenceMembersUseCase:
         return repo
 
     @pytest.fixture
-    def mock_affiliation_repo(self) -> AsyncMock:
+    def mock_conference_member_repo(self) -> AsyncMock:
         """Create mock affiliation repository."""
         repo = AsyncMock()
         return repo
@@ -116,7 +116,7 @@ class TestManageConferenceMembersUseCase:
         mock_politician_repo: AsyncMock,
         mock_conference_service: Mock,
         mock_extracted_repo: AsyncMock,
-        mock_affiliation_repo: AsyncMock,
+        mock_conference_member_repo: AsyncMock,
         mock_scraper: AsyncMock,
         mock_llm: AsyncMock,
     ) -> ManageConferenceMembersUseCase:
@@ -126,7 +126,7 @@ class TestManageConferenceMembersUseCase:
             politician_repository=mock_politician_repo,
             conference_domain_service=mock_conference_service,
             extracted_member_repository=mock_extracted_repo,
-            politician_affiliation_repository=mock_affiliation_repo,
+            conference_member_repository=mock_conference_member_repo,
             web_scraper_service=mock_scraper,
             llm_service=mock_llm,
         )
@@ -472,7 +472,11 @@ class TestManageConferenceMembersUseCase:
 
     @pytest.mark.asyncio
     async def test_create_affiliations_success(
-        self, usecase, mock_extracted_repo, mock_affiliation_repo, mock_politician_repo
+        self,
+        usecase,
+        mock_extracted_repo,
+        mock_conference_member_repo,
+        mock_politician_repo,
     ):
         """Test successful creation of affiliations."""
         # Setup
@@ -496,7 +500,7 @@ class TestManageConferenceMembersUseCase:
         ]
 
         mock_extracted_repo.get_matched_members.return_value = matched_members
-        mock_affiliation_repo.get_by_politician_and_conference.return_value = []
+        mock_conference_member_repo.get_by_politician_and_conference.return_value = []
 
         # Mock politician retrieval
         mock_politician_repo.get_by_id.side_effect = [
@@ -517,8 +521,8 @@ class TestManageConferenceMembersUseCase:
         ]
 
         # Mock affiliation creation
-        mock_affiliation_repo.create.side_effect = [
-            PoliticianAffiliation(
+        mock_conference_member_repo.create.side_effect = [
+            ConferenceMember(
                 id=1,
                 politician_id=10,
                 conference_id=1,
@@ -526,7 +530,7 @@ class TestManageConferenceMembersUseCase:
                 start_date=date(2023, 1, 1),
                 source_extracted_member_id=1,
             ),
-            PoliticianAffiliation(
+            ConferenceMember(
                 id=2,
                 politician_id=20,
                 conference_id=1,
@@ -555,7 +559,7 @@ class TestManageConferenceMembersUseCase:
         assert result.affiliations[1].source_extracted_member_id == 2
 
         # Verify repository calls
-        assert mock_affiliation_repo.create.call_count == 2
+        assert mock_conference_member_repo.create.call_count == 2
         # Note: mark_processed is not called in the current implementation
 
     @pytest.mark.asyncio
@@ -563,7 +567,7 @@ class TestManageConferenceMembersUseCase:
         self,
         usecase,
         mock_extracted_repo,
-        mock_affiliation_repo,
+        mock_conference_member_repo,
         mock_conference_service,
         mock_politician_repo,
     ):
@@ -581,7 +585,7 @@ class TestManageConferenceMembersUseCase:
         mock_extracted_repo.get_matched_members.return_value = [matched_member]
 
         # Existing affiliation
-        mock_affiliation_repo.get_by_politician_and_conference.return_value = [
+        mock_conference_member_repo.get_by_politician_and_conference.return_value = [
             Mock(
                 id=100,
                 politician_id=10,
@@ -616,11 +620,15 @@ class TestManageConferenceMembersUseCase:
         assert len(result.affiliations) == 0
 
         # Verify no new affiliation was created
-        mock_affiliation_repo.create.assert_not_called()
+        mock_conference_member_repo.create.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_create_affiliations_all_conferences(
-        self, usecase, mock_extracted_repo, mock_affiliation_repo, mock_politician_repo
+        self,
+        usecase,
+        mock_extracted_repo,
+        mock_conference_member_repo,
+        mock_politician_repo,
     ):
         """Test creating affiliations for all conferences."""
         # Setup
@@ -644,7 +652,7 @@ class TestManageConferenceMembersUseCase:
         ]
 
         mock_extracted_repo.get_matched_members.return_value = matched_members
-        mock_affiliation_repo.get_by_politician_and_conference.return_value = []
+        mock_conference_member_repo.get_by_politician_and_conference.return_value = []
 
         # Mock politician retrieval
         mock_politician_repo.get_by_id.side_effect = [
@@ -665,15 +673,15 @@ class TestManageConferenceMembersUseCase:
         ]
 
         # Mock affiliation creation
-        mock_affiliation_repo.create.side_effect = [
-            PoliticianAffiliation(
+        mock_conference_member_repo.create.side_effect = [
+            ConferenceMember(
                 id=1,
                 politician_id=10,
                 conference_id=1,
                 role="議員",
                 start_date=date(2023, 1, 1),
             ),
-            PoliticianAffiliation(
+            ConferenceMember(
                 id=2,
                 politician_id=20,
                 conference_id=2,

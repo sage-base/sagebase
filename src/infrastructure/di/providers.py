@@ -77,6 +77,9 @@ from src.infrastructure.external.web_scraper_service import (
     PlaywrightScraperService,
 )
 from src.infrastructure.persistence.async_session_adapter import AsyncSessionAdapter
+from src.infrastructure.persistence.conference_member_repository_impl import (
+    ConferenceMemberRepositoryImpl,
+)
 from src.infrastructure.persistence.conference_repository_impl import (
     ConferenceRepositoryImpl,
 )
@@ -116,9 +119,6 @@ from src.infrastructure.persistence.parliamentary_group_repository_impl import (
 )
 from src.infrastructure.persistence.political_party_repository_impl import (
     PoliticalPartyRepositoryImpl,
-)
-from src.infrastructure.persistence.politician_affiliation_repository_impl import (
-    PoliticianAffiliationRepositoryImpl,
 )
 from src.infrastructure.persistence.politician_operation_log_repository_impl import (
     PoliticianOperationLogRepositoryImpl,
@@ -164,7 +164,7 @@ def _create_conference_member_extraction_agent():
 
 def _create_politician_matching_agent(
     politician_repo: "PoliticianRepositoryImpl",
-    affiliation_repo: "PoliticianAffiliationRepositoryImpl",
+    conference_member_repo: "ConferenceMemberRepositoryImpl",
 ):
     """政治家マッチングエージェントを作成するヘルパー関数
 
@@ -173,7 +173,7 @@ def _create_politician_matching_agent(
 
     Args:
         politician_repo: PoliticianRepository（必須）
-        affiliation_repo: PoliticianAffiliationRepository（必須）
+        conference_member_repo: ConferenceMemberRepository（必須）
     """
     from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -188,7 +188,7 @@ def _create_politician_matching_agent(
     return PoliticianMatchingAgent(
         llm=llm,
         politician_repo=politician_repo,
-        affiliation_repo=affiliation_repo,
+        conference_member_repo=conference_member_repo,
     )
 
 
@@ -366,8 +366,8 @@ class RepositoryContainer(containers.DeclarativeContainer):
         session=database.async_session,
     )
 
-    politician_affiliation_repository = providers.Factory(
-        PoliticianAffiliationRepositoryImpl,
+    conference_member_repository = providers.Factory(
+        ConferenceMemberRepositoryImpl,
         session=database.async_session,
     )
 
@@ -589,7 +589,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
         conference_repository=repositories.conference_repository,
         extracted_member_repository=repositories.extracted_conference_member_repository,
         politician_repository=repositories.politician_repository,
-        politician_affiliation_repository=repositories.politician_affiliation_repository,
+        conference_member_repository=repositories.conference_member_repository,
         web_scraper_service=services.web_scraper_service,
         llm_service=services.llm_service,
     )
@@ -664,7 +664,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
     politician_matching_agent = providers.Factory(
         _create_politician_matching_agent,
         politician_repo=repositories.politician_repository,
-        affiliation_repo=repositories.politician_affiliation_repository,
+        conference_member_repo=repositories.conference_member_repository,
     )
 
     # Backfill role name mappings usecase (Issue #947)

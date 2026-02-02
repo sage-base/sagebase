@@ -1,12 +1,12 @@
-"""PoliticianAffiliation entity."""
+"""ConferenceMember entity."""
 
 from datetime import date
 
 from src.domain.entities.base import BaseEntity
 
 
-class PoliticianAffiliation(BaseEntity):
-    """政治家の所属を表すエンティティ.
+class ConferenceMember(BaseEntity):
+    """会議体メンバーを表すエンティティ.
 
     VerifiableEntityプロトコルを実装し、手動検証状態と
     LLM抽出ログ参照を保持する。
@@ -47,12 +47,12 @@ class PoliticianAffiliation(BaseEntity):
         return not self.is_manually_verified
 
     def is_active(self) -> bool:
-        """Check if the affiliation is currently active."""
+        """所属が現在アクティブかどうかを返す."""
         return self.end_date is None
 
     def __str__(self) -> str:
         status = "active" if self.is_active() else f"ended {self.end_date}"
         return (
-            f"PoliticianAffiliation(politician={self.politician_id}, "
+            f"ConferenceMember(politician={self.politician_id}, "
             f"conference={self.conference_id}, {status})"
         )

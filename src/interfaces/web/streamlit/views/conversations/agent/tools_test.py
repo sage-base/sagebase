@@ -5,7 +5,7 @@
 
 import streamlit as st
 
-from .affiliation_test import render_politician_affiliation_test
+from .affiliation_test import render_conference_membership_test
 from .baml_match_test import render_politician_baml_match_test
 from .search_test import render_politician_search_test
 
@@ -24,7 +24,7 @@ def render_politician_matching_tools_test() -> None:
         render_politician_search_test()
 
     with tool_tabs[1]:
-        render_politician_affiliation_test()
+        render_conference_membership_test()
 
     with tool_tabs[2]:
         render_politician_baml_match_test()

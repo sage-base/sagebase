@@ -37,15 +37,15 @@ class TestPoliticianMatchingAgentTools:
         return mock
 
     @pytest.fixture
-    def mock_affiliation_repo(self):
-        """モックPoliticianAffiliationRepositoryを作成"""
+    def mock_conference_member_repo(self):
+        """モックConferenceMemberRepositoryを作成"""
         mock = AsyncMock()
         mock.get_by_politician.return_value = []
         return mock
 
     @pytest.mark.asyncio
     async def test_search_politician_candidates_exact_match(
-        self, mock_politician_repo, mock_affiliation_repo
+        self, mock_politician_repo, mock_conference_member_repo
     ):
         """完全一致の候補検索"""
         from src.infrastructure.external.langgraph_tools.politician_matching_tools import (
@@ -54,7 +54,7 @@ class TestPoliticianMatchingAgentTools:
 
         tools = create_politician_matching_tools(
             politician_repo=mock_politician_repo,
-            affiliation_repo=mock_affiliation_repo,
+            conference_member_repo=mock_conference_member_repo,
         )
 
         search_tool = next(t for t in tools if t.name == "search_politician_candidates")
@@ -69,7 +69,7 @@ class TestPoliticianMatchingAgentTools:
 
     @pytest.mark.asyncio
     async def test_search_politician_candidates_with_party_boost(
-        self, mock_politician_repo, mock_affiliation_repo
+        self, mock_politician_repo, mock_conference_member_repo
     ):
         """政党一致でスコアがブーストされること"""
         from src.infrastructure.external.langgraph_tools.politician_matching_tools import (
@@ -78,7 +78,7 @@ class TestPoliticianMatchingAgentTools:
 
         tools = create_politician_matching_tools(
             politician_repo=mock_politician_repo,
-            affiliation_repo=mock_affiliation_repo,
+            conference_member_repo=mock_conference_member_repo,
         )
 
         search_tool = next(t for t in tools if t.name == "search_politician_candidates")
@@ -94,7 +94,7 @@ class TestPoliticianMatchingAgentTools:
 
     @pytest.mark.asyncio
     async def test_search_politician_candidates_empty_name(
-        self, mock_politician_repo, mock_affiliation_repo
+        self, mock_politician_repo, mock_conference_member_repo
     ):
         """空の発言者名でエラーが返ること"""
         from src.infrastructure.external.langgraph_tools.politician_matching_tools import (
@@ -103,7 +103,7 @@ class TestPoliticianMatchingAgentTools:
 
         tools = create_politician_matching_tools(
             politician_repo=mock_politician_repo,
-            affiliation_repo=mock_affiliation_repo,
+            conference_member_repo=mock_conference_member_repo,
         )
 
         search_tool = next(t for t in tools if t.name == "search_politician_candidates")
@@ -113,8 +113,8 @@ class TestPoliticianMatchingAgentTools:
         assert result["candidates"] == []
 
     @pytest.mark.asyncio
-    async def test_verify_politician_affiliation_found(
-        self, mock_politician_repo, mock_affiliation_repo
+    async def test_verify_conference_membership_found(
+        self, mock_politician_repo, mock_conference_member_repo
     ):
         """政治家の所属検証が正常に動作すること"""
         from src.infrastructure.external.langgraph_tools.politician_matching_tools import (
@@ -123,12 +123,10 @@ class TestPoliticianMatchingAgentTools:
 
         tools = create_politician_matching_tools(
             politician_repo=mock_politician_repo,
-            affiliation_repo=mock_affiliation_repo,
+            conference_member_repo=mock_conference_member_repo,
         )
 
-        verify_tool = next(
-            t for t in tools if t.name == "verify_politician_affiliation"
-        )
+        verify_tool = next(t for t in tools if t.name == "verify_conference_membership")
         result = await verify_tool.ainvoke({"politician_id": 1})
 
         assert result["politician_id"] == 1
@@ -137,8 +135,8 @@ class TestPoliticianMatchingAgentTools:
         assert "error" not in result
 
     @pytest.mark.asyncio
-    async def test_verify_politician_affiliation_not_found(
-        self, mock_politician_repo, mock_affiliation_repo
+    async def test_verify_conference_membership_not_found(
+        self, mock_politician_repo, mock_conference_member_repo
     ):
         """存在しない政治家IDでエラーが返ること"""
         from src.infrastructure.external.langgraph_tools.politician_matching_tools import (
@@ -147,20 +145,18 @@ class TestPoliticianMatchingAgentTools:
 
         tools = create_politician_matching_tools(
             politician_repo=mock_politician_repo,
-            affiliation_repo=mock_affiliation_repo,
+            conference_member_repo=mock_conference_member_repo,
         )
 
-        verify_tool = next(
-            t for t in tools if t.name == "verify_politician_affiliation"
-        )
+        verify_tool = next(t for t in tools if t.name == "verify_conference_membership")
         result = await verify_tool.ainvoke({"politician_id": 999})
 
         assert "error" in result
         assert result["politician_name"] is None
 
     @pytest.mark.asyncio
-    async def test_verify_politician_affiliation_party_match(
-        self, mock_politician_repo, mock_affiliation_repo
+    async def test_verify_conference_membership_party_match(
+        self, mock_politician_repo, mock_conference_member_repo
     ):
         """期待政党との一致確認が正常に動作すること"""
         from src.infrastructure.external.langgraph_tools.politician_matching_tools import (
@@ -169,12 +165,10 @@ class TestPoliticianMatchingAgentTools:
 
         tools = create_politician_matching_tools(
             politician_repo=mock_politician_repo,
-            affiliation_repo=mock_affiliation_repo,
+            conference_member_repo=mock_conference_member_repo,
         )
 
-        verify_tool = next(
-            t for t in tools if t.name == "verify_politician_affiliation"
-        )
+        verify_tool = next(t for t in tools if t.name == "verify_conference_membership")
 
         # 一致する場合
         result = await verify_tool.ainvoke(
@@ -190,7 +184,7 @@ class TestPoliticianMatchingAgentTools:
 
     @pytest.mark.asyncio
     async def test_match_politician_with_baml_success(
-        self, mock_politician_repo, mock_affiliation_repo
+        self, mock_politician_repo, mock_conference_member_repo
     ):
         """BAMLマッチングが正常に動作すること"""
         from src.infrastructure.external.langgraph_tools.politician_matching_tools import (
@@ -214,7 +208,7 @@ class TestPoliticianMatchingAgentTools:
 
             tools = create_politician_matching_tools(
                 politician_repo=mock_politician_repo,
-                affiliation_repo=mock_affiliation_repo,
+                conference_member_repo=mock_conference_member_repo,
             )
 
             match_tool = next(
@@ -237,7 +231,7 @@ class TestPoliticianMatchingAgentTools:
 
     @pytest.mark.asyncio
     async def test_match_politician_with_baml_low_confidence(
-        self, mock_politician_repo, mock_affiliation_repo
+        self, mock_politician_repo, mock_conference_member_repo
     ):
         """信頼度が低い場合はマッチなしになること"""
         from src.infrastructure.external.langgraph_tools.politician_matching_tools import (
@@ -260,7 +254,7 @@ class TestPoliticianMatchingAgentTools:
 
             tools = create_politician_matching_tools(
                 politician_repo=mock_politician_repo,
-                affiliation_repo=mock_affiliation_repo,
+                conference_member_repo=mock_conference_member_repo,
             )
 
             match_tool = next(
@@ -282,7 +276,7 @@ class TestPoliticianMatchingAgentTools:
 
     @pytest.mark.asyncio
     async def test_match_politician_with_baml_invalid_json(
-        self, mock_politician_repo, mock_affiliation_repo
+        self, mock_politician_repo, mock_conference_member_repo
     ):
         """無効なJSONでエラーが返ること"""
         from src.infrastructure.external.langgraph_tools.politician_matching_tools import (
@@ -291,7 +285,7 @@ class TestPoliticianMatchingAgentTools:
 
         tools = create_politician_matching_tools(
             politician_repo=mock_politician_repo,
-            affiliation_repo=mock_affiliation_repo,
+            conference_member_repo=mock_conference_member_repo,
         )
 
         match_tool = next(t for t in tools if t.name == "match_politician_with_baml")
@@ -329,14 +323,14 @@ class TestPoliticianMatchingAgent:
         return mock
 
     @pytest.fixture
-    def mock_affiliation_repo(self):
-        """モックPoliticianAffiliationRepositoryを作成"""
+    def mock_conference_member_repo(self):
+        """モックConferenceMemberRepositoryを作成"""
         mock = AsyncMock()
         mock.get_by_politician.return_value = []
         return mock
 
     def test_agent_initialization(
-        self, mock_llm, mock_politician_repo, mock_affiliation_repo
+        self, mock_llm, mock_politician_repo, mock_conference_member_repo
     ):
         """エージェントが正しく初期化されること"""
         with patch(
@@ -356,14 +350,14 @@ class TestPoliticianMatchingAgent:
                 agent = PoliticianMatchingAgent(
                     llm=mock_llm,
                     politician_repo=mock_politician_repo,
-                    affiliation_repo=mock_affiliation_repo,
+                    conference_member_repo=mock_conference_member_repo,
                 )
                 assert agent.tools is not None
                 assert len(agent.tools) == 3
                 assert agent.agent is not None
 
     def test_agent_has_required_tools(
-        self, mock_llm, mock_politician_repo, mock_affiliation_repo
+        self, mock_llm, mock_politician_repo, mock_conference_member_repo
     ):
         """必要なツールがすべて存在すること"""
         with patch(
@@ -373,7 +367,7 @@ class TestPoliticianMatchingAgent:
             tool1 = MagicMock()
             tool1.name = "search_politician_candidates"
             tool2 = MagicMock()
-            tool2.name = "verify_politician_affiliation"
+            tool2.name = "verify_conference_membership"
             tool3 = MagicMock()
             tool3.name = "match_politician_with_baml"
             mock_tools.return_value = [tool1, tool2, tool3]
@@ -390,16 +384,16 @@ class TestPoliticianMatchingAgent:
                 agent = PoliticianMatchingAgent(
                     llm=mock_llm,
                     politician_repo=mock_politician_repo,
-                    affiliation_repo=mock_affiliation_repo,
+                    conference_member_repo=mock_conference_member_repo,
                 )
                 tool_names = [tool.name for tool in agent.tools]
                 assert "search_politician_candidates" in tool_names
-                assert "verify_politician_affiliation" in tool_names
+                assert "verify_conference_membership" in tool_names
                 assert "match_politician_with_baml" in tool_names
 
     @pytest.mark.asyncio
     async def test_match_politician_success(
-        self, mock_llm, mock_politician_repo, mock_affiliation_repo
+        self, mock_llm, mock_politician_repo, mock_conference_member_repo
     ):
         """match_politicianが正常にマッチングを返すこと"""
         # エージェントのainvokeをモック
@@ -433,7 +427,7 @@ class TestPoliticianMatchingAgent:
                 agent = PoliticianMatchingAgent(
                     llm=mock_llm,
                     politician_repo=mock_politician_repo,
-                    affiliation_repo=mock_affiliation_repo,
+                    conference_member_repo=mock_conference_member_repo,
                 )
 
                 result = await agent.match_politician(
@@ -450,7 +444,7 @@ class TestPoliticianMatchingAgent:
 
     @pytest.mark.asyncio
     async def test_match_politician_no_match(
-        self, mock_llm, mock_politician_repo, mock_affiliation_repo
+        self, mock_llm, mock_politician_repo, mock_conference_member_repo
     ):
         """マッチングが見つからない場合"""
         mock_agent = AsyncMock()
@@ -476,7 +470,7 @@ class TestPoliticianMatchingAgent:
                 agent = PoliticianMatchingAgent(
                     llm=mock_llm,
                     politician_repo=mock_politician_repo,
-                    affiliation_repo=mock_affiliation_repo,
+                    conference_member_repo=mock_conference_member_repo,
                 )
 
                 result = await agent.match_politician(
@@ -489,7 +483,7 @@ class TestPoliticianMatchingAgent:
 
     @pytest.mark.asyncio
     async def test_match_politician_low_confidence(
-        self, mock_llm, mock_politician_repo, mock_affiliation_repo
+        self, mock_llm, mock_politician_repo, mock_conference_member_repo
     ):
         """信頼度が低い場合はマッチなしになること"""
         mock_agent = AsyncMock()
@@ -522,7 +516,7 @@ class TestPoliticianMatchingAgent:
                 agent = PoliticianMatchingAgent(
                     llm=mock_llm,
                     politician_repo=mock_politician_repo,
-                    affiliation_repo=mock_affiliation_repo,
+                    conference_member_repo=mock_conference_member_repo,
                 )
 
                 result = await agent.match_politician(speaker_name="田中")
@@ -532,7 +526,7 @@ class TestPoliticianMatchingAgent:
 
     @pytest.mark.asyncio
     async def test_match_politician_exception(
-        self, mock_llm, mock_politician_repo, mock_affiliation_repo
+        self, mock_llm, mock_politician_repo, mock_conference_member_repo
     ):
         """例外発生時のエラーハンドリング"""
         mock_agent = AsyncMock()
@@ -555,7 +549,7 @@ class TestPoliticianMatchingAgent:
                 agent = PoliticianMatchingAgent(
                     llm=mock_llm,
                     politician_repo=mock_politician_repo,
-                    affiliation_repo=mock_affiliation_repo,
+                    conference_member_repo=mock_conference_member_repo,
                 )
 
                 result = await agent.match_politician(speaker_name="田中太郎")
@@ -590,7 +584,7 @@ class TestInterfaceCompliance:
                 agent = PoliticianMatchingAgent(
                     llm=MagicMock(),
                     politician_repo=AsyncMock(),
-                    affiliation_repo=AsyncMock(),
+                    conference_member_repo=AsyncMock(),
                 )
                 assert isinstance(agent, IPoliticianMatchingAgent)
 
@@ -652,19 +646,19 @@ class TestToolCreationValidation:
         with pytest.raises(ValueError, match="politician_repo is required"):
             create_politician_matching_tools(
                 politician_repo=None,
-                affiliation_repo=AsyncMock(),
+                conference_member_repo=AsyncMock(),
             )
 
-    def test_create_tools_requires_affiliation_repo(self):
-        """affiliation_repoがNoneの場合はValueErrorが発生すること"""
+    def test_create_tools_requires_conference_member_repo(self):
+        """conference_member_repoがNoneの場合はValueErrorが発生すること"""
         from src.infrastructure.external.langgraph_tools.politician_matching_tools import (
             create_politician_matching_tools,
         )
 
-        with pytest.raises(ValueError, match="affiliation_repo is required"):
+        with pytest.raises(ValueError, match="conference_member_repo is required"):
             create_politician_matching_tools(
                 politician_repo=AsyncMock(),
-                affiliation_repo=None,
+                conference_member_repo=None,
             )
 
 
@@ -684,14 +678,14 @@ class TestExtractMatchFromMessages:
         return mock
 
     @pytest.fixture
-    def mock_affiliation_repo(self):
-        """モックPoliticianAffiliationRepositoryを作成"""
+    def mock_conference_member_repo(self):
+        """モックConferenceMemberRepositoryを作成"""
         mock = AsyncMock()
         mock.get_by_politician.return_value = []
         return mock
 
     def test_extract_match_from_valid_json_message(
-        self, mock_llm, mock_politician_repo, mock_affiliation_repo
+        self, mock_llm, mock_politician_repo, mock_conference_member_repo
     ):
         """有効なJSONメッセージからマッチを抽出できること"""
         with patch(
@@ -709,7 +703,7 @@ class TestExtractMatchFromMessages:
                 agent = PoliticianMatchingAgent(
                     llm=mock_llm,
                     politician_repo=mock_politician_repo,
-                    affiliation_repo=mock_affiliation_repo,
+                    conference_member_repo=mock_conference_member_repo,
                 )
 
                 # マッチ成功のJSONを含むメッセージを作成
@@ -723,7 +717,7 @@ class TestExtractMatchFromMessages:
                 assert result["politician_id"] == 1
 
     def test_extract_match_returns_none_for_low_confidence(
-        self, mock_llm, mock_politician_repo, mock_affiliation_repo
+        self, mock_llm, mock_politician_repo, mock_conference_member_repo
     ):
         """信頼度が低いメッセージはNoneを返すこと"""
         with patch(
@@ -741,7 +735,7 @@ class TestExtractMatchFromMessages:
                 agent = PoliticianMatchingAgent(
                     llm=mock_llm,
                     politician_repo=mock_politician_repo,
-                    affiliation_repo=mock_affiliation_repo,
+                    conference_member_repo=mock_conference_member_repo,
                 )
 
                 # 信頼度が低いJSONを含むメッセージを作成
@@ -753,7 +747,7 @@ class TestExtractMatchFromMessages:
                 assert result is None
 
     def test_extract_match_returns_none_for_invalid_json(
-        self, mock_llm, mock_politician_repo, mock_affiliation_repo
+        self, mock_llm, mock_politician_repo, mock_conference_member_repo
     ):
         """無効なJSONメッセージはNoneを返すこと"""
         with patch(
@@ -771,7 +765,7 @@ class TestExtractMatchFromMessages:
                 agent = PoliticianMatchingAgent(
                     llm=mock_llm,
                     politician_repo=mock_politician_repo,
-                    affiliation_repo=mock_affiliation_repo,
+                    conference_member_repo=mock_conference_member_repo,
                 )
 
                 mock_message = MagicMock()
@@ -782,7 +776,7 @@ class TestExtractMatchFromMessages:
                 assert result is None
 
     def test_extract_match_returns_none_for_empty_messages(
-        self, mock_llm, mock_politician_repo, mock_affiliation_repo
+        self, mock_llm, mock_politician_repo, mock_conference_member_repo
     ):
         """空のメッセージリストはNoneを返すこと"""
         with patch(
@@ -800,7 +794,7 @@ class TestExtractMatchFromMessages:
                 agent = PoliticianMatchingAgent(
                     llm=mock_llm,
                     politician_repo=mock_politician_repo,
-                    affiliation_repo=mock_affiliation_repo,
+                    conference_member_repo=mock_conference_member_repo,
                 )
 
                 result = agent._extract_match_from_messages([])
