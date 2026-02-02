@@ -1,4 +1,4 @@
-"""PoliticianAffiliation repository implementation using SQLAlchemy."""
+"""ConferenceMember repository implementation using SQLAlchemy."""
 
 from datetime import date
 from typing import Any
@@ -6,16 +6,16 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.domain.entities.politician_affiliation import PoliticianAffiliation
-from src.domain.repositories.politician_affiliation_repository import (
-    PoliticianAffiliationRepository as IPoliticianAffiliationRepository,
+from src.domain.entities.conference_member import ConferenceMember
+from src.domain.repositories.conference_member_repository import (
+    ConferenceMemberRepository as IConferenceMemberRepository,
 )
 from src.domain.repositories.session_adapter import ISessionAdapter
 from src.infrastructure.persistence.base_repository_impl import BaseRepositoryImpl
 
 
-class PoliticianAffiliationModel:
-    """Politician affiliation database model (dynamic)."""
+class ConferenceMemberModel:
+    """Conference member database model (dynamic)."""
 
     id: int | None
     politician_id: int
@@ -31,18 +31,18 @@ class PoliticianAffiliationModel:
             setattr(self, key, value)
 
 
-class PoliticianAffiliationRepositoryImpl(
-    BaseRepositoryImpl[PoliticianAffiliation], IPoliticianAffiliationRepository
+class ConferenceMemberRepositoryImpl(
+    BaseRepositoryImpl[ConferenceMember], IConferenceMemberRepository
 ):
-    """Implementation of PoliticianAffiliationRepository using SQLAlchemy."""
+    """Implementation of ConferenceMemberRepository using SQLAlchemy."""
 
     def __init__(self, session: AsyncSession | ISessionAdapter):
-        super().__init__(session, PoliticianAffiliation, PoliticianAffiliationModel)
+        super().__init__(session, ConferenceMember, ConferenceMemberModel)
 
     async def get_by_politician_and_conference(
         self, politician_id: int, conference_id: int, active_only: bool = True
-    ) -> list[PoliticianAffiliation]:
-        """Get affiliations by politician and conference."""
+    ) -> list[ConferenceMember]:
+        """Get members by politician and conference."""
         conditions = ["politician_id = :pol_id", "conference_id = :conf_id"]
         params: dict[str, Any] = {"pol_id": politician_id, "conf_id": conference_id}
 
@@ -62,8 +62,8 @@ class PoliticianAffiliationRepositoryImpl(
 
     async def get_by_conference(
         self, conference_id: int, active_only: bool = True
-    ) -> list[PoliticianAffiliation]:
-        """Get all affiliations for a conference."""
+    ) -> list[ConferenceMember]:
+        """Get all members for a conference."""
         conditions = ["conference_id = :conf_id"]
         params: dict[str, Any] = {"conf_id": conference_id}
 
@@ -83,8 +83,8 @@ class PoliticianAffiliationRepositoryImpl(
 
     async def get_by_politician(
         self, politician_id: int, active_only: bool = True
-    ) -> list[PoliticianAffiliation]:
-        """Get all affiliations for a politician."""
+    ) -> list[ConferenceMember]:
+        """Get all memberships for a politician."""
         conditions = ["politician_id = :pol_id"]
         params: dict[str, Any] = {"pol_id": politician_id}
 
@@ -109,9 +109,9 @@ class PoliticianAffiliationRepositoryImpl(
         start_date: date,
         end_date: date | None = None,
         role: str | None = None,
-    ) -> PoliticianAffiliation:
-        """Create or update an affiliation."""
-        # Check if affiliation already exists
+    ) -> ConferenceMember:
+        """Create or update a membership."""
+        # Check if membership already exists
         query = text("""
             SELECT * FROM politician_affiliations
             WHERE politician_id = :pol_id
@@ -144,7 +144,7 @@ class PoliticianAffiliationRepositoryImpl(
             return self._row_to_entity(existing_row)
         else:
             # Create new
-            entity = PoliticianAffiliation(
+            entity = ConferenceMember(
                 politician_id=politician_id,
                 conference_id=conference_id,
                 start_date=start_date,
@@ -153,25 +153,25 @@ class PoliticianAffiliationRepositoryImpl(
             )
             return await self.create(entity)
 
-    async def end_affiliation(
-        self, affiliation_id: int, end_date: date
-    ) -> PoliticianAffiliation | None:
-        """End an affiliation by setting the end date."""
+    async def end_membership(
+        self, membership_id: int, end_date: date
+    ) -> ConferenceMember | None:
+        """End a membership by setting the end date."""
         query = text("""
             UPDATE politician_affiliations
             SET end_date = :end_date
             WHERE id = :id
         """)
 
-        await self.session.execute(query, {"id": affiliation_id, "end_date": end_date})
+        await self.session.execute(query, {"id": membership_id, "end_date": end_date})
         await self.session.commit()
 
         # Return updated entity
-        return await self.get_by_id(affiliation_id)
+        return await self.get_by_id(membership_id)
 
-    def _row_to_entity(self, row: Any) -> PoliticianAffiliation:
+    def _row_to_entity(self, row: Any) -> ConferenceMember:
         """Convert database row to domain entity."""
-        return PoliticianAffiliation(
+        return ConferenceMember(
             id=row.id,
             politician_id=row.politician_id,
             conference_id=row.conference_id,
@@ -182,9 +182,9 @@ class PoliticianAffiliationRepositoryImpl(
             latest_extraction_log_id=getattr(row, "latest_extraction_log_id", None),
         )
 
-    def _to_entity(self, model: PoliticianAffiliationModel) -> PoliticianAffiliation:
+    def _to_entity(self, model: ConferenceMemberModel) -> ConferenceMember:
         """Convert database model to domain entity."""
-        return PoliticianAffiliation(
+        return ConferenceMember(
             id=model.id,
             politician_id=model.politician_id,
             conference_id=model.conference_id,
@@ -195,7 +195,7 @@ class PoliticianAffiliationRepositoryImpl(
             latest_extraction_log_id=getattr(model, "latest_extraction_log_id", None),
         )
 
-    def _to_model(self, entity: PoliticianAffiliation) -> PoliticianAffiliationModel:
+    def _to_model(self, entity: ConferenceMember) -> ConferenceMemberModel:
         """Convert domain entity to database model."""
         data = {
             "politician_id": entity.politician_id,
@@ -210,12 +210,12 @@ class PoliticianAffiliationRepositoryImpl(
         if entity.id is not None:
             data["id"] = entity.id
 
-        return PoliticianAffiliationModel(**data)
+        return ConferenceMemberModel(**data)
 
     def _update_model(
         self,
-        model: PoliticianAffiliationModel,
-        entity: PoliticianAffiliation,
+        model: ConferenceMemberModel,
+        entity: ConferenceMember,
     ) -> None:
         """Update model fields from entity."""
         model.politician_id = entity.politician_id
