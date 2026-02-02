@@ -231,6 +231,7 @@ class TestPoliticianAffiliationRepositoryImpl:
             role="議員",
             start_date=date(2024, 1, 1),
             end_date=None,
+            source_extracted_member_id=5,
         )
 
         entity = repository._to_entity(model)
@@ -238,6 +239,7 @@ class TestPoliticianAffiliationRepositoryImpl:
         assert isinstance(entity, PoliticianAffiliation)
         assert entity.id == 1
         assert entity.politician_id == 100
+        assert entity.source_extracted_member_id == 5
 
     def test_to_model(
         self,
@@ -250,3 +252,4 @@ class TestPoliticianAffiliationRepositoryImpl:
         assert isinstance(model, PoliticianAffiliationModel)
         assert model.politician_id == 100
         assert model.conference_id == 10
+        assert model.source_extracted_member_id is None

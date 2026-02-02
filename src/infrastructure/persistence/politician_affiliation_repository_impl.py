@@ -25,6 +25,7 @@ class PoliticianAffiliationModel:
     role: str | None
     is_manually_verified: bool
     latest_extraction_log_id: int | None
+    source_extracted_member_id: int | None
 
     def __init__(self, **kwargs: Any):
         for key, value in kwargs.items():
@@ -180,6 +181,7 @@ class PoliticianAffiliationRepositoryImpl(
             role=getattr(row, "role", None),
             is_manually_verified=bool(getattr(row, "is_manually_verified", False)),
             latest_extraction_log_id=getattr(row, "latest_extraction_log_id", None),
+            source_extracted_member_id=getattr(row, "source_extracted_member_id", None),
         )
 
     def _to_entity(self, model: PoliticianAffiliationModel) -> PoliticianAffiliation:
@@ -193,6 +195,9 @@ class PoliticianAffiliationRepositoryImpl(
             role=model.role,
             is_manually_verified=bool(getattr(model, "is_manually_verified", False)),
             latest_extraction_log_id=getattr(model, "latest_extraction_log_id", None),
+            source_extracted_member_id=getattr(
+                model, "source_extracted_member_id", None
+            ),
         )
 
     def _to_model(self, entity: PoliticianAffiliation) -> PoliticianAffiliationModel:
@@ -205,6 +210,7 @@ class PoliticianAffiliationRepositoryImpl(
             "role": entity.role,
             "is_manually_verified": entity.is_manually_verified,
             "latest_extraction_log_id": entity.latest_extraction_log_id,
+            "source_extracted_member_id": entity.source_extracted_member_id,
         }
 
         if entity.id is not None:
@@ -225,3 +231,4 @@ class PoliticianAffiliationRepositoryImpl(
         model.role = entity.role
         model.is_manually_verified = entity.is_manually_verified
         model.latest_extraction_log_id = entity.latest_extraction_log_id
+        model.source_extracted_member_id = entity.source_extracted_member_id

@@ -21,6 +21,7 @@ class TestPoliticianAffiliation:
         assert affiliation.start_date == date(2023, 1, 1)
         assert affiliation.end_date is None
         assert affiliation.role is None
+        assert affiliation.source_extracted_member_id is None
         assert affiliation.id is None
 
     def test_initialization_with_all_fields(self) -> None:
@@ -32,6 +33,7 @@ class TestPoliticianAffiliation:
             start_date=date(2023, 1, 1),
             end_date=date(2023, 12, 31),
             role="議長",
+            source_extracted_member_id=42,
         )
 
         assert affiliation.id == 1
@@ -40,6 +42,7 @@ class TestPoliticianAffiliation:
         assert affiliation.start_date == date(2023, 1, 1)
         assert affiliation.end_date == date(2023, 12, 31)
         assert affiliation.role == "議長"
+        assert affiliation.source_extracted_member_id == 42
 
     def test_is_active_method(self) -> None:
         """Test is_active method for current and ended affiliations."""

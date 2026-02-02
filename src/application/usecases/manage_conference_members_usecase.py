@@ -106,6 +106,7 @@ class PoliticianAffiliationDTO:
     role: str | None
     start_date: date
     end_date: date | None
+    source_extracted_member_id: int | None = None
 
 
 @dataclass
@@ -521,6 +522,7 @@ class ManageConferenceMembersUseCase:
                 conference_id=member.conference_id,
                 role=member.extracted_role,
                 start_date=request.start_date or datetime.now().date(),
+                source_extracted_member_id=member.id,
             )
 
             created = await self.affiliation_repo.create(affiliation)
@@ -533,6 +535,7 @@ class ManageConferenceMembersUseCase:
                     role=created.role,
                     start_date=created.start_date,
                     end_date=created.end_date,
+                    source_extracted_member_id=created.source_extracted_member_id,
                 )
             )
 

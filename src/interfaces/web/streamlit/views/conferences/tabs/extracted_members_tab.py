@@ -333,6 +333,7 @@ def _execute_affiliation_creation(
                         "会議体ID": aff.conference_id,
                         "役職": aff.role or "-",
                         "開始日": str(aff.start_date),
+                        "抽出元メンバーID": aff.source_extracted_member_id or "-",
                     }
                 )
 
