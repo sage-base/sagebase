@@ -62,6 +62,9 @@ from src.domain.entities.proposal_judge import ProposalJudge
 from src.domain.entities.proposal_submitter import ProposalSubmitter
 from src.domain.value_objects.submitter_type import SubmitterType
 from src.infrastructure.di.container import Container
+from src.infrastructure.persistence.conference_member_repository_impl import (
+    ConferenceMemberRepositoryImpl,
+)
 from src.infrastructure.persistence.conference_repository_impl import (
     ConferenceRepositoryImpl,
 )
@@ -76,9 +79,6 @@ from src.infrastructure.persistence.meeting_repository_impl import (
 )
 from src.infrastructure.persistence.parliamentary_group_repository_impl import (
     ParliamentaryGroupRepositoryImpl,
-)
-from src.infrastructure.persistence.politician_affiliation_repository_impl import (
-    PoliticianAffiliationRepositoryImpl,
 )
 from src.infrastructure.persistence.politician_repository_impl import (
     PoliticianRepositoryImpl,
@@ -134,8 +134,8 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
             ProposalOperationLogRepositoryImpl
         )
         self.submitter_repository = RepositoryAdapter(ProposalSubmitterRepositoryImpl)
-        self.politician_affiliation_repository = RepositoryAdapter(
-            PoliticianAffiliationRepositoryImpl
+        self.conference_member_repository = RepositoryAdapter(
+            ConferenceMemberRepositoryImpl
         )
 
         # Initialize use cases
@@ -154,7 +154,7 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
             proposal_repository=self.proposal_repository,  # type: ignore[arg-type]
             proposal_submitter_repository=self.submitter_repository,  # type: ignore[arg-type]
             meeting_repository=self.meeting_repository,  # type: ignore[arg-type]
-            politician_affiliation_repository=self.politician_affiliation_repository,  # type: ignore[arg-type]
+            conference_member_repository=self.conference_member_repository,  # type: ignore[arg-type]
             parliamentary_group_repository=self.parliamentary_group_repository,  # type: ignore[arg-type]
             politician_repository=self.politician_repository,  # type: ignore[arg-type]
             conference_repository=self.conference_repository,  # type: ignore[arg-type]

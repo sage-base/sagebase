@@ -14,9 +14,9 @@ from src.application.usecases.manage_proposal_submitter_usecase import (
     SetSubmitterOutputDTO,
 )
 from src.domain.entities.conference import Conference
+from src.domain.entities.conference_member import ConferenceMember
 from src.domain.entities.parliamentary_group import ParliamentaryGroup
 from src.domain.entities.politician import Politician
-from src.domain.entities.politician_affiliation import PoliticianAffiliation
 from src.domain.entities.proposal import Proposal
 from src.domain.entities.proposal_submitter import ProposalSubmitter
 from src.domain.value_objects.submitter_type import SubmitterType
@@ -41,7 +41,7 @@ class TestManageProposalSubmitterUseCase:
         return AsyncMock()
 
     @pytest.fixture
-    def mock_politician_affiliation_repository(self):
+    def mock_conference_member_repository(self):
         """モックの政治家所属リポジトリを作成する."""
         return AsyncMock()
 
@@ -66,7 +66,7 @@ class TestManageProposalSubmitterUseCase:
         mock_proposal_repository,
         mock_proposal_submitter_repository,
         mock_meeting_repository,
-        mock_politician_affiliation_repository,
+        mock_conference_member_repository,
         mock_parliamentary_group_repository,
         mock_politician_repository,
         mock_conference_repository,
@@ -76,7 +76,7 @@ class TestManageProposalSubmitterUseCase:
             proposal_repository=mock_proposal_repository,
             proposal_submitter_repository=mock_proposal_submitter_repository,
             meeting_repository=mock_meeting_repository,
-            politician_affiliation_repository=mock_politician_affiliation_repository,
+            conference_member_repository=mock_conference_member_repository,
             parliamentary_group_repository=mock_parliamentary_group_repository,
             politician_repository=mock_politician_repository,
             conference_repository=mock_conference_repository,
@@ -606,7 +606,7 @@ class TestManageProposalSubmitterUseCase:
         use_case,
         mock_conference_repository,
         mock_parliamentary_group_repository,
-        mock_politician_affiliation_repository,
+        mock_conference_member_repository,
         mock_politician_repository,
     ):
         """正常系: 候補一覧の取得が成功する."""
@@ -636,22 +636,20 @@ class TestManageProposalSubmitterUseCase:
 
         # 所属データ
         affiliations = [
-            PoliticianAffiliation(
+            ConferenceMember(
                 id=1,
                 politician_id=1,
                 conference_id=conference_id,
                 start_date=date(2020, 1, 1),
             ),
-            PoliticianAffiliation(
+            ConferenceMember(
                 id=2,
                 politician_id=2,
                 conference_id=conference_id,
                 start_date=date(2020, 1, 1),
             ),
         ]
-        mock_politician_affiliation_repository.get_by_conference.return_value = (
-            affiliations
-        )
+        mock_conference_member_repository.get_by_conference.return_value = affiliations
 
         # 政治家データ
         politicians = {
@@ -689,7 +687,7 @@ class TestManageProposalSubmitterUseCase:
         use_case,
         mock_conference_repository,
         mock_parliamentary_group_repository,
-        mock_politician_affiliation_repository,
+        mock_conference_member_repository,
     ):
         """正常系: 候補がない場合は空のリストを返す."""
         # Arrange
@@ -699,7 +697,7 @@ class TestManageProposalSubmitterUseCase:
             governing_body_id=200,
         )
         mock_parliamentary_group_repository.get_by_governing_body_id.return_value = []
-        mock_politician_affiliation_repository.get_by_conference.return_value = []
+        mock_conference_member_repository.get_by_conference.return_value = []
 
         # Act
         result = await use_case.get_submitter_candidates(conference_id=100)

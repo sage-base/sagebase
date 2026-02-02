@@ -14,8 +14,8 @@ from langchain_core.tools import tool
 
 from baml_client.async_client import b
 
-from src.domain.repositories.politician_affiliation_repository import (
-    PoliticianAffiliationRepository,
+from src.domain.repositories.conference_member_repository import (
+    ConferenceMemberRepository,
 )
 from src.domain.repositories.politician_repository import PoliticianRepository
 
@@ -77,13 +77,13 @@ def _calculate_name_similarity(
 
 def create_politician_matching_tools(
     politician_repo: PoliticianRepository,
-    affiliation_repo: PoliticianAffiliationRepository,
+    conference_member_repo: ConferenceMemberRepository,
 ) -> list[Any]:
     """政治家マッチング用のLangGraphツールを作成
 
     Args:
         politician_repo: PoliticianRepository（必須）
-        affiliation_repo: PoliticianAffiliationRepository（必須）
+        conference_member_repo: ConferenceMemberRepository（必須）
 
     Returns:
         政治家マッチング用のLangGraphツールリスト
@@ -93,8 +93,8 @@ def create_politician_matching_tools(
     """
     if politician_repo is None:
         raise ValueError("politician_repo is required")
-    if affiliation_repo is None:
-        raise ValueError("affiliation_repo is required")
+    if conference_member_repo is None:
+        raise ValueError("conference_member_repo is required")
 
     @tool
     async def search_politician_candidates(
@@ -205,7 +205,7 @@ def create_politician_matching_tools(
             }
 
     @tool
-    async def verify_politician_affiliation(
+    async def verify_conference_membership(
         politician_id: int,
         expected_party: str | None = None,
     ) -> dict[str, Any]:
@@ -228,7 +228,7 @@ def create_politician_matching_tools(
             - error: エラーメッセージ（エラー時のみ）
 
         Example:
-            >>> result = await verify_politician_affiliation(
+            >>> result = await verify_conference_membership(
             ...     politician_id=123,
             ...     expected_party="○○党"
             ... )
@@ -257,7 +257,7 @@ def create_politician_matching_tools(
             # 所属情報を取得
             affiliations = []
             try:
-                affiliation_list = await affiliation_repo.get_by_politician(
+                affiliation_list = await conference_member_repo.get_by_politician(
                     politician_id
                 )
                 affiliations = [
@@ -398,6 +398,6 @@ def create_politician_matching_tools(
 
     return [
         search_politician_candidates,
-        verify_politician_affiliation,
+        verify_conference_membership,
         match_politician_with_baml,
     ]

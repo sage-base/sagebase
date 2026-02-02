@@ -14,13 +14,13 @@ from src.application.dtos.submitter_candidates_dto import (
 )
 from src.common.logging import get_logger
 from src.domain.entities.proposal_submitter import ProposalSubmitter
+from src.domain.repositories.conference_member_repository import (
+    ConferenceMemberRepository,
+)
 from src.domain.repositories.conference_repository import ConferenceRepository
 from src.domain.repositories.meeting_repository import MeetingRepository
 from src.domain.repositories.parliamentary_group_repository import (
     ParliamentaryGroupRepository,
-)
-from src.domain.repositories.politician_affiliation_repository import (
-    PoliticianAffiliationRepository,
 )
 from src.domain.repositories.politician_repository import PoliticianRepository
 from src.domain.repositories.proposal_repository import ProposalRepository
@@ -68,7 +68,7 @@ class ManageProposalSubmitterUseCase:
         proposal_repository: ProposalRepository,
         proposal_submitter_repository: ProposalSubmitterRepository,
         meeting_repository: MeetingRepository,
-        politician_affiliation_repository: PoliticianAffiliationRepository,
+        conference_member_repository: ConferenceMemberRepository,
         parliamentary_group_repository: ParliamentaryGroupRepository,
         politician_repository: PoliticianRepository,
         conference_repository: ConferenceRepository | None = None,
@@ -79,7 +79,7 @@ class ManageProposalSubmitterUseCase:
             proposal_repository: 議案リポジトリ
             proposal_submitter_repository: 提出者リポジトリ
             meeting_repository: 会議リポジトリ
-            politician_affiliation_repository: 政治家所属リポジトリ
+            conference_member_repository: 会議体メンバーリポジトリ
             parliamentary_group_repository: 会派リポジトリ
             politician_repository: 政治家リポジトリ
             conference_repository: 会議体リポジトリ（ID解決用）
@@ -87,7 +87,7 @@ class ManageProposalSubmitterUseCase:
         self.proposal_repository = proposal_repository
         self.proposal_submitter_repository = proposal_submitter_repository
         self.meeting_repository = meeting_repository
-        self.politician_affiliation_repository = politician_affiliation_repository
+        self.conference_member_repository = conference_member_repository
         self.parliamentary_group_repository = parliamentary_group_repository
         self.politician_repository = politician_repository
         self.conference_repository = conference_repository
@@ -399,7 +399,7 @@ class ManageProposalSubmitterUseCase:
         ]
 
         # 所属議員一覧を取得
-        affiliations = await self.politician_affiliation_repository.get_by_conference(
+        affiliations = await self.conference_member_repository.get_by_conference(
             conference_id, active_only=True
         )
 

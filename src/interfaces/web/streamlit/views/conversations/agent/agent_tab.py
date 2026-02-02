@@ -25,7 +25,7 @@ def render_politician_matching_agent_tab() -> None:
 
     **使用するツール:**
     1. `search_politician_candidates`: 候補検索・スコアリング
-    2. `verify_politician_affiliation`: 所属情報検証
+    2. `verify_conference_membership`: 所属情報検証
     3. `match_politician_with_baml`: BAMLマッチング実行
     """)
 

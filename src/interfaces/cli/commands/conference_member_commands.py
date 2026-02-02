@@ -21,14 +21,14 @@ from src.infrastructure.external.conference_member_extractor.extractor import (
 )
 from src.infrastructure.external.llm_service import GeminiLLMService
 from src.infrastructure.external.web_scraper_service import PlaywrightScraperService
+from src.infrastructure.persistence.conference_member_repository_impl import (
+    ConferenceMemberRepositoryImpl,
+)
 from src.infrastructure.persistence.conference_repository_impl import (
     ConferenceRepositoryImpl,
 )
 from src.infrastructure.persistence.extracted_conference_member_repository_impl import (
     ExtractedConferenceMemberRepositoryImpl,
-)
-from src.infrastructure.persistence.politician_affiliation_repository_impl import (
-    PoliticianAffiliationRepositoryImpl,
 )
 from src.infrastructure.persistence.politician_repository_impl import (
     PoliticianRepositoryImpl,
@@ -76,7 +76,7 @@ class ConferenceMemberCommands(BaseCommand):
         conference_repo = ConferenceRepositoryImpl(session)  # type: ignore
         politician_repo = PoliticianRepositoryImpl(session)  # type: ignore
         extracted_member_repo = ExtractedConferenceMemberRepositoryImpl(session)  # type: ignore
-        affiliation_repo = PoliticianAffiliationRepositoryImpl(session)  # type: ignore
+        conference_member_repo = ConferenceMemberRepositoryImpl(session)  # type: ignore
 
         # サービスの初期化
         conference_service = ConferenceDomainService()
@@ -88,7 +88,7 @@ class ConferenceMemberCommands(BaseCommand):
             politician_repository=politician_repo,
             conference_domain_service=conference_service,
             extracted_member_repository=extracted_member_repo,
-            politician_affiliation_repository=affiliation_repo,
+            conference_member_repository=conference_member_repo,
             web_scraper_service=web_scraper,
             llm_service=llm_service,
         )

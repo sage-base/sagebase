@@ -1,4 +1,4 @@
-"""Tests for PoliticianAffiliationRepositoryImpl."""
+"""Tests for ConferenceMemberRepositoryImpl."""
 
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock
@@ -7,15 +7,15 @@ import pytest
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.domain.entities.politician_affiliation import PoliticianAffiliation
-from src.infrastructure.persistence.politician_affiliation_repository_impl import (
-    PoliticianAffiliationModel,
-    PoliticianAffiliationRepositoryImpl,
+from src.domain.entities.conference_member import ConferenceMember
+from src.infrastructure.persistence.conference_member_repository_impl import (
+    ConferenceMemberModel,
+    ConferenceMemberRepositoryImpl,
 )
 
 
-class TestPoliticianAffiliationRepositoryImpl:
-    """Test cases for PoliticianAffiliationRepositoryImpl."""
+class TestConferenceMemberRepositoryImpl:
+    """Test cases for ConferenceMemberRepositoryImpl."""
 
     @pytest.fixture
     def mock_session(self) -> MagicMock:
@@ -27,16 +27,14 @@ class TestPoliticianAffiliationRepositoryImpl:
         return session
 
     @pytest.fixture
-    def repository(
-        self, mock_session: MagicMock
-    ) -> PoliticianAffiliationRepositoryImpl:
-        """Create politician affiliation repository."""
-        return PoliticianAffiliationRepositoryImpl(mock_session)
+    def repository(self, mock_session: MagicMock) -> ConferenceMemberRepositoryImpl:
+        """Create conference member repository."""
+        return ConferenceMemberRepositoryImpl(mock_session)
 
     @pytest.fixture
-    def sample_affiliation_entity(self) -> PoliticianAffiliation:
-        """Sample politician affiliation entity."""
-        return PoliticianAffiliation(
+    def sample_member_entity(self) -> ConferenceMember:
+        """Sample conference member entity."""
+        return ConferenceMember(
             id=1,
             politician_id=100,
             conference_id=10,
@@ -48,10 +46,10 @@ class TestPoliticianAffiliationRepositoryImpl:
     @pytest.mark.asyncio
     async def test_get_by_politician_and_conference_found(
         self,
-        repository: PoliticianAffiliationRepositoryImpl,
+        repository: ConferenceMemberRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test get_by_politician_and_conference when affiliation is found."""
+        """Test get_by_politician_and_conference when member is found."""
         mock_row = MagicMock()
         mock_row.id = 1
         mock_row.politician_id = 100
@@ -75,7 +73,7 @@ class TestPoliticianAffiliationRepositoryImpl:
     @pytest.mark.asyncio
     async def test_get_by_politician_and_conference_not_found(
         self,
-        repository: PoliticianAffiliationRepositoryImpl,
+        repository: ConferenceMemberRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
         """Test get_by_politician_and_conference when not found."""
@@ -91,10 +89,10 @@ class TestPoliticianAffiliationRepositoryImpl:
     @pytest.mark.asyncio
     async def test_get_by_conference(
         self,
-        repository: PoliticianAffiliationRepositoryImpl,
+        repository: ConferenceMemberRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test get_by_conference returns affiliations."""
+        """Test get_by_conference returns members."""
         mock_row = MagicMock()
         mock_row.id = 1
         mock_row.politician_id = 100
@@ -116,10 +114,10 @@ class TestPoliticianAffiliationRepositoryImpl:
     @pytest.mark.asyncio
     async def test_get_by_politician(
         self,
-        repository: PoliticianAffiliationRepositoryImpl,
+        repository: ConferenceMemberRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test get_by_politician returns affiliations."""
+        """Test get_by_politician returns memberships."""
         mock_row = MagicMock()
         mock_row.id = 1
         mock_row.politician_id = 100
@@ -139,18 +137,18 @@ class TestPoliticianAffiliationRepositoryImpl:
     @pytest.mark.asyncio
     async def test_upsert_create_new(
         self,
-        repository: PoliticianAffiliationRepositoryImpl,
+        repository: ConferenceMemberRepositoryImpl,
         mock_session: MagicMock,
-        sample_affiliation_entity: PoliticianAffiliation,
+        sample_member_entity: ConferenceMember,
     ) -> None:
-        """Test upsert creates new affiliation."""
-        # Mock check for existing affiliation (returns None)
+        """Test upsert creates new membership."""
+        # Mock check for existing membership (returns None)
         mock_result1 = MagicMock()
         mock_result1.fetchone = MagicMock(return_value=None)
         mock_session.execute.return_value = mock_result1
 
         # Mock the create method
-        created_entity = PoliticianAffiliation(
+        created_entity = ConferenceMember(
             id=1,
             politician_id=100,
             conference_id=10,
@@ -173,18 +171,18 @@ class TestPoliticianAffiliationRepositoryImpl:
         repository.create.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_end_affiliation_success(
+    async def test_end_membership_success(
         self,
-        repository: PoliticianAffiliationRepositoryImpl,
+        repository: ConferenceMemberRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test end_affiliation successfully ends affiliation."""
+        """Test end_membership successfully ends membership."""
         # Mock update query
         mock_update_result = MagicMock()
         mock_session.execute.return_value = mock_update_result
 
         # Mock get_by_id
-        updated_entity = PoliticianAffiliation(
+        updated_entity = ConferenceMember(
             id=1,
             politician_id=100,
             conference_id=10,
@@ -194,7 +192,7 @@ class TestPoliticianAffiliationRepositoryImpl:
         )
         repository.get_by_id = AsyncMock(return_value=updated_entity)
 
-        result = await repository.end_affiliation(1, date(2024, 12, 31))
+        result = await repository.end_membership(1, date(2024, 12, 31))
 
         assert result is not None
         assert result.end_date == date(2024, 12, 31)
@@ -203,12 +201,12 @@ class TestPoliticianAffiliationRepositoryImpl:
         repository.get_by_id.assert_called_once_with(1)
 
     @pytest.mark.asyncio
-    async def test_end_affiliation_not_found(
+    async def test_end_membership_not_found(
         self,
-        repository: PoliticianAffiliationRepositoryImpl,
+        repository: ConferenceMemberRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test end_affiliation returns None when not found."""
+        """Test end_membership returns None when not found."""
         # Mock update query
         mock_update_result = MagicMock()
         mock_session.execute.return_value = mock_update_result
@@ -216,15 +214,15 @@ class TestPoliticianAffiliationRepositoryImpl:
         # Mock get_by_id (returns None)
         repository.get_by_id = AsyncMock(return_value=None)
 
-        result = await repository.end_affiliation(999, date(2024, 12, 31))
+        result = await repository.end_membership(999, date(2024, 12, 31))
 
         assert result is None
         mock_session.commit.assert_called_once()
         repository.get_by_id.assert_called_once_with(999)
 
-    def test_to_entity(self, repository: PoliticianAffiliationRepositoryImpl) -> None:
+    def test_to_entity(self, repository: ConferenceMemberRepositoryImpl) -> None:
         """Test _to_entity converts model to entity correctly."""
-        model = PoliticianAffiliationModel(
+        model = ConferenceMemberModel(
             id=1,
             politician_id=100,
             conference_id=10,
@@ -235,18 +233,18 @@ class TestPoliticianAffiliationRepositoryImpl:
 
         entity = repository._to_entity(model)
 
-        assert isinstance(entity, PoliticianAffiliation)
+        assert isinstance(entity, ConferenceMember)
         assert entity.id == 1
         assert entity.politician_id == 100
 
     def test_to_model(
         self,
-        repository: PoliticianAffiliationRepositoryImpl,
-        sample_affiliation_entity: PoliticianAffiliation,
+        repository: ConferenceMemberRepositoryImpl,
+        sample_member_entity: ConferenceMember,
     ) -> None:
         """Test _to_model converts entity to model correctly."""
-        model = repository._to_model(sample_affiliation_entity)
+        model = repository._to_model(sample_member_entity)
 
-        assert isinstance(model, PoliticianAffiliationModel)
+        assert isinstance(model, ConferenceMemberModel)
         assert model.politician_id == 100
         assert model.conference_id == 10

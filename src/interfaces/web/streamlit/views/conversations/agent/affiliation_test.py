@@ -15,8 +15,8 @@ from src.infrastructure.external.langgraph_tools.politician_matching_tools impor
 )
 
 
-def render_politician_affiliation_test() -> None:
-    """Test verify_politician_affiliation tool.
+def render_conference_membership_test() -> None:
+    """Test verify_conference_membership tool.
 
     政治家所属情報の検証ツールのテスト画面をレンダリングします。
     政治家IDから所属情報を取得し、期待される政党との一致を確認します。
@@ -55,8 +55,8 @@ def _execute_verification(politician_id: int, expected_party: str) -> None:
             container = Container.create_for_environment()
             tools = create_politician_matching_tools(
                 politician_repo=container.repositories.politician_repository(),
-                affiliation_repo=(
-                    container.repositories.politician_affiliation_repository()
+                conference_member_repo=(
+                    container.repositories.conference_member_repository()
                 ),
             )
             verify_tool = tools[1]

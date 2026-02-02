@@ -8,14 +8,14 @@ from src.application.dtos.conference_dto import (
     CreateAffiliationDTO,
     ExtractedConferenceMemberDTO,
 )
+from src.domain.entities.conference_member import ConferenceMember
 from src.domain.entities.extracted_conference_member import ExtractedConferenceMember
-from src.domain.entities.politician_affiliation import PoliticianAffiliation
+from src.domain.repositories.conference_member_repository import (
+    ConferenceMemberRepository,
+)
 from src.domain.repositories.conference_repository import ConferenceRepository
 from src.domain.repositories.extracted_conference_member_repository import (
     ExtractedConferenceMemberRepository,
-)
-from src.domain.repositories.politician_affiliation_repository import (
-    PoliticianAffiliationRepository,
 )
 from src.domain.repositories.politician_repository import PoliticianRepository
 from src.domain.services.conference_domain_service import ConferenceDomainService
@@ -96,8 +96,8 @@ class CreateAffiliationsInputDTO:
 
 
 @dataclass
-class PoliticianAffiliationDTO:
-    """DTO for politician affiliation data."""
+class ConferenceMemberDTO:
+    """DTO for conference member data."""
 
     id: int
     politician_id: int
@@ -114,7 +114,7 @@ class CreateAffiliationsOutputDTO:
 
     created_count: int
     skipped_count: int
-    affiliations: list[PoliticianAffiliationDTO]
+    affiliations: list[ConferenceMemberDTO]
 
 
 @dataclass
@@ -282,7 +282,7 @@ class ManageConferenceMembersUseCase:
         politician_repo: 政治家リポジトリ
         conference_service: 会議体ドメインサービス
         extracted_repo: 抽出済みメンバーリポジトリ
-        affiliation_repo: 所属情報リポジトリ
+        conference_member_repo: 会議体メンバーリポジトリ
         scraper: Webスクレイピングサービス
         llm: LLMサービス
 
@@ -311,7 +311,7 @@ class ManageConferenceMembersUseCase:
         politician_repository: PoliticianRepository,
         conference_domain_service: ConferenceDomainService,
         extracted_member_repository: ExtractedConferenceMemberRepository,
-        politician_affiliation_repository: PoliticianAffiliationRepository,
+        conference_member_repository: ConferenceMemberRepository,
         web_scraper_service: IWebScraperService,
         llm_service: ILLMService,
     ):
@@ -322,7 +322,7 @@ class ManageConferenceMembersUseCase:
             politician_repository: 政治家リポジトリの実装
             conference_domain_service: 会議体ドメインサービス
             extracted_member_repository: 抽出済みメンバーリポジトリの実装
-            politician_affiliation_repository: 所属情報リポジトリの実装
+            conference_member_repository: 会議体メンバーリポジトリの実装
             web_scraper_service: Webスクレイピングサービス
             llm_service: LLMサービス
         """
@@ -330,7 +330,7 @@ class ManageConferenceMembersUseCase:
         self.politician_repo = politician_repository
         self.conference_service = conference_domain_service
         self.extracted_repo = extracted_member_repository
-        self.affiliation_repo = politician_affiliation_repository
+        self.conference_member_repo = conference_member_repository
         self.scraper = web_scraper_service
         self.llm = llm_service
 
@@ -487,7 +487,7 @@ class ManageConferenceMembersUseCase:
         else:
             members = await self.extracted_repo.get_matched_members()
 
-        created_affiliations: list[PoliticianAffiliationDTO] = []
+        created_affiliations: list[ConferenceMemberDTO] = []
         skipped_count = 0
 
         for member in members:
@@ -496,8 +496,10 @@ class ManageConferenceMembersUseCase:
                 continue
 
             # Check if affiliation already exists
-            existing = await self.affiliation_repo.get_by_politician_and_conference(
-                member.matched_politician_id, member.conference_id
+            existing = (
+                await self.conference_member_repo.get_by_politician_and_conference(
+                    member.matched_politician_id, member.conference_id
+                )
             )
 
             if existing:
@@ -515,17 +517,17 @@ class ManageConferenceMembersUseCase:
             if not politician:
                 raise ValueError(f"Politician {member.matched_politician_id} not found")
 
-            # Create affiliation
-            affiliation = PoliticianAffiliation(
+            # Create conference member
+            conference_member = ConferenceMember(
                 politician_id=member.matched_politician_id,
                 conference_id=member.conference_id,
                 role=member.extracted_role,
                 start_date=request.start_date or datetime.now().date(),
             )
 
-            created = await self.affiliation_repo.create(affiliation)
+            created = await self.conference_member_repo.create(conference_member)
             created_affiliations.append(
-                PoliticianAffiliationDTO(
+                ConferenceMemberDTO(
                     id=created.id or 0,
                     politician_id=created.politician_id,
                     politician_name=politician.name,

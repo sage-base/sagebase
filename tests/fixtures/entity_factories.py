@@ -4,6 +4,7 @@ from datetime import date, datetime
 from typing import Any
 
 from src.domain.entities.conference import Conference
+from src.domain.entities.conference_member import ConferenceMember
 from src.domain.entities.conversation import Conversation
 from src.domain.entities.extracted_conference_member import ExtractedConferenceMember
 from src.domain.entities.extracted_parliamentary_group_member import (
@@ -17,7 +18,6 @@ from src.domain.entities.minutes import Minutes
 from src.domain.entities.parliamentary_group import ParliamentaryGroup
 from src.domain.entities.political_party import PoliticalParty
 from src.domain.entities.politician import Politician
-from src.domain.entities.politician_affiliation import PoliticianAffiliation
 from src.domain.entities.proposal_submitter import ProposalSubmitter
 from src.domain.entities.speaker import Speaker
 from src.domain.value_objects.submitter_type import SubmitterType
@@ -191,8 +191,8 @@ def create_extracted_parliamentary_group_member(
     return ExtractedParliamentaryGroupMember(**defaults)
 
 
-def create_politician_affiliation(**kwargs: Any) -> PoliticianAffiliation:
-    """Create a test politician affiliation."""
+def create_conference_member(**kwargs: Any) -> ConferenceMember:
+    """Create a test conference member."""
     defaults = {
         "id": 1,
         "politician_id": 1,
@@ -202,7 +202,7 @@ def create_politician_affiliation(**kwargs: Any) -> PoliticianAffiliation:
         "role": "議員",
     }
     defaults.update(kwargs)
-    return PoliticianAffiliation(**defaults)
+    return ConferenceMember(**defaults)
 
 
 def create_extracted_proposal_judge(**kwargs: Any) -> ExtractedProposalJudge:

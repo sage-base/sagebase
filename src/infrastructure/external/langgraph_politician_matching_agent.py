@@ -18,8 +18,8 @@ from langgraph.prebuilt import create_react_agent
 
 from src.application.dtos.politician_matching_dto import PoliticianMatchingAgentResult
 from src.domain.interfaces.politician_matching_agent import IPoliticianMatchingAgent
-from src.domain.repositories.politician_affiliation_repository import (
-    PoliticianAffiliationRepository,
+from src.domain.repositories.conference_member_repository import (
+    ConferenceMemberRepository,
 )
 from src.domain.repositories.politician_repository import PoliticianRepository
 from src.infrastructure.external.langgraph_tools.politician_matching_tools import (
@@ -91,19 +91,19 @@ class PoliticianMatchingAgent(IPoliticianMatchingAgent):
         self,
         llm: BaseChatModel,
         politician_repo: PoliticianRepository,
-        affiliation_repo: PoliticianAffiliationRepository,
+        conference_member_repo: ConferenceMemberRepository,
     ):
         """エージェントを初期化
 
         Args:
             llm: LangChainのチャットモデル
             politician_repo: PoliticianRepository（必須）
-            affiliation_repo: PoliticianAffiliationRepository（必須）
+            conference_member_repo: ConferenceMemberRepository（必須）
         """
         self.llm = llm
         self.tools = create_politician_matching_tools(
             politician_repo=politician_repo,
-            affiliation_repo=affiliation_repo,
+            conference_member_repo=conference_member_repo,
         )
         self.agent = self._create_workflow()
         logger.info(f"PoliticianMatchingAgent initialized with {len(self.tools)} tools")
@@ -125,7 +125,7 @@ class PoliticianMatchingAgent(IPoliticianMatchingAgent):
 
 利用可能なツール:
 - search_politician_candidates: 発言者名から政治家候補を検索・スコアリング
-- verify_politician_affiliation: 政治家の所属情報を検証
+- verify_conference_membership: 政治家の所属情報を検証
 - match_politician_with_baml: BAMLを使用して政治家マッチングを実行
 
 マッチングの判断基準:
@@ -135,7 +135,7 @@ class PoliticianMatchingAgent(IPoliticianMatchingAgent):
 
 推奨される手順:
 1. search_politician_candidatesで候補を取得
-2. 上位候補に対してverify_politician_affiliationで所属を検証
+2. 上位候補に対してverify_conference_membershipで所属を検証
 3. 検証結果を踏まえてmatch_politician_with_bamlで最終判定
 4. 信頼度が{CONFIDENCE_THRESHOLD}以上なら成功、それ未満なら失敗
 

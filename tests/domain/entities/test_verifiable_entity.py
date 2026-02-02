@@ -1,10 +1,10 @@
 """Tests for VerifiableEntity protocol and its implementations."""
 
+from src.domain.entities.conference_member import ConferenceMember
 from src.domain.entities.conversation import Conversation
 from src.domain.entities.parliamentary_group_membership import (
     ParliamentaryGroupMembership,
 )
-from src.domain.entities.politician_affiliation import PoliticianAffiliation
 from src.domain.entities.speaker import Speaker
 
 
@@ -31,11 +31,11 @@ class TestVerifiableEntityProtocol:
         assert hasattr(conversation, "update_from_extraction_log")
         assert hasattr(conversation, "can_be_updated_by_ai")
 
-    def test_politician_affiliation_implements_verifiable_entity(self) -> None:
-        """Test that PoliticianAffiliation implements VerifiableEntity protocol."""
+    def test_conference_member_implements_verifiable_entity(self) -> None:
+        """Test that ConferenceMember implements VerifiableEntity protocol."""
         from datetime import date
 
-        affiliation = PoliticianAffiliation(
+        affiliation = ConferenceMember(
             politician_id=1, conference_id=1, start_date=date(2024, 1, 1)
         )
 
@@ -142,13 +142,13 @@ class TestVerifiableEntityInitialization:
         assert conversation.is_manually_verified is True
         assert conversation.latest_extraction_log_id == 300
 
-    def test_politician_affiliation_can_be_initialized_with_verification_fields(
+    def test_conference_member_can_be_initialized_with_verification_fields(
         self,
     ) -> None:
-        """Test PoliticianAffiliation can be initialized with verification fields."""
+        """Test ConferenceMember can be initialized with verification fields."""
         from datetime import date
 
-        affiliation = PoliticianAffiliation(
+        affiliation = ConferenceMember(
             politician_id=1,
             conference_id=1,
             start_date=date(2024, 1, 1),
