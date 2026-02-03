@@ -1,13 +1,8 @@
 """Use case for managing conference members."""
 
 from dataclasses import dataclass
-from datetime import date, datetime
-from typing import Any, Protocol
+from datetime import date
 
-from src.application.dtos.conference_dto import (
-    CreateAffiliationDTO,
-    ExtractedConferenceMemberDTO,
-)
 from src.domain.entities.conference_member import ConferenceMember
 from src.domain.entities.extracted_conference_member import ExtractedConferenceMember
 from src.domain.repositories.conference_member_repository import (
@@ -19,7 +14,6 @@ from src.domain.repositories.extracted_conference_member_repository import (
 )
 from src.domain.repositories.politician_repository import PoliticianRepository
 from src.domain.services.conference_domain_service import ConferenceDomainService
-from src.domain.services.interfaces.llm_service import ILLMService
 from src.domain.services.interfaces.web_scraper_service import IWebScraperService
 
 
@@ -34,16 +28,17 @@ class ExtractMembersInputDTO:
 
 @dataclass
 class ExtractedMemberDTO:
-    """DTO for extracted member data."""
+    """DTO for extracted member data.
+
+    Bronze Layer（抽出ログ層）のデータを表す。
+    政治家との紐付けはGold Layer（ConferenceMember）で管理される。
+    """
 
     id: int
     conference_id: int
     name: str
     role: str | None
     party_affiliation: str | None
-    matched_politician_id: int | None
-    matching_status: str
-    confidence_score: float | None
 
 
 @dataclass
@@ -53,83 +48,6 @@ class ExtractMembersOutputDTO:
     conference_id: int
     extracted_count: int
     members: list[ExtractedMemberDTO]
-
-
-@dataclass
-class MatchMembersInputDTO:
-    """Input DTO for match_members."""
-
-    conference_id: int | None = None
-    member_ids: list[int] | None = None
-
-
-@dataclass
-class MemberMatchResultDTO:
-    """DTO for member match result."""
-
-    member_id: int
-    member_name: str
-    matched_politician_id: int | None
-    matched_politician_name: str | None
-    confidence_score: float
-    matching_status: str
-    matching_notes: str
-
-
-@dataclass
-class MatchMembersOutputDTO:
-    """Output DTO for match_members."""
-
-    matched_count: int
-    needs_review_count: int
-    no_match_count: int
-    results: list[MemberMatchResultDTO]
-
-
-@dataclass
-class CreateAffiliationsInputDTO:
-    """Input DTO for create_affiliations."""
-
-    conference_id: int | None = None
-    member_ids: list[int] | None = None
-    start_date: date | None = None
-
-
-@dataclass
-class ConferenceMemberDTO:
-    """DTO for conference member data."""
-
-    id: int
-    politician_id: int
-    politician_name: str
-    conference_id: int
-    role: str | None
-    start_date: date
-    end_date: date | None
-    source_extracted_member_id: int | None = None
-
-
-@dataclass
-class CreateAffiliationsOutputDTO:
-    """Output DTO for create_affiliations."""
-
-    created_count: int
-    skipped_count: int
-    affiliations: list[ConferenceMemberDTO]
-
-
-@dataclass
-class ApproveMatchInputDTO:
-    """手動マッチング承認の入力DTO."""
-
-    member_id: int
-
-
-@dataclass
-class RejectMatchInputDTO:
-    """手動マッチング却下の入力DTO."""
-
-    member_id: int
 
 
 @dataclass
@@ -146,7 +64,6 @@ class ManualMatchOutputDTO:
 
     success: bool
     member_id: int
-    new_status: str
     message: str
 
 
@@ -172,111 +89,33 @@ class SearchPoliticiansOutputDTO:
     candidates: list[PoliticianCandidateDTO]
 
 
-# Protocol for external repositories
-class ExtractedMemberEntity:
-    """Minimal entity for extracted member."""
-
-    id: int
-    name: str
-    conference_id: int
-    party_affiliation: str | None
-    role: str | None
-    matching_status: str
-    matched_politician_id: int | None
-    confidence_score: float | None
-
-
-class ExtractedMemberRepository(Protocol):
-    """Protocol for extracted member repository."""
-
-    async def get_by_conference(
-        self, conference_id: int
-    ) -> list[ExtractedMemberEntity]:
-        """Get extracted members by conference."""
-        ...
-
-    async def get_pending_by_conference(
-        self, conference_id: int
-    ) -> list[ExtractedMemberEntity]:
-        """Get pending extracted members by conference."""
-        ...
-
-    async def get_all_pending(self) -> list[ExtractedMemberEntity]:
-        """Get all pending extracted members."""
-        ...
-
-    async def get_by_conference_and_status(
-        self, conference_id: int, status: str | None
-    ) -> list[ExtractedMemberEntity]:
-        """Get extracted members by conference and status."""
-        ...
-
-    async def get_by_status(self, status: str | None) -> list[ExtractedMemberEntity]:
-        """Get extracted members by status."""
-        ...
-
-    async def create(
-        self, member: ExtractedConferenceMemberDTO
-    ) -> ExtractedMemberEntity:
-        """Create extracted member."""
-        ...
-
-    async def update(
-        self, member_id: int, data: dict[str, Any]
-    ) -> ExtractedMemberEntity:
-        """Update extracted member."""
-        ...
-
-    async def update_matching_status(
-        self,
-        member_id: int,
-        status: str,
-        matched_politician_id: int | None,
-        confidence_score: float,
-    ) -> None:
-        """Update member matching status."""
-        ...
-
-    async def mark_processed(self, member_id: int) -> None:
-        """Mark member as processed."""
-        ...
-
-
-class AffiliationEntity:
-    """Minimal entity for affiliation."""
+@dataclass
+class ConferenceMemberDTO:
+    """DTO for conference member data."""
 
     id: int
     politician_id: int
+    politician_name: str
     conference_id: int
+    role: str | None
     start_date: date
     end_date: date | None
-    role: str | None
-
-
-class AffiliationRepository(Protocol):
-    """Protocol for affiliation repository."""
-
-    async def create(self, affiliation: CreateAffiliationDTO) -> AffiliationEntity:
-        """Create affiliation."""
-        ...
-
-    async def get_by_politician_and_conference(
-        self, politician_id: int, conference_id: int
-    ) -> list[AffiliationEntity]:
-        """Get affiliations by politician and conference."""
-        ...
+    source_extracted_member_id: int | None = None
 
 
 class ManageConferenceMembersUseCase:
     """会議体メンバー管理ユースケース
 
-    会議体（議会・委員会）のメンバー情報を抽出、マッチング、
-    所属情報作成を行う3段階プロセスを管理します。
+    会議体（議会・委員会）のメンバー情報を抽出し、
+    手動で政治家と紐付けて所属情報を作成するプロセスを管理します。
 
     処理フロー：
-    1. extract_members: WebページからメンバーをLLMで抽出
-    2. match_members: 抽出メンバーと既存政治家をマッチング
-    3. create_affiliations: マッチング結果から所属情報を作成
+    1. extract_members: WebページからメンバーをLLMで抽出（Bronze Layer）
+    2. manual_match: 手動で政治家を選択してConferenceMemberを作成（Gold Layer）
+
+    Bronze LayerとGold Layerの分離により、
+    抽出データ（ExtractedConferenceMember）と確定データ（ConferenceMember）を
+    明確に区別します。
 
     Attributes:
         conference_repo: 会議体リポジトリ
@@ -285,7 +124,6 @@ class ManageConferenceMembersUseCase:
         extracted_repo: 抽出済みメンバーリポジトリ
         conference_member_repo: 会議体メンバーリポジトリ
         scraper: Webスクレイピングサービス
-        llm: LLMサービス
 
     Example:
         >>> use_case = ManageConferenceMembersUseCase(...)
@@ -295,14 +133,9 @@ class ManageConferenceMembersUseCase:
         ...     ExtractMembersInputDTO(conference_id=185)
         ... )
         >>>
-        >>> # Step 2: 政治家マッチング
-        >>> matched = await use_case.match_members(
-        ...     MatchMembersInputDTO(conference_id=185)
-        ... )
-        >>>
-        >>> # Step 3: 所属情報作成
-        >>> created = await use_case.create_affiliations(
-        ...     CreateAffiliationsInputDTO(conference_id=185)
+        >>> # Step 2: 手動で政治家を選択してConferenceMemberを作成
+        >>> result = await use_case.manual_match(
+        ...     ManualMatchInputDTO(member_id=1, politician_id=100)
         ... )
     """
 
@@ -314,7 +147,6 @@ class ManageConferenceMembersUseCase:
         extracted_member_repository: ExtractedConferenceMemberRepository,
         conference_member_repository: ConferenceMemberRepository,
         web_scraper_service: IWebScraperService,
-        llm_service: ILLMService,
     ):
         """会議体メンバー管理ユースケースを初期化する
 
@@ -325,7 +157,6 @@ class ManageConferenceMembersUseCase:
             extracted_member_repository: 抽出済みメンバーリポジトリの実装
             conference_member_repository: 会議体メンバーリポジトリの実装
             web_scraper_service: Webスクレイピングサービス
-            llm_service: LLMサービス
         """
         self.conference_repo = conference_repository
         self.politician_repo = politician_repository
@@ -333,7 +164,6 @@ class ManageConferenceMembersUseCase:
         self.extracted_repo = extracted_member_repository
         self.conference_member_repo = conference_member_repository
         self.scraper = web_scraper_service
-        self.llm = llm_service
 
     async def extract_members(
         self, request: ExtractMembersInputDTO
@@ -402,245 +232,17 @@ class ManageConferenceMembersUseCase:
             members=[self._to_extracted_dto(m) for m in created_members],
         )
 
-    async def match_members(
-        self, request: MatchMembersInputDTO
-    ) -> MatchMembersOutputDTO:
-        """抽出済みメンバーと既存政治家をマッチングする
-
-        LLMを使用してファジーマッチングを行い、信頼度スコアを付与します。
-        - matched: 信頼度 ≥ 0.7
-        - needs_review: 0.5 ≤ 信頼度 < 0.7
-        - no_match: 信頼度 < 0.5
-
-        Args:
-            request: マッチングリクエストDTO
-                - conference_id: 対象会議体ID（オプション）
-                - member_ids: 特定メンバーIDリスト（オプション）
-
-        Returns:
-            MatchMembersOutputDTO:
-                - matched_count: マッチ成功数
-                - needs_review_count: 要確認数
-                - no_match_count: マッチなし数
-                - results: マッチング結果DTOリスト
-        """
-        # Get members to process
-        if request.conference_id:
-            members = await self.extracted_repo.get_pending_members(
-                request.conference_id
-            )
-        elif request.member_ids:
-            # Get specific members by IDs
-            all_members = await self.extracted_repo.get_pending_members()
-            members = [m for m in all_members if m.id in request.member_ids]
-        else:
-            members = await self.extracted_repo.get_pending_members()
-
-        results: list[MemberMatchResultDTO] = []
-        for member in members:
-            match_result = await self._match_member_to_politician(member)
-            results.append(match_result)
-
-        # Count by status
-        matched_count = sum(1 for r in results if r.matching_status == "matched")
-        needs_review = sum(1 for r in results if r.matching_status == "needs_review")
-        no_match = sum(1 for r in results if r.matching_status == "no_match")
-
-        return MatchMembersOutputDTO(
-            matched_count=matched_count,
-            needs_review_count=needs_review,
-            no_match_count=no_match,
-            results=results,
-        )
-
-    async def create_affiliations(
-        self, request: CreateAffiliationsInputDTO
-    ) -> CreateAffiliationsOutputDTO:
-        """マッチング結果から政治家所属情報を作成する
-
-        'matched'ステータスのメンバーのみを対象に、
-        politician_affiliationsテーブルに所属情報を作成します。
-
-        Args:
-            request: 所属情報作成リクエストDTO
-                - conference_id: 対象会議体ID（オプション）
-                - member_ids: 特定メンバーIDリスト（オプション）
-                - start_date: 所属開始日（デフォルト: 今日）
-
-        Returns:
-            CreateAffiliationsOutputDTO:
-                - created_count: 作成された所属情報数
-                - skipped_count: スキップされた数
-                - affiliations: 作成された所属情報DTOリスト
-
-        Raises:
-            ValueError: マッチした政治家が見つからない場合
-        """
-        # Get matched members
-        if request.conference_id:
-            members = await self.extracted_repo.get_matched_members(
-                request.conference_id
-            )
-        elif request.member_ids:
-            # Get specific members by IDs that are matched
-            all_members = await self.extracted_repo.get_matched_members()
-            members = [m for m in all_members if m.id in request.member_ids]
-        else:
-            members = await self.extracted_repo.get_matched_members()
-
-        created_affiliations: list[ConferenceMemberDTO] = []
-        skipped_count = 0
-
-        for member in members:
-            if not member.matched_politician_id:
-                skipped_count += 1
-                continue
-
-            # Check if affiliation already exists
-            existing = (
-                await self.conference_member_repo.get_by_politician_and_conference(
-                    member.matched_politician_id, member.conference_id
-                )
-            )
-
-            if existing:
-                # Check if any active affiliation exists
-                active = [a for a in existing if not a.end_date]
-                if active:
-                    # Active affiliation already exists
-                    skipped_count += 1
-                    continue
-
-            # Get politician for validation
-            politician = await self.politician_repo.get_by_id(
-                member.matched_politician_id
-            )
-            if not politician:
-                raise ValueError(f"Politician {member.matched_politician_id} not found")
-
-            # Create conference member
-            conference_member = ConferenceMember(
-                politician_id=member.matched_politician_id,
-                conference_id=member.conference_id,
-                role=member.extracted_role,
-                start_date=request.start_date or datetime.now().date(),
-                source_extracted_member_id=member.id,
-            )
-
-            created = await self.conference_member_repo.create(conference_member)
-            created_affiliations.append(
-                ConferenceMemberDTO(
-                    id=created.id or 0,
-                    politician_id=created.politician_id,
-                    politician_name=politician.name,
-                    conference_id=created.conference_id,
-                    role=created.role,
-                    start_date=created.start_date,
-                    end_date=created.end_date,
-                    source_extracted_member_id=created.source_extracted_member_id,
-                )
-            )
-
-        return CreateAffiliationsOutputDTO(
-            created_count=len(created_affiliations),
-            skipped_count=skipped_count,
-            affiliations=created_affiliations,
-        )
-
-    async def approve_match(
-        self, request: ApproveMatchInputDTO
-    ) -> ManualMatchOutputDTO:
-        """マッチング結果を承認する
-
-        needs_reviewステータスのメンバーのマッチングを確定します。
-        is_manually_verifiedフラグもTrueに設定します。
-
-        Args:
-            request: 承認リクエストDTO
-
-        Returns:
-            ManualMatchOutputDTO: 操作結果
-        """
-        member = await self.extracted_repo.get_by_id(request.member_id)
-        if not member:
-            return ManualMatchOutputDTO(
-                success=False,
-                member_id=request.member_id,
-                new_status="",
-                message="メンバーが見つかりません",
-            )
-
-        if not member.matched_politician_id:
-            return ManualMatchOutputDTO(
-                success=False,
-                member_id=request.member_id,
-                new_status=member.matching_status,
-                message="マッチ先の政治家が設定されていません",
-            )
-
-        await self.extracted_repo.update_matching_result(
-            member.id or 0,
-            member.matched_politician_id,
-            1.0,
-            "matched",
-        )
-        member.mark_as_manually_verified()
-        await self.extracted_repo.update(member)
-
-        return ManualMatchOutputDTO(
-            success=True,
-            member_id=request.member_id,
-            new_status="matched",
-            message="マッチングを承認しました",
-        )
-
-    async def reject_match(self, request: RejectMatchInputDTO) -> ManualMatchOutputDTO:
-        """マッチング結果を却下する
-
-        メンバーのステータスをno_matchに変更します。
-        人間の判断であるためis_manually_verifiedをTrueに設定し、
-        AI再実行での上書きを防止します。
-
-        Args:
-            request: 却下リクエストDTO
-
-        Returns:
-            ManualMatchOutputDTO: 操作結果
-        """
-        member = await self.extracted_repo.get_by_id(request.member_id)
-        if not member:
-            return ManualMatchOutputDTO(
-                success=False,
-                member_id=request.member_id,
-                new_status="",
-                message="メンバーが見つかりません",
-            )
-
-        await self.extracted_repo.update_matching_result(
-            member.id or 0,
-            None,
-            0.0,
-            "no_match",
-        )
-        member.mark_as_manually_verified()
-        await self.extracted_repo.update(member)
-
-        return ManualMatchOutputDTO(
-            success=True,
-            member_id=request.member_id,
-            new_status="no_match",
-            message="マッチングを却下しました",
-        )
-
     async def manual_match(self, request: ManualMatchInputDTO) -> ManualMatchOutputDTO:
         """手動で政治家をマッチングする
 
-        メンバーに指定された政治家をマッチングし、
-        is_manually_verifiedフラグをTrueに設定します。
-        同時にGold Layer（ConferenceMember）の所属情報も作成します。
+        抽出済みメンバーに指定された政治家を紐付け、
+        Gold Layer（ConferenceMember）の所属情報を作成します。
+        同時にExtractedConferenceMemberのis_manually_verifiedフラグをTrueに設定します。
 
         Args:
             request: 手動マッチングリクエストDTO
+                - member_id: 抽出済みメンバーID
+                - politician_id: 紐付ける政治家ID
 
         Returns:
             ManualMatchOutputDTO: 操作結果
@@ -650,7 +252,6 @@ class ManageConferenceMembersUseCase:
             return ManualMatchOutputDTO(
                 success=False,
                 member_id=request.member_id,
-                new_status="",
                 message="メンバーが見つかりません",
             )
 
@@ -659,27 +260,20 @@ class ManageConferenceMembersUseCase:
             return ManualMatchOutputDTO(
                 success=False,
                 member_id=request.member_id,
-                new_status=member.matching_status,
                 message=f"政治家ID {request.politician_id} が見つかりません",
             )
 
-        updated_member = await self.extracted_repo.update_matching_result(
-            member.id or 0,
-            request.politician_id,
-            1.0,
-            "matched",
-        )
-        if updated_member:
-            updated_member.mark_as_manually_verified()
-            await self.extracted_repo.update(updated_member)
+        # 手動検証済みとしてマーク
+        member.mark_as_manually_verified()
+        await self.extracted_repo.update(member)
 
         # Gold Layer: ConferenceMemberを作成（既存のアクティブな所属がなければ）
-        existing = await self.affiliation_repo.get_by_politician_and_conference(
+        existing = await self.conference_member_repo.get_by_politician_and_conference(
             request.politician_id, member.conference_id
         )
         active = [a for a in existing if not a.end_date]
         if not active:
-            affiliation = ConferenceMember(
+            conference_member = ConferenceMember(
                 politician_id=request.politician_id,
                 conference_id=member.conference_id,
                 role=member.extracted_role,
@@ -687,12 +281,11 @@ class ManageConferenceMembersUseCase:
                 source_extracted_member_id=member.id,
                 is_manually_verified=True,
             )
-            await self.affiliation_repo.create(affiliation)
+            await self.conference_member_repo.create(conference_member)
 
         return ManualMatchOutputDTO(
             success=True,
             member_id=request.member_id,
-            new_status="matched",
             message="手動マッチングが完了しました",
         )
 
@@ -720,136 +313,6 @@ class ManageConferenceMembersUseCase:
             ]
         )
 
-    async def _match_member_to_politician(
-        self, member: ExtractedConferenceMember
-    ) -> MemberMatchResultDTO:
-        """個別メンバーと政治家のマッチングを実行する
-
-        Args:
-            member: 抽出済みメンバーエンティティ
-
-        Returns:
-            マッチング結果DTO
-        """
-        # Search for politicians by name and party
-        candidates = await self.politician_repo.search_by_name(member.extracted_name)
-
-        # Filter by party if available
-        if member.extracted_party_name:
-            filtered = []
-            for candidate in candidates:
-                # Would need to check party name
-                filtered.append(candidate)
-            candidates = filtered if filtered else candidates
-
-        if not candidates:
-            # No candidates found
-            member.matching_status = "no_match"
-            member.matching_confidence = 0.0
-            # Update matching result
-            await self.extracted_repo.update_matching_result(
-                member.id or 0,
-                member.matched_politician_id,
-                member.matching_confidence,
-                member.matching_status,
-            )
-
-            return MemberMatchResultDTO(
-                member_id=member.id or 0,
-                member_name=member.extracted_name,
-                matched_politician_id=None,
-                matched_politician_name=None,
-                confidence_score=0.0,
-                matching_status="no_match",
-                matching_notes="No matching politicians found",
-            )
-
-        # Use LLM for fuzzy matching
-        from typing import cast
-
-        from src.application.dtos.base_dto import PoliticianBaseDTO
-
-        candidate_dtos = cast(
-            list[PoliticianBaseDTO],
-            [
-                {
-                    "id": c.id,
-                    "name": c.name,
-                    "party_id": c.political_party_id,
-                    "prefecture": None,
-                    "electoral_district": None,
-                    "profile_url": None,
-                    "image_url": None,
-                    "created_at": datetime.now(),
-                    "updated_at": datetime.now(),
-                }
-                for c in candidates
-            ],
-        )
-
-        match_result = await self.llm.match_conference_member(
-            member.extracted_name,
-            member.extracted_party_name,
-            candidate_dtos,
-        )
-
-        if match_result and match_result["matched_id"]:
-            politician = await self.politician_repo.get_by_id(
-                match_result["matched_id"]
-            )
-            if politician:
-                confidence = match_result["confidence"]
-
-                # Determine status based on confidence
-                if confidence >= 0.7:
-                    status = "matched"
-                elif confidence >= 0.5:
-                    status = "needs_review"
-                else:
-                    status = "no_match"
-
-                # Update member
-                member.matched_politician_id = politician.id
-                member.matching_confidence = confidence
-                member.matching_status = status
-                # Update matching result
-                await self.extracted_repo.update_matching_result(
-                    member.id or 0,
-                    member.matched_politician_id,
-                    member.matching_confidence,
-                    member.matching_status,
-                )
-
-                return MemberMatchResultDTO(
-                    member_id=member.id or 0,
-                    member_name=member.extracted_name,
-                    matched_politician_id=politician.id,
-                    matched_politician_name=politician.name,
-                    confidence_score=confidence,
-                    matching_status=status,
-                    matching_notes="",
-                )
-
-        # No match
-        member.matching_status = "no_match"
-        member.matching_confidence = 0.0
-        await self.extracted_repo.update_matching_result(
-            member.id or 0,
-            None,
-            0.0,
-            "no_match",
-        )
-
-        return MemberMatchResultDTO(
-            member_id=member.id or 0,
-            member_name=member.extracted_name,
-            matched_politician_id=None,
-            matched_politician_name=None,
-            confidence_score=0.0,
-            matching_status="no_match",
-            matching_notes="LLM could not find a match",
-        )
-
     def _to_extracted_dto(
         self, member: ExtractedConferenceMember
     ) -> ExtractedMemberDTO:
@@ -867,7 +330,4 @@ class ManageConferenceMembersUseCase:
             name=member.extracted_name,
             role=member.extracted_role,
             party_affiliation=member.extracted_party_name,
-            matched_politician_id=member.matched_politician_id,
-            matching_status=member.matching_status,
-            confidence_score=member.matching_confidence,
         )

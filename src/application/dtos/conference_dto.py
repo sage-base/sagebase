@@ -30,18 +30,6 @@ class ExtractedConferenceMemberDTO:
 
 
 @dataclass
-class ConferenceMemberMatchingDTO:
-    """DTO for conference member matching result."""
-
-    extracted_member_id: int
-    member_name: str
-    matched_politician_id: int | None
-    matched_politician_name: str | None
-    confidence_score: float
-    status: str  # "matched", "needs_review", "no_match"
-
-
-@dataclass
 class CreateAffiliationDTO:
     """DTO for creating politician affiliation."""
 
