@@ -19,12 +19,8 @@ from src.application.usecases.manage_conference_members_usecase import (
 from src.application.usecases.manage_conferences_usecase import (
     ManageConferencesUseCase,
 )
-from src.application.usecases.mark_entity_as_verified_usecase import (
-    MarkEntityAsVerifiedUseCase,
-)
 from src.domain.repositories import ConferenceRepository, GoverningBodyRepository
 from src.domain.services.conference_domain_service import ConferenceDomainService
-from src.infrastructure.external.llm_service import GeminiLLMService
 from src.infrastructure.external.web_scraper_service import PlaywrightScraperService
 from src.infrastructure.persistence.conference_member_repository_impl import (
     ConferenceMemberRepositoryImpl,
@@ -54,12 +50,6 @@ from src.interfaces.web.streamlit.presenters.conference_presenter import (
 def _create_scraper_service() -> PlaywrightScraperService:
     """PlaywrightScraperServiceのキャッシュされたインスタンスを返す."""
     return PlaywrightScraperService()
-
-
-@st.cache_resource
-def _create_llm_service() -> GeminiLLMService:
-    """GeminiLLMServiceのキャッシュされたインスタンスを返す."""
-    return GeminiLLMService()
 
 
 def render_conferences_page() -> None:
@@ -94,12 +84,6 @@ def render_conferences_page() -> None:
         extracted_member_repository=extracted_member_repo,  # type: ignore[arg-type]
         conference_member_repository=conference_member_repo,  # type: ignore[arg-type]
         web_scraper_service=_create_scraper_service(),
-        llm_service=_create_llm_service(),
-    )
-
-    # 検証UseCase初期化
-    verify_use_case = MarkEntityAsVerifiedUseCase(
-        conference_member_repository=extracted_member_repo,  # type: ignore[arg-type]
     )
 
     # Create tabs
@@ -132,5 +116,5 @@ def render_conferences_page() -> None:
             extracted_member_repo,
             conference_repo,
             manage_members_usecase,
-            verify_use_case,
+            conference_member_repo,
         )

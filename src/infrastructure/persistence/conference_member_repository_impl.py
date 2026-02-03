@@ -25,6 +25,7 @@ class ConferenceMemberModel:
     role: str | None
     is_manually_verified: bool
     latest_extraction_log_id: int | None
+    source_extracted_member_id: int | None
 
     def __init__(self, **kwargs: Any):
         for key, value in kwargs.items():
@@ -38,6 +39,60 @@ class ConferenceMemberRepositoryImpl(
 
     def __init__(self, session: AsyncSession | ISessionAdapter):
         super().__init__(session, ConferenceMember, ConferenceMemberModel)
+
+    async def get_by_id(self, entity_id: int) -> ConferenceMember | None:
+        """Get a conference member by ID using raw SQL."""
+        query = text("""
+            SELECT * FROM politician_affiliations
+            WHERE id = :id
+        """)
+        result = await self.session.execute(query, {"id": entity_id})
+        row = result.fetchone()
+        if row:
+            return self._row_to_entity(row)
+        return None
+
+    async def create(self, entity: ConferenceMember) -> ConferenceMember:
+        """Create a new conference member using raw SQL."""
+        query = text("""
+            INSERT INTO politician_affiliations (
+                politician_id, conference_id, start_date, end_date, role,
+                is_manually_verified, latest_extraction_log_id,
+                source_extracted_member_id
+            ) VALUES (
+                :politician_id, :conference_id, :start_date, :end_date, :role,
+                :is_manually_verified, :latest_extraction_log_id,
+                :source_extracted_member_id
+            )
+            RETURNING *
+        """)
+
+        result = await self.session.execute(
+            query,
+            {
+                "politician_id": entity.politician_id,
+                "conference_id": entity.conference_id,
+                "start_date": entity.start_date,
+                "end_date": entity.end_date,
+                "role": entity.role,
+                "is_manually_verified": entity.is_manually_verified,
+                "latest_extraction_log_id": entity.latest_extraction_log_id,
+                "source_extracted_member_id": entity.source_extracted_member_id,
+            },
+        )
+        row = result.fetchone()
+        await self.session.commit()
+        return self._row_to_entity(row)
+
+    async def delete(self, entity_id: int) -> bool:
+        """Delete a conference member by ID using raw SQL."""
+        query = text("""
+            DELETE FROM politician_affiliations
+            WHERE id = :id
+        """)
+        result = await self.session.execute(query, {"id": entity_id})
+        await self.session.commit()
+        return result.rowcount > 0
 
     async def get_by_politician_and_conference(
         self, politician_id: int, conference_id: int, active_only: bool = True
@@ -169,6 +224,27 @@ class ConferenceMemberRepositoryImpl(
         # Return updated entity
         return await self.get_by_id(membership_id)
 
+    async def get_by_source_extracted_member_ids(
+        self, member_ids: list[int]
+    ) -> list[ConferenceMember]:
+        """source_extracted_member_idのリストから所属情報を一括取得する."""
+        if not member_ids:
+            return []
+
+        placeholders = ", ".join(f":id_{i}" for i in range(len(member_ids)))
+        params = {f"id_{i}": mid for i, mid in enumerate(member_ids)}
+
+        query = text(f"""
+            SELECT * FROM politician_affiliations
+            WHERE source_extracted_member_id IN ({placeholders})
+            ORDER BY id
+        """)
+
+        result = await self.session.execute(query, params)
+        rows = result.fetchall()
+
+        return [self._row_to_entity(row) for row in rows]
+
     def _row_to_entity(self, row: Any) -> ConferenceMember:
         """Convert database row to domain entity."""
         return ConferenceMember(
@@ -180,6 +256,7 @@ class ConferenceMemberRepositoryImpl(
             role=getattr(row, "role", None),
             is_manually_verified=bool(getattr(row, "is_manually_verified", False)),
             latest_extraction_log_id=getattr(row, "latest_extraction_log_id", None),
+            source_extracted_member_id=getattr(row, "source_extracted_member_id", None),
         )
 
     def _to_entity(self, model: ConferenceMemberModel) -> ConferenceMember:
@@ -193,6 +270,9 @@ class ConferenceMemberRepositoryImpl(
             role=model.role,
             is_manually_verified=bool(getattr(model, "is_manually_verified", False)),
             latest_extraction_log_id=getattr(model, "latest_extraction_log_id", None),
+            source_extracted_member_id=getattr(
+                model, "source_extracted_member_id", None
+            ),
         )
 
     def _to_model(self, entity: ConferenceMember) -> ConferenceMemberModel:
@@ -205,6 +285,7 @@ class ConferenceMemberRepositoryImpl(
             "role": entity.role,
             "is_manually_verified": entity.is_manually_verified,
             "latest_extraction_log_id": entity.latest_extraction_log_id,
+            "source_extracted_member_id": entity.source_extracted_member_id,
         }
 
         if entity.id is not None:
@@ -225,3 +306,4 @@ class ConferenceMemberRepositoryImpl(
         model.role = entity.role
         model.is_manually_verified = entity.is_manually_verified
         model.latest_extraction_log_id = entity.latest_extraction_log_id
+        model.source_extracted_member_id = entity.source_extracted_member_id

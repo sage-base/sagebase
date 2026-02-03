@@ -149,7 +149,11 @@ def create_parliamentary_group(**kwargs: Any) -> ParliamentaryGroup:
 
 
 def create_extracted_conference_member(**kwargs: Any) -> ExtractedConferenceMember:
-    """Create a test extracted conference member."""
+    """Create a test extracted conference member.
+
+    Bronze Layer（抽出ログ層）のエンティティ。
+    政治家との紐付けはGold Layer（ConferenceMember）で管理される。
+    """
     defaults = {
         "id": 1,
         "conference_id": 1,
@@ -158,10 +162,6 @@ def create_extracted_conference_member(**kwargs: Any) -> ExtractedConferenceMemb
         "extracted_role": "議員",
         "extracted_party_name": "自由民主党",
         "extracted_at": datetime.now(),
-        "matched_politician_id": None,
-        "matching_confidence": None,
-        "matching_status": "pending",
-        "matched_at": None,
         "additional_data": None,
     }
     defaults.update(kwargs)

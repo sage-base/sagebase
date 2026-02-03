@@ -7,32 +7,11 @@ from src.domain.repositories.base import BaseRepository
 
 
 class ExtractedConferenceMemberRepository(BaseRepository[ExtractedConferenceMember]):
-    """Repository interface for extracted conference members."""
+    """Repository interface for extracted conference members.
 
-    @abstractmethod
-    async def get_pending_members(
-        self, conference_id: int | None = None
-    ) -> list[ExtractedConferenceMember]:
-        """Get all pending members for matching."""
-        pass
-
-    @abstractmethod
-    async def get_matched_members(
-        self, conference_id: int | None = None, min_confidence: float | None = None
-    ) -> list[ExtractedConferenceMember]:
-        """Get matched members with optional filtering."""
-        pass
-
-    @abstractmethod
-    async def update_matching_result(
-        self,
-        member_id: int,
-        politician_id: int | None,
-        confidence: float | None,
-        status: str,
-    ) -> ExtractedConferenceMember | None:
-        """Update the matching result for a member."""
-        pass
+    Bronze Layer（抽出ログ層）のリポジトリインターフェース。
+    政治家との紐付け機能はGold Layer（ConferenceMemberRepository）に移行済み。
+    """
 
     @abstractmethod
     async def get_by_conference(
@@ -45,7 +24,11 @@ class ExtractedConferenceMemberRepository(BaseRepository[ExtractedConferenceMemb
     async def get_extraction_summary(
         self, conference_id: int | None = None
     ) -> dict[str, int]:
-        """Get summary statistics for extracted members."""
+        """Get summary statistics for extracted members.
+
+        Returns:
+            dict with 'total' key containing the count of members.
+        """
         pass
 
     @abstractmethod

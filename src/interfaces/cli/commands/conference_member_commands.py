@@ -1,37 +1,26 @@
-"""Commands for managing conference member extraction and matching"""
+"""Commands for managing conference member extraction.
+
+政治家との紐付けはGold Layer（ConferenceMember）で管理されるため、
+match_members、create_affiliationsコマンドは削除されました。
+代わりにStreamlit UIの手動マッチング機能を使用してください。
+"""
 
 import asyncio
 import logging
 
-from datetime import date, datetime
 from typing import Any
 
 import click
 
-from src.application.usecases.manage_conference_members_usecase import (
-    CreateAffiliationsInputDTO,
-    ManageConferenceMembersUseCase,
-    MatchMembersInputDTO,
-)
-from src.domain.services.conference_domain_service import ConferenceDomainService
-from src.infrastructure.config.database import get_db_session
 from src.infrastructure.exceptions import DatabaseError, ScrapingError
 from src.infrastructure.external.conference_member_extractor.extractor import (
     ConferenceMemberExtractor,
-)
-from src.infrastructure.external.llm_service import GeminiLLMService
-from src.infrastructure.external.web_scraper_service import PlaywrightScraperService
-from src.infrastructure.persistence.conference_member_repository_impl import (
-    ConferenceMemberRepositoryImpl,
 )
 from src.infrastructure.persistence.conference_repository_impl import (
     ConferenceRepositoryImpl,
 )
 from src.infrastructure.persistence.extracted_conference_member_repository_impl import (
     ExtractedConferenceMemberRepositoryImpl,
-)
-from src.infrastructure.persistence.politician_repository_impl import (
-    PoliticianRepositoryImpl,
 )
 from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
 from src.interfaces.cli.base import BaseCommand
@@ -42,7 +31,11 @@ logger = logging.getLogger(__name__)
 
 
 class ConferenceMemberCommands(BaseCommand):
-    """Commands for conference member extraction and matching"""
+    """Commands for conference member extraction.
+
+    政治家との紐付けはGold Layer（ConferenceMember）で管理されます。
+    手動マッチングはStreamlit UIを使用してください。
+    """
 
     @staticmethod
     def echo_info(message: str):
@@ -64,41 +57,10 @@ class ConferenceMemberCommands(BaseCommand):
         """Show an error message"""
         click.echo(click.style(f"✗ {message}", fg="red"), err=True)
 
-    @staticmethod
-    def _create_manage_members_usecase() -> ManageConferenceMembersUseCase:
-        """Create ManageConferenceMembersUseCase with dependencies
-
-        Note: Uses sync session temporarily. Should be refactored to use async session.
-        """
-        session = get_db_session()
-
-        # リポジトリの初期化（非同期セッション化: See Issue #979）
-        conference_repo = ConferenceRepositoryImpl(session)  # type: ignore
-        politician_repo = PoliticianRepositoryImpl(session)  # type: ignore
-        extracted_member_repo = ExtractedConferenceMemberRepositoryImpl(session)  # type: ignore
-        conference_member_repo = ConferenceMemberRepositoryImpl(session)  # type: ignore
-
-        # サービスの初期化
-        conference_service = ConferenceDomainService()
-        web_scraper = PlaywrightScraperService()  # type: ignore
-        llm_service = GeminiLLMService()
-
-        return ManageConferenceMembersUseCase(
-            conference_repository=conference_repo,
-            politician_repository=politician_repo,
-            conference_domain_service=conference_service,
-            extracted_member_repository=extracted_member_repo,
-            conference_member_repository=conference_member_repo,
-            web_scraper_service=web_scraper,
-            llm_service=llm_service,
-        )
-
     def get_commands(self) -> list[click.Command]:
         """Get list of conference member commands"""
         return [
             ConferenceMemberCommands.extract_conference_members,
-            ConferenceMemberCommands.match_conference_members,
-            ConferenceMemberCommands.create_affiliations,
             ConferenceMemberCommands.member_status,
         ]
 
@@ -117,9 +79,13 @@ class ConferenceMemberCommands(BaseCommand):
     def extract_conference_members(
         conference_id: int | None = None, force: bool = False
     ):
-        """会議体の議員紹介URLから議員情報を抽出（ステップ1）"""
+        """会議体の議員紹介URLから議員情報を抽出
 
-        click.echo("📋 会議体メンバー情報の抽出を開始します（ステップ1/3）")
+        抽出した議員情報はBronze Layer（extracted_conference_members）に保存されます。
+        政治家との紐付けはStreamlit UIの手動マッチング機能を使用してください。
+        """
+
+        click.echo("📋 会議体メンバー情報の抽出を開始します")
 
         # 対象の会議体を取得
         conf_repo = RepositoryAdapter(ConferenceRepositoryImpl)
@@ -222,114 +188,14 @@ class ConferenceMemberCommands(BaseCommand):
 
         # サマリー表示
         summary = extracted_repo.get_extraction_summary()
-        ConferenceMemberCommands.echo_info("\n📊 ステータス別件数:")
-        ConferenceMemberCommands.echo_info(f"  未処理: {summary['pending']}件")
-        ConferenceMemberCommands.echo_info(f"  マッチ済: {summary['matched']}件")
-        ConferenceMemberCommands.echo_info(f"  該当なし: {summary['no_match']}件")
-        ConferenceMemberCommands.echo_info(f"  要確認: {summary['needs_review']}件")
+        ConferenceMemberCommands.echo_info(f"\n📊 総抽出件数: {summary['total']}件")
+        ConferenceMemberCommands.echo_info(
+            "💡 政治家との紐付けはStreamlit UIの手動マッチング機能を使用してください"
+        )
 
         conf_repo.close()
         extractor.close()
         extracted_repo.close()
-
-    @staticmethod
-    @click.command("match-conference-members")
-    @click.option(
-        "--conference-id",
-        type=int,
-        help="会議体ID（指定しない場合は全ての未処理データを処理）",
-    )
-    def match_conference_members(conference_id: int | None = None):
-        """抽出した議員情報を既存の政治家データとマッチング（ステップ2）"""
-
-        ConferenceMemberCommands.echo_info(
-            "🔍 議員情報のマッチングを開始します（ステップ2/3）"
-        )
-
-        # UseCaseを初期化
-        usecase = ConferenceMemberCommands._create_manage_members_usecase()
-
-        # 処理実行
-        ConferenceMemberCommands.echo_info(
-            "LLMを使用して政治家データとマッチングします..."
-        )
-
-        with ProgressTracker(
-            total_steps=1, description="マッチング処理中..."
-        ) as progress:
-            # 非同期処理を実行
-            input_dto = MatchMembersInputDTO(conference_id=conference_id)
-            output = asyncio.run(usecase.match_members(input_dto))
-
-            progress.update(1)
-
-        # 結果表示
-        ConferenceMemberCommands.echo_info("\n=== マッチング完了 ===")
-        total = output.matched_count + output.needs_review_count + output.no_match_count
-        ConferenceMemberCommands.echo_info(f"処理総数: {total}件")
-        ConferenceMemberCommands.echo_success(
-            f"✅ マッチ成功: {output.matched_count}件"
-        )
-        ConferenceMemberCommands.echo_warning(
-            f"⚠️  要確認: {output.needs_review_count}件"
-        )
-        ConferenceMemberCommands.echo_error(f"❌ 該当なし: {output.no_match_count}件")
-
-    @staticmethod
-    @click.command("create-affiliations")
-    @click.option(
-        "--conference-id",
-        type=int,
-        help="会議体ID（指定しない場合は全てのマッチ済データを処理）",
-    )
-    @click.option(
-        "--start-date",
-        type=click.DateTime(formats=["%Y-%m-%d"]),
-        help="所属開始日（デフォルト: 今日）",
-    )
-    def create_affiliations(
-        conference_id: int | None = None, start_date: datetime | None = None
-    ):
-        """マッチング済みデータから政治家所属情報を作成（ステップ3）"""
-
-        ConferenceMemberCommands.echo_info(
-            "🏛️ 政治家所属情報の作成を開始します（ステップ3/3）"
-        )
-
-        # 開始日の処理
-        start_date_obj: date
-        if start_date:
-            start_date_obj = start_date.date()
-        else:
-            start_date_obj = date.today()
-
-        ConferenceMemberCommands.echo_info(f"所属開始日: {start_date_obj}")
-
-        # UseCaseを初期化
-        usecase = ConferenceMemberCommands._create_manage_members_usecase()
-
-        # 処理実行
-        with ProgressTracker(
-            total_steps=1, description="所属情報作成中..."
-        ) as progress:
-            # 非同期処理を実行
-            input_dto = CreateAffiliationsInputDTO(
-                conference_id=conference_id, start_date=start_date_obj
-            )
-            output = asyncio.run(usecase.create_affiliations(input_dto))
-
-            progress.update(1)
-
-        # 結果表示
-        ConferenceMemberCommands.echo_info("\n=== 所属情報作成完了 ===")
-        total = output.created_count + output.skipped_count
-        ConferenceMemberCommands.echo_info(f"処理総数: {total}件")
-        ConferenceMemberCommands.echo_success(f"✅ 作成/更新: {output.created_count}件")
-
-        if output.skipped_count > 0:
-            ConferenceMemberCommands.echo_warning(
-                f"⚠️  スキップ: {output.skipped_count}件"
-            )
 
     @staticmethod
     @click.command("member-status")
@@ -339,76 +205,49 @@ class ConferenceMemberCommands(BaseCommand):
         help="会議体ID（指定しない場合は全体のステータスを表示）",
     )
     def member_status(conference_id: int | None = None):
-        """抽出・マッチング状況を表示"""
+        """抽出状況を表示"""
 
-        ConferenceMemberCommands.echo_info("📊 会議体メンバー抽出・マッチング状況")
+        ConferenceMemberCommands.echo_info("📊 会議体メンバー抽出状況")
 
         extracted_repo = RepositoryAdapter(ExtractedConferenceMemberRepositoryImpl)
 
         # 全体サマリー
-        summary = extracted_repo.get_extraction_summary()
+        summary = extracted_repo.get_extraction_summary(conference_id)
 
-        ConferenceMemberCommands.echo_info("\n=== 全体ステータス ===")
+        ConferenceMemberCommands.echo_info("\n=== 抽出ステータス ===")
         ConferenceMemberCommands.echo_info(f"総件数: {summary['total']}件")
-        ConferenceMemberCommands.echo_info(f"  📋 未処理: {summary['pending']}件")
-        ConferenceMemberCommands.echo_success(f"  ✅ マッチ済: {summary['matched']}件")
-        ConferenceMemberCommands.echo_warning(
-            f"  ⚠️  要確認: {summary['needs_review']}件"
-        )
-        ConferenceMemberCommands.echo_error(f"  ❌ 該当なし: {summary['no_match']}件")
 
         # 会議体別の詳細
         if conference_id:
             ConferenceMemberCommands.echo_info(
-                f"\n=== 会議体ID {conference_id} の詳細 ==="
+                f"\n=== 会議体ID {conference_id} の抽出メンバー ==="
             )
 
-            # 未処理メンバー
-            pending = extracted_repo.get_pending_members(conference_id)
-            if pending:
-                ConferenceMemberCommands.echo_info(
-                    f"\n📋 未処理メンバー ({len(pending)}人):"
-                )
-                for member in pending[:10]:  # 最初の10件
+            members = extracted_repo.get_by_conference(conference_id)
+            if members:
+                ConferenceMemberCommands.echo_info(f"抽出メンバー数: {len(members)}人")
+                for member in members[:10]:
                     role = (
-                        f" ({member['extracted_role']})"
-                        if member.get("extracted_role")
-                        else ""
+                        f" ({member.extracted_role})" if member.extracted_role else ""
                     )
                     party = (
-                        f" - {member['extracted_party_name']}"
-                        if member.get("extracted_party_name")
+                        f" - {member.extracted_party_name}"
+                        if member.extracted_party_name
                         else ""
                     )
+                    verified = " [検証済]" if member.is_manually_verified else ""
                     ConferenceMemberCommands.echo_info(
-                        f"  • {member['extracted_name']}{role}{party}"
+                        f"  • {member.extracted_name}{role}{party}{verified}"
                     )
-                if len(pending) > 10:
-                    ConferenceMemberCommands.echo_info(
-                        f"  ... 他 {len(pending) - 10}人"
-                    )
+                if len(members) > 10:
+                    remaining = len(members) - 10
+                    ConferenceMemberCommands.echo_info(f"  ... 他 {remaining}人")
+            else:
+                ConferenceMemberCommands.echo_info("抽出メンバーがありません")
 
-            # マッチ済みメンバー
-            matched = extracted_repo.get_matched_members(conference_id)
-            if matched:
-                ConferenceMemberCommands.echo_success(
-                    f"\n✅ マッチ済みメンバー ({len(matched)}人):"
-                )
-                for member in matched[:10]:  # 最初の10件
-                    role = (
-                        f" ({member['extracted_role']})"
-                        if member.get("extracted_role")
-                        else ""
-                    )
-                    ConferenceMemberCommands.echo_success(
-                        f"  • {member['extracted_name']}{role} → "
-                        f"{member['politician_name']} "
-                        f"(信頼度: {member['matching_confidence']:.2f})"
-                    )
-                if len(matched) > 10:
-                    ConferenceMemberCommands.echo_success(
-                        f"  ... 他 {len(matched) - 10}人"
-                    )
+        ConferenceMemberCommands.echo_info(
+            "\n💡 政治家との紐付けはStreamlit UIの手動マッチング機能を使用してください"
+        )
 
         extracted_repo.close()
 
