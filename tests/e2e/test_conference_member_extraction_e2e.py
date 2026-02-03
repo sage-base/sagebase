@@ -1,13 +1,15 @@
 """E2Eテスト: ConferenceMember抽出の完全なフロー (Issue #871).
 
-会議体メンバー情報の抽出・更新・手動修正保護の完全なE2Eフローをテスト。
+会議体メンバー情報の抽出・更新の完全なE2Eフローをテスト。
+
+Note:
+    ExtractedConferenceMemberはBronze Layerエンティティであり、
+    常にAIによる更新が可能。検証状態はGold Layer（ConferenceMember）で管理される。
 
 フロー：
 1. 会議体ページからのメンバー抽出
 2. ログ確認
-3. 手動修正
-4. 再抽出
-5. 手動修正が保護されていることを確認
+3. 再抽出（常に更新される）
 """
 
 from datetime import datetime
@@ -76,7 +78,6 @@ class TestConferenceMemberExtractionFullFlow:
             extracted_name="鈴木一郎",
             source_url="https://example.com/members",
             extracted_at=datetime.now(),
-            is_manually_verified=False,
         )
 
         extraction_result_1 = ConferenceMemberExtractionResult(
@@ -120,22 +121,13 @@ class TestConferenceMemberExtractionFullFlow:
         assert len(logs) == 1
 
         # ============================================
-        # Step 3: 手動修正
-        # ============================================
-        member.extracted_role = "副議長"  # 役職を修正
-        member.mark_as_manually_verified()
-
-        assert member.is_manually_verified is True
-        assert member.extracted_role == "副議長"
-
-        # ============================================
-        # Step 4: 再抽出
+        # Step 3: 再抽出（Bronze Layerは常に更新される）
         # ============================================
         extraction_result_2 = ConferenceMemberExtractionResult(
             conference_id=10,
             extracted_name="鈴木一郎",
             source_url="https://example.com/members",
-            extracted_role="委員長",  # AIは異なる役職を抽出
+            extracted_role="委員長",  # AIが異なる役職を抽出
             extracted_party_name="自民党",
             confidence_score=0.85,
         )
@@ -155,12 +147,9 @@ class TestConferenceMemberExtractionFullFlow:
             pipeline_version="member-extraction-baml-v2",
         )
 
-        # ============================================
-        # Step 5: 手動修正が保護されていることを確認
-        # ============================================
-        assert result_2.updated is False
-        assert result_2.reason == "manually_verified"
-        assert member.extracted_role == "副議長"  # 手動修正が保持
+        # Bronze Layerエンティティは常に更新される
+        assert result_2.updated is True
+        assert member.extracted_role == "委員長"  # 新しい値で更新
 
 
 @pytest.mark.e2e
@@ -213,7 +202,6 @@ class TestConferenceMemberBulkExtraction:
                 extracted_name=f"議員{i}",
                 source_url="https://example.com/members",
                 extracted_at=datetime.now(),
-                is_manually_verified=False,
             )
             for i in range(1, 11)
         }
@@ -272,8 +260,8 @@ class TestConferenceMemberBulkExtraction:
 
 
 @pytest.mark.e2e
-class TestConferenceMemberPoliticianMatching:
-    """ConferenceMemberと政治家のマッチングE2Eテスト。"""
+class TestConferenceMemberBulkUpdate:
+    """ConferenceMemberの一括更新E2Eテスト。"""
 
     @pytest.fixture
     def mock_conference_member_repo(self):
@@ -305,15 +293,19 @@ class TestConferenceMemberPoliticianMatching:
         )
 
     @pytest.mark.asyncio
-    async def test_conference_member_with_various_verification_states(
+    async def test_conference_member_always_updated_as_bronze_layer(
         self,
         use_case,
         mock_conference_member_repo,
         mock_extraction_log_repo,
         mock_session_adapter,
     ):
-        """様々な検証状態のメンバーへの抽出E2Eテスト。"""
-        # Setup: 検証状態が異なるメンバー
+        """Bronze Layerメンバーは常に更新されるE2Eテスト。
+
+        ExtractedConferenceMemberはBronze Layerエンティティであり、
+        検証状態を持たないため常にAIによる更新が可能。
+        """
+        # Setup: 複数のメンバー（Bronze Layerでは検証状態を持たない）
         members = {
             1: ExtractedConferenceMember(
                 id=1,
@@ -321,7 +313,6 @@ class TestConferenceMemberPoliticianMatching:
                 extracted_name="議員1",
                 source_url="https://example.com",
                 extracted_at=datetime.now(),
-                is_manually_verified=False,  # 未検証
             ),
             2: ExtractedConferenceMember(
                 id=2,
@@ -329,8 +320,7 @@ class TestConferenceMemberPoliticianMatching:
                 extracted_name="議員2",
                 source_url="https://example.com",
                 extracted_at=datetime.now(),
-                is_manually_verified=True,  # 検証済み
-                extracted_role="手動設定の役職",
+                extracted_role="既存の役職",  # 既存データがあっても更新される
             ),
             3: ExtractedConferenceMember(
                 id=3,
@@ -338,7 +328,6 @@ class TestConferenceMemberPoliticianMatching:
                 extracted_name="議員3",
                 source_url="https://example.com",
                 extracted_at=datetime.now(),
-                is_manually_verified=False,  # 未検証
             ),
         }
 
@@ -371,16 +360,8 @@ class TestConferenceMemberPoliticianMatching:
             )
             results.append(result)
 
-        # Assert
-        # 1番目: 未検証なので更新される
-        assert results[0].updated is True
+        # Assert: Bronze Layerエンティティはすべて更新される
+        assert all(r.updated is True for r in results)
         assert members[1].extracted_role == "AIが抽出した役職"
-
-        # 2番目: 検証済みなので保護される
-        assert results[1].updated is False
-        assert results[1].reason == "manually_verified"
-        assert members[2].extracted_role == "手動設定の役職"
-
-        # 3番目: 未検証なので更新される
-        assert results[2].updated is True
+        assert members[2].extracted_role == "AIが抽出した役職"  # 既存データも上書き
         assert members[3].extracted_role == "AIが抽出した役職"

@@ -40,6 +40,60 @@ class ConferenceMemberRepositoryImpl(
     def __init__(self, session: AsyncSession | ISessionAdapter):
         super().__init__(session, ConferenceMember, ConferenceMemberModel)
 
+    async def get_by_id(self, entity_id: int) -> ConferenceMember | None:
+        """Get a conference member by ID using raw SQL."""
+        query = text("""
+            SELECT * FROM politician_affiliations
+            WHERE id = :id
+        """)
+        result = await self.session.execute(query, {"id": entity_id})
+        row = result.fetchone()
+        if row:
+            return self._row_to_entity(row)
+        return None
+
+    async def create(self, entity: ConferenceMember) -> ConferenceMember:
+        """Create a new conference member using raw SQL."""
+        query = text("""
+            INSERT INTO politician_affiliations (
+                politician_id, conference_id, start_date, end_date, role,
+                is_manually_verified, latest_extraction_log_id,
+                source_extracted_member_id
+            ) VALUES (
+                :politician_id, :conference_id, :start_date, :end_date, :role,
+                :is_manually_verified, :latest_extraction_log_id,
+                :source_extracted_member_id
+            )
+            RETURNING *
+        """)
+
+        result = await self.session.execute(
+            query,
+            {
+                "politician_id": entity.politician_id,
+                "conference_id": entity.conference_id,
+                "start_date": entity.start_date,
+                "end_date": entity.end_date,
+                "role": entity.role,
+                "is_manually_verified": entity.is_manually_verified,
+                "latest_extraction_log_id": entity.latest_extraction_log_id,
+                "source_extracted_member_id": entity.source_extracted_member_id,
+            },
+        )
+        row = result.fetchone()
+        await self.session.commit()
+        return self._row_to_entity(row)
+
+    async def delete(self, entity_id: int) -> bool:
+        """Delete a conference member by ID using raw SQL."""
+        query = text("""
+            DELETE FROM politician_affiliations
+            WHERE id = :id
+        """)
+        result = await self.session.execute(query, {"id": entity_id})
+        await self.session.commit()
+        return result.rowcount > 0
+
     async def get_by_politician_and_conference(
         self, politician_id: int, conference_id: int, active_only: bool = True
     ) -> list[ConferenceMember]:

@@ -45,7 +45,6 @@ class TestExtractedConferenceMemberRepositoryImpl:
             extracted_name="山田太郎",
             source_url="https://example.com/member",
             extracted_party_name="自民党",
-            is_manually_verified=False,
         )
 
     @pytest.mark.asyncio
@@ -64,7 +63,6 @@ class TestExtractedConferenceMemberRepositoryImpl:
         mock_row.extracted_party_name = None
         mock_row.extracted_at = None
         mock_row.additional_data = None
-        mock_row.is_manually_verified = False
 
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
@@ -145,7 +143,6 @@ class TestExtractedConferenceMemberRepositoryImpl:
             extracted_role="議員",
             extracted_party_name="自民党",
             extracted_at=None,
-            is_manually_verified=True,
         )
 
         entity = repository._to_entity(model)
@@ -153,7 +150,6 @@ class TestExtractedConferenceMemberRepositoryImpl:
         assert isinstance(entity, ExtractedConferenceMember)
         assert entity.id == 1
         assert entity.extracted_name == "山田太郎"
-        assert entity.is_manually_verified is True
 
     def test_to_model(
         self,
@@ -180,7 +176,6 @@ class TestExtractedConferenceMemberRepositoryImpl:
         mock_row1.extracted_name = "山田太郎"
         mock_row1.source_url = "https://example.com/member1"
         mock_row1.extracted_at = None
-        mock_row1.is_manually_verified = False
 
         mock_row2 = MagicMock()
         mock_row2.id = 2
@@ -188,7 +183,6 @@ class TestExtractedConferenceMemberRepositoryImpl:
         mock_row2.extracted_name = "鈴木花子"
         mock_row2.source_url = "https://example.com/member2"
         mock_row2.extracted_at = None
-        mock_row2.is_manually_verified = True
 
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
@@ -214,7 +208,6 @@ class TestExtractedConferenceMemberRepositoryImpl:
         mock_row.extracted_name = "山田太郎"
         mock_row.source_url = "https://example.com/member"
         mock_row.extracted_at = None
-        mock_row.is_manually_verified = False
 
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
@@ -374,7 +367,6 @@ class TestExtractedConferenceMemberRepositoryImpl:
             extracted_name="旧名前",
             source_url="https://old.com/member",
             extracted_at=None,
-            is_manually_verified=False,
         )
 
         repository._update_model(model, sample_member_entity)

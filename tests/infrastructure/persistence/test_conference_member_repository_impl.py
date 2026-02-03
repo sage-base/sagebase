@@ -43,6 +43,129 @@ class TestConferenceMemberRepositoryImpl:
             role="議員",
         )
 
+    # ========== get_by_id テスト ==========
+
+    @pytest.mark.asyncio
+    async def test_get_by_id_found(
+        self,
+        repository: ConferenceMemberRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_id returns entity when found."""
+        mock_row = MagicMock()
+        mock_row.id = 1
+        mock_row.politician_id = 100
+        mock_row.conference_id = 10
+        mock_row.role = "議員"
+        mock_row.start_date = date(2024, 1, 1)
+        mock_row.end_date = None
+
+        mock_result = MagicMock()
+        mock_result.fetchone = MagicMock(return_value=mock_row)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_id(1)
+
+        assert result is not None
+        assert result.id == 1
+        assert result.politician_id == 100
+        assert result.conference_id == 10
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_id_not_found(
+        self,
+        repository: ConferenceMemberRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_id returns None when not found."""
+        mock_result = MagicMock()
+        mock_result.fetchone = MagicMock(return_value=None)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_id(999)
+
+        assert result is None
+        mock_session.execute.assert_called_once()
+
+    # ========== create テスト ==========
+
+    @pytest.mark.asyncio
+    async def test_create_success(
+        self,
+        repository: ConferenceMemberRepositoryImpl,
+        mock_session: MagicMock,
+        sample_member_entity: ConferenceMember,
+    ) -> None:
+        """Test create successfully creates and returns entity."""
+        mock_row = MagicMock()
+        mock_row.id = 1
+        mock_row.politician_id = sample_member_entity.politician_id
+        mock_row.conference_id = sample_member_entity.conference_id
+        mock_row.role = sample_member_entity.role
+        mock_row.start_date = sample_member_entity.start_date
+        mock_row.end_date = sample_member_entity.end_date
+        mock_row.is_manually_verified = False
+        mock_row.latest_extraction_log_id = None
+        mock_row.source_extracted_member_id = None
+
+        mock_result = MagicMock()
+        mock_result.fetchone = MagicMock(return_value=mock_row)
+        mock_session.execute.return_value = mock_result
+
+        entity = ConferenceMember(
+            politician_id=100,
+            conference_id=10,
+            start_date=date(2024, 1, 1),
+            role="議員",
+        )
+        result = await repository.create(entity)
+
+        assert result is not None
+        assert result.id == 1
+        assert result.politician_id == 100
+        assert result.conference_id == 10
+        mock_session.execute.assert_called_once()
+        mock_session.commit.assert_called_once()
+
+    # ========== delete テスト ==========
+
+    @pytest.mark.asyncio
+    async def test_delete_success(
+        self,
+        repository: ConferenceMemberRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test delete returns True when entity is deleted."""
+        mock_result = MagicMock()
+        mock_result.rowcount = 1
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.delete(1)
+
+        assert result is True
+        mock_session.execute.assert_called_once()
+        mock_session.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_delete_not_found(
+        self,
+        repository: ConferenceMemberRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test delete returns False when entity does not exist."""
+        mock_result = MagicMock()
+        mock_result.rowcount = 0
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.delete(999)
+
+        assert result is False
+        mock_session.execute.assert_called_once()
+        mock_session.commit.assert_called_once()
+
+    # ========== get_by_politician_and_conference テスト ==========
+
     @pytest.mark.asyncio
     async def test_get_by_politician_and_conference_found(
         self,

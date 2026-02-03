@@ -28,7 +28,6 @@ class TestExtractedConferenceMember:
         assert member.extracted_role is None
         assert member.extracted_party_name is None
         assert member.additional_data is None
-        assert member.is_manually_verified is False
         assert isinstance(member.extracted_at, datetime)
 
     def test_initialization_with_all_fields(self) -> None:
@@ -44,7 +43,6 @@ class TestExtractedConferenceMember:
             extracted_party_name="自由民主党",
             extracted_at=extracted_at,
             additional_data='{"district": "東京1区"}',
-            is_manually_verified=True,
         )
 
         assert member.id == 1
@@ -55,7 +53,6 @@ class TestExtractedConferenceMember:
         assert member.extracted_party_name == "自由民主党"
         assert member.extracted_at == extracted_at
         assert member.additional_data == '{"district": "東京1区"}'
-        assert member.is_manually_verified is True
 
     def test_str_representation(self) -> None:
         """Test string representation of the entity."""
@@ -77,19 +74,16 @@ class TestExtractedConferenceMember:
         assert member.source_url == "https://example.com/members"
         assert member.extracted_role == "議員"
         assert member.extracted_party_name == "自由民主党"
-        assert member.is_manually_verified is False
 
     def test_factory_with_overrides(self) -> None:
         """Test entity factory with custom values."""
         member = create_extracted_conference_member(
             id=99,
             extracted_name="佐藤花子",
-            is_manually_verified=True,
         )
 
         assert member.id == 99
         assert member.extracted_name == "佐藤花子"
-        assert member.is_manually_verified is True
         # Verify defaults are still applied
         assert member.conference_id == 1
         assert member.source_url == "https://example.com/members"
@@ -104,24 +98,6 @@ class TestExtractedConferenceMember:
 
         assert before <= member.extracted_at <= after
 
-    def test_mark_as_manually_verified(self) -> None:
-        """Test marking member as manually verified."""
-        member = create_extracted_conference_member(is_manually_verified=False)
-
-        assert member.is_manually_verified is False
-        member.mark_as_manually_verified()
-        assert member.is_manually_verified is True
-
-    def test_can_be_updated_by_ai(self) -> None:
-        """Test AI update eligibility based on verification status."""
-        # Unverified member can be updated by AI
-        unverified = create_extracted_conference_member(is_manually_verified=False)
-        assert unverified.can_be_updated_by_ai() is True
-
-        # Verified member cannot be updated by AI
-        verified = create_extracted_conference_member(is_manually_verified=True)
-        assert verified.can_be_updated_by_ai() is False
-
     def test_update_from_extraction_log(self) -> None:
         """Test updating extraction log reference."""
         member = create_extracted_conference_member()
@@ -132,3 +108,10 @@ class TestExtractedConferenceMember:
 
         member.update_from_extraction_log(456)
         assert member.latest_extraction_log_id == 456
+
+    def test_can_be_updated_by_ai_always_returns_true(self) -> None:
+        """Test that Bronze Layer entity is always updatable by AI."""
+        member = create_extracted_conference_member()
+
+        # Bronze Layer（抽出ログ層）は常に更新可能
+        assert member.can_be_updated_by_ai() is True

@@ -66,7 +66,6 @@ class TestUpdateExtractedConferenceMemberFromExtractionUseCase:
             source_url="https://example.com/members",
             extracted_role="委員長",
             extracted_party_name="自由民主党",
-            is_manually_verified=False,
         )
         extraction_result = ConferenceMemberExtractionResult(
             conference_id=10,
@@ -107,57 +106,24 @@ class TestUpdateExtractedConferenceMemberFromExtractionUseCase:
         mock_session_adapter.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_skip_update_when_manually_verified(
+    async def test_can_be_updated_by_ai_returns_true(
         self,
         use_case,
         mock_extracted_conference_member_repo,
         mock_extraction_log_repo,
         mock_session_adapter,
     ):
-        """手動検証済みの会議体メンバーは更新がスキップされる。"""
+        """Bronze LayerのExtractedConferenceMemberは常にAI更新可能。"""
         # Setup
         member = ExtractedConferenceMember(
             id=1,
             conference_id=10,
             extracted_name="山田太郎",
             source_url="https://example.com/members",
-            is_manually_verified=True,
-        )
-        extraction_result = ConferenceMemberExtractionResult(
-            conference_id=10,
-            extracted_name="山田次郎",
-            source_url="https://example.com/members",
-        )
-        extraction_log = ExtractionLog(
-            id=100,
-            entity_type=EntityType.CONFERENCE_MEMBER,
-            entity_id=1,
-            pipeline_version="conference-member-extractor-v1",
-            extracted_data=extraction_result.to_dict(),
         )
 
-        mock_extracted_conference_member_repo.get_by_id.return_value = member
-        mock_extraction_log_repo.create.return_value = extraction_log
-
-        # Execute
-        result = await use_case.execute(
-            entity_id=1,
-            extraction_result=extraction_result,
-            pipeline_version="conference-member-extractor-v1",
-        )
-
-        # Assert
-        assert result.updated is False
-        assert result.reason == "manually_verified"
-        assert result.extraction_log_id == 100
-
-        # 名前が更新されていないことを確認
-        assert member.extracted_name == "山田太郎"
-
-        # updateは呼ばれない（手動検証済みのためスキップ）
-        mock_extracted_conference_member_repo.update.assert_not_called()
-        # commitも呼ばれない（エンティティの更新がないため）
-        mock_session_adapter.commit.assert_not_called()
+        # ExtractedConferenceMember（Bronze Layer）は常に更新可能
+        assert member.can_be_updated_by_ai() is True
 
     @pytest.mark.asyncio
     async def test_entity_not_found(

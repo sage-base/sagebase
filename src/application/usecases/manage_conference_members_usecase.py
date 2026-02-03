@@ -237,7 +237,6 @@ class ManageConferenceMembersUseCase:
 
         抽出済みメンバーに指定された政治家を紐付け、
         Gold Layer（ConferenceMember）の所属情報を作成します。
-        同時にExtractedConferenceMemberのis_manually_verifiedフラグをTrueに設定します。
 
         Args:
             request: 手動マッチングリクエストDTO
@@ -262,10 +261,6 @@ class ManageConferenceMembersUseCase:
                 member_id=request.member_id,
                 message=f"政治家ID {request.politician_id} が見つかりません",
             )
-
-        # 手動検証済みとしてマーク
-        member.mark_as_manually_verified()
-        await self.extracted_repo.update(member)
 
         # Gold Layer: ConferenceMemberを作成（既存のアクティブな所属がなければ）
         existing = await self.conference_member_repo.get_by_politician_and_conference(

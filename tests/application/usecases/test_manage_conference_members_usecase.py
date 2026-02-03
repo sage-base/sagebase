@@ -276,8 +276,7 @@ class TestManageConferenceMembersUseCase:
         assert result.member_id == 1
         assert "完了" in result.message
 
-        member.mark_as_manually_verified.assert_called_once()
-        mock_extracted_repo.update.assert_called_once()
+        # Gold Layer（ConferenceMember）が作成されることを確認
         mock_conference_member_repo.create.assert_called_once()
 
     @pytest.mark.asyncio
