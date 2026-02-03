@@ -235,9 +235,8 @@ class ConferenceMemberCommands(BaseCommand):
                         if member.extracted_party_name
                         else ""
                     )
-                    verified = " [検証済]" if member.is_manually_verified else ""
                     ConferenceMemberCommands.echo_info(
-                        f"  • {member.extracted_name}{role}{party}{verified}"
+                        f"  • {member.extracted_name}{role}{party}"
                     )
                 if len(members) > 10:
                     remaining = len(members) - 10

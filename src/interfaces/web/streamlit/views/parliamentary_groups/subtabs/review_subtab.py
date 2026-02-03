@@ -9,7 +9,6 @@ from typing import Any
 
 import streamlit as st
 
-from src.interfaces.web.streamlit.components import render_verification_filter
 from src.interfaces.web.streamlit.presenters.parliamentary_group_member_presenter import (  # noqa: E501
     ParliamentaryGroupMemberPresenter,
 )
@@ -42,15 +41,7 @@ def render_member_review_subtab(presenter: ParliamentaryGroupMemberPresenter) ->
     parliamentary_groups = presenter.get_all_parliamentary_groups()
 
     # Filters section
-    members, verification_filter = _render_filters(presenter, parliamentary_groups)
-
-    if not members:
-        st.info("該当するレコードがありません")
-        return
-
-    # Filter by verification status
-    if verification_filter is not None:
-        members = [m for m in members if m.is_manually_verified == verification_filter]
+    members = _render_filters(presenter, parliamentary_groups)
 
     if not members:
         st.info("該当するレコードがありません")
@@ -69,7 +60,7 @@ def render_member_review_subtab(presenter: ParliamentaryGroupMemberPresenter) ->
 def _render_filters(
     presenter: ParliamentaryGroupMemberPresenter,
     parliamentary_groups: list[Any],
-) -> tuple[list[Any], bool | None]:
+) -> list[Any]:
     """Render filter controls.
 
     Args:
@@ -77,10 +68,10 @@ def _render_filters(
         parliamentary_groups: 議員団リスト
 
     Returns:
-        tuple[list, bool | None]: (フィルタリングされたメンバー, 検証フィルター)
+        list: フィルタリングされたメンバー
     """
     st.markdown("#### フィルター")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         # Parliamentary group filter
@@ -107,10 +98,6 @@ def _render_filters(
         # Name search
         search_name = st.text_input("名前検索", placeholder="例: 山田")
 
-    with col4:
-        # Verification filter
-        verification_filter = render_verification_filter(key="pg_member_verification")
-
     # Get filtered members
     members = presenter.get_filtered_extracted_members(
         parliamentary_group_id=group_id,
@@ -119,7 +106,7 @@ def _render_filters(
         limit=100,
     )
 
-    return members, verification_filter
+    return members
 
 
 def _render_bulk_actions(
@@ -251,62 +238,12 @@ def _render_member_detail(
     with col_b:
         st.write(f"**議員団:** {df_row['議員団']}")
         st.write(f"**ステータス:** {df_row['ステータス']}")
-        st.write(f"**検証状態:** {df_row['検証状態']}")
         st.write(f"**マッチした政治家:** {df_row['マッチした政治家']}")
         st.write(f"**信頼度:** {df_row['信頼度']}")
         st.write(f"**抽出日時:** {df_row['抽出日時']}")
 
-    # Verification status update section
-    _render_verification_section(presenter, member)
-
     # Individual action buttons
     _render_action_buttons(presenter, member)
-
-
-def _render_verification_section(
-    presenter: ParliamentaryGroupMemberPresenter,
-    member: Any,
-) -> None:
-    """Render verification status update section.
-
-    Args:
-        presenter: 議員団メンバープレゼンター
-        member: メンバーエンティティ
-    """
-    st.markdown("---")
-    st.markdown("##### 検証状態")
-    verify_col1, verify_col2 = st.columns([2, 1])
-
-    with verify_col1:
-        current_verified = member.is_manually_verified
-        new_verified = st.checkbox(
-            "手動検証済みとしてマーク",
-            value=current_verified,
-            key=f"verify_pg_member_{member.id}",
-            help="チェックすると、AI再実行でこのデータが上書きされなくなります",
-        )
-
-    with verify_col2:
-        if new_verified != current_verified:
-            if st.button(
-                "更新",
-                key=f"update_verify_pg_{member.id}",
-                type="primary",
-            ):
-                success, error = presenter.update_verification_status(
-                    member.id,
-                    new_verified,  # type: ignore[arg-type]
-                )
-                if success:
-                    status_text = "手動検証済み" if new_verified else "未検証"
-                    st.session_state["review_success_message"] = (
-                        f"検証状態を「{status_text}」に更新しました"
-                    )
-                    st.rerun()
-                else:
-                    st.session_state["review_error_message"] = (
-                        f"更新に失敗しました: {error}"
-                    )
 
 
 def _render_action_buttons(
