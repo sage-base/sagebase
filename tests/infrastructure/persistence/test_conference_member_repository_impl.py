@@ -229,6 +229,7 @@ class TestConferenceMemberRepositoryImpl:
             role="議員",
             start_date=date(2024, 1, 1),
             end_date=None,
+            source_extracted_member_id=5,
         )
 
         entity = repository._to_entity(model)
@@ -236,6 +237,7 @@ class TestConferenceMemberRepositoryImpl:
         assert isinstance(entity, ConferenceMember)
         assert entity.id == 1
         assert entity.politician_id == 100
+        assert entity.source_extracted_member_id == 5
 
     def test_to_model(
         self,
@@ -248,3 +250,66 @@ class TestConferenceMemberRepositoryImpl:
         assert isinstance(model, ConferenceMemberModel)
         assert model.politician_id == 100
         assert model.conference_id == 10
+        assert model.source_extracted_member_id is None
+
+    @pytest.mark.asyncio
+    async def test_get_by_source_extracted_member_ids_found(
+        self,
+        repository: ConferenceMemberRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_source_extracted_member_ids returns matching affiliations."""
+        mock_row1 = MagicMock()
+        mock_row1.id = 1
+        mock_row1.politician_id = 100
+        mock_row1.conference_id = 10
+        mock_row1.role = "議員"
+        mock_row1.start_date = date(2024, 1, 1)
+        mock_row1.end_date = None
+
+        mock_row2 = MagicMock()
+        mock_row2.id = 2
+        mock_row2.politician_id = 200
+        mock_row2.conference_id = 10
+        mock_row2.role = "副議長"
+        mock_row2.start_date = date(2024, 4, 1)
+        mock_row2.end_date = None
+
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_source_extracted_member_ids([5, 8])
+
+        assert len(result) == 2
+        assert result[0].politician_id == 100
+        assert result[1].politician_id == 200
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_source_extracted_member_ids_empty_list(
+        self,
+        repository: ConferenceMemberRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """空の入力に対して空リストを返すことを確認."""
+        result = await repository.get_by_source_extracted_member_ids([])
+
+        assert result == []
+        mock_session.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_by_source_extracted_member_ids_not_found(
+        self,
+        repository: ConferenceMemberRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_source_extracted_member_ids returns empty list when not found."""
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_source_extracted_member_ids([999, 1000])
+
+        assert result == []
+        mock_session.execute.assert_called_once()

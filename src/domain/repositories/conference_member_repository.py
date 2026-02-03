@@ -49,3 +49,10 @@ class ConferenceMemberRepository(BaseRepository[ConferenceMember]):
     ) -> ConferenceMember | None:
         """End a membership by setting the end date."""
         pass
+
+    @abstractmethod
+    async def get_by_source_extracted_member_ids(
+        self, member_ids: list[int]
+    ) -> list[ConferenceMember]:
+        """source_extracted_member_idのリストから所属情報を一括取得する."""
+        pass

@@ -21,6 +21,7 @@ class ConferenceMember(BaseEntity):
         role: str | None = None,
         is_manually_verified: bool = False,
         latest_extraction_log_id: int | None = None,
+        source_extracted_member_id: int | None = None,
         id: int | None = None,
     ) -> None:
         super().__init__(id)
@@ -31,6 +32,7 @@ class ConferenceMember(BaseEntity):
         self.role = role
         self.is_manually_verified = is_manually_verified
         self.latest_extraction_log_id = latest_extraction_log_id
+        self.source_extracted_member_id = source_extracted_member_id
 
     def mark_as_manually_verified(self) -> None:
         """手動検証済みとしてマークする."""

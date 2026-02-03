@@ -25,6 +25,7 @@ class ConferenceMemberModel:
     role: str | None
     is_manually_verified: bool
     latest_extraction_log_id: int | None
+    source_extracted_member_id: int | None
 
     def __init__(self, **kwargs: Any):
         for key, value in kwargs.items():
@@ -169,6 +170,27 @@ class ConferenceMemberRepositoryImpl(
         # Return updated entity
         return await self.get_by_id(membership_id)
 
+    async def get_by_source_extracted_member_ids(
+        self, member_ids: list[int]
+    ) -> list[ConferenceMember]:
+        """source_extracted_member_idのリストから所属情報を一括取得する."""
+        if not member_ids:
+            return []
+
+        placeholders = ", ".join(f":id_{i}" for i in range(len(member_ids)))
+        params = {f"id_{i}": mid for i, mid in enumerate(member_ids)}
+
+        query = text(f"""
+            SELECT * FROM politician_affiliations
+            WHERE source_extracted_member_id IN ({placeholders})
+            ORDER BY id
+        """)
+
+        result = await self.session.execute(query, params)
+        rows = result.fetchall()
+
+        return [self._row_to_entity(row) for row in rows]
+
     def _row_to_entity(self, row: Any) -> ConferenceMember:
         """Convert database row to domain entity."""
         return ConferenceMember(
@@ -180,6 +202,7 @@ class ConferenceMemberRepositoryImpl(
             role=getattr(row, "role", None),
             is_manually_verified=bool(getattr(row, "is_manually_verified", False)),
             latest_extraction_log_id=getattr(row, "latest_extraction_log_id", None),
+            source_extracted_member_id=getattr(row, "source_extracted_member_id", None),
         )
 
     def _to_entity(self, model: ConferenceMemberModel) -> ConferenceMember:
@@ -193,6 +216,9 @@ class ConferenceMemberRepositoryImpl(
             role=model.role,
             is_manually_verified=bool(getattr(model, "is_manually_verified", False)),
             latest_extraction_log_id=getattr(model, "latest_extraction_log_id", None),
+            source_extracted_member_id=getattr(
+                model, "source_extracted_member_id", None
+            ),
         )
 
     def _to_model(self, entity: ConferenceMember) -> ConferenceMemberModel:
@@ -205,6 +231,7 @@ class ConferenceMemberRepositoryImpl(
             "role": entity.role,
             "is_manually_verified": entity.is_manually_verified,
             "latest_extraction_log_id": entity.latest_extraction_log_id,
+            "source_extracted_member_id": entity.source_extracted_member_id,
         }
 
         if entity.id is not None:
@@ -225,3 +252,4 @@ class ConferenceMemberRepositoryImpl(
         model.role = entity.role
         model.is_manually_verified = entity.is_manually_verified
         model.latest_extraction_log_id = entity.latest_extraction_log_id
+        model.source_extracted_member_id = entity.source_extracted_member_id

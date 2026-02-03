@@ -133,4 +133,5 @@ def render_conferences_page() -> None:
             conference_repo,
             manage_members_usecase,
             verify_use_case,
+            conference_member_repo,
         )

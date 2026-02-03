@@ -528,6 +528,7 @@ class TestManageConferenceMembersUseCase:
                 conference_id=1,
                 role="議員",
                 start_date=date(2023, 1, 1),
+                source_extracted_member_id=1,
             ),
             ConferenceMember(
                 id=2,
@@ -535,6 +536,7 @@ class TestManageConferenceMembersUseCase:
                 conference_id=1,
                 role="委員長",
                 start_date=date(2023, 1, 1),
+                source_extracted_member_id=2,
             ),
         ]
 
@@ -550,9 +552,11 @@ class TestManageConferenceMembersUseCase:
         assert result.affiliations[0].politician_id == 10
         assert result.affiliations[0].conference_id == 1
         assert result.affiliations[0].role == "議員"
+        assert result.affiliations[0].source_extracted_member_id == 1
         assert result.affiliations[1].politician_id == 20
         assert result.affiliations[1].conference_id == 1
         assert result.affiliations[1].role == "委員長"
+        assert result.affiliations[1].source_extracted_member_id == 2
 
         # Verify repository calls
         assert mock_conference_member_repo.create.call_count == 2
