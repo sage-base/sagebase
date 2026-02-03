@@ -29,6 +29,7 @@ class ExtractedConferenceMemberModel:
     matching_status: str
     matched_at: datetime | None
     additional_data: str | None
+    is_manually_verified: bool
 
     def __init__(self, **kwargs: Any):
         for key, value in kwargs.items():
@@ -128,7 +129,8 @@ class ExtractedConferenceMemberRepositoryImpl(
                 matched_politician_id = :matched_politician_id,
                 matching_confidence = :matching_confidence,
                 matched_at = :matched_at,
-                additional_info = :additional_info
+                additional_info = :additional_info,
+                is_manually_verified = :is_manually_verified
             WHERE id = :id
         """)
 
@@ -146,6 +148,7 @@ class ExtractedConferenceMemberRepositoryImpl(
                 "matching_confidence": entity.matching_confidence,
                 "matched_at": entity.matched_at,
                 "additional_info": entity.additional_data,
+                "is_manually_verified": entity.is_manually_verified,
             },
         )
         await self.session.commit()
@@ -332,6 +335,7 @@ class ExtractedConferenceMemberRepositoryImpl(
             matching_status=row.matching_status,
             matched_at=getattr(row, "matched_at", None),
             additional_data=getattr(row, "additional_data", None),
+            is_manually_verified=bool(getattr(row, "is_manually_verified", False)),
         )
 
     def _to_entity(

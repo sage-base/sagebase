@@ -170,6 +170,27 @@ class ConferenceMemberRepositoryImpl(
         # Return updated entity
         return await self.get_by_id(membership_id)
 
+    async def get_by_source_extracted_member_ids(
+        self, member_ids: list[int]
+    ) -> list[ConferenceMember]:
+        """source_extracted_member_idのリストから所属情報を一括取得する."""
+        if not member_ids:
+            return []
+
+        placeholders = ", ".join(f":id_{i}" for i in range(len(member_ids)))
+        params = {f"id_{i}": mid for i, mid in enumerate(member_ids)}
+
+        query = text(f"""
+            SELECT * FROM politician_affiliations
+            WHERE source_extracted_member_id IN ({placeholders})
+            ORDER BY id
+        """)
+
+        result = await self.session.execute(query, params)
+        rows = result.fetchall()
+
+        return [self._row_to_entity(row) for row in rows]
+
     def _row_to_entity(self, row: Any) -> ConferenceMember:
         """Convert database row to domain entity."""
         return ConferenceMember(

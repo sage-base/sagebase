@@ -27,6 +27,7 @@ from src.application.usecases.mark_entity_as_verified_usecase import (
     MarkEntityAsVerifiedInputDto,
     MarkEntityAsVerifiedUseCase,
 )
+from src.domain.entities.conference_member import ConferenceMember
 from src.domain.entities.extracted_conference_member import (
     ExtractedConferenceMember,
     MatchingStatus,
@@ -78,6 +79,7 @@ def render_extracted_members(
     conference_repo: RepositoryAdapter,
     manage_members_usecase: ManageConferenceMembersUseCase,
     verify_use_case: MarkEntityAsVerifiedUseCase,
+    conference_member_repo: RepositoryAdapter | None = None,
 ) -> None:
     """抽出された議員情報を表示する.
 
@@ -90,6 +92,7 @@ def render_extracted_members(
         conference_repo: 会議体リポジトリ
         manage_members_usecase: 会議体メンバー管理UseCase
         verify_use_case: 検証UseCase
+        conference_member_repo: 会議体メンバーリポジトリ（Gold Layer表示用）
     """
     st.header("抽出結果確認")
 
@@ -150,7 +153,9 @@ def render_extracted_members(
     _display_members_dataframe(members)
 
     # 詳細表示と検証状態更新・手動レビュー
-    _render_member_details(members, verify_use_case, manage_members_usecase)
+    _render_member_details(
+        members, verify_use_case, manage_members_usecase, conference_member_repo
+    )
 
 
 def _render_matching_actions(
@@ -479,10 +484,77 @@ def _display_members_dataframe(members: list[ExtractedConferenceMember]) -> None
     )
 
 
+def _fetch_affiliation_map(
+    members: list[ExtractedConferenceMember],
+    conference_member_repo: RepositoryAdapter | None,
+) -> dict[int, ConferenceMember]:
+    """表示対象メンバーのGold Layer所属情報をバッチ取得してマップを返す."""
+    if conference_member_repo is None:
+        return {}
+
+    member_ids = [m.id for m in members if m.id is not None]
+    if not member_ids:
+        return {}
+
+    try:
+        affiliations: list[ConferenceMember] = (
+            conference_member_repo.get_by_source_extracted_member_ids(member_ids)
+        )
+    except Exception:
+        logger.warning("Gold Layer所属情報の取得に失敗しました", exc_info=True)
+        return {}
+
+    return {
+        a.source_extracted_member_id: a
+        for a in affiliations
+        if a.source_extracted_member_id is not None
+    }
+
+
+def _render_affiliation_info(
+    member: ExtractedConferenceMember,
+    affiliation_map: dict[int, ConferenceMember],
+    conference_member_repo: RepositoryAdapter | None = None,
+) -> None:
+    """Gold Layer所属情報を表示する."""
+    if not affiliation_map:
+        return
+
+    affiliation = affiliation_map.get(member.id)  # type: ignore[arg-type]
+    if affiliation:
+        verified_badge = "✅ 検証済み" if affiliation.is_manually_verified else "未検証"
+        st.markdown("---")
+        st.markdown("**📋 Gold Layer 所属情報:**")
+        st.write(f"　所属ID: {affiliation.id}")
+        st.write(f"　政治家ID: {affiliation.politician_id}")
+        st.write(f"　会議体ID: {affiliation.conference_id}")
+        st.write(f"　役職: {affiliation.role or '-'}")
+        st.write(f"　開始日: {affiliation.start_date}")
+        st.write(f"　終了日: {affiliation.end_date or '-'}")
+        st.write(f"　検証状態: {verified_badge}")
+
+        if conference_member_repo and affiliation.id:
+            if st.button(
+                "🗑️ 紐付け解除",
+                key=f"unlink_affiliation_{affiliation.id}",
+                type="secondary",
+            ):
+                try:
+                    conference_member_repo.delete(affiliation.id)
+                    st.success("所属情報を削除しました")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"削除に失敗しました: {e}")
+    else:
+        st.markdown("---")
+        st.write("**所属情報:** 未作成")
+
+
 def _render_member_details(
     members: list[ExtractedConferenceMember],
     verify_use_case: MarkEntityAsVerifiedUseCase,
     manage_members_usecase: ManageConferenceMembersUseCase,
+    conference_member_repo: RepositoryAdapter | None = None,
 ) -> None:
     """メンバー詳細、検証コントロール、手動レビューUIを表示する.
 
@@ -490,9 +562,14 @@ def _render_member_details(
         members: メンバーリスト
         verify_use_case: 検証UseCase
         manage_members_usecase: 会議体メンバー管理UseCase
+        conference_member_repo: 会議体メンバーリポジトリ（Gold Layer表示用）
     """
     st.markdown("### メンバー詳細と検証状態更新")
-    for member in members[:DETAILS_DISPLAY_LIMIT]:
+
+    display_members = members[:DETAILS_DISPLAY_LIMIT]
+    affiliation_map = _fetch_affiliation_map(display_members, conference_member_repo)
+
+    for member in display_members:
         badge = get_verification_badge_text(member.is_manually_verified)
         status_label = _get_status_label(
             member.matching_status, member.is_manually_verified
@@ -510,6 +587,10 @@ def _render_member_details(
                     st.write(f"**信頼度:** {member.matching_confidence:.2f}")
                 if member.matched_politician_id:
                     st.write(f"**マッチ先政治家ID:** {member.matched_politician_id}")
+
+                _render_affiliation_info(
+                    member, affiliation_map, conference_member_repo
+                )
 
             with col2:
                 _render_verification_control(member, verify_use_case)
@@ -614,35 +695,42 @@ def _render_manual_review(
         if not search_result.candidates:
             st.warning(f"「{search_name}」に該当する政治家が見つかりません。")
         else:
-            candidate_options: dict[str, int | None] = {"-- 選択してください --": None}
+            candidate_options: dict[str, int | None] = {
+                "-- 選択してください --": None,
+            }
             for c in search_result.candidates:
                 label = f"{c.name} (ID: {c.id})"
                 candidate_options[label] = c.id
 
-            selected = st.selectbox(
-                "政治家を選択",
-                options=list(candidate_options.keys()),
-                key=f"select_politician_{member.id}",
-            )
+            with st.form(key=f"manual_match_form_{member.id}"):
+                selected = st.selectbox(
+                    "政治家を選択",
+                    options=list(candidate_options.keys()),
+                    key=f"select_politician_{member.id}",
+                )
 
-            selected_politician_id = candidate_options[selected]
-
-            if selected_politician_id is not None:
-                if st.button(
+                submitted = st.form_submit_button(
                     "この政治家にマッチング",
-                    key=f"manual_match_{member.id}",
                     type="primary",
-                ):
-                    input_dto = ManualMatchInputDTO(
-                        member_id=member.id or 0,
-                        politician_id=selected_politician_id,
-                    )
-                    output = _run_async(manage_members_usecase.manual_match(input_dto))
-                    if output.success:
-                        st.success(output.message)
-                        st.rerun()
+                )
+
+                if submitted:
+                    selected_politician_id = candidate_options[selected]
+                    if selected_politician_id is None:
+                        st.warning("政治家を選択してください。")
                     else:
-                        st.error(output.message)
+                        input_dto = ManualMatchInputDTO(
+                            member_id=member.id or 0,
+                            politician_id=selected_politician_id,
+                        )
+                        output = _run_async(
+                            manage_members_usecase.manual_match(input_dto)
+                        )
+                        if output.success:
+                            st.success(output.message)
+                            st.rerun()
+                        else:
+                            st.error(output.message)
 
 
 def _render_verification_control(

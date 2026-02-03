@@ -637,6 +637,7 @@ class ManageConferenceMembersUseCase:
 
         メンバーに指定された政治家をマッチングし、
         is_manually_verifiedフラグをTrueに設定します。
+        同時にGold Layer（ConferenceMember）の所属情報も作成します。
 
         Args:
             request: 手動マッチングリクエストDTO
@@ -662,14 +663,31 @@ class ManageConferenceMembersUseCase:
                 message=f"政治家ID {request.politician_id} が見つかりません",
             )
 
-        await self.extracted_repo.update_matching_result(
+        updated_member = await self.extracted_repo.update_matching_result(
             member.id or 0,
             request.politician_id,
             1.0,
             "matched",
         )
-        member.mark_as_manually_verified()
-        await self.extracted_repo.update(member)
+        if updated_member:
+            updated_member.mark_as_manually_verified()
+            await self.extracted_repo.update(updated_member)
+
+        # Gold Layer: ConferenceMemberを作成（既存のアクティブな所属がなければ）
+        existing = await self.affiliation_repo.get_by_politician_and_conference(
+            request.politician_id, member.conference_id
+        )
+        active = [a for a in existing if not a.end_date]
+        if not active:
+            affiliation = ConferenceMember(
+                politician_id=request.politician_id,
+                conference_id=member.conference_id,
+                role=member.extracted_role,
+                start_date=date.today(),
+                source_extracted_member_id=member.id,
+                is_manually_verified=True,
+            )
+            await self.affiliation_repo.create(affiliation)
 
         return ManualMatchOutputDTO(
             success=True,
