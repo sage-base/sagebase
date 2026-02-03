@@ -14,7 +14,6 @@ from src.application.dtos.base_dto import (
 from src.application.dtos.conference_dto import (
     AffiliationDTO,
     ConferenceDTO,
-    ConferenceMemberMatchingDTO,
     CreateAffiliationDTO,
     ExtractedConferenceMemberDTO,
 )
@@ -102,7 +101,6 @@ __all__ = [
     # Conference DTOs
     "AffiliationDTO",
     "ConferenceDTO",
-    "ConferenceMemberMatchingDTO",
     "CreateAffiliationDTO",
     "ExtractedConferenceMemberDTO",
     # Conference Member Extraction DTOs

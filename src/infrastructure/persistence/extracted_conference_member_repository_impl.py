@@ -1,6 +1,5 @@
 """ExtractedConferenceMember repository implementation using SQLAlchemy."""
 
-from datetime import datetime
 from typing import Any
 
 from sqlalchemy import text
@@ -15,7 +14,11 @@ from src.infrastructure.persistence.base_repository_impl import BaseRepositoryIm
 
 
 class ExtractedConferenceMemberModel:
-    """Extracted conference member database model (dynamic)."""
+    """Extracted conference member database model (dynamic).
+
+    Bronze Layer（抽出ログ層）のモデル。
+    政治家との紐付け情報はGold Layer（ConferenceMember）に移行済み。
+    """
 
     id: int | None
     conference_id: int
@@ -23,11 +26,7 @@ class ExtractedConferenceMemberModel:
     source_url: str
     extracted_role: str | None
     extracted_party_name: str | None
-    extracted_at: datetime
-    matched_politician_id: int | None
-    matching_confidence: float | None
-    matching_status: str
-    matched_at: datetime | None
+    extracted_at: Any  # datetime
     additional_data: str | None
     is_manually_verified: bool
 
@@ -83,11 +82,11 @@ class ExtractedConferenceMemberRepositoryImpl(
             INSERT INTO extracted_conference_members (
                 conference_id, extracted_name, source_url,
                 extracted_role, extracted_party_name,
-                extracted_at, matching_status, additional_info
+                extracted_at, additional_info, is_manually_verified
             ) VALUES (
                 :conference_id, :extracted_name, :source_url,
                 :extracted_role, :extracted_party_name,
-                :extracted_at, :matching_status, :additional_info
+                :extracted_at, :additional_info, :is_manually_verified
             ) RETURNING id
         """)
 
@@ -100,8 +99,8 @@ class ExtractedConferenceMemberRepositoryImpl(
                 "extracted_role": entity.extracted_role,
                 "extracted_party_name": entity.extracted_party_name,
                 "extracted_at": entity.extracted_at,
-                "matching_status": entity.matching_status,
                 "additional_info": entity.additional_data,
+                "is_manually_verified": entity.is_manually_verified,
             },
         )
         await self.session.commit()
@@ -125,10 +124,6 @@ class ExtractedConferenceMemberRepositoryImpl(
                 source_url = :source_url,
                 extracted_role = :extracted_role,
                 extracted_party_name = :extracted_party_name,
-                matching_status = :matching_status,
-                matched_politician_id = :matched_politician_id,
-                matching_confidence = :matching_confidence,
-                matched_at = :matched_at,
                 additional_info = :additional_info,
                 is_manually_verified = :is_manually_verified
             WHERE id = :id
@@ -143,10 +138,6 @@ class ExtractedConferenceMemberRepositoryImpl(
                 "source_url": entity.source_url,
                 "extracted_role": entity.extracted_role,
                 "extracted_party_name": entity.extracted_party_name,
-                "matching_status": entity.matching_status,
-                "matched_politician_id": entity.matched_politician_id,
-                "matching_confidence": entity.matching_confidence,
-                "matched_at": entity.matched_at,
                 "additional_info": entity.additional_data,
                 "is_manually_verified": entity.is_manually_verified,
             },
@@ -173,86 +164,6 @@ class ExtractedConferenceMemberRepositoryImpl(
         count = result.scalar()
         return count if count is not None else 0
 
-    async def get_pending_members(
-        self, conference_id: int | None = None
-    ) -> list[ExtractedConferenceMember]:
-        """Get all pending members for matching."""
-        conditions = ["matching_status = 'pending'"]
-        params: dict[str, Any] = {}
-
-        if conference_id is not None:
-            conditions.append("conference_id = :conf_id")
-            params["conf_id"] = conference_id
-
-        query = text(f"""
-            SELECT * FROM extracted_conference_members
-            WHERE {" AND ".join(conditions)}
-            ORDER BY extracted_at DESC
-        """)
-
-        result = await self.session.execute(query, params)
-        rows = result.fetchall()
-
-        return [self._row_to_entity(row) for row in rows]
-
-    async def get_matched_members(
-        self, conference_id: int | None = None, min_confidence: float | None = None
-    ) -> list[ExtractedConferenceMember]:
-        """Get matched members with optional filtering."""
-        conditions = ["matching_status = 'matched'"]
-        params: dict[str, Any] = {}
-
-        if conference_id is not None:
-            conditions.append("conference_id = :conf_id")
-            params["conf_id"] = conference_id
-
-        if min_confidence is not None:
-            conditions.append("matching_confidence >= :min_conf")
-            params["min_conf"] = min_confidence
-
-        query = text(f"""
-            SELECT * FROM extracted_conference_members
-            WHERE {" AND ".join(conditions)}
-            ORDER BY matching_confidence DESC
-        """)
-
-        result = await self.session.execute(query, params)
-        rows = result.fetchall()
-
-        return [self._row_to_entity(row) for row in rows]
-
-    async def update_matching_result(
-        self,
-        member_id: int,
-        politician_id: int | None,
-        confidence: float | None,
-        status: str,
-    ) -> ExtractedConferenceMember | None:
-        """Update the matching result for a member."""
-        query = text("""
-            UPDATE extracted_conference_members
-            SET matched_politician_id = :pol_id,
-                matching_confidence = :confidence,
-                matching_status = :status,
-                matched_at = :matched_at
-            WHERE id = :member_id
-        """)
-
-        await self.session.execute(
-            query,
-            {
-                "member_id": member_id,
-                "pol_id": politician_id,
-                "confidence": confidence,
-                "status": status,
-                "matched_at": datetime.now(),
-            },
-        )
-        await self.session.commit()
-
-        # Return updated entity
-        return await self.get_by_id(member_id)
-
     async def get_by_conference(
         self, conference_id: int
     ) -> list[ExtractedConferenceMember]:
@@ -271,7 +182,11 @@ class ExtractedConferenceMemberRepositoryImpl(
     async def get_extraction_summary(
         self, conference_id: int | None = None
     ) -> dict[str, int]:
-        """Get summary statistics for extracted members."""
+        """Get summary statistics for extracted members.
+
+        Returns:
+            dict with 'total' key containing the count of members.
+        """
         where_clause = ""
         params: dict[str, Any] = {}
 
@@ -280,31 +195,17 @@ class ExtractedConferenceMemberRepositoryImpl(
             params["conf_id"] = conference_id
 
         query = text(f"""
-            SELECT matching_status, COUNT(*) as count
+            SELECT COUNT(*) as total
             FROM extracted_conference_members
             {where_clause}
-            GROUP BY matching_status
         """)
 
         result = await self.session.execute(query, params)
-        rows = result.fetchall()
+        row = result.fetchone()
 
-        summary = {
-            "total": 0,
-            "pending": 0,
-            "matched": 0,
-            "no_match": 0,
-            "needs_review": 0,
-        }
+        total = getattr(row, "total", 0) if row else 0
 
-        for row in rows:
-            status = row.matching_status
-            count = getattr(row, "count", 0)  # Use getattr to access the count
-            if status in summary:
-                summary[status] = count
-            summary["total"] += count
-
-        return summary
+        return {"total": total}
 
     async def bulk_create(
         self, members: list[ExtractedConferenceMember]
@@ -330,10 +231,6 @@ class ExtractedConferenceMemberRepositoryImpl(
             extracted_role=getattr(row, "extracted_role", None),
             extracted_party_name=getattr(row, "extracted_party_name", None),
             extracted_at=row.extracted_at,
-            matched_politician_id=getattr(row, "matched_politician_id", None),
-            matching_confidence=getattr(row, "matching_confidence", None),
-            matching_status=row.matching_status,
-            matched_at=getattr(row, "matched_at", None),
             additional_data=getattr(row, "additional_data", None),
             is_manually_verified=bool(getattr(row, "is_manually_verified", False)),
         )
@@ -350,28 +247,22 @@ class ExtractedConferenceMemberRepositoryImpl(
             extracted_role=model.extracted_role,
             extracted_party_name=model.extracted_party_name,
             extracted_at=model.extracted_at,
-            matched_politician_id=model.matched_politician_id,
-            matching_confidence=model.matching_confidence,
-            matching_status=model.matching_status,
-            matched_at=model.matched_at,
             additional_data=getattr(model, "additional_data", None),
+            is_manually_verified=getattr(model, "is_manually_verified", False),
         )
 
     def _to_model(
         self, entity: ExtractedConferenceMember
     ) -> ExtractedConferenceMemberModel:
         """Convert domain entity to database model."""
-        data = {
+        data: dict[str, Any] = {
             "conference_id": entity.conference_id,
             "extracted_name": entity.extracted_name,
             "source_url": entity.source_url,
             "extracted_role": entity.extracted_role,
             "extracted_party_name": entity.extracted_party_name,
             "extracted_at": entity.extracted_at,
-            "matched_politician_id": entity.matched_politician_id,
-            "matching_confidence": entity.matching_confidence,
-            "matching_status": entity.matching_status,
-            "matched_at": entity.matched_at,
+            "is_manually_verified": entity.is_manually_verified,
         }
 
         if hasattr(entity, "additional_data") and entity.additional_data is not None:
@@ -393,10 +284,7 @@ class ExtractedConferenceMemberRepositoryImpl(
         model.extracted_role = entity.extracted_role
         model.extracted_party_name = entity.extracted_party_name
         model.extracted_at = entity.extracted_at
-        model.matched_politician_id = entity.matched_politician_id
-        model.matching_confidence = entity.matching_confidence
-        model.matching_status = entity.matching_status
-        model.matched_at = entity.matched_at
+        model.is_manually_verified = entity.is_manually_verified
 
         if hasattr(entity, "additional_data") and entity.additional_data is not None:
             model.additional_data = entity.additional_data

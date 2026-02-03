@@ -14,7 +14,11 @@ from src.infrastructure.persistence.extracted_conference_member_repository_impl 
 
 
 class TestExtractedConferenceMemberRepositoryImpl:
-    """Test cases for ExtractedConferenceMemberRepositoryImpl."""
+    """Test cases for ExtractedConferenceMemberRepositoryImpl.
+
+    Bronze Layer（抽出ログ層）のリポジトリテスト。
+    政治家との紐付け機能はGold Layer（ConferenceMemberRepository）に移行済み。
+    """
 
     @pytest.fixture
     def mock_session(self) -> MagicMock:
@@ -41,129 +45,8 @@ class TestExtractedConferenceMemberRepositoryImpl:
             extracted_name="山田太郎",
             source_url="https://example.com/member",
             extracted_party_name="自民党",
-            matching_status="pending",
-            matched_politician_id=None,
+            is_manually_verified=False,
         )
-
-    @pytest.mark.asyncio
-    async def test_get_pending_members(
-        self,
-        repository: ExtractedConferenceMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test get_pending_members returns pending members."""
-        mock_row = MagicMock()
-        mock_row.id = 1
-        mock_row.conference_id = 10
-        mock_row.extracted_name = "山田太郎"
-        mock_row.source_url = "https://example.com/member"
-        mock_row.extracted_role = "議員"
-        mock_row.extracted_party_name = "自民党"
-        mock_row.extracted_at = None
-        mock_row.matching_status = "pending"
-        mock_row.matched_politician_id = None
-        mock_row.matching_confidence = None
-        mock_row.matched_at = None
-        mock_row.additional_data = None
-
-        mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row])
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.get_pending_members(10)
-
-        assert len(result) == 1
-        assert result[0].matching_status == "pending"
-        mock_session.execute.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_get_matched_members(
-        self,
-        repository: ExtractedConferenceMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test get_matched_members returns matched members."""
-        mock_row = MagicMock()
-        mock_row.id = 1
-        mock_row.conference_id = 10
-        mock_row.extracted_name = "山田太郎"
-        mock_row.source_url = "https://example.com/member"
-        mock_row.extracted_role = "議員"
-        mock_row.extracted_party_name = "自民党"
-        mock_row.extracted_at = None
-        mock_row.matching_status = "matched"
-        mock_row.matched_politician_id = 100
-        mock_row.matching_confidence = 0.95
-        mock_row.matched_at = None
-        mock_row.additional_data = None
-
-        mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row])
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.get_matched_members(10)
-
-        assert len(result) == 1
-        assert result[0].matched_politician_id == 100
-        mock_session.execute.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_update_matching_result_success(
-        self,
-        repository: ExtractedConferenceMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test update_matching_result successfully updates result."""
-        # Mock for update query
-        mock_update_result = MagicMock()
-
-        # Mock for get_by_id query
-        mock_row = MagicMock()
-        mock_row.id = 1
-        mock_row.conference_id = 10
-        mock_row.extracted_name = "山田太郎"
-        mock_row.source_url = "https://example.com/member"
-        mock_row.extracted_role = "議員"
-        mock_row.extracted_party_name = "自民党"
-        mock_row.extracted_at = None
-        mock_row.matched_politician_id = 100
-        mock_row.matching_confidence = 0.95
-        mock_row.matching_status = "matched"
-        mock_row.matched_at = None
-        mock_row.additional_data = None
-
-        mock_get_result = MagicMock()
-        mock_get_result.fetchone = MagicMock(return_value=mock_row)
-
-        mock_session.execute.side_effect = [mock_update_result, mock_get_result]
-
-        result = await repository.update_matching_result(1, 100, 0.95, "matched")
-
-        assert result is not None
-        assert result.matched_politician_id == 100
-        assert mock_session.execute.call_count == 2
-        mock_session.commit.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_update_matching_result_not_found(
-        self,
-        repository: ExtractedConferenceMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test update_matching_result returns None when not found."""
-        # Mock for update query
-        mock_update_result = MagicMock()
-
-        # Mock for get_by_id query (returns None)
-        mock_get_result = MagicMock()
-        mock_get_result.fetchone = MagicMock(return_value=None)
-
-        mock_session.execute.side_effect = [mock_update_result, mock_get_result]
-
-        result = await repository.update_matching_result(999, 100, 0.95, "matched")
-
-        assert result is None
-        mock_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_by_conference(
@@ -180,11 +63,8 @@ class TestExtractedConferenceMemberRepositoryImpl:
         mock_row.extracted_role = "議員"
         mock_row.extracted_party_name = None
         mock_row.extracted_at = None
-        mock_row.matching_status = "pending"
-        mock_row.matched_politician_id = None
-        mock_row.matching_confidence = None
-        mock_row.matched_at = None
         mock_row.additional_data = None
+        mock_row.is_manually_verified = False
 
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
@@ -202,27 +82,37 @@ class TestExtractedConferenceMemberRepositoryImpl:
         repository: ExtractedConferenceMemberRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test get_extraction_summary returns summary dict."""
-        # Mock rows returned by SQL query
-        mock_row1 = MagicMock()
-        mock_row1.matching_status = "pending"
-        mock_row1.count = 20
-
-        mock_row2 = MagicMock()
-        mock_row2.matching_status = "matched"
-        mock_row2.count = 80
+        """Test get_extraction_summary returns summary dict with total count."""
+        mock_row = MagicMock()
+        mock_row.total = 100
 
         mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
+        mock_result.fetchone = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_extraction_summary()
 
-        # Result should be a dict
         assert isinstance(result, dict)
         assert result["total"] == 100
-        assert result["pending"] == 20
-        assert result["matched"] == 80
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_extraction_summary_with_conference_id(
+        self,
+        repository: ExtractedConferenceMemberRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_extraction_summary with conference_id filter."""
+        mock_row = MagicMock()
+        mock_row.total = 50
+
+        mock_result = MagicMock()
+        mock_result.fetchone = MagicMock(return_value=mock_row)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_extraction_summary(conference_id=10)
+
+        assert result["total"] == 50
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
@@ -233,13 +123,11 @@ class TestExtractedConferenceMemberRepositoryImpl:
         sample_member_entity: ExtractedConferenceMember,
     ) -> None:
         """Test bulk_create creates multiple members."""
-        # Mock session methods
         mock_session.add_all = MagicMock()
         mock_session.refresh = AsyncMock()
 
         result = await repository.bulk_create([sample_member_entity])
 
-        # Result should be a list of entities
         assert isinstance(result, list)
         assert len(result) == 1
         mock_session.add_all.assert_called_once()
@@ -257,10 +145,7 @@ class TestExtractedConferenceMemberRepositoryImpl:
             extracted_role="議員",
             extracted_party_name="自民党",
             extracted_at=None,
-            matched_politician_id=None,
-            matching_confidence=None,
-            matching_status="pending",
-            matched_at=None,
+            is_manually_verified=True,
         )
 
         entity = repository._to_entity(model)
@@ -268,6 +153,7 @@ class TestExtractedConferenceMemberRepositoryImpl:
         assert isinstance(entity, ExtractedConferenceMember)
         assert entity.id == 1
         assert entity.extracted_name == "山田太郎"
+        assert entity.is_manually_verified is True
 
     def test_to_model(
         self,
@@ -293,16 +179,16 @@ class TestExtractedConferenceMemberRepositoryImpl:
         mock_row1.conference_id = 10
         mock_row1.extracted_name = "山田太郎"
         mock_row1.source_url = "https://example.com/member1"
-        mock_row1.matching_status = "pending"
         mock_row1.extracted_at = None
+        mock_row1.is_manually_verified = False
 
         mock_row2 = MagicMock()
         mock_row2.id = 2
         mock_row2.conference_id = 10
         mock_row2.extracted_name = "鈴木花子"
         mock_row2.source_url = "https://example.com/member2"
-        mock_row2.matching_status = "matched"
         mock_row2.extracted_at = None
+        mock_row2.is_manually_verified = True
 
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
@@ -327,8 +213,8 @@ class TestExtractedConferenceMemberRepositoryImpl:
         mock_row.conference_id = 10
         mock_row.extracted_name = "山田太郎"
         mock_row.source_url = "https://example.com/member"
-        mock_row.matching_status = "pending"
         mock_row.extracted_at = None
+        mock_row.is_manually_verified = False
 
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
@@ -406,7 +292,6 @@ class TestExtractedConferenceMemberRepositoryImpl:
             conference_id=10,
             extracted_name="山田太郎",
             source_url="https://example.com/member",
-            matching_status="pending",
         )
 
         with pytest.raises(ValueError, match="Entity must have an ID to update"):
@@ -477,111 +362,6 @@ class TestExtractedConferenceMemberRepositoryImpl:
         assert result == 0
         mock_session.execute.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_get_pending_members_all(
-        self,
-        repository: ExtractedConferenceMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test get_pending_members with conference_id=None returns all pending."""
-        mock_row = MagicMock()
-        mock_row.id = 1
-        mock_row.conference_id = 10
-        mock_row.extracted_name = "山田太郎"
-        mock_row.source_url = "https://example.com/member"
-        mock_row.matching_status = "pending"
-        mock_row.extracted_at = None
-
-        mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row])
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.get_pending_members(None)
-
-        assert len(result) == 1
-        assert result[0].matching_status == "pending"
-        mock_session.execute.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_get_matched_members_all(
-        self,
-        repository: ExtractedConferenceMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test get_matched_members with conference_id=None returns all matched."""
-        mock_row = MagicMock()
-        mock_row.id = 1
-        mock_row.conference_id = 10
-        mock_row.extracted_name = "山田太郎"
-        mock_row.source_url = "https://example.com/member"
-        mock_row.matching_status = "matched"
-        mock_row.matched_politician_id = 100
-        mock_row.matching_confidence = 0.95
-        mock_row.extracted_at = None
-
-        mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row])
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.get_matched_members(None)
-
-        assert len(result) == 1
-        assert result[0].matching_status == "matched"
-        mock_session.execute.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_get_matched_members_with_min_confidence(
-        self,
-        repository: ExtractedConferenceMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test get_matched_members with min_confidence filter."""
-        mock_row = MagicMock()
-        mock_row.id = 1
-        mock_row.conference_id = 10
-        mock_row.extracted_name = "山田太郎"
-        mock_row.source_url = "https://example.com/member"
-        mock_row.matching_status = "matched"
-        mock_row.matched_politician_id = 100
-        mock_row.matching_confidence = 0.95
-        mock_row.extracted_at = None
-
-        mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row])
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.get_matched_members(10, min_confidence=0.9)
-
-        assert len(result) == 1
-        assert result[0].matching_confidence >= 0.9
-        mock_session.execute.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_get_extraction_summary_all(
-        self,
-        repository: ExtractedConferenceMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test get_extraction_summary with conference_id=None."""
-        mock_row1 = MagicMock()
-        mock_row1.matching_status = "pending"
-        mock_row1.count = 30
-
-        mock_row2 = MagicMock()
-        mock_row2.matching_status = "matched"
-        mock_row2.count = 70
-
-        mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.get_extraction_summary(None)
-
-        assert result["total"] == 100
-        assert result["pending"] == 30
-        assert result["matched"] == 70
-        mock_session.execute.assert_called_once()
-
     def test_update_model(
         self,
         repository: ExtractedConferenceMemberRepositoryImpl,
@@ -593,8 +373,8 @@ class TestExtractedConferenceMemberRepositoryImpl:
             conference_id=5,
             extracted_name="旧名前",
             source_url="https://old.com/member",
-            matching_status="pending",
             extracted_at=None,
+            is_manually_verified=False,
         )
 
         repository._update_model(model, sample_member_entity)
@@ -612,7 +392,6 @@ class TestExtractedConferenceMemberRepositoryImpl:
             conference_id=10,
             extracted_name="山田太郎",
             source_url="https://example.com/member",
-            matching_status="pending",
             additional_data='{"key": "value"}',
         )
 

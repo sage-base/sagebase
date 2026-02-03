@@ -1,12 +1,12 @@
 """抽出結果確認タブのUI実装.
 
-マッチング実行、所属情報作成、手動レビュー機能を含みます。
+抽出済みメンバーの一覧表示、手動政治家選択機能を含みます。
+政治家との紐付けはGold Layer（ConferenceMember）で管理されます。
 """
 
 import asyncio
 import logging
 
-from datetime import date
 from typing import Any
 
 import nest_asyncio
@@ -14,12 +14,8 @@ import pandas as pd
 import streamlit as st
 
 from src.application.usecases.manage_conference_members_usecase import (
-    ApproveMatchInputDTO,
-    CreateAffiliationsInputDTO,
     ManageConferenceMembersUseCase,
     ManualMatchInputDTO,
-    MatchMembersInputDTO,
-    RejectMatchInputDTO,
     SearchPoliticiansInputDTO,
 )
 from src.application.usecases.mark_entity_as_verified_usecase import (
@@ -28,11 +24,7 @@ from src.application.usecases.mark_entity_as_verified_usecase import (
     MarkEntityAsVerifiedUseCase,
 )
 from src.domain.entities.conference_member import ConferenceMember
-from src.domain.entities.extracted_conference_member import (
-    ExtractedConferenceMember,
-    MatchingStatus,
-)
-from src.infrastructure.exceptions import DatabaseError, LLMError
+from src.domain.entities.extracted_conference_member import ExtractedConferenceMember
 from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
 from src.interfaces.web.streamlit.components import (
     get_verification_badge_text,
@@ -84,8 +76,7 @@ def render_extracted_members(
     """抽出された議員情報を表示する.
 
     抽出結果確認タブをレンダリングします。
-    会議体、ステータス、検証状態でのフィルタリング、マッチング実行、
-    所属情報作成、手動レビューなどの機能を提供します。
+    会議体、検証状態でのフィルタリング、手動政治家選択などの機能を提供します。
 
     Args:
         extracted_member_repo: 抽出メンバーリポジトリ
@@ -97,7 +88,7 @@ def render_extracted_members(
     st.header("抽出結果確認")
 
     # フィルタ列
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
 
     with col1:
         conferences = conference_repo.get_all()
@@ -112,21 +103,6 @@ def render_extracted_members(
         conference_id = conference_options[selected_conf]
 
     with col2:
-        status_options: dict[str, str | None] = {
-            "すべて": None,
-            "未マッチング": MatchingStatus.PENDING.value,
-            "マッチング済み": MatchingStatus.MATCHED.value,
-            "マッチなし": MatchingStatus.NO_MATCH.value,
-            "要確認": MatchingStatus.NEEDS_REVIEW.value,
-        }
-        selected_status = st.selectbox(
-            "ステータスで絞り込み",
-            options=list(status_options.keys()),
-            key="filter_extracted_status",
-        )
-        status = status_options[selected_status]
-
-    with col3:
         verification_filter = render_verification_filter(
             key="filter_extracted_verification"
         )
@@ -134,15 +110,12 @@ def render_extracted_members(
     # サマリーを1回だけ取得して使い回す
     summary = extracted_member_repo.get_extraction_summary(conference_id)
 
-    # マッチング・所属作成アクションセクション
-    _render_matching_actions(manage_members_usecase, conference_id, summary)
-
     # 統計を表示
     _display_summary_statistics(summary)
 
     # メンバーを取得してフィルタリング
     members = _get_and_filter_members(
-        extracted_member_repo, conference_id, status, verification_filter
+        extracted_member_repo, conference_id, verification_filter
     )
 
     if not members:
@@ -152,213 +125,10 @@ def render_extracted_members(
     # DataFrameに変換して表示
     _display_members_dataframe(members)
 
-    # 詳細表示と検証状態更新・手動レビュー
+    # 詳細表示と検証状態更新・手動政治家選択
     _render_member_details(
         members, verify_use_case, manage_members_usecase, conference_member_repo
     )
-
-
-def _render_matching_actions(
-    usecase: ManageConferenceMembersUseCase,
-    conference_id: int | None,
-    summary: dict[str, int],
-) -> None:
-    """マッチング実行と所属情報作成のアクションセクションを表示する.
-
-    Args:
-        usecase: 会議体メンバー管理UseCase
-        conference_id: 選択中の会議体ID（Noneの場合は全件対象）
-        summary: 抽出サマリー統計
-    """
-    st.markdown("---")
-    st.markdown("### マッチング・所属作成")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        _render_matching_execution(usecase, conference_id, summary)
-
-    with col2:
-        _render_affiliation_creation(usecase, conference_id, summary)
-
-    st.markdown("---")
-
-
-def _render_matching_execution(
-    usecase: ManageConferenceMembersUseCase,
-    conference_id: int | None,
-    summary: dict[str, int],
-) -> None:
-    """マッチング実行UIを表示する.
-
-    Args:
-        usecase: 会議体メンバー管理UseCase
-        conference_id: 選択中の会議体ID
-        summary: 抽出サマリー統計
-    """
-    pending_count = summary.get("pending", 0)
-
-    st.markdown("#### 政治家マッチング")
-    target_text = f"会議体ID: {conference_id}" if conference_id else "すべての会議体"
-    st.caption(f"対象: {target_text}（未マッチング: {pending_count}件）")
-
-    if pending_count == 0:
-        st.info("未マッチングのメンバーがありません。")
-        return
-
-    if st.button(
-        f"マッチング実行（{pending_count}件）",
-        key="btn_match_members",
-        type="primary",
-    ):
-        _execute_matching(usecase, conference_id)
-
-
-def _execute_matching(
-    usecase: ManageConferenceMembersUseCase,
-    conference_id: int | None,
-) -> None:
-    """マッチング処理を実行する.
-
-    Args:
-        usecase: 会議体メンバー管理UseCase
-        conference_id: 会議体ID
-    """
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-
-    try:
-        status_text.text("LLMを使用して政治家データとマッチング中...")
-        progress_bar.progress(0.1)
-
-        input_dto = MatchMembersInputDTO(conference_id=conference_id)
-        output = _run_async(usecase.match_members(input_dto))
-
-        progress_bar.progress(1.0)
-        status_text.text("マッチング完了")
-
-        # session_stateに結果を保存して再描画後も表示
-        st.session_state["matching_result"] = {
-            "matched": output.matched_count,
-            "needs_review": output.needs_review_count,
-            "no_match": output.no_match_count,
-        }
-        st.rerun()
-
-    except LLMError:
-        logger.exception("LLMサービスでエラーが発生しました")
-        progress_bar.progress(1.0)
-        status_text.text("LLMサービスでエラーが発生しました")
-        st.error(
-            "LLMサービスでエラーが発生しました。APIキーとネットワーク接続を確認してください。"
-        )
-    except DatabaseError:
-        logger.exception("データベースエラーが発生しました")
-        progress_bar.progress(1.0)
-        status_text.text("データベースエラーが発生しました")
-        st.error("データベースエラーが発生しました。接続状態を確認してください。")
-    except Exception:
-        logger.exception("マッチング処理中にエラーが発生しました")
-        progress_bar.progress(1.0)
-        status_text.text("マッチング処理でエラーが発生しました")
-        st.error("マッチング処理中にエラーが発生しました。ログを確認してください。")
-
-
-def _render_affiliation_creation(
-    usecase: ManageConferenceMembersUseCase,
-    conference_id: int | None,
-    summary: dict[str, int],
-) -> None:
-    """所属情報作成UIを表示する.
-
-    Args:
-        usecase: 会議体メンバー管理UseCase
-        conference_id: 選択中の会議体ID
-        summary: 抽出サマリー統計
-    """
-    matched_count = summary.get("matched", 0)
-
-    st.markdown("#### 所属情報作成")
-    target_text = f"会議体ID: {conference_id}" if conference_id else "すべての会議体"
-    st.caption(f"対象: {target_text}（マッチング済み: {matched_count}件）")
-
-    if matched_count == 0:
-        st.info("マッチング済みのメンバーがありません。")
-        return
-
-    start_date = st.date_input(
-        "所属開始日",
-        value=date.today(),
-        key="affiliation_start_date",
-    )
-
-    if st.button(
-        f"所属情報を作成（{matched_count}件）",
-        key="btn_create_affiliations",
-        type="primary",
-    ):
-        _execute_affiliation_creation(usecase, conference_id, start_date)
-
-
-def _execute_affiliation_creation(
-    usecase: ManageConferenceMembersUseCase,
-    conference_id: int | None,
-    start_date: date,
-) -> None:
-    """所属情報作成処理を実行する.
-
-    Args:
-        usecase: 会議体メンバー管理UseCase
-        conference_id: 会議体ID
-        start_date: 所属開始日
-    """
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-
-    try:
-        status_text.text("所属情報を作成中...")
-        progress_bar.progress(0.1)
-
-        input_dto = CreateAffiliationsInputDTO(
-            conference_id=conference_id,
-            start_date=start_date,
-        )
-        output = _run_async(usecase.create_affiliations(input_dto))
-
-        progress_bar.progress(1.0)
-        status_text.text("所属情報作成完了")
-
-        # session_stateに結果を保存して再描画後も表示
-        affiliations_data = []
-        if output.affiliations:
-            for aff in output.affiliations:
-                affiliations_data.append(
-                    {
-                        "政治家名": aff.politician_name,
-                        "会議体ID": aff.conference_id,
-                        "役職": aff.role or "-",
-                        "開始日": str(aff.start_date),
-                        "抽出元メンバーID": aff.source_extracted_member_id or "-",
-                    }
-                )
-
-        st.session_state["affiliation_result"] = {
-            "created": output.created_count,
-            "skipped": output.skipped_count,
-            "affiliations": affiliations_data,
-        }
-        st.rerun()
-
-    except DatabaseError:
-        logger.exception("データベースエラーが発生しました")
-        progress_bar.progress(1.0)
-        status_text.text("データベースエラーが発生しました")
-        st.error("データベースエラーが発生しました。接続状態を確認してください。")
-    except Exception:
-        logger.exception("所属情報作成中にエラーが発生しました")
-        progress_bar.progress(1.0)
-        status_text.text("所属情報作成でエラーが発生しました")
-        st.error("所属情報作成中にエラーが発生しました。ログを確認してください。")
 
 
 def _display_summary_statistics(summary: dict[str, Any]) -> None:
@@ -367,53 +137,12 @@ def _display_summary_statistics(summary: dict[str, Any]) -> None:
     Args:
         summary: サマリー統計
     """
-    # session_stateに保存されたマッチング結果を表示
-    if "matching_result" in st.session_state:
-        result = st.session_state.pop("matching_result")
-        st.success("マッチング処理が完了しました")
-        r_col1, r_col2, r_col3 = st.columns(3)
-        with r_col1:
-            st.metric("マッチ成功", result["matched"])
-        with r_col2:
-            st.metric("要確認", result["needs_review"])
-        with r_col3:
-            st.metric("該当なし", result["no_match"])
-
-    # session_stateに保存された所属作成結果を表示
-    if "affiliation_result" in st.session_state:
-        result = st.session_state.pop("affiliation_result")
-        st.success("所属情報の作成が完了しました")
-        r_col1, r_col2 = st.columns(2)
-        with r_col1:
-            st.metric("作成数", result["created"])
-        with r_col2:
-            st.metric("スキップ数", result["skipped"])
-
-        if result["affiliations"]:
-            with st.expander("作成された所属情報の詳細"):
-                st.dataframe(
-                    pd.DataFrame(result["affiliations"]),
-                    use_container_width=True,
-                    hide_index=True,
-                )
-
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.metric("総件数", summary.get("total", 0))
-    with col2:
-        st.metric("未マッチング", summary.get("pending", 0))
-    with col3:
-        st.metric("マッチング済み", summary.get("matched", 0))
-    with col4:
-        st.metric("マッチなし", summary.get("no_match", 0))
-    with col5:
-        st.metric("要確認", summary.get("needs_review", 0))
+    st.metric("総件数", summary.get("total", 0))
 
 
 def _get_and_filter_members(
     extracted_member_repo: RepositoryAdapter,
     conference_id: int | None,
-    status: str | None,
     verification_filter: bool | None,
 ) -> list[ExtractedConferenceMember]:
     """メンバーを取得してフィルタリングする.
@@ -421,7 +150,6 @@ def _get_and_filter_members(
     Args:
         extracted_member_repo: 抽出メンバーリポジトリ
         conference_id: 会議体ID
-        status: ステータス
         verification_filter: 検証フィルター
 
     Returns:
@@ -431,9 +159,6 @@ def _get_and_filter_members(
         members = extracted_member_repo.get_by_conference(conference_id)
     else:
         members = extracted_member_repo.get_all(limit=MAX_MEMBERS_FETCH_LIMIT)
-
-    if status:
-        members = [m for m in members if m.matching_status == status]
 
     if verification_filter is not None:
         members = [m for m in members if m.is_manually_verified == verification_filter]
@@ -456,13 +181,7 @@ def _display_members_dataframe(members: list[ExtractedConferenceMember]) -> None
                 "名前": member.extracted_name,
                 "役職": member.extracted_role or "",
                 "政党": member.extracted_party_name or "",
-                "ステータス": member.matching_status,
                 "検証状態": get_verification_badge_text(member.is_manually_verified),
-                "マッチング信頼度": (
-                    f"{member.matching_confidence:.2f}"
-                    if member.matching_confidence
-                    else ""
-                ),
                 "抽出日時": member.extracted_at.strftime("%Y-%m-%d %H:%M:%S"),
                 "ソースURL": member.source_url,
             }
@@ -476,10 +195,6 @@ def _display_members_dataframe(members: list[ExtractedConferenceMember]) -> None
         hide_index=True,
         column_config={
             "ソースURL": st.column_config.LinkColumn("ソースURL"),
-            "マッチング信頼度": st.column_config.NumberColumn(
-                "マッチング信頼度",
-                format="%.2f",
-            ),
         },
     )
 
@@ -556,7 +271,7 @@ def _render_member_details(
     manage_members_usecase: ManageConferenceMembersUseCase,
     conference_member_repo: RepositoryAdapter | None = None,
 ) -> None:
-    """メンバー詳細、検証コントロール、手動レビューUIを表示する.
+    """メンバー詳細、検証コントロール、手動政治家選択UIを表示する.
 
     Args:
         members: メンバーリスト
@@ -571,10 +286,7 @@ def _render_member_details(
 
     for member in display_members:
         badge = get_verification_badge_text(member.is_manually_verified)
-        status_label = _get_status_label(
-            member.matching_status, member.is_manually_verified
-        )
-        with st.expander(f"{member.extracted_name} - {status_label} - {badge}"):
+        with st.expander(f"{member.extracted_name} - {badge}"):
             col1, col2 = st.columns([2, 1])
 
             with col1:
@@ -582,11 +294,6 @@ def _render_member_details(
                 st.write(f"**名前:** {member.extracted_name}")
                 st.write(f"**役職:** {member.extracted_role or '-'}")
                 st.write(f"**政党:** {member.extracted_party_name or '-'}")
-                st.write(f"**ステータス:** {status_label}")
-                if member.matching_confidence is not None:
-                    st.write(f"**信頼度:** {member.matching_confidence:.2f}")
-                if member.matched_politician_id:
-                    st.write(f"**マッチ先政治家ID:** {member.matched_politician_id}")
 
                 _render_affiliation_info(
                     member, affiliation_map, conference_member_repo
@@ -595,89 +302,25 @@ def _render_member_details(
             with col2:
                 _render_verification_control(member, verify_use_case)
 
-            # 手動レビューUI（needs_review / no_match / pending ステータスのみ）
-            if member.matching_status in (
-                MatchingStatus.NEEDS_REVIEW,
-                MatchingStatus.NO_MATCH,
-                MatchingStatus.PENDING,
-            ):
-                _render_manual_review(member, manage_members_usecase)
+            # 手動政治家選択UI（所属情報が未作成の場合）
+            affiliation = affiliation_map.get(member.id)  # type: ignore[arg-type]
+            if not affiliation:
+                _render_manual_match(member, manage_members_usecase)
 
 
-def _get_status_label(status: str, is_manually_verified: bool = False) -> str:
-    """ステータスの日本語ラベルを取得する.
-
-    matchedステータスの場合、is_manually_verifiedフラグにより
-    手動マッチングかLLMマッチングかを区別して表示します。
-
-    Args:
-        status: ステータス文字列
-        is_manually_verified: 手動検証済みフラグ
-
-    Returns:
-        日本語ラベル
-    """
-    if status == MatchingStatus.MATCHED:
-        return "手動マッチング済み" if is_manually_verified else "LLMマッチング済み"
-
-    labels: dict[str, str] = {
-        MatchingStatus.PENDING.value: "未マッチング",
-        MatchingStatus.NO_MATCH.value: "マッチなし",
-        MatchingStatus.NEEDS_REVIEW.value: "要確認",
-    }
-    return labels.get(status, status)
-
-
-def _render_manual_review(
+def _render_manual_match(
     member: ExtractedConferenceMember,
     manage_members_usecase: ManageConferenceMembersUseCase,
 ) -> None:
-    """手動レビューUIを表示する.
+    """手動政治家選択UIを表示する.
 
-    needs_review/no_match/pendingステータスのメンバーに対して、
-    マッチング結果の承認/却下、手動での政治家選択を提供します。
+    抽出済みメンバーに対して、政治家を検索して紐付けるUIを提供します。
 
     Args:
         member: メンバーエンティティ
         manage_members_usecase: 会議体メンバー管理UseCase
     """
     st.markdown("---")
-    st.markdown("**手動マッチング操作**")
-
-    # needs_reviewの場合は承認/却下ボタンを表示
-    if (
-        member.matching_status == MatchingStatus.NEEDS_REVIEW
-        and member.matched_politician_id
-    ):
-        approve_col, reject_col = st.columns(2)
-        with approve_col:
-            if st.button(
-                "承認（マッチング確定）",
-                key=f"approve_{member.id}",
-                type="primary",
-            ):
-                input_dto = ApproveMatchInputDTO(member_id=member.id or 0)
-                output = _run_async(manage_members_usecase.approve_match(input_dto))
-                if output.success:
-                    st.success(output.message)
-                    st.rerun()
-                else:
-                    st.error(output.message)
-
-        with reject_col:
-            if st.button(
-                "却下（マッチなしに変更）",
-                key=f"reject_{member.id}",
-            ):
-                input_dto = RejectMatchInputDTO(member_id=member.id or 0)
-                output = _run_async(manage_members_usecase.reject_match(input_dto))
-                if output.success:
-                    st.success(output.message)
-                    st.rerun()
-                else:
-                    st.error(output.message)
-
-    # 手動で政治家を選択してマッチング
     st.markdown("**手動で政治家を選択**")
 
     search_name = st.text_input(
