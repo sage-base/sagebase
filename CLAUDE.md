@@ -56,10 +56,10 @@ Sagebase follows **Clean Architecture** principles. **Status: 🟢 100% Complete
 
 ```
 src/
-├── domain/          # Entities, Repository Interfaces, Domain Services (77 files)
-├── application/     # Use Cases, DTOs (37 files)
-├── infrastructure/  # Repository Implementations, External Services (63 files)
-└── interfaces/      # CLI, Web UI (63 files)
+├── domain/          # Entities, Repository Interfaces, Domain Services (99 files)
+├── application/     # Use Cases, DTOs (68 files)
+├── infrastructure/  # Repository Implementations, External Services (103 files)
+└── interfaces/      # CLI, Web UI (129 files)
 ```
 
 ### Key Principles
@@ -112,6 +112,7 @@ src/
   - [0003-repository-pattern.md](docs/ADR/0003-repository-pattern.md): Repository Pattern採用
   - [0004-langgraph-adapter-pattern.md](docs/ADR/0004-langgraph-adapter-pattern.md): LangGraph Adapter Pattern
   - [0005-extraction-layer-gold-layer-separation.md](docs/ADR/0005-extraction-layer-gold-layer-separation.md): 抽出層とGold Layer分離
+  - [0006-alembic-migration-unification.md](docs/ADR/0006-alembic-migration-unification.md): Alembic統一マイグレーション
 
 **📁 Layer Guides** - `docs/architecture/`:
 Clean Architectureの各層の詳細な実装ガイドを保管（責務、実装例、落とし穴、チェックリスト）
@@ -150,7 +151,8 @@ Clean Architectureの各層の詳細な実装ガイドを保管（責務、実�
 ### Database
 - **Master Data**: Governing bodies and conferences are fixed master data
 - **Coverage**: All 1,966 Japanese municipalities tracked with organization codes
-- **Migrations**: Always add new migrations to `database/02_run_migrations.sql`
+- **Migrations**: Alembic統一方式（`alembic/versions/`配下のPythonファイル）。詳細は[ADR 0006](docs/ADR/0006-alembic-migration-unification.md)参照
+- **新規マイグレーション**: `just migrate-new "description"` でマイグレーションファイルを作成
 
 ### Development
 - **Docker-first**: All commands run through Docker containers
@@ -192,6 +194,11 @@ Sagebaseでは、以下の機能にBAML (Boundary ML)を使用しています。
 - **実装**: `src/infrastructure/external/politician_matching/baml_politician_matching_service.py`
 - **備考**: Pydantic実装は削除済み、BAML実装のみ使用
 - **ハイブリッドアプローチ**: ルールベースマッチング（高速パス）+ BAMLマッチング
+
+#### 5. 役職-人名マッピング抽出（Role Name Mapping） **BAML専用**
+- **BAML定義**: `baml_src/role_name_mapping.baml`
+- **機能**: 議事録の出席者情報から役職（議長、副議長、知事など）と人名の対応を抽出
+- **備考**: 出席者セクションの検出と信頼度スコアリングを提供
 
 ### Implementation Pattern
 - **High-Speed Path**: ルールベースマッチング（完全一致、部分一致）で信頼度0.9以上の場合はLLMをスキップ
