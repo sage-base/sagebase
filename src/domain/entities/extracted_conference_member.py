@@ -11,7 +11,16 @@ class ExtractedConferenceMember(BaseEntity):
     Bronze Layer（抽出ログ層）のエンティティとして、
     LLMで抽出された生データを保持する。
     政治家との紐付けはGold Layer（ConferenceMember）で管理される。
+
+    Note:
+        VerifiableEntityプロトコルとの互換性のため、is_manually_verifiedと
+        mark_as_manually_verified()を実装しているが、Bronze Layerでは
+        検証状態を管理しないため、常にFalse/no-opとなる。
     """
+
+    # VerifiableEntityプロトコル互換性のためのダミー属性
+    # Bronze Layerでは検証状態を管理しない
+    is_manually_verified: bool = False
 
     def __init__(
         self,
@@ -34,6 +43,14 @@ class ExtractedConferenceMember(BaseEntity):
         self.extracted_at = extracted_at or datetime.now()
         self.additional_data = additional_data
         self.latest_extraction_log_id = latest_extraction_log_id
+
+    def mark_as_manually_verified(self) -> None:
+        """VerifiableEntityプロトコル互換性のためのno-opメソッド.
+
+        Bronze Layerエンティティでは検証状態を管理しないため、
+        このメソッドは何もしない。
+        """
+        pass
 
     def update_from_extraction_log(self, log_id: int) -> None:
         """最新の抽出ログIDを更新する."""

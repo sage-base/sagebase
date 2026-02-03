@@ -80,7 +80,7 @@ class UpdateExtractedConferenceMemberFromExtractionUseCase(
         """
         await self._extracted_conference_member_repo.update(entity)
 
-    def _to_extracted_data(  # type: ignore[override]
+    def _to_extracted_data(
         self, result: ConferenceMemberExtractionResult
     ) -> dict[str, Any]:
         """抽出結果をdictに変換する。
@@ -127,7 +127,7 @@ class UpdateExtractedConferenceMemberFromExtractionUseCase(
             f"log_id={log_id}"
         )
 
-    def _get_confidence_score(  # type: ignore[override]
+    def _get_confidence_score(
         self, result: ConferenceMemberExtractionResult
     ) -> float | None:
         """信頼度スコアを取得する。
