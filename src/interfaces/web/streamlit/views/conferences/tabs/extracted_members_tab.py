@@ -18,18 +18,9 @@ from src.application.usecases.manage_conference_members_usecase import (
     ManualMatchInputDTO,
     SearchPoliticiansInputDTO,
 )
-from src.application.usecases.mark_entity_as_verified_usecase import (
-    EntityType,
-    MarkEntityAsVerifiedInputDto,
-    MarkEntityAsVerifiedUseCase,
-)
 from src.domain.entities.conference_member import ConferenceMember
 from src.domain.entities.extracted_conference_member import ExtractedConferenceMember
 from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
-from src.interfaces.web.streamlit.components import (
-    get_verification_badge_text,
-    render_verification_filter,
-)
 
 
 logger = logging.getLogger(__name__)
@@ -70,42 +61,32 @@ def render_extracted_members(
     extracted_member_repo: RepositoryAdapter,
     conference_repo: RepositoryAdapter,
     manage_members_usecase: ManageConferenceMembersUseCase,
-    verify_use_case: MarkEntityAsVerifiedUseCase,
     conference_member_repo: RepositoryAdapter | None = None,
 ) -> None:
     """抽出された議員情報を表示する.
 
     抽出結果確認タブをレンダリングします。
-    会議体、検証状態でのフィルタリング、手動政治家選択などの機能を提供します。
+    会議体でのフィルタリング、手動政治家選択などの機能を提供します。
 
     Args:
         extracted_member_repo: 抽出メンバーリポジトリ
         conference_repo: 会議体リポジトリ
         manage_members_usecase: 会議体メンバー管理UseCase
-        verify_use_case: 検証UseCase
         conference_member_repo: 会議体メンバーリポジトリ（Gold Layer表示用）
     """
     st.header("抽出結果確認")
 
-    # フィルタ列
-    col1, col2 = st.columns(2)
+    # 会議体フィルタ
+    conferences = conference_repo.get_all()
+    conference_options: dict[str, int | None] = {"すべて": None}
+    conference_options.update({conf.name: conf.id for conf in conferences})
 
-    with col1:
-        conferences = conference_repo.get_all()
-        conference_options: dict[str, int | None] = {"すべて": None}
-        conference_options.update({conf.name: conf.id for conf in conferences})
-
-        selected_conf = st.selectbox(
-            "会議体で絞り込み",
-            options=list(conference_options.keys()),
-            key="filter_extracted_conference",
-        )
-        conference_id = conference_options[selected_conf]
-
-    with col2:
-        verification_filter = render_verification_filter(
-            key="filter_extracted_verification"
-        )
+    selected_conf = st.selectbox(
+        "会議体で絞り込み",
+        options=list(conference_options.keys()),
+        key="filter_extracted_conference",
+    )
+    conference_id = conference_options[selected_conf]
 
     # サマリーを1回だけ取得して使い回す
     summary = extracted_member_repo.get_extraction_summary(conference_id)
@@ -113,10 +94,8 @@ def render_extracted_members(
     # 統計を表示
     _display_summary_statistics(summary)
 
-    # メンバーを取得してフィルタリング
-    members = _get_and_filter_members(
-        extracted_member_repo, conference_id, verification_filter
-    )
+    # メンバーを取得
+    members = _get_and_filter_members(extracted_member_repo, conference_id)
 
     if not members:
         st.info("該当する抽出結果がありません。")
@@ -125,10 +104,8 @@ def render_extracted_members(
     # DataFrameに変換して表示
     _display_members_dataframe(members)
 
-    # 詳細表示と検証状態更新・手動政治家選択
-    _render_member_details(
-        members, verify_use_case, manage_members_usecase, conference_member_repo
-    )
+    # 詳細表示と手動政治家選択
+    _render_member_details(members, manage_members_usecase, conference_member_repo)
 
 
 def _display_summary_statistics(summary: dict[str, Any]) -> None:
@@ -143,25 +120,20 @@ def _display_summary_statistics(summary: dict[str, Any]) -> None:
 def _get_and_filter_members(
     extracted_member_repo: RepositoryAdapter,
     conference_id: int | None,
-    verification_filter: bool | None,
 ) -> list[ExtractedConferenceMember]:
-    """メンバーを取得してフィルタリングする.
+    """メンバーを取得する.
 
     Args:
         extracted_member_repo: 抽出メンバーリポジトリ
         conference_id: 会議体ID
-        verification_filter: 検証フィルター
 
     Returns:
-        フィルタリングされたメンバーリスト
+        メンバーリスト
     """
     if conference_id:
         members = extracted_member_repo.get_by_conference(conference_id)
     else:
         members = extracted_member_repo.get_all(limit=MAX_MEMBERS_FETCH_LIMIT)
-
-    if verification_filter is not None:
-        members = [m for m in members if m.is_manually_verified == verification_filter]
 
     return members
 
@@ -181,7 +153,6 @@ def _display_members_dataframe(members: list[ExtractedConferenceMember]) -> None
                 "名前": member.extracted_name,
                 "役職": member.extracted_role or "",
                 "政党": member.extracted_party_name or "",
-                "検証状態": get_verification_badge_text(member.is_manually_verified),
                 "抽出日時": member.extracted_at.strftime("%Y-%m-%d %H:%M:%S"),
                 "ソースURL": member.source_url,
             }
@@ -231,7 +202,7 @@ def _render_affiliation_info(
     affiliation_map: dict[int, ConferenceMember],
     conference_member_repo: RepositoryAdapter | None = None,
 ) -> None:
-    """Gold Layer所属情報を表示する."""
+    """本番提供される会議体-政治家紐付けデータを表示する."""
     if not affiliation_map:
         return
 
@@ -239,7 +210,7 @@ def _render_affiliation_info(
     if affiliation:
         verified_badge = "✅ 検証済み" if affiliation.is_manually_verified else "未検証"
         st.markdown("---")
-        st.markdown("**📋 Gold Layer 所属情報:**")
+        st.markdown("**📋 本番提供される会議体-政治家紐付けデータ:**")
         st.write(f"　所属ID: {affiliation.id}")
         st.write(f"　政治家ID: {affiliation.politician_id}")
         st.write(f"　会議体ID: {affiliation.conference_id}")
@@ -267,29 +238,39 @@ def _render_affiliation_info(
 
 def _render_member_details(
     members: list[ExtractedConferenceMember],
-    verify_use_case: MarkEntityAsVerifiedUseCase,
     manage_members_usecase: ManageConferenceMembersUseCase,
     conference_member_repo: RepositoryAdapter | None = None,
 ) -> None:
-    """メンバー詳細、検証コントロール、手動政治家選択UIを表示する.
+    """メンバー詳細と手動政治家選択UIを表示する.
 
     Args:
         members: メンバーリスト
-        verify_use_case: 検証UseCase
         manage_members_usecase: 会議体メンバー管理UseCase
         conference_member_repo: 会議体メンバーリポジトリ（Gold Layer表示用）
     """
-    st.markdown("### メンバー詳細と検証状態更新")
+    st.markdown("### メンバー詳細")
 
     display_members = members[:DETAILS_DISPLAY_LIMIT]
     affiliation_map = _fetch_affiliation_map(display_members, conference_member_repo)
 
     for member in display_members:
-        badge = get_verification_badge_text(member.is_manually_verified)
-        with st.expander(f"{member.extracted_name} - {badge}"):
-            col1, col2 = st.columns([2, 1])
+        # 紐付け状態を取得
+        affiliation = affiliation_map.get(member.id)  # type: ignore[arg-type]
+        is_linked = affiliation is not None
 
-            with col1:
+        # 紐付け状態チェックボックスと名前を横並びで表示
+        col1, col2 = st.columns([0.1, 0.9])
+        with col1:
+            st.checkbox(
+                "紐付け済",
+                value=is_linked,
+                disabled=True,
+                key=f"linked_status_{member.id}",
+                label_visibility="collapsed",
+                help="紐付け実施済み" if is_linked else "未紐付け",
+            )
+        with col2:
+            with st.expander(f"{member.extracted_name}"):
                 st.write(f"**ID:** {member.id}")
                 st.write(f"**名前:** {member.extracted_name}")
                 st.write(f"**役職:** {member.extracted_role or '-'}")
@@ -299,13 +280,9 @@ def _render_member_details(
                     member, affiliation_map, conference_member_repo
                 )
 
-            with col2:
-                _render_verification_control(member, verify_use_case)
-
-            # 手動政治家選択UI（所属情報が未作成の場合）
-            affiliation = affiliation_map.get(member.id)  # type: ignore[arg-type]
-            if not affiliation:
-                _render_manual_match(member, manage_members_usecase)
+                # 手動政治家選択UI（所属情報が未作成の場合）
+                if not is_linked:
+                    _render_manual_match(member, manage_members_usecase)
 
 
 def _render_manual_match(
@@ -374,45 +351,3 @@ def _render_manual_match(
                             st.rerun()
                         else:
                             st.error(output.message)
-
-
-def _render_verification_control(
-    member: ExtractedConferenceMember,
-    verify_use_case: MarkEntityAsVerifiedUseCase,
-) -> None:
-    """メンバーの検証コントロールを表示する.
-
-    Args:
-        member: メンバーエンティティ
-        verify_use_case: 検証UseCase
-    """
-    current_verified = member.is_manually_verified
-    new_verified = st.checkbox(
-        "手動検証済み",
-        value=current_verified,
-        key=f"verify_conf_member_{member.id}",
-        help="チェックすると、AI再実行でこのデータが上書きされなくなります",
-    )
-
-    if new_verified != current_verified:
-        if st.button(
-            "検証状態を更新",
-            key=f"update_verify_{member.id}",
-            type="primary",
-        ):
-            assert member.id is not None, "メンバーIDが設定されていません"
-            result = _run_async(
-                verify_use_case.execute(
-                    MarkEntityAsVerifiedInputDto(
-                        entity_type=EntityType.CONFERENCE_MEMBER,
-                        entity_id=member.id,
-                        is_verified=new_verified,
-                    )
-                )
-            )
-            if result.success:
-                status_text = "手動検証済み" if new_verified else "未検証"
-                st.success(f"検証状態を「{status_text}」に更新しました")
-                st.rerun()
-            else:
-                st.error(f"更新に失敗しました: {result.error_message}")

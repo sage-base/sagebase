@@ -28,7 +28,6 @@ class ExtractedConferenceMemberModel:
     extracted_party_name: str | None
     extracted_at: Any  # datetime
     additional_data: str | None
-    is_manually_verified: bool
 
     def __init__(self, **kwargs: Any):
         for key, value in kwargs.items():
@@ -82,11 +81,11 @@ class ExtractedConferenceMemberRepositoryImpl(
             INSERT INTO extracted_conference_members (
                 conference_id, extracted_name, source_url,
                 extracted_role, extracted_party_name,
-                extracted_at, additional_info, is_manually_verified
+                extracted_at, additional_info
             ) VALUES (
                 :conference_id, :extracted_name, :source_url,
                 :extracted_role, :extracted_party_name,
-                :extracted_at, :additional_info, :is_manually_verified
+                :extracted_at, :additional_info
             ) RETURNING id
         """)
 
@@ -100,7 +99,6 @@ class ExtractedConferenceMemberRepositoryImpl(
                 "extracted_party_name": entity.extracted_party_name,
                 "extracted_at": entity.extracted_at,
                 "additional_info": entity.additional_data,
-                "is_manually_verified": entity.is_manually_verified,
             },
         )
         await self.session.commit()
@@ -124,8 +122,7 @@ class ExtractedConferenceMemberRepositoryImpl(
                 source_url = :source_url,
                 extracted_role = :extracted_role,
                 extracted_party_name = :extracted_party_name,
-                additional_info = :additional_info,
-                is_manually_verified = :is_manually_verified
+                additional_info = :additional_info
             WHERE id = :id
         """)
 
@@ -139,7 +136,6 @@ class ExtractedConferenceMemberRepositoryImpl(
                 "extracted_role": entity.extracted_role,
                 "extracted_party_name": entity.extracted_party_name,
                 "additional_info": entity.additional_data,
-                "is_manually_verified": entity.is_manually_verified,
             },
         )
         await self.session.commit()
@@ -232,7 +228,6 @@ class ExtractedConferenceMemberRepositoryImpl(
             extracted_party_name=getattr(row, "extracted_party_name", None),
             extracted_at=row.extracted_at,
             additional_data=getattr(row, "additional_data", None),
-            is_manually_verified=bool(getattr(row, "is_manually_verified", False)),
         )
 
     def _to_entity(
@@ -248,7 +243,6 @@ class ExtractedConferenceMemberRepositoryImpl(
             extracted_party_name=model.extracted_party_name,
             extracted_at=model.extracted_at,
             additional_data=getattr(model, "additional_data", None),
-            is_manually_verified=getattr(model, "is_manually_verified", False),
         )
 
     def _to_model(
@@ -262,7 +256,6 @@ class ExtractedConferenceMemberRepositoryImpl(
             "extracted_role": entity.extracted_role,
             "extracted_party_name": entity.extracted_party_name,
             "extracted_at": entity.extracted_at,
-            "is_manually_verified": entity.is_manually_verified,
         }
 
         if hasattr(entity, "additional_data") and entity.additional_data is not None:
@@ -284,7 +277,6 @@ class ExtractedConferenceMemberRepositoryImpl(
         model.extracted_role = entity.extracted_role
         model.extracted_party_name = entity.extracted_party_name
         model.extracted_at = entity.extracted_at
-        model.is_manually_verified = entity.is_manually_verified
 
         if hasattr(entity, "additional_data") and entity.additional_data is not None:
             model.additional_data = entity.additional_data

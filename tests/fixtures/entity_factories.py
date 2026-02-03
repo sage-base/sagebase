@@ -163,7 +163,6 @@ def create_extracted_conference_member(**kwargs: Any) -> ExtractedConferenceMemb
         "extracted_party_name": "自由民主党",
         "extracted_at": datetime.now(),
         "additional_data": None,
-        "is_manually_verified": False,
     }
     defaults.update(kwargs)
     return ExtractedConferenceMember(**defaults)
