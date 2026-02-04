@@ -33,6 +33,7 @@ class ConferenceModel(PydanticBaseModel):
     governing_body_id: int
     members_introduction_url: str | None = None
     prefecture: str | None = None
+    term: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -56,36 +57,61 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
         )
 
     async def get_by_name_and_governing_body(
-        self, name: str, governing_body_id: int
+        self, name: str, governing_body_id: int, term: str | None = None
     ) -> Conference | None:
-        """Get conference by name and governing body.
+        """Get conference by name, governing body, and optionally term.
 
         Args:
             name: Conference name
             governing_body_id: Governing body ID
+            term: Term (e.g., "第220回", "令和5年度"), optional
 
         Returns:
             Conference entity or None if not found
         """
         try:
-            query = text("""
-                SELECT
-                    id,
-                    name,
-                    type,
-                    governing_body_id,
-                    members_introduction_url,
-                    prefecture,
-                    created_at,
-                    updated_at
-                FROM conferences
-                WHERE name = :name
-                AND governing_body_id = :governing_body_id
-            """)
+            if term is not None:
+                query = text("""
+                    SELECT
+                        id,
+                        name,
+                        type,
+                        governing_body_id,
+                        members_introduction_url,
+                        prefecture,
+                        term,
+                        created_at,
+                        updated_at
+                    FROM conferences
+                    WHERE name = :name
+                    AND governing_body_id = :governing_body_id
+                    AND term = :term
+                """)
+                params = {
+                    "name": name,
+                    "governing_body_id": governing_body_id,
+                    "term": term,
+                }
+            else:
+                query = text("""
+                    SELECT
+                        id,
+                        name,
+                        type,
+                        governing_body_id,
+                        members_introduction_url,
+                        prefecture,
+                        term,
+                        created_at,
+                        updated_at
+                    FROM conferences
+                    WHERE name = :name
+                    AND governing_body_id = :governing_body_id
+                    AND term IS NULL
+                """)
+                params = {"name": name, "governing_body_id": governing_body_id}
 
-            result = await self.session.execute(
-                query, {"name": name, "governing_body_id": governing_body_id}
-            )
+            result = await self.session.execute(query, params)
             row = result.fetchone()
 
             if row:
@@ -103,7 +129,12 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             logger.error(f"Database error getting conference: {e}")
             raise DatabaseError(
                 "Failed to get conference by name and governing body",
-                {"name": name, "governing_body_id": governing_body_id, "error": str(e)},
+                {
+                    "name": name,
+                    "governing_body_id": governing_body_id,
+                    "term": term,
+                    "error": str(e),
+                },
             ) from e
 
     async def get_by_governing_body(self, governing_body_id: int) -> list[Conference]:
@@ -124,11 +155,12 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     governing_body_id,
                     members_introduction_url,
                     prefecture,
+                    term,
                     created_at,
                     updated_at
                 FROM conferences
                 WHERE governing_body_id = :governing_body_id
-                ORDER BY name
+                ORDER BY name, term
             """)
 
             result = await self.session.execute(
@@ -169,11 +201,12 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     governing_body_id,
                     members_introduction_url,
                     prefecture,
+                    term,
                     created_at,
                     updated_at
                 FROM conferences
                 WHERE members_introduction_url IS NOT NULL
-                ORDER BY governing_body_id, name
+                ORDER BY governing_body_id, name, term
             """)
 
             result = await self.session.execute(query)
@@ -261,13 +294,14 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     c.governing_body_id,
                     c.members_introduction_url,
                     c.prefecture,
+                    c.term,
                     c.created_at,
                     c.updated_at,
                     gb.name as governing_body_name,
                     gb.type as governing_body_type
                 FROM conferences c
                 LEFT JOIN governing_bodies gb ON c.governing_body_id = gb.id
-                ORDER BY gb.name, c.name
+                ORDER BY gb.name, c.name, c.term
             """
 
             params: dict[str, int | None] = {}
@@ -313,6 +347,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     governing_body_id,
                     members_introduction_url,
                     prefecture,
+                    term,
                     created_at,
                     updated_at
                 FROM conferences
@@ -353,11 +388,13 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             query = text("""
                 INSERT INTO conferences (
                     name, type, governing_body_id,
-                    members_introduction_url, prefecture, created_at, updated_at
+                    members_introduction_url, prefecture, term,
+                    created_at, updated_at
                 )
                 VALUES (
                     :name, :type, :governing_body_id,
-                    :members_introduction_url, :prefecture, :created_at, :updated_at
+                    :members_introduction_url, :prefecture, :term,
+                    :created_at, :updated_at
                 )
                 RETURNING *
             """)
@@ -368,6 +405,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 "governing_body_id": entity.governing_body_id,
                 "members_introduction_url": entity.members_introduction_url,
                 "prefecture": entity.prefecture,
+                "term": entity.term,
                 "created_at": datetime.now(),
                 "updated_at": datetime.now(),
             }
@@ -412,6 +450,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     governing_body_id = :governing_body_id,
                     members_introduction_url = :members_introduction_url,
                     prefecture = :prefecture,
+                    term = :term,
                     updated_at = :updated_at
                 WHERE id = :id
                 RETURNING *
@@ -424,6 +463,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 "governing_body_id": entity.governing_body_id,
                 "members_introduction_url": entity.members_introduction_url,
                 "prefecture": entity.prefecture,
+                "term": entity.term,
                 "updated_at": datetime.now(),
             }
 
@@ -518,6 +558,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             governing_body_id=model.governing_body_id,
             members_introduction_url=model.members_introduction_url,
             prefecture=model.prefecture,
+            term=model.term,
         )
 
     def _to_model(self, entity: Conference) -> ConferenceModel:
@@ -536,6 +577,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             governing_body_id=entity.governing_body_id,
             members_introduction_url=entity.members_introduction_url,
             prefecture=entity.prefecture,
+            term=entity.term,
         )
 
     def _update_model(self, model: ConferenceModel, entity: Conference) -> None:
@@ -550,6 +592,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
         model.governing_body_id = entity.governing_body_id
         model.members_introduction_url = entity.members_introduction_url
         model.prefecture = entity.prefecture
+        model.term = entity.term
 
     def _dict_to_entity(self, data: dict[str, Any]) -> Conference:
         """Convert dictionary to entity.
@@ -567,4 +610,5 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             governing_body_id=data["governing_body_id"],
             members_introduction_url=data.get("members_introduction_url"),
             prefecture=data.get("prefecture"),
+            term=data.get("term"),
         )

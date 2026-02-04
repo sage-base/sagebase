@@ -25,6 +25,7 @@ class ConferenceFormData:
     type: str | None = None
     members_introduction_url: str | None = None
     prefecture: str | None = None
+    term: str | None = None
 
 
 class ConferencePresenter:
@@ -63,6 +64,7 @@ class ConferencePresenter:
                 {
                     "ID": conf.id,
                     "会議体名": conf.name,
+                    "期/会期/年度": conf.term or "",
                     "都道府県": conf.prefecture or "",
                     "開催主体ID": conf.governing_body_id or "",
                     "種別": conf.type or "",
@@ -101,6 +103,7 @@ class ConferencePresenter:
             type=form_data.type,
             members_introduction_url=form_data.members_introduction_url,
             prefecture=form_data.prefecture,
+            term=form_data.term,
         )
         output_dto = await self.use_case.create_conference(input_dto)
         return output_dto.success, output_dto.error_message
@@ -116,6 +119,7 @@ class ConferencePresenter:
             type=form_data.type,
             members_introduction_url=form_data.members_introduction_url,
             prefecture=form_data.prefecture,
+            term=form_data.term,
         )
         output_dto = await self.use_case.update_conference(input_dto)
         return output_dto.success, output_dto.error_message
@@ -139,4 +143,5 @@ class ConferencePresenter:
             type=conference.type,
             members_introduction_url=conference.members_introduction_url,
             prefecture=conference.prefecture,
+            term=conference.term,
         )

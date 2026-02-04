@@ -37,6 +37,7 @@ class CreateConferenceInputDto:
     type: str | None = None
     members_introduction_url: str | None = None
     prefecture: str | None = None
+    term: str | None = None
 
 
 @dataclass
@@ -58,6 +59,7 @@ class UpdateConferenceInputDto:
     type: str | None = None
     members_introduction_url: str | None = None
     prefecture: str | None = None
+    term: str | None = None
 
 
 @dataclass
@@ -154,7 +156,7 @@ class ManageConferencesUseCase:
             if input_dto.governing_body_id is not None:
                 existing = (
                     await self.conference_repository.get_by_name_and_governing_body(
-                        input_dto.name, input_dto.governing_body_id
+                        input_dto.name, input_dto.governing_body_id, input_dto.term
                     )
                 )
             else:
@@ -163,7 +165,7 @@ class ManageConferencesUseCase:
             if existing:
                 return CreateConferenceOutputDto(
                     success=False,
-                    error_message="同じ名前の会議体が既に存在します。",
+                    error_message="同じ名前・期の会議体が既に存在します。",
                 )
 
             # Create new conference
@@ -176,6 +178,7 @@ class ManageConferencesUseCase:
                 type=input_dto.type,
                 members_introduction_url=input_dto.members_introduction_url,
                 prefecture=input_dto.prefecture,
+                term=input_dto.term,
             )
 
             created = await self.conference_repository.create(conference)
@@ -203,6 +206,7 @@ class ManageConferencesUseCase:
             existing.type = input_dto.type
             existing.members_introduction_url = input_dto.members_introduction_url
             existing.prefecture = input_dto.prefecture
+            existing.term = input_dto.term
             await self.conference_repository.update(existing)
             return UpdateConferenceOutputDto(success=True)
         except Exception as e:

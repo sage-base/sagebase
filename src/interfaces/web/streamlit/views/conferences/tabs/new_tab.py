@@ -76,6 +76,14 @@ def render_new_conference_form(
             placeholder="例: 本会議, 委員会",
         )
 
+        # Term (期/会期/年度)
+        term = st.text_input(
+            "期/会期/年度",
+            value=form_data.term or "",
+            placeholder="例: 第220回, 令和5年度",
+            help="国会の場合は「第XXX回」、地方議会の場合は「令和X年度」など",
+        )
+
         # Members introduction URL
         members_url = st.text_input(
             "議員紹介URL",
@@ -94,6 +102,7 @@ def render_new_conference_form(
                 governing_body_id,
                 prefecture,
                 conf_type,
+                term,
                 members_url,
             )
 
@@ -105,6 +114,7 @@ def _handle_form_submission(
     governing_body_id: int | None,
     prefecture: str,
     conf_type: str,
+    term: str,
     members_url: str,
 ) -> None:
     """Handle form submission for conference creation.
@@ -116,6 +126,7 @@ def _handle_form_submission(
         governing_body_id: 開催主体ID
         prefecture: 都道府県
         conf_type: 種別
+        term: 期/会期/年度
         members_url: 議員紹介URL
     """
     # Validation
@@ -129,6 +140,7 @@ def _handle_form_submission(
         form_data.governing_body_id = governing_body_id
         form_data.prefecture = prefecture if prefecture else None
         form_data.type = conf_type if conf_type else None
+        form_data.term = term if term else None
         form_data.members_introduction_url = members_url if members_url else None
 
         # Create conference
