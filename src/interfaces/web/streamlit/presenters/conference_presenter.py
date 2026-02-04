@@ -25,6 +25,7 @@ class ConferenceFormData:
     members_introduction_url: str | None = None
     prefecture: str | None = None
     term: str | None = None
+    election_id: int | None = None
 
 
 class ConferencePresenter:
@@ -101,6 +102,7 @@ class ConferencePresenter:
             members_introduction_url=form_data.members_introduction_url,
             prefecture=form_data.prefecture,
             term=form_data.term,
+            election_id=form_data.election_id,
         )
         output_dto = await self.use_case.create_conference(input_dto)
         return output_dto.success, output_dto.error_message
@@ -116,6 +118,7 @@ class ConferencePresenter:
             members_introduction_url=form_data.members_introduction_url,
             prefecture=form_data.prefecture,
             term=form_data.term,
+            election_id=form_data.election_id,
         )
         output_dto = await self.use_case.update_conference(input_dto)
         return output_dto.success, output_dto.error_message
@@ -139,4 +142,5 @@ class ConferencePresenter:
             members_introduction_url=conference.members_introduction_url,
             prefecture=conference.prefecture,
             term=conference.term,
+            election_id=conference.election_id,
         )
