@@ -289,7 +289,7 @@ just exec uv run pytest --cov=src/domain --cov-report=term
 
 ```bash
 # Test database connection
-just exec uv run python -c "from src.config.database import test_connection; test_connection()"
+just exec uv run python -c "from src.infrastructure.config.database import test_connection; test_connection()"
 ```
 
 ### LLM Evaluation Tests
@@ -642,7 +642,7 @@ kill -9 $(lsof -t -i:8501)
 
 ```bash
 # Test database connection
-just exec uv run python -c "from src.config.database import test_connection; test_connection()"
+just exec uv run python -c "from src.infrastructure.config.database import test_connection; test_connection()"
 
 # Check PostgreSQL is running
 docker ps | grep postgres

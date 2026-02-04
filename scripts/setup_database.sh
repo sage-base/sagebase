@@ -12,7 +12,7 @@ echo "PostgreSQLの準備完了を待機しています..."
 sleep 10
 
 echo "データベース接続をテストしています..."
-docker compose -f docker/docker-compose.yml exec sagebase python -m src.config.database
+docker compose -f docker/docker-compose.yml exec sagebase python -m src.infrastructure.config.database
 
 echo "PostgreSQLデータベースの状態を確認しています..."
 docker compose -f docker/docker-compose.yml exec postgres psql -U sagebase_user -d sagebase_db -c "\dt"

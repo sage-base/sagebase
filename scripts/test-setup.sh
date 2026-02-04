@@ -18,7 +18,7 @@ echo "✅ PostgreSQLコンテナが起動中です"
 echo ""
 echo "🔍 データベース接続テストを実行中..."
 docker compose -f docker/docker-compose.yml exec -T sagebase uv run python -c "
-from src.config.database import test_connection
+from src.infrastructure.config.database import test_connection
 import sys
 if test_connection():
     print('✅ データベース接続成功')

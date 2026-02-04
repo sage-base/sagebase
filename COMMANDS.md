@@ -205,7 +205,7 @@ docker compose -f docker/docker-compose.yml exec sagebase uv run pre-commit run 
 
 ```bash
 # 接続テスト
-docker compose -f docker/docker-compose.yml exec sagebase uv run python -c "from src.config.database import test_connection; test_connection()"
+docker compose -f docker/docker-compose.yml exec sagebase uv run python -c "from src.infrastructure.config.database import test_connection; test_connection()"
 
 # PostgreSQLログの確認
 docker compose -f docker/docker-compose.yml logs postgres

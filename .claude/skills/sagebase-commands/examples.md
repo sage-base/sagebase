@@ -20,7 +20,7 @@ just up
 uv sync
 
 # 5. Verify setup
-just exec uv run python -c "from src.config.database import test_connection; test_connection()"
+just exec uv run python -c "from src.infrastructure.config.database import test_connection; test_connection()"
 
 # 6. Run tests to ensure everything works
 just test
@@ -512,7 +512,7 @@ docker ps | grep postgres
 just up
 
 # 3. Test connection
-just exec uv run python -c "from src.config.database import test_connection; test_connection()"
+just exec uv run python -c "from src.infrastructure.config.database import test_connection; test_connection()"
 
 # 4. Check logs if still failing
 docker compose -f docker/docker-compose.yml -f docker/docker-compose.override.yml logs postgres
