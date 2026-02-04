@@ -11,9 +11,9 @@ class ConferenceRepository(BaseRepository[Conference]):
 
     @abstractmethod
     async def get_by_name_and_governing_body(
-        self, name: str, governing_body_id: int
+        self, name: str, governing_body_id: int, term: str | None = None
     ) -> Conference | None:
-        """Get conference by name and governing body."""
+        """Get conference by name, governing body, and optionally term."""
         pass
 
     @abstractmethod

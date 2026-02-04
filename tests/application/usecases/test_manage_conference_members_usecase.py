@@ -47,7 +47,6 @@ class TestManageConferenceMembersUseCase:
             id=1,
             governing_body_id=1,
             name="Test Conference",
-            type="委員会",
             members_introduction_url="https://example.com/members",
         )
         return repo
@@ -159,7 +158,6 @@ class TestManageConferenceMembersUseCase:
             id=1,
             governing_body_id=1,
             name="Test Conference",
-            type="委員会",
             members_introduction_url=None,
         )
 

@@ -10,17 +10,17 @@ class Conference(BaseEntity):
         self,
         name: str,
         governing_body_id: int,
-        type: str | None = None,
         members_introduction_url: str | None = None,
         prefecture: str | None = None,
+        term: str | None = None,
         id: int | None = None,
     ) -> None:
         super().__init__(id)
         self.name = name
         self.governing_body_id = governing_body_id
-        self.type = type
         self.members_introduction_url = members_introduction_url
         self.prefecture = prefecture
+        self.term = term
 
     def __str__(self) -> str:
         return self.name

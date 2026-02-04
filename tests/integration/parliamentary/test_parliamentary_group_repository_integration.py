@@ -64,8 +64,8 @@ def setup_master_data():
             connection.execute(
                 text(
                     """
-                INSERT INTO conferences (id, governing_body_id, name, type)
-                VALUES (1, 1, 'テスト市議会', '地方議会全体')
+                INSERT INTO conferences (id, governing_body_id, name)
+                VALUES (1, 1, 'テスト市議会')
                 ON CONFLICT (id) DO NOTHING
                 """
                 )

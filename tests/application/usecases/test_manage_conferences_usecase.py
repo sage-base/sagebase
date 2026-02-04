@@ -367,13 +367,11 @@ class TestManageConferencesUseCase:
                 id=1,
                 name="衆議院本会議",
                 governing_body_id=1,
-                type="本会議",
             ),
             Conference(
                 id=2,
                 name="参議院本会議",
                 governing_body_id=1,
-                type="本会議",
             ),
         ]
         mock_conference_repository.get_all.return_value = conferences
@@ -513,21 +511,18 @@ class TestManageConferencesUseCase:
                 id=1,
                 name="衆議院本会議",
                 governing_body_id=1,
-                type="国会",
                 prefecture="全国",
             ),
             Conference(
                 id=2,
                 name="東京都議会",
                 governing_body_id=13,
-                type="都道府県議会",
                 prefecture="東京都",
             ),
             Conference(
                 id=3,
                 name="未設定の会議体",
                 governing_body_id=100,
-                type=None,
                 prefecture=None,
             ),
         ]
@@ -547,3 +542,105 @@ class TestManageConferencesUseCase:
         assert "'東京都'" in result.seed_content
         # Check NULL handling for prefecture
         assert "NULL" in result.seed_content
+
+    @pytest.mark.asyncio
+    async def test_create_conference_with_term(
+        self, use_case, mock_conference_repository
+    ):
+        """Test creating a conference with term field."""
+        # Arrange
+        mock_conference_repository.get_by_name_and_governing_body.return_value = None
+        created_conference = Conference(
+            id=1,
+            name="衆議院本会議",
+            governing_body_id=1,
+            term="第220回",
+        )
+        mock_conference_repository.create.return_value = created_conference
+
+        input_dto = CreateConferenceInputDto(
+            name="衆議院本会議",
+            governing_body_id=1,
+            term="第220回",
+        )
+
+        # Act
+        result = await use_case.create_conference(input_dto)
+
+        # Assert
+        assert result.success is True
+        assert result.conference_id == 1
+        # Verify term was passed to repository
+        call_args = mock_conference_repository.create.call_args
+        assert call_args[0][0].term == "第220回"
+        # Verify get_by_name_and_governing_body was called with term
+        mock_conference_repository.get_by_name_and_governing_body.assert_called_once_with(
+            "衆議院本会議", 1, "第220回"
+        )
+
+    @pytest.mark.asyncio
+    async def test_create_conference_duplicate_with_different_term_allowed(
+        self, use_case, mock_conference_repository
+    ):
+        """Test creating a conference with same name but different term is allowed."""
+        # Arrange: 同じ名前・開催主体でも、termが異なれば重複チェックを通過
+        mock_conference_repository.get_by_name_and_governing_body.return_value = None
+        created_conference = Conference(
+            id=2,
+            name="衆議院本会議",
+            governing_body_id=1,
+            term="第221回",
+        )
+        mock_conference_repository.create.return_value = created_conference
+
+        input_dto = CreateConferenceInputDto(
+            name="衆議院本会議",
+            governing_body_id=1,
+            term="第221回",  # 異なる会期
+        )
+
+        # Act
+        result = await use_case.create_conference(input_dto)
+
+        # Assert
+        assert result.success is True
+        assert result.conference_id == 2
+        # Verify term was passed to duplicate check
+        mock_conference_repository.get_by_name_and_governing_body.assert_called_once_with(
+            "衆議院本会議", 1, "第221回"
+        )
+
+    @pytest.mark.asyncio
+    async def test_update_conference_term(self, use_case, mock_conference_repository):
+        """Test updating conference term field."""
+        # Arrange
+        existing_conference = Conference(
+            id=1,
+            name="衆議院本会議",
+            governing_body_id=1,
+            term=None,
+        )
+        updated_conference = Conference(
+            id=1,
+            name="衆議院本会議",
+            governing_body_id=1,
+            term="第220回",
+        )
+        mock_conference_repository.get_by_id.return_value = existing_conference
+        mock_conference_repository.update.return_value = updated_conference
+
+        input_dto = UpdateConferenceInputDto(
+            id=1,
+            name="衆議院本会議",
+            governing_body_id=1,
+            term="第220回",
+        )
+
+        # Act
+        result = await use_case.update_conference(input_dto)
+
+        # Assert
+        assert result.success is True
+        # Verify term was updated
+        call_args = mock_conference_repository.update.call_args
+        assert call_args[0][0].term == "第220回"
