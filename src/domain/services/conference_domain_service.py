@@ -188,3 +188,69 @@ class ConferenceDomainService:
         union = chars1 | chars2
 
         return len(intersection) / len(union)
+
+    def calculate_term_number(
+        self,
+        target_year: int,
+        election_cycle_years: int,
+        base_election_year: int,
+        term_number_at_base: int,
+    ) -> int:
+        """指定年の期番号を計算.
+
+        Args:
+            target_year: 計算対象の年
+            election_cycle_years: 選挙サイクル（年）
+            base_election_year: 基準となる選挙年
+            term_number_at_base: 基準年の期番号
+
+        Returns:
+            計算された期番号
+
+        Example:
+            京都市議会（base_year=2023, base_term=21, cycle=4）の場合:
+            - 2023年 → 第21期
+            - 2027年 → 第22期
+            - 2019年 → 第20期
+        """
+        if election_cycle_years <= 0:
+            raise ValueError("election_cycle_years must be positive")
+
+        years_diff = target_year - base_election_year
+        terms_diff = years_diff // election_cycle_years
+        return term_number_at_base + terms_diff
+
+    def get_term_period(
+        self,
+        term_number: int,
+        election_cycle_years: int,
+        base_election_year: int,
+        term_number_at_base: int,
+    ) -> tuple[date, date]:
+        """期番号から期間を計算.
+
+        統一地方選挙は4月に実施されるため、期間は4月30日から翌選挙年の4月29日まで。
+
+        Args:
+            term_number: 期番号
+            election_cycle_years: 選挙サイクル（年）
+            base_election_year: 基準となる選挙年
+            term_number_at_base: 基準年の期番号
+
+        Returns:
+            (開始日, 終了日) のタプル
+
+        Example:
+            京都市議会（base_year=2023, base_term=21, cycle=4）で第21期の場合:
+            - 開始日: 2023年4月30日
+            - 終了日: 2027年4月29日
+        """
+        if election_cycle_years <= 0:
+            raise ValueError("election_cycle_years must be positive")
+
+        terms_diff = term_number - term_number_at_base
+        start_year = base_election_year + (terms_diff * election_cycle_years)
+        # 統一地方選挙は4月実施
+        start_date = date(start_year, 4, 30)
+        end_date = date(start_year + election_cycle_years, 4, 29)
+        return (start_date, end_date)

@@ -25,6 +25,9 @@ class ConferenceFormData:
     members_introduction_url: str | None = None
     prefecture: str | None = None
     term: str | None = None
+    election_cycle_years: int | None = None
+    base_election_year: int | None = None
+    term_number_at_base: int | None = None
 
 
 class ConferencePresenter:
@@ -101,6 +104,9 @@ class ConferencePresenter:
             members_introduction_url=form_data.members_introduction_url,
             prefecture=form_data.prefecture,
             term=form_data.term,
+            election_cycle_years=form_data.election_cycle_years,
+            base_election_year=form_data.base_election_year,
+            term_number_at_base=form_data.term_number_at_base,
         )
         output_dto = await self.use_case.create_conference(input_dto)
         return output_dto.success, output_dto.error_message
@@ -116,6 +122,9 @@ class ConferencePresenter:
             members_introduction_url=form_data.members_introduction_url,
             prefecture=form_data.prefecture,
             term=form_data.term,
+            election_cycle_years=form_data.election_cycle_years,
+            base_election_year=form_data.base_election_year,
+            term_number_at_base=form_data.term_number_at_base,
         )
         output_dto = await self.use_case.update_conference(input_dto)
         return output_dto.success, output_dto.error_message
@@ -139,4 +148,7 @@ class ConferencePresenter:
             members_introduction_url=conference.members_introduction_url,
             prefecture=conference.prefecture,
             term=conference.term,
+            election_cycle_years=conference.election_cycle_years,
+            base_election_year=conference.base_election_year,
+            term_number_at_base=conference.term_number_at_base,
         )

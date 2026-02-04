@@ -13,6 +13,9 @@ class Conference(BaseEntity):
         members_introduction_url: str | None = None,
         prefecture: str | None = None,
         term: str | None = None,
+        election_cycle_years: int | None = None,
+        base_election_year: int | None = None,
+        term_number_at_base: int | None = None,
         id: int | None = None,
     ) -> None:
         super().__init__(id)
@@ -21,6 +24,9 @@ class Conference(BaseEntity):
         self.members_introduction_url = members_introduction_url
         self.prefecture = prefecture
         self.term = term
+        self.election_cycle_years = election_cycle_years
+        self.base_election_year = base_election_year
+        self.term_number_at_base = term_number_at_base
 
     def __str__(self) -> str:
         return self.name

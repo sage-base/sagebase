@@ -58,13 +58,12 @@ class TestSeedGenerator:
 
     def test_generate_conferences_seed(self, seed_generator):
         """conferencesのSEED生成テスト"""
-        # モックデータの準備
+        # モックデータの準備（typeカラムはマイグレーション015で削除済み）
         mock_rows = [
-            ("衆議院", "議院", None, 1, "日本国", "国"),
-            ("参議院", "議院", None, 1, "日本国", "国"),
+            ("衆議院", None, 1, "日本国", "国"),
+            ("参議院", None, 1, "日本国", "国"),
             (
                 "東京都議会",
-                "議会",
                 "https://example.com/members",
                 2,
                 "東京都",
@@ -76,7 +75,6 @@ class TestSeedGenerator:
         mock_result.__iter__ = MagicMock(return_value=iter(mock_rows))
         mock_result.keys.return_value = [
             "name",
-            "type",
             "members_introduction_url",
             "governing_body_id",
             "governing_body_name",
@@ -94,12 +92,10 @@ class TestSeedGenerator:
 
         # 検証
         assert "INSERT INTO conferences " in result
-        assert (
-            "(name, type, governing_body_id, members_introduction_url) VALUES" in result
-        )
-        assert "('衆議院', '議院'," in result
-        assert "('参議院', '議院'," in result
-        assert "('東京都議会', '議会'," in result
+        assert "(name, governing_body_id, members_introduction_url) VALUES" in result
+        assert "('衆議院'," in result
+        assert "('参議院'," in result
+        assert "('東京都議会'," in result
         assert "'https://example.com/members'" in result
         assert "ON CONFLICT (name, governing_body_id) DO NOTHING;" in result
 

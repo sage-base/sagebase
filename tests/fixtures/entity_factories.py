@@ -45,6 +45,9 @@ def create_conference(**kwargs: Any) -> Conference:
         "members_introduction_url": None,
         "prefecture": None,
         "term": None,
+        "election_cycle_years": None,
+        "base_election_year": None,
+        "term_number_at_base": None,
     }
     defaults.update(kwargs)
     return Conference(**defaults)

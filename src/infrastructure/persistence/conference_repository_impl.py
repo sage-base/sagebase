@@ -33,6 +33,9 @@ class ConferenceModel(PydanticBaseModel):
     members_introduction_url: str | None = None
     prefecture: str | None = None
     term: str | None = None
+    election_cycle_years: int | None = None
+    base_election_year: int | None = None
+    term_number_at_base: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -78,6 +81,9 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                         members_introduction_url,
                         prefecture,
                         term,
+                        election_cycle_years,
+                        base_election_year,
+                        term_number_at_base,
                         created_at,
                         updated_at
                     FROM conferences
@@ -99,6 +105,9 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                         members_introduction_url,
                         prefecture,
                         term,
+                        election_cycle_years,
+                        base_election_year,
+                        term_number_at_base,
                         created_at,
                         updated_at
                     FROM conferences
@@ -152,6 +161,9 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     members_introduction_url,
                     prefecture,
                     term,
+                    election_cycle_years,
+                    base_election_year,
+                    term_number_at_base,
                     created_at,
                     updated_at
                 FROM conferences
@@ -197,6 +209,9 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     members_introduction_url,
                     prefecture,
                     term,
+                    election_cycle_years,
+                    base_election_year,
+                    term_number_at_base,
                     created_at,
                     updated_at
                 FROM conferences
@@ -289,6 +304,9 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     c.members_introduction_url,
                     c.prefecture,
                     c.term,
+                    c.election_cycle_years,
+                    c.base_election_year,
+                    c.term_number_at_base,
                     c.created_at,
                     c.updated_at,
                     gb.name as governing_body_name,
@@ -341,6 +359,9 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     members_introduction_url,
                     prefecture,
                     term,
+                    election_cycle_years,
+                    base_election_year,
+                    term_number_at_base,
                     created_at,
                     updated_at
                 FROM conferences
@@ -382,11 +403,13 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 INSERT INTO conferences (
                     name, governing_body_id,
                     members_introduction_url, prefecture, term,
+                    election_cycle_years, base_election_year, term_number_at_base,
                     created_at, updated_at
                 )
                 VALUES (
                     :name, :governing_body_id,
                     :members_introduction_url, :prefecture, :term,
+                    :election_cycle_years, :base_election_year, :term_number_at_base,
                     :created_at, :updated_at
                 )
                 RETURNING *
@@ -398,6 +421,9 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 "members_introduction_url": entity.members_introduction_url,
                 "prefecture": entity.prefecture,
                 "term": entity.term,
+                "election_cycle_years": entity.election_cycle_years,
+                "base_election_year": entity.base_election_year,
+                "term_number_at_base": entity.term_number_at_base,
                 "created_at": datetime.now(),
                 "updated_at": datetime.now(),
             }
@@ -442,6 +468,9 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     members_introduction_url = :members_introduction_url,
                     prefecture = :prefecture,
                     term = :term,
+                    election_cycle_years = :election_cycle_years,
+                    base_election_year = :base_election_year,
+                    term_number_at_base = :term_number_at_base,
                     updated_at = :updated_at
                 WHERE id = :id
                 RETURNING *
@@ -454,6 +483,9 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 "members_introduction_url": entity.members_introduction_url,
                 "prefecture": entity.prefecture,
                 "term": entity.term,
+                "election_cycle_years": entity.election_cycle_years,
+                "base_election_year": entity.base_election_year,
+                "term_number_at_base": entity.term_number_at_base,
                 "updated_at": datetime.now(),
             }
 
@@ -548,6 +580,9 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             members_introduction_url=model.members_introduction_url,
             prefecture=model.prefecture,
             term=model.term,
+            election_cycle_years=model.election_cycle_years,
+            base_election_year=model.base_election_year,
+            term_number_at_base=model.term_number_at_base,
         )
 
     def _to_model(self, entity: Conference) -> ConferenceModel:
@@ -566,6 +601,9 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             members_introduction_url=entity.members_introduction_url,
             prefecture=entity.prefecture,
             term=entity.term,
+            election_cycle_years=entity.election_cycle_years,
+            base_election_year=entity.base_election_year,
+            term_number_at_base=entity.term_number_at_base,
         )
 
     def _update_model(self, model: ConferenceModel, entity: Conference) -> None:
@@ -580,6 +618,9 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
         model.members_introduction_url = entity.members_introduction_url
         model.prefecture = entity.prefecture
         model.term = entity.term
+        model.election_cycle_years = entity.election_cycle_years
+        model.base_election_year = entity.base_election_year
+        model.term_number_at_base = entity.term_number_at_base
 
     def _dict_to_entity(self, data: dict[str, Any]) -> Conference:
         """Convert dictionary to entity.
@@ -597,4 +638,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             members_introduction_url=data.get("members_introduction_url"),
             prefecture=data.get("prefecture"),
             term=data.get("term"),
+            election_cycle_years=data.get("election_cycle_years"),
+            base_election_year=data.get("base_election_year"),
+            term_number_at_base=data.get("term_number_at_base"),
         )

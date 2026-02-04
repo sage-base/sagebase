@@ -37,6 +37,9 @@ class CreateConferenceInputDto:
     members_introduction_url: str | None = None
     prefecture: str | None = None
     term: str | None = None
+    election_cycle_years: int | None = None
+    base_election_year: int | None = None
+    term_number_at_base: int | None = None
 
 
 @dataclass
@@ -58,6 +61,9 @@ class UpdateConferenceInputDto:
     members_introduction_url: str | None = None
     prefecture: str | None = None
     term: str | None = None
+    election_cycle_years: int | None = None
+    base_election_year: int | None = None
+    term_number_at_base: int | None = None
 
 
 @dataclass
@@ -176,6 +182,9 @@ class ManageConferencesUseCase:
                 members_introduction_url=input_dto.members_introduction_url,
                 prefecture=input_dto.prefecture,
                 term=input_dto.term,
+                election_cycle_years=input_dto.election_cycle_years,
+                base_election_year=input_dto.base_election_year,
+                term_number_at_base=input_dto.term_number_at_base,
             )
 
             created = await self.conference_repository.create(conference)
@@ -203,6 +212,9 @@ class ManageConferencesUseCase:
             existing.members_introduction_url = input_dto.members_introduction_url
             existing.prefecture = input_dto.prefecture
             existing.term = input_dto.term
+            existing.election_cycle_years = input_dto.election_cycle_years
+            existing.base_election_year = input_dto.base_election_year
+            existing.term_number_at_base = input_dto.term_number_at_base
             await self.conference_repository.update(existing)
             return UpdateConferenceOutputDto(success=True)
         except Exception as e:
@@ -249,7 +261,8 @@ class ManageConferencesUseCase:
             seed_content += (
                 "INSERT INTO conferences "
                 "(id, name, governing_body_id, members_introduction_url, "
-                "prefecture, term) VALUES\n"
+                "prefecture, term, election_cycle_years, base_election_year, "
+                "term_number_at_base) VALUES\n"
             )
 
             values: list[str] = []
@@ -262,9 +275,26 @@ class ManageConferencesUseCase:
                 )
                 prefecture = f"'{conf.prefecture}'" if conf.prefecture else "NULL"
                 term = f"'{conf.term}'" if conf.term else "NULL"
+                election_cycle_years = (
+                    str(conf.election_cycle_years)
+                    if conf.election_cycle_years is not None
+                    else "NULL"
+                )
+                base_election_year = (
+                    str(conf.base_election_year)
+                    if conf.base_election_year is not None
+                    else "NULL"
+                )
+                term_number_at_base = (
+                    str(conf.term_number_at_base)
+                    if conf.term_number_at_base is not None
+                    else "NULL"
+                )
                 values.append(
                     f"    ({conf.id}, '{conf.name}', {gb_id}, "
-                    f"{members_url}, {prefecture}, {term})"
+                    f"{members_url}, {prefecture}, {term}, "
+                    f"{election_cycle_years}, {base_election_year}, "
+                    f"{term_number_at_base})"
                 )
 
             seed_content += ",\n".join(values) + "\n"
@@ -275,7 +305,12 @@ class ManageConferencesUseCase:
                 "    members_introduction_url = EXCLUDED.members_introduction_url,\n"
             )
             seed_content += "    prefecture = EXCLUDED.prefecture,\n"
-            seed_content += "    term = EXCLUDED.term;\n"
+            seed_content += "    term = EXCLUDED.term,\n"
+            seed_content += (
+                "    election_cycle_years = EXCLUDED.election_cycle_years,\n"
+            )
+            seed_content += "    base_election_year = EXCLUDED.base_election_year,\n"
+            seed_content += "    term_number_at_base = EXCLUDED.term_number_at_base;\n"
 
             # Save to file
             file_path = "database/seed_conferences_generated.sql"

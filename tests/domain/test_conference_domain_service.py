@@ -261,3 +261,132 @@ class TestConferenceDomainService:
         assert service._calculate_name_similarity("", "") == 1.0
         # Note: Empty string is contained in any string, so it returns 0.9
         assert service._calculate_name_similarity("山田", "") == 0.9
+
+    # 期番号計算テスト
+    def test_calculate_term_number_same_year(self, service):
+        """Test term number calculation for the base year."""
+        # 京都市議会: 2023年が第21期
+        result = service.calculate_term_number(
+            target_year=2023,
+            election_cycle_years=4,
+            base_election_year=2023,
+            term_number_at_base=21,
+        )
+        assert result == 21
+
+    def test_calculate_term_number_future_year(self, service):
+        """Test term number calculation for a future year."""
+        # 京都市議会: 2027年は第22期（4年後）
+        result = service.calculate_term_number(
+            target_year=2027,
+            election_cycle_years=4,
+            base_election_year=2023,
+            term_number_at_base=21,
+        )
+        assert result == 22
+
+    def test_calculate_term_number_past_year(self, service):
+        """Test term number calculation for a past year."""
+        # 京都市議会: 2019年は第20期（4年前）
+        result = service.calculate_term_number(
+            target_year=2019,
+            election_cycle_years=4,
+            base_election_year=2023,
+            term_number_at_base=21,
+        )
+        assert result == 20
+
+    def test_calculate_term_number_mid_term(self, service):
+        """Test term number calculation for mid-term year."""
+        # 2025年は2023年の期（第21期）の途中
+        result = service.calculate_term_number(
+            target_year=2025,
+            election_cycle_years=4,
+            base_election_year=2023,
+            term_number_at_base=21,
+        )
+        assert result == 21
+
+    def test_calculate_term_number_invalid_cycle(self, service):
+        """Test that invalid cycle raises ValueError."""
+        with pytest.raises(ValueError, match="election_cycle_years must be positive"):
+            service.calculate_term_number(
+                target_year=2023,
+                election_cycle_years=0,
+                base_election_year=2023,
+                term_number_at_base=21,
+            )
+
+    # 期間計算テスト
+    def test_get_term_period_base_term(self, service):
+        """Test period calculation for the base term."""
+        # 第21期の期間
+        start, end = service.get_term_period(
+            term_number=21,
+            election_cycle_years=4,
+            base_election_year=2023,
+            term_number_at_base=21,
+        )
+        assert start == date(2023, 4, 30)
+        assert end == date(2027, 4, 29)
+
+    def test_get_term_period_future_term(self, service):
+        """Test period calculation for a future term."""
+        # 第22期の期間
+        start, end = service.get_term_period(
+            term_number=22,
+            election_cycle_years=4,
+            base_election_year=2023,
+            term_number_at_base=21,
+        )
+        assert start == date(2027, 4, 30)
+        assert end == date(2031, 4, 29)
+
+    def test_get_term_period_past_term(self, service):
+        """Test period calculation for a past term."""
+        # 第20期の期間
+        start, end = service.get_term_period(
+            term_number=20,
+            election_cycle_years=4,
+            base_election_year=2023,
+            term_number_at_base=21,
+        )
+        assert start == date(2019, 4, 30)
+        assert end == date(2023, 4, 29)
+
+    def test_get_term_period_invalid_cycle(self, service):
+        """Test that invalid cycle raises ValueError."""
+        with pytest.raises(ValueError, match="election_cycle_years must be positive"):
+            service.get_term_period(
+                term_number=21,
+                election_cycle_years=0,
+                base_election_year=2023,
+                term_number_at_base=21,
+            )
+
+    # 期番号計算と期間計算の整合性テスト
+    def test_term_number_and_period_consistency(self, service):
+        """Test that term number and period calculations are consistent."""
+        # 京都市議会の設定
+        cycle = 4
+        base_year = 2023
+        base_term = 21
+
+        # 2025年の期番号を計算
+        term_number = service.calculate_term_number(
+            target_year=2025,
+            election_cycle_years=cycle,
+            base_election_year=base_year,
+            term_number_at_base=base_term,
+        )
+
+        # その期番号の期間を計算
+        start, end = service.get_term_period(
+            term_number=term_number,
+            election_cycle_years=cycle,
+            base_election_year=base_year,
+            term_number_at_base=base_term,
+        )
+
+        # 2025年がその期間内にあることを確認
+        assert start.year <= 2025 <= end.year

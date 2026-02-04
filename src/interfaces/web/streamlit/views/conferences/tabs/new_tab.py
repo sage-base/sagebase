@@ -77,6 +77,45 @@ def render_new_conference_form(
             help="国会の場合は「第XXX回」、地方議会の場合は「令和X年度」など",
         )
 
+        # 選挙サイクル情報
+        st.markdown("#### 選挙サイクル情報（オプション）")
+        st.caption(
+            "期番号を自動計算するための設定です。統一地方選挙の場合は4年周期です。"
+        )
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            election_cycle_years = st.number_input(
+                "選挙サイクル（年）",
+                min_value=1,
+                max_value=10,
+                value=form_data.election_cycle_years or 4,
+                help="選挙の周期。統一地方選挙は4年",
+            )
+        with col2:
+            base_election_year = st.number_input(
+                "基準選挙年",
+                min_value=1900,
+                max_value=2100,
+                value=form_data.base_election_year or 2023,
+                help="基準となる選挙年（例: 2023）",
+            )
+        with col3:
+            term_number_at_base = st.number_input(
+                "基準年の期番号",
+                min_value=1,
+                max_value=100,
+                value=form_data.term_number_at_base or 1,
+                help="基準年の期番号（例: 21は「第21期」）",
+            )
+
+        # 選挙サイクル情報を設定するかどうか
+        use_election_cycle = st.checkbox(
+            "選挙サイクル情報を設定する",
+            value=form_data.election_cycle_years is not None,
+            help="チェックすると、期番号を自動計算できます",
+        )
+
         # Members introduction URL
         members_url = st.text_input(
             "議員紹介URL",
@@ -96,6 +135,9 @@ def render_new_conference_form(
                 prefecture,
                 term,
                 members_url,
+                election_cycle_years if use_election_cycle else None,
+                base_election_year if use_election_cycle else None,
+                term_number_at_base if use_election_cycle else None,
             )
 
 
@@ -107,6 +149,9 @@ def _handle_form_submission(
     prefecture: str,
     term: str,
     members_url: str,
+    election_cycle_years: int | None,
+    base_election_year: int | None,
+    term_number_at_base: int | None,
 ) -> None:
     """Handle form submission for conference creation.
 
@@ -118,6 +163,9 @@ def _handle_form_submission(
         prefecture: 都道府県
         term: 期/会期/年度
         members_url: 議員紹介URL
+        election_cycle_years: 選挙サイクル（年）
+        base_election_year: 基準選挙年
+        term_number_at_base: 基準年の期番号
     """
     # Validation
     if not name:
@@ -131,6 +179,9 @@ def _handle_form_submission(
         form_data.prefecture = prefecture if prefecture else None
         form_data.term = term if term else None
         form_data.members_introduction_url = members_url if members_url else None
+        form_data.election_cycle_years = election_cycle_years
+        form_data.base_election_year = base_election_year
+        form_data.term_number_at_base = term_number_at_base
 
         # Create conference
         success, error_message = asyncio.run(presenter.create_conference(form_data))

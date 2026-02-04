@@ -31,6 +31,9 @@ class TestConference:
             members_introduction_url="https://example.com/members",
             prefecture="大阪府",
             term="令和5年度",
+            election_cycle_years=4,
+            base_election_year=2023,
+            term_number_at_base=21,
         )
 
         assert conference.id == 10
@@ -39,6 +42,9 @@ class TestConference:
         assert conference.members_introduction_url == "https://example.com/members"
         assert conference.prefecture == "大阪府"
         assert conference.term == "令和5年度"
+        assert conference.election_cycle_years == 4
+        assert conference.base_election_year == 2023
+        assert conference.term_number_at_base == 21
 
     def test_str_representation(self) -> None:
         """Test string representation."""
@@ -62,6 +68,9 @@ class TestConference:
         assert conference.members_introduction_url is None
         assert conference.prefecture is None
         assert conference.term is None
+        assert conference.election_cycle_years is None
+        assert conference.base_election_year is None
+        assert conference.term_number_at_base is None
 
     def test_factory_with_overrides(self) -> None:
         """Test entity factory with custom values."""
@@ -72,6 +81,9 @@ class TestConference:
             members_introduction_url="https://aichi.example.com/members",
             prefecture="愛知県",
             term="令和6年度",
+            election_cycle_years=4,
+            base_election_year=2023,
+            term_number_at_base=19,
         )
 
         assert conference.id == 99
@@ -82,6 +94,9 @@ class TestConference:
         )
         assert conference.prefecture == "愛知県"
         assert conference.term == "令和6年度"
+        assert conference.election_cycle_years == 4
+        assert conference.base_election_year == 2023
+        assert conference.term_number_at_base == 19
 
     def test_various_conference_names(self) -> None:
         """Test various conference names."""
@@ -350,11 +365,17 @@ class TestConference:
             members_introduction_url=None,
             prefecture=None,
             term=None,
+            election_cycle_years=None,
+            base_election_year=None,
+            term_number_at_base=None,
         )
 
         assert conference.members_introduction_url is None
         assert conference.prefecture is None
         assert conference.term is None
+        assert conference.election_cycle_years is None
+        assert conference.base_election_year is None
+        assert conference.term_number_at_base is None
 
     def test_id_assignment(self) -> None:
         """Test ID assignment behavior."""
@@ -369,3 +390,62 @@ class TestConference:
         # ID can be any integer
         conference3 = Conference(name="Test 3", governing_body_id=1, id=999999)
         assert conference3.id == 999999
+
+    def test_election_cycle_info_initialization(self) -> None:
+        """Test election cycle information initialization."""
+        # 統一地方選挙ベースの設定（例: 京都市議会）
+        conference = Conference(
+            id=1,
+            name="京都市議会",
+            governing_body_id=26100,
+            prefecture="京都府",
+            election_cycle_years=4,
+            base_election_year=2023,
+            term_number_at_base=21,
+        )
+
+        assert conference.election_cycle_years == 4
+        assert conference.base_election_year == 2023
+        assert conference.term_number_at_base == 21
+
+    def test_election_cycle_info_none_by_default(self) -> None:
+        """Test election cycle info is None by default when not specified."""
+        conference = Conference(
+            name="Test Conference",
+            governing_body_id=1,
+        )
+        assert conference.election_cycle_years is None
+        assert conference.base_election_year is None
+        assert conference.term_number_at_base is None
+
+    def test_various_election_cycle_configurations(self) -> None:
+        """Test various election cycle configurations."""
+        # 統一地方選挙（4年周期）
+        unified_local = Conference(
+            name="横浜市議会",
+            governing_body_id=14100,
+            election_cycle_years=4,
+            base_election_year=2023,
+            term_number_at_base=18,
+        )
+        assert unified_local.election_cycle_years == 4
+
+        # 統一地方選挙に参加していない自治体（例: 別の年に選挙）
+        non_unified = Conference(
+            name="大阪市議会",
+            governing_body_id=27100,
+            election_cycle_years=4,
+            base_election_year=2019,
+            term_number_at_base=20,
+        )
+        assert non_unified.base_election_year == 2019
+
+        # 部分的に設定（election_cycle_yearsのみ）
+        partial = Conference(
+            name="Test Conference",
+            governing_body_id=1,
+            election_cycle_years=4,
+        )
+        assert partial.election_cycle_years == 4
+        assert partial.base_election_year is None
+        assert partial.term_number_at_base is None

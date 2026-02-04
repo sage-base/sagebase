@@ -586,17 +586,38 @@ class MonitoringRepositoryImpl:
         return summary
 
     async def get_committee_type_coverage(self) -> list[CommitteeType]:
-        """Get coverage by committee type."""
+        """Get coverage by committee type.
+
+        Note: conferences.typeカラムはマイグレーション015で削除されたため、
+        会議体名から会議体種別を推測して集計する。
+        """
         query = text("""
             SELECT
-                c.type as committee_type,
+                CASE
+                    WHEN c.name LIKE '%常任委員会%' THEN '常任委員会'
+                    WHEN c.name LIKE '%特別委員会%' THEN '特別委員会'
+                    WHEN c.name LIKE '%議会運営委員会%' THEN '議会運営委員会'
+                    WHEN c.name LIKE '%委員会%' THEN '委員会'
+                    WHEN c.name LIKE '%本会議%' THEN '本会議'
+                    WHEN c.name LIKE '%議会%' THEN '議会'
+                    ELSE 'その他'
+                END as committee_type,
                 COUNT(DISTINCT c.id) as conference_count,
                 COUNT(DISTINCT m.id) as meeting_count,
                 COUNT(DISTINCT gb.id) as governing_body_count
             FROM conferences c
             LEFT JOIN meetings m ON c.id = m.conference_id
             LEFT JOIN governing_bodies gb ON c.governing_body_id = gb.id
-            GROUP BY c.type
+            GROUP BY
+                CASE
+                    WHEN c.name LIKE '%常任委員会%' THEN '常任委員会'
+                    WHEN c.name LIKE '%特別委員会%' THEN '特別委員会'
+                    WHEN c.name LIKE '%議会運営委員会%' THEN '議会運営委員会'
+                    WHEN c.name LIKE '%委員会%' THEN '委員会'
+                    WHEN c.name LIKE '%本会議%' THEN '本会議'
+                    WHEN c.name LIKE '%議会%' THEN '議会'
+                    ELSE 'その他'
+                END
             ORDER BY conference_count DESC
         """)
 
