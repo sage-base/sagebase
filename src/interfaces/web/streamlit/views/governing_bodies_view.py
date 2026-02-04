@@ -1,7 +1,12 @@
 """View for governing body management."""
 
+from datetime import date
+
 import streamlit as st
 
+from src.interfaces.web.streamlit.presenters.election_presenter import (
+    ElectionPresenter,
+)
 from src.interfaces.web.streamlit.presenters.governing_body_presenter import (
     GoverningBodyPresenter,
 )
@@ -10,12 +15,15 @@ from src.interfaces.web.streamlit.presenters.governing_body_presenter import (
 def render_governing_bodies_page() -> None:
     """Render the governing bodies management page."""
     st.header("開催主体管理")
-    st.markdown("開催主体（国、都道府県、市町村）の情報を管理します")
+    st.markdown("開催主体（国、都道府県、市町村）の情報と選挙情報を管理します")
 
     presenter = GoverningBodyPresenter()
+    election_presenter = ElectionPresenter()
 
     # Create tabs
-    tab1, tab2, tab3 = st.tabs(["開催主体一覧", "新規登録", "編集・削除"])
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["開催主体一覧", "新規登録", "編集・削除", "選挙管理"]
+    )
 
     with tab1:
         render_governing_bodies_list_tab(presenter)
@@ -25,6 +33,9 @@ def render_governing_bodies_page() -> None:
 
     with tab3:
         render_edit_delete_tab(presenter)
+
+    with tab4:
+        render_elections_tab(presenter, election_presenter)
 
 
 def render_governing_bodies_list_tab(presenter: GoverningBodyPresenter) -> None:
@@ -247,6 +258,237 @@ def render_edit_delete_tab(presenter: GoverningBodyPresenter) -> None:
                                 st.error(f"削除に失敗しました: {error}")
     else:
         st.info("編集する開催主体がありません")
+
+
+def render_elections_tab(
+    gb_presenter: GoverningBodyPresenter, election_presenter: ElectionPresenter
+) -> None:
+    """Render the elections management tab."""
+    st.subheader("選挙管理")
+    st.markdown("開催主体ごとの選挙（期）情報を管理します")
+
+    # Load governing bodies for selection
+    governing_bodies = gb_presenter.load_data()
+
+    if not governing_bodies:
+        st.info("開催主体が登録されていません。先に開催主体を登録してください。")
+        return
+
+    # Select governing body
+    gb_options = {f"{gb.name} ({gb.type})": gb.id for gb in governing_bodies}
+    selected_gb_name = st.selectbox(
+        "開催主体を選択",
+        options=list(gb_options.keys()),
+        key="election_gb_select",
+    )
+
+    # selected_gb_name is guaranteed to be str when governing_bodies is not empty
+    if selected_gb_name is None:
+        return
+    selected_gb_id = gb_options.get(selected_gb_name)
+    if selected_gb_id is None:
+        return
+
+    st.divider()
+
+    # Create sub-tabs for election management
+    election_tab1, election_tab2, election_tab3 = st.tabs(
+        ["選挙一覧", "新規登録", "編集・削除"]
+    )
+
+    with election_tab1:
+        render_elections_list(election_presenter, selected_gb_id)
+
+    with election_tab2:
+        render_new_election_form(election_presenter, selected_gb_id)
+
+    with election_tab3:
+        render_edit_delete_election(election_presenter, selected_gb_id)
+
+
+def render_elections_list(presenter: ElectionPresenter, governing_body_id: int) -> None:
+    """Render the elections list for a governing body."""
+    elections = presenter.load_elections_by_governing_body(governing_body_id)
+
+    if elections:
+        df = presenter.to_dataframe(elections)
+        if df is not None:
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+        st.metric("登録済み選挙数", f"{len(elections)}件")
+    else:
+        st.info("この開催主体には選挙が登録されていません")
+
+
+def render_new_election_form(
+    presenter: ElectionPresenter, governing_body_id: int
+) -> None:
+    """Render the new election registration form."""
+    st.markdown("### 新規選挙登録")
+
+    with st.form("new_election_form"):
+        term_number = st.number_input(
+            "期番号",
+            min_value=1,
+            max_value=999,
+            value=1,
+            step=1,
+            key="new_election_term",
+            help="例: 21 （第21期の場合）",
+        )
+
+        election_date_input = st.date_input(
+            "選挙日",
+            value=date.today(),
+            key="new_election_date",
+            help="選挙が実施された日付",
+        )
+
+        election_type_options = [""] + presenter.get_election_type_options()
+        election_type = st.selectbox(
+            "選挙種別（オプション）",
+            election_type_options,
+            key="new_election_type",
+        )
+
+        submitted = st.form_submit_button("登録")
+
+        if submitted:
+            # Convert date_input result to date object
+            if isinstance(election_date_input, date):
+                election_date = election_date_input
+            else:
+                st.error("選挙日を選択してください")
+                return
+
+            success, id_or_error = presenter.create(
+                governing_body_id=governing_body_id,
+                term_number=int(term_number),
+                election_date=election_date,
+                election_type=election_type if election_type else None,
+            )
+            if success:
+                st.success(
+                    f"選挙（第{term_number}期）を登録しました（ID: {id_or_error}）"
+                )
+                st.rerun()
+            else:
+                st.error(f"登録に失敗しました: {id_or_error}")
+
+
+def render_edit_delete_election(
+    presenter: ElectionPresenter, governing_body_id: int
+) -> None:
+    """Render the edit/delete election section."""
+    st.markdown("### 選挙の編集・削除")
+
+    elections = presenter.load_elections_by_governing_body(governing_body_id)
+
+    if not elections:
+        st.info("編集する選挙がありません")
+        return
+
+    # Select election to edit
+    election_options = [
+        f"第{e.term_number}期 ({e.election_date}) - ID: {e.id}" for e in elections
+    ]
+    selected_election_option = st.selectbox(
+        "編集する選挙を選択",
+        election_options,
+        key="edit_election_select",
+    )
+
+    # Get selected election ID
+    selected_election_id = int(selected_election_option.split("ID: ")[1])
+    selected_election = next(e for e in elections if e.id == selected_election_id)
+
+    # Edit and delete forms
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### 編集")
+        with st.form("edit_election_form"):
+            edit_term_number = st.number_input(
+                "期番号",
+                min_value=1,
+                max_value=999,
+                value=selected_election.term_number,
+                step=1,
+                key="edit_election_term",
+            )
+
+            edit_election_date = st.date_input(
+                "選挙日",
+                value=selected_election.election_date,
+                key="edit_election_date",
+            )
+
+            election_type_options = [""] + presenter.get_election_type_options()
+            current_type_index = (
+                election_type_options.index(selected_election.election_type)
+                if selected_election.election_type
+                and selected_election.election_type in election_type_options
+                else 0
+            )
+            edit_election_type = st.selectbox(
+                "選挙種別",
+                election_type_options,
+                index=current_type_index,
+                key="edit_election_type",
+            )
+
+            update_submitted = st.form_submit_button("更新")
+
+            if update_submitted:
+                if isinstance(edit_election_date, date):
+                    success, error = presenter.update(
+                        id=selected_election_id,
+                        governing_body_id=governing_body_id,
+                        term_number=int(edit_term_number),
+                        election_date=edit_election_date,
+                        election_type=edit_election_type
+                        if edit_election_type
+                        else None,
+                    )
+                    if success:
+                        st.success(f"選挙（第{edit_term_number}期）を更新しました")
+                        st.rerun()
+                    else:
+                        st.error(f"更新に失敗しました: {error}")
+                else:
+                    st.error("選挙日を選択してください")
+
+    with col2:
+        st.markdown("#### 削除")
+        st.warning("選挙を削除すると、関連する会議体の紐付けが解除されます。")
+
+        if st.button(
+            "削除",
+            key="delete_election_button",
+            type="secondary",
+        ):
+            st.session_state["confirm_delete_election"] = True
+
+        if st.session_state.get("confirm_delete_election", False):
+            st.error(f"「第{selected_election.term_number}期」を本当に削除しますか？")
+            col_confirm, col_cancel = st.columns(2)
+            with col_confirm:
+                if st.button(
+                    "削除を実行", key="execute_delete_election", type="primary"
+                ):
+                    success, error = presenter.delete(selected_election_id)
+                    if success:
+                        st.success(
+                            f"選挙（第{selected_election.term_number}期）を削除しました"
+                        )
+                        st.session_state["confirm_delete_election"] = False
+                        st.rerun()
+                    else:
+                        st.error(f"削除に失敗しました: {error}")
+            with col_cancel:
+                if st.button("キャンセル", key="cancel_delete_election"):
+                    st.session_state["confirm_delete_election"] = False
+                    st.rerun()
 
 
 def main() -> None:
