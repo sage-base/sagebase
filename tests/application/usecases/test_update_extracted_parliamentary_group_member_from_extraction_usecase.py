@@ -71,7 +71,6 @@ class TestUpdateExtractedParliamentaryGroupMemberFromExtractionUseCase:
             extracted_role="幹事長",
             extracted_party_name="自由民主党",
             extracted_district="東京1区",
-            is_manually_verified=False,
         )
         extraction_result = ParliamentaryGroupMemberExtractionResult(
             parliamentary_group_id=10,
@@ -116,25 +115,33 @@ class TestUpdateExtractedParliamentaryGroupMemberFromExtractionUseCase:
         mock_session_adapter.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_skip_update_when_manually_verified(
+    async def test_bronze_layer_always_updatable(
         self,
         use_case,
         mock_extracted_parliamentary_group_member_repo,
         mock_extraction_log_repo,
         mock_session_adapter,
     ):
-        """手動検証済みの議員団メンバーは更新がスキップされる。"""
+        """Bronze Layerの議員団メンバーは常にAI更新可能。
+
+        ExtractedParliamentaryGroupMemberはBronze Layerエンティティであり、
+        検証状態はGold Layer（ParliamentaryGroupMembership）で管理されるため、
+        常にAI更新可能である。
+        """
         # Setup
         member = ExtractedParliamentaryGroupMember(
             id=1,
             parliamentary_group_id=10,
             extracted_name="山田太郎",
             source_url="https://example.com/members",
-            is_manually_verified=True,
         )
+        # Bronze Layerのエンティティは常に更新可能
+        assert member.can_be_updated_by_ai() is True
+        assert member.is_manually_verified is False  # 常にFalse
+
         extraction_result = ParliamentaryGroupMemberExtractionResult(
             parliamentary_group_id=10,
-            extracted_name="山田次郎",
+            extracted_name="山田次郎",  # 名前を変更
             source_url="https://example.com/members",
         )
         extraction_log = ExtractionLog(
@@ -155,18 +162,17 @@ class TestUpdateExtractedParliamentaryGroupMemberFromExtractionUseCase:
             pipeline_version="parliamentary-group-member-extractor-v1",
         )
 
-        # Assert
-        assert result.updated is False
-        assert result.reason == "manually_verified"
+        # Assert - Bronze Layerでは常に更新される
+        assert result.updated is True
         assert result.extraction_log_id == 100
 
-        # 名前が更新されていないことを確認
-        assert member.extracted_name == "山田太郎"
+        # 名前が更新されていることを確認
+        assert member.extracted_name == "山田次郎"
 
-        # updateは呼ばれない（手動検証済みのためスキップ）
-        mock_extracted_parliamentary_group_member_repo.update.assert_not_called()
-        # commitも呼ばれない（エンティティの更新がないため）
-        mock_session_adapter.commit.assert_not_called()
+        mock_extracted_parliamentary_group_member_repo.update.assert_called_once_with(
+            member
+        )
+        mock_session_adapter.commit.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_entity_not_found(

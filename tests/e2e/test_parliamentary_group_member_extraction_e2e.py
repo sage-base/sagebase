@@ -1,13 +1,16 @@
 """E2Eテスト: ParliamentaryGroupMember抽出の完全なフロー (Issue #871).
 
-議員団メンバー情報の抽出・更新・手動修正保護の完全なE2Eフローをテスト。
+議員団メンバー情報の抽出・更新の完全なE2Eフローをテスト。
+
+Note:
+    ExtractedParliamentaryGroupMemberはBronze Layerエンティティであり、
+    検証状態はGold Layer（ParliamentaryGroupMembership）で管理されるため、
+    Bronze Layerでは常にAI更新可能である。
 
 フロー：
 1. 議員団ページからのメンバー抽出
 2. ログ確認
-3. 手動修正
-4. 再抽出
-5. 手動修正が保護されていることを確認
+3. 再抽出（Bronze Layerでは常に更新される）
 """
 
 from datetime import datetime
@@ -78,7 +81,6 @@ class TestParliamentaryGroupMemberExtractionFullFlow:
             extracted_name="田中花子",
             source_url="https://example.com/group-members",
             extracted_at=datetime.now(),
-            is_manually_verified=False,
         )
 
         extraction_result_1 = ParliamentaryGroupMemberExtractionResult(
@@ -124,23 +126,14 @@ class TestParliamentaryGroupMemberExtractionFullFlow:
         assert len(logs) == 1
 
         # ============================================
-        # Step 3: 手動修正
-        # ============================================
-        member.extracted_district = "大阪2区"  # 選挙区を修正
-        member.mark_as_manually_verified()
-
-        assert member.is_manually_verified is True
-        assert member.extracted_district == "大阪2区"
-
-        # ============================================
-        # Step 4: 再抽出
+        # Step 3: 再抽出（Bronze Layerは常に更新される）
         # ============================================
         extraction_result_2 = ParliamentaryGroupMemberExtractionResult(
             parliamentary_group_id=10,
             extracted_name="田中花子",
             source_url="https://example.com/group-members",
-            extracted_role="団長",
-            extracted_district="大阪3区",  # AIは異なる選挙区を抽出
+            extracted_role="副団長",  # 役職変更
+            extracted_district="大阪2区",  # 選挙区変更
             confidence_score=0.80,
         )
         extraction_log_2 = ExtractionLog(
@@ -159,12 +152,11 @@ class TestParliamentaryGroupMemberExtractionFullFlow:
             pipeline_version="group-member-extraction-baml-v2",
         )
 
-        # ============================================
-        # Step 5: 手動修正が保護されていることを確認
-        # ============================================
-        assert result_2.updated is False
-        assert result_2.reason == "manually_verified"
-        assert member.extracted_district == "大阪2区"  # 手動修正が保持
+        # Bronze Layerは常に更新される
+        assert result_2.updated is True
+        assert result_2.extraction_log_id == 6001
+        assert member.extracted_role == "副団長"
+        assert member.extracted_district == "大阪2区"
 
 
 @pytest.mark.e2e
@@ -217,7 +209,6 @@ class TestParliamentaryGroupMemberBulkExtraction:
                 extracted_name=f"議員{i}",
                 source_url="https://example.com/group-members",
                 extracted_at=datetime.now(),
-                is_manually_verified=False,
             )
             for i in range(1, 11)
         }
@@ -317,7 +308,13 @@ class TestParliamentaryGroupMemberCrossGroupExtraction:
         mock_extraction_log_repo,
         mock_session_adapter,
     ):
-        """複数議員団からの抽出E2Eテスト。"""
+        """複数議員団からの抽出E2Eテスト。
+
+        Note:
+            ExtractedParliamentaryGroupMemberはBronze Layerエンティティであり、
+            常にAI更新可能である。検証状態はGold Layer
+            （ParliamentaryGroupMembership）で管理される。
+        """
         # Setup: 3つの議員団からのメンバー
         members = {
             # 議員団A (ID: 10)
@@ -327,7 +324,6 @@ class TestParliamentaryGroupMemberCrossGroupExtraction:
                 extracted_name="議員A-1",
                 source_url="https://example.com/group-a",
                 extracted_at=datetime.now(),
-                is_manually_verified=False,
             ),
             2: ExtractedParliamentaryGroupMember(
                 id=2,
@@ -335,7 +331,6 @@ class TestParliamentaryGroupMemberCrossGroupExtraction:
                 extracted_name="議員A-2",
                 source_url="https://example.com/group-a",
                 extracted_at=datetime.now(),
-                is_manually_verified=False,
             ),
             # 議員団B (ID: 20)
             3: ExtractedParliamentaryGroupMember(
@@ -344,7 +339,6 @@ class TestParliamentaryGroupMemberCrossGroupExtraction:
                 extracted_name="議員B-1",
                 source_url="https://example.com/group-b",
                 extracted_at=datetime.now(),
-                is_manually_verified=False,
             ),
             # 議員団C (ID: 30)
             4: ExtractedParliamentaryGroupMember(
@@ -353,8 +347,7 @@ class TestParliamentaryGroupMemberCrossGroupExtraction:
                 extracted_name="議員C-1",
                 source_url="https://example.com/group-c",
                 extracted_at=datetime.now(),
-                is_manually_verified=True,  # 検証済み
-                extracted_role="手動設定の役職",
+                extracted_role="既存の役職",
             ),
         }
 
@@ -394,21 +387,14 @@ class TestParliamentaryGroupMemberCrossGroupExtraction:
             )
             results.append(result)
 
-        # Assert
-        # 未検証のメンバー（1, 2, 3）は更新される
-        assert results[0].updated is True
-        assert results[1].updated is True
-        assert results[2].updated is True
-
-        # 検証済みのメンバー（4）は保護される
-        assert results[3].updated is False
-        assert results[3].reason == "manually_verified"
+        # Assert - Bronze Layerでは全てのメンバーが更新される
+        assert all(r.updated is True for r in results)
 
         # 各議員団のメンバーが正しく設定された
         assert members[1].extracted_role == "団長"
         assert members[2].extracted_role == "会員"
         assert members[3].extracted_role == "代表"
-        assert members[4].extracted_role == "手動設定の役職"  # 手動修正が保持
+        assert members[4].extracted_role == "AIが抽出した役職"  # 更新される
 
         # 全てのログが作成された
         assert mock_extraction_log_repo.create.call_count == 4

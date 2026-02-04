@@ -10,9 +10,6 @@ from src.application.usecases.mark_entity_as_verified_usecase import (
     MarkEntityAsVerifiedUseCase,
 )
 from src.domain.entities.conversation import Conversation
-from src.domain.entities.extracted_parliamentary_group_member import (
-    ExtractedParliamentaryGroupMember,
-)
 
 
 class TestMarkEntityAsVerifiedUseCase:
@@ -24,20 +21,13 @@ class TestMarkEntityAsVerifiedUseCase:
         return MagicMock()
 
     @pytest.fixture
-    def mock_parliamentary_group_member_repo(self) -> MagicMock:
-        """議員団メンバーリポジトリのモック。"""
-        return MagicMock()
-
-    @pytest.fixture
     def usecase(
         self,
         mock_conversation_repo: MagicMock,
-        mock_parliamentary_group_member_repo: MagicMock,
     ) -> MarkEntityAsVerifiedUseCase:
         """UseCaseのインスタンス。"""
         return MarkEntityAsVerifiedUseCase(
             conversation_repository=mock_conversation_repo,
-            parliamentary_group_member_repository=mock_parliamentary_group_member_repo,
         )
 
     # ========== Conversationエンティティのテスト ==========
@@ -175,114 +165,3 @@ class TestMarkEntityAsVerifiedUseCase:
         # Assert
         assert result.success is False
         assert "Database error" in result.error_message  # type: ignore[operator]
-
-    # ========== ParliamentaryGroupMemberエンティティのテスト ==========
-
-    @pytest.mark.asyncio
-    async def test_mark_parliamentary_group_member_as_verified_success(
-        self,
-        usecase: MarkEntityAsVerifiedUseCase,
-        mock_parliamentary_group_member_repo: MagicMock,
-    ) -> None:
-        """議員団メンバーを手動検証済みにマーク成功のテスト。"""
-        # Arrange
-        member = ExtractedParliamentaryGroupMember(
-            id=1,
-            parliamentary_group_id=1,
-            extracted_name="テスト議員",
-            source_url="https://example.com",
-        )
-        mock_parliamentary_group_member_repo.get_by_id = AsyncMock(return_value=member)
-        mock_parliamentary_group_member_repo.update = AsyncMock()
-
-        input_dto = MarkEntityAsVerifiedInputDto(
-            entity_type=EntityType.PARLIAMENTARY_GROUP_MEMBER,
-            entity_id=1,
-            is_verified=True,
-        )
-
-        # Act
-        result = await usecase.execute(input_dto)
-
-        # Assert
-        assert result.success is True
-        assert result.error_message is None
-        assert member.is_manually_verified is True
-        mock_parliamentary_group_member_repo.get_by_id.assert_called_once_with(1)
-        mock_parliamentary_group_member_repo.update.assert_called_once_with(member)
-
-    @pytest.mark.asyncio
-    async def test_mark_parliamentary_group_member_as_unverified_success(
-        self,
-        usecase: MarkEntityAsVerifiedUseCase,
-        mock_parliamentary_group_member_repo: MagicMock,
-    ) -> None:
-        """議員団メンバーの手動検証済みを解除するテスト。"""
-        # Arrange
-        member = ExtractedParliamentaryGroupMember(
-            id=1,
-            parliamentary_group_id=1,
-            extracted_name="テスト議員",
-            source_url="https://example.com",
-        )
-        member.mark_as_manually_verified()
-        assert member.is_manually_verified is True
-
-        mock_parliamentary_group_member_repo.get_by_id = AsyncMock(return_value=member)
-        mock_parliamentary_group_member_repo.update = AsyncMock()
-
-        input_dto = MarkEntityAsVerifiedInputDto(
-            entity_type=EntityType.PARLIAMENTARY_GROUP_MEMBER,
-            entity_id=1,
-            is_verified=False,
-        )
-
-        # Act
-        result = await usecase.execute(input_dto)
-
-        # Assert
-        assert result.success is True
-        assert result.error_message is None
-        assert member.is_manually_verified is False
-
-    @pytest.mark.asyncio
-    async def test_mark_parliamentary_group_member_not_found(
-        self,
-        usecase: MarkEntityAsVerifiedUseCase,
-        mock_parliamentary_group_member_repo: MagicMock,
-    ) -> None:
-        """議員団メンバーが見つからない場合のテスト。"""
-        # Arrange
-        mock_parliamentary_group_member_repo.get_by_id = AsyncMock(return_value=None)
-
-        input_dto = MarkEntityAsVerifiedInputDto(
-            entity_type=EntityType.PARLIAMENTARY_GROUP_MEMBER,
-            entity_id=999,
-            is_verified=True,
-        )
-
-        # Act
-        result = await usecase.execute(input_dto)
-
-        # Assert
-        assert result.success is False
-        assert result.error_message == "議員団メンバーが見つかりません。"
-
-    @pytest.mark.asyncio
-    async def test_parliamentary_group_member_repository_not_configured(self) -> None:
-        """議員団メンバーリポジトリが未設定の場合のテスト。"""
-        # Arrange
-        usecase = MarkEntityAsVerifiedUseCase()  # リポジトリなしで作成
-
-        input_dto = MarkEntityAsVerifiedInputDto(
-            entity_type=EntityType.PARLIAMENTARY_GROUP_MEMBER,
-            entity_id=1,
-            is_verified=True,
-        )
-
-        # Act
-        result = await usecase.execute(input_dto)
-
-        # Assert
-        assert result.success is False
-        assert "not configured" in result.error_message  # type: ignore[operator]

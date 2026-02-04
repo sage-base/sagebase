@@ -4,8 +4,9 @@ VerifiableEntityプロトコルを実装したエンティティの手動検証�
 更新するための汎用的なUseCase。
 
 Note:
-    CONFERENCE_MEMBERは対象外。ExtractedConferenceMemberはBronze Layerエンティティ
-    であり、検証状態はGold Layer（ConferenceMember）で管理されるため。
+    CONFERENCE_MEMBERとPARLIAMENTARY_GROUP_MEMBERは対象外。
+    これらはBronze Layerエンティティであり、検証状態はGold Layer
+    （ConferenceMember、ParliamentaryGroupMembership）で管理されるため。
 """
 
 from dataclasses import dataclass
@@ -14,9 +15,6 @@ from enum import Enum
 from src.common.logging import get_logger
 from src.domain.repositories import (
     ConversationRepository,
-)
-from src.domain.repositories.extracted_parliamentary_group_member_repository import (
-    ExtractedParliamentaryGroupMemberRepository,
 )
 
 
@@ -27,7 +25,6 @@ class EntityType(Enum):
     """手動検証可能なエンティティタイプ。"""
 
     CONVERSATION = "conversation"
-    PARLIAMENTARY_GROUP_MEMBER = "parliamentary_group_member"
 
 
 @dataclass
@@ -57,18 +54,13 @@ class MarkEntityAsVerifiedUseCase:
     def __init__(
         self,
         conversation_repository: ConversationRepository | None = None,
-        parliamentary_group_member_repository: (
-            ExtractedParliamentaryGroupMemberRepository | None
-        ) = None,
     ):
         """初期化。
 
         Args:
             conversation_repository: 発言リポジトリ
-            parliamentary_group_member_repository: 議員団メンバーリポジトリ
         """
         self._conversation_repo = conversation_repository
-        self._parliamentary_group_member_repo = parliamentary_group_member_repository
 
     async def execute(
         self, input_dto: MarkEntityAsVerifiedInputDto
@@ -84,10 +76,6 @@ class MarkEntityAsVerifiedUseCase:
         try:
             if input_dto.entity_type == EntityType.CONVERSATION:
                 return await self._update_conversation(
-                    input_dto.entity_id, input_dto.is_verified
-                )
-            elif input_dto.entity_type == EntityType.PARLIAMENTARY_GROUP_MEMBER:
-                return await self._update_parliamentary_group_member(
                     input_dto.entity_id, input_dto.is_verified
                 )
             else:
@@ -122,29 +110,4 @@ class MarkEntityAsVerifiedUseCase:
             entity.is_manually_verified = False
 
         await self._conversation_repo.update(entity)
-        return MarkEntityAsVerifiedOutputDto(success=True)
-
-    async def _update_parliamentary_group_member(
-        self, entity_id: int, is_verified: bool
-    ) -> MarkEntityAsVerifiedOutputDto:
-        """議員団メンバーの手動検証フラグを更新する。"""
-        if not self._parliamentary_group_member_repo:
-            return MarkEntityAsVerifiedOutputDto(
-                success=False,
-                error_message="Parliamentary group member repository not configured",
-            )
-
-        entity = await self._parliamentary_group_member_repo.get_by_id(entity_id)
-        if not entity:
-            return MarkEntityAsVerifiedOutputDto(
-                success=False,
-                error_message="議員団メンバーが見つかりません。",
-            )
-
-        if is_verified:
-            entity.mark_as_manually_verified()
-        else:
-            entity.is_manually_verified = False
-
-        await self._parliamentary_group_member_repo.update(entity)
         return MarkEntityAsVerifiedOutputDto(success=True)

@@ -8,9 +8,19 @@ from src.domain.entities.base import BaseEntity
 class ExtractedParliamentaryGroupMember(BaseEntity):
     """議員団メンバー抽出情報を表すエンティティ.
 
-    VerifiableEntityプロトコルを実装し、手動検証状態と
-    LLM抽出ログ参照を保持する。
+    Bronze Layer（抽出ログ層）のエンティティとして、
+    LLMで抽出された生データを保持する。
+    政治家との紐付けはGold Layer（ParliamentaryGroupMembership）で管理される。
+
+    Note:
+        VerifiableEntityプロトコルとの互換性のため、is_manually_verifiedと
+        mark_as_manually_verified()を実装しているが、Bronze Layerでは
+        検証状態を管理しないため、常にFalse/no-opとなる。
     """
+
+    # VerifiableEntityプロトコル互換性のためのダミー属性
+    # Bronze Layerでは検証状態を管理しない
+    is_manually_verified: bool = False
 
     def __init__(
         self,
@@ -26,7 +36,6 @@ class ExtractedParliamentaryGroupMember(BaseEntity):
         matching_status: str = "pending",
         matched_at: datetime | None = None,
         additional_info: str | None = None,
-        is_manually_verified: bool = False,
         latest_extraction_log_id: int | None = None,
         id: int | None = None,
     ) -> None:
@@ -43,7 +52,6 @@ class ExtractedParliamentaryGroupMember(BaseEntity):
         self.matching_status = matching_status
         self.matched_at = matched_at
         self.additional_info = additional_info
-        self.is_manually_verified = is_manually_verified
         self.latest_extraction_log_id = latest_extraction_log_id
 
     def is_matched(self) -> bool:
@@ -59,16 +67,24 @@ class ExtractedParliamentaryGroupMember(BaseEntity):
         return self.matching_status == "pending"
 
     def mark_as_manually_verified(self) -> None:
-        """手動検証済みとしてマークする."""
-        self.is_manually_verified = True
+        """VerifiableEntityプロトコル互換性のためのno-opメソッド.
+
+        Bronze Layerエンティティでは検証状態を管理しないため、
+        このメソッドは何もしない。
+        """
+        pass
 
     def update_from_extraction_log(self, log_id: int) -> None:
         """最新の抽出ログIDを更新する."""
         self.latest_extraction_log_id = log_id
 
     def can_be_updated_by_ai(self) -> bool:
-        """AIによる更新が可能かどうかを返す."""
-        return not self.is_manually_verified
+        """AIによる更新が可能かどうかを返す.
+
+        Bronze Layerエンティティは常に更新可能。
+        検証状態はGold Layer（ParliamentaryGroupMembership）で管理される。
+        """
+        return True
 
     def __str__(self) -> str:
         return (
