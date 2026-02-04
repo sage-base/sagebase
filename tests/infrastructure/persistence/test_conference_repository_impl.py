@@ -48,7 +48,6 @@ class TestConferenceRepositoryImpl:
         return {
             "id": 1,
             "name": "本会議",
-            "type": "plenary",
             "governing_body_id": 10,
             "members_introduction_url": "https://example.com/members",
             "prefecture": "東京都",
@@ -63,7 +62,6 @@ class TestConferenceRepositoryImpl:
         return Conference(
             id=1,
             name="本会議",
-            type="plenary",
             governing_body_id=10,
             members_introduction_url="https://example.com/members",
             prefecture="東京都",
@@ -93,7 +91,6 @@ class TestConferenceRepositoryImpl:
         assert result is not None
         assert result.id == 1
         assert result.name == "本会議"
-        assert result.type == "plenary"
         assert result.governing_body_id == 10
         assert result.members_introduction_url == "https://example.com/members"
         assert result.prefecture == "東京都"
@@ -354,7 +351,6 @@ class TestConferenceRepositoryImpl:
         model = ConferenceModel(
             id=1,
             name="本会議",
-            type="plenary",
             governing_body_id=10,
             members_introduction_url="https://example.com/members",
             prefecture="東京都",
@@ -367,7 +363,6 @@ class TestConferenceRepositoryImpl:
         assert isinstance(entity, Conference)
         assert entity.id == 1
         assert entity.name == "本会議"
-        assert entity.type == "plenary"
         assert entity.governing_body_id == 10
         assert entity.members_introduction_url == "https://example.com/members"
         assert entity.prefecture == "東京都"
@@ -383,7 +378,6 @@ class TestConferenceRepositoryImpl:
         assert isinstance(model, ConferenceModel)
         assert model.id == 1
         assert model.name == "本会議"
-        assert model.type == "plenary"
         assert model.governing_body_id == 10
         assert model.members_introduction_url == "https://example.com/members"
         assert model.prefecture == "東京都"
@@ -396,7 +390,6 @@ class TestConferenceRepositoryImpl:
         model = ConferenceModel(
             id=1,
             name="旧会議",
-            type="old_type",
             governing_body_id=5,
             members_introduction_url=None,
             prefecture=None,
@@ -407,7 +400,6 @@ class TestConferenceRepositoryImpl:
 
         # Assert
         assert model.name == "本会議"
-        assert model.type == "plenary"
         assert model.governing_body_id == 10
         assert model.members_introduction_url == "https://example.com/members"
         assert model.prefecture == "東京都"
@@ -425,7 +417,6 @@ class TestConferenceRepositoryImpl:
         assert isinstance(entity, Conference)
         assert entity.id == 1
         assert entity.name == "本会議"
-        assert entity.type == "plenary"
         assert entity.governing_body_id == 10
         assert entity.members_introduction_url == "https://example.com/members"
         assert entity.prefecture == "東京都"
@@ -447,7 +438,6 @@ class TestConferenceRepositoryImpl:
         assert isinstance(entity, Conference)
         assert entity.id is None
         assert entity.name == "本会議"
-        assert entity.type is None
         assert entity.governing_body_id == 10
         assert entity.members_introduction_url is None
         assert entity.prefecture is None
@@ -460,7 +450,6 @@ class TestConferenceRepositoryImpl:
         data: dict[str, Any] = {
             "id": 1,
             "name": "衆議院本会議",
-            "type": "国会",
             "governing_body_id": 1,
             "members_introduction_url": None,
             "prefecture": "全国",
@@ -483,7 +472,6 @@ class TestConferenceRepositoryImpl:
         entity = Conference(
             name="東京都議会",
             governing_body_id=13,
-            type="都道府県議会",
             prefecture="東京都",
         )
 
@@ -492,7 +480,6 @@ class TestConferenceRepositoryImpl:
             "id": 1,
             "name": "東京都議会",
             "governing_body_id": 13,
-            "type": "都道府県議会",
             "members_introduction_url": None,
             "prefecture": "東京都",
             "term": None,
@@ -528,7 +515,6 @@ class TestConferenceRepositoryImpl:
             id=1,
             name="東京都議会",
             governing_body_id=13,
-            type="都道府県議会",
             prefecture="東京都",
         )
 
@@ -537,7 +523,6 @@ class TestConferenceRepositoryImpl:
             "id": 1,
             "name": "東京都議会",
             "governing_body_id": 13,
-            "type": "都道府県議会",
             "members_introduction_url": None,
             "prefecture": "東京都",
             "term": None,
@@ -571,7 +556,6 @@ class TestConferenceRepositoryImpl:
         conference_dict = {
             "id": 1,
             "name": "衆議院本会議",
-            "type": "国会",
             "governing_body_id": 1,
             "members_introduction_url": None,
             "prefecture": "全国",
@@ -613,7 +597,6 @@ class TestConferenceRepositoryImpl:
         conference_dict = {
             "id": 1,
             "name": "委員会",
-            "type": "委員会",
             "governing_body_id": 1,
             "members_introduction_url": None,
             "prefecture": "東京都",
@@ -650,7 +633,6 @@ class TestConferenceRepositoryImpl:
         entity = Conference(
             name="衆議院本会議",
             governing_body_id=1,
-            type="国会",
             term="第220回",
         )
 
@@ -659,7 +641,6 @@ class TestConferenceRepositoryImpl:
             "id": 1,
             "name": "衆議院本会議",
             "governing_body_id": 1,
-            "type": "国会",
             "members_introduction_url": None,
             "prefecture": None,
             "term": "第220回",
@@ -689,7 +670,6 @@ class TestConferenceRepositoryImpl:
         model = ConferenceModel(
             id=1,
             name="衆議院本会議",
-            type="国会",
             governing_body_id=1,
             members_introduction_url=None,
             prefecture="全国",
@@ -709,7 +689,6 @@ class TestConferenceRepositoryImpl:
         entity = Conference(
             id=1,
             name="衆議院本会議",
-            type="国会",
             governing_body_id=1,
             term="第220回",
         )
@@ -729,7 +708,6 @@ class TestConferenceRepositoryImpl:
         data: dict[str, Any] = {
             "id": 1,
             "name": "衆議院本会議",
-            "type": "国会",
             "governing_body_id": 1,
             "members_introduction_url": None,
             "prefecture": "全国",
@@ -748,7 +726,6 @@ class TestConferenceRepositoryImpl:
         model = ConferenceModel(
             id=1,
             name="衆議院本会議",
-            type="国会",
             governing_body_id=1,
             members_introduction_url=None,
             prefecture=None,
@@ -760,7 +737,6 @@ class TestConferenceRepositoryImpl:
             id=1,
             name="衆議院本会議",
             governing_body_id=1,
-            type="国会",
             term="第220回",
         )
 

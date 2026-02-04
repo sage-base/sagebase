@@ -69,13 +69,6 @@ def render_new_conference_form(
             help="国会の場合は「全国」を選択してください",
         )
 
-        # Type
-        conf_type = st.text_input(
-            "種別",
-            value=form_data.type or "",
-            placeholder="例: 本会議, 委員会",
-        )
-
         # Term (期/会期/年度)
         term = st.text_input(
             "期/会期/年度",
@@ -101,7 +94,6 @@ def render_new_conference_form(
                 name,
                 governing_body_id,
                 prefecture,
-                conf_type,
                 term,
                 members_url,
             )
@@ -113,7 +105,6 @@ def _handle_form_submission(
     name: str,
     governing_body_id: int | None,
     prefecture: str,
-    conf_type: str,
     term: str,
     members_url: str,
 ) -> None:
@@ -125,7 +116,6 @@ def _handle_form_submission(
         name: 会議体名
         governing_body_id: 開催主体ID
         prefecture: 都道府県
-        conf_type: 種別
         term: 期/会期/年度
         members_url: 議員紹介URL
     """
@@ -139,7 +129,6 @@ def _handle_form_submission(
         form_data.name = name
         form_data.governing_body_id = governing_body_id
         form_data.prefecture = prefecture if prefecture else None
-        form_data.type = conf_type if conf_type else None
         form_data.term = term if term else None
         form_data.members_introduction_url = members_url if members_url else None
 

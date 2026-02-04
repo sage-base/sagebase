@@ -43,7 +43,6 @@ def sample_conferences():
             id=1,
             name="総務委員会",
             governing_body_id=100,
-            type="常任委員会",
             prefecture="東京都",
             members_introduction_url="https://example.com/members1",
         ),
@@ -51,7 +50,6 @@ def sample_conferences():
             id=2,
             name="本会議",
             governing_body_id=100,
-            type="本会議",
             prefecture="東京都",
             members_introduction_url=None,
         ),
@@ -152,7 +150,6 @@ class TestConferencesToDataframe:
         assert "会議体名" in df.columns
         assert "都道府県" in df.columns
         assert "開催主体ID" in df.columns
-        assert "種別" in df.columns
         assert "議員紹介URL" in df.columns
 
         # 最初の行の値を確認
@@ -169,7 +166,6 @@ class TestConferencesToDataframe:
                 id=1,
                 name="テスト会議",
                 governing_body_id=None,
-                type=None,
                 prefecture=None,
                 members_introduction_url=None,
             )
@@ -181,7 +177,6 @@ class TestConferencesToDataframe:
         # Assert
         assert df.iloc[0]["都道府県"] == ""
         assert df.iloc[0]["開催主体ID"] == ""
-        assert df.iloc[0]["種別"] == ""
         assert df.iloc[0]["議員紹介URL"] == ""
 
 
@@ -282,7 +277,6 @@ class TestCreateConference:
         form_data = ConferenceFormData(
             name="新規会議体",
             governing_body_id=100,
-            type="常任委員会",
             prefecture="東京都",
             members_introduction_url="https://example.com/members",
         )
@@ -323,7 +317,6 @@ class TestUpdateConference:
         form_data = ConferenceFormData(
             name="更新された会議体",
             governing_body_id=100,
-            type="特別委員会",
         )
 
         # Act
@@ -427,7 +420,6 @@ class TestLoadConferenceForEdit:
             id=1,
             name="編集対象会議体",
             governing_body_id=100,
-            type="常任委員会",
             prefecture="東京都",
             members_introduction_url="https://example.com/members",
         )
@@ -439,7 +431,6 @@ class TestLoadConferenceForEdit:
         assert isinstance(form_data, ConferenceFormData)
         assert form_data.name == "編集対象会議体"
         assert form_data.governing_body_id == 100
-        assert form_data.type == "常任委員会"
         assert form_data.prefecture == "東京都"
         assert form_data.members_introduction_url == "https://example.com/members"
 
@@ -450,7 +441,6 @@ class TestLoadConferenceForEdit:
             id=1,
             name="会議体",
             governing_body_id=None,
-            type=None,
             prefecture=None,
             members_introduction_url=None,
         )
@@ -460,7 +450,6 @@ class TestLoadConferenceForEdit:
 
         # Assert
         assert form_data.governing_body_id is None
-        assert form_data.type is None
         assert form_data.prefecture is None
         assert form_data.members_introduction_url is None
 
@@ -473,7 +462,6 @@ class TestConferenceFormData:
         form_data = ConferenceFormData()
         assert form_data.name == ""
         assert form_data.governing_body_id is None
-        assert form_data.type is None
         assert form_data.members_introduction_url is None
         assert form_data.prefecture is None
 
@@ -482,12 +470,10 @@ class TestConferenceFormData:
         form_data = ConferenceFormData(
             name="テスト会議体",
             governing_body_id=100,
-            type="本会議",
             members_introduction_url="https://example.com",
             prefecture="大阪府",
         )
         assert form_data.name == "テスト会議体"
         assert form_data.governing_body_id == 100
-        assert form_data.type == "本会議"
         assert form_data.members_introduction_url == "https://example.com"
         assert form_data.prefecture == "大阪府"

@@ -17,7 +17,6 @@ class TestConference:
 
         assert conference.name == "東京都議会"
         assert conference.governing_body_id == 1
-        assert conference.type is None
         assert conference.members_introduction_url is None
         assert conference.prefecture is None
         assert conference.term is None
@@ -29,17 +28,17 @@ class TestConference:
             id=10,
             name="大阪市議会",
             governing_body_id=5,
-            type="地方議会全体",
             members_introduction_url="https://example.com/members",
             prefecture="大阪府",
+            term="令和5年度",
         )
 
         assert conference.id == 10
         assert conference.name == "大阪市議会"
         assert conference.governing_body_id == 5
-        assert conference.type == "地方議会全体"
         assert conference.members_introduction_url == "https://example.com/members"
         assert conference.prefecture == "大阪府"
+        assert conference.term == "令和5年度"
 
     def test_str_representation(self) -> None:
         """Test string representation."""
@@ -60,7 +59,6 @@ class TestConference:
         assert conference.id == 1
         assert conference.governing_body_id == 1
         assert conference.name == "議会全体"
-        assert conference.type == "地方議会全体"
         assert conference.members_introduction_url is None
         assert conference.prefecture is None
         assert conference.term is None
@@ -71,39 +69,19 @@ class TestConference:
             id=99,
             name="愛知県議会",
             governing_body_id=10,
-            type="都道府県議会",
             members_introduction_url="https://aichi.example.com/members",
             prefecture="愛知県",
+            term="令和6年度",
         )
 
         assert conference.id == 99
         assert conference.name == "愛知県議会"
         assert conference.governing_body_id == 10
-        assert conference.type == "都道府県議会"
         assert (
             conference.members_introduction_url == "https://aichi.example.com/members"
         )
         assert conference.prefecture == "愛知県"
-
-    def test_different_conference_types(self) -> None:
-        """Test different types of conferences."""
-        types = [
-            "地方議会全体",
-            "都道府県議会",
-            "市区町村議会",
-            "常任委員会",
-            "特別委員会",
-            "議会運営委員会",
-            None,
-        ]
-
-        for conf_type in types:
-            conference = Conference(
-                name="Test Conference",
-                governing_body_id=1,
-                type=conf_type,
-            )
-            assert conference.type == conf_type
+        assert conference.term == "令和6年度"
 
     def test_various_conference_names(self) -> None:
         """Test various conference names."""
@@ -172,12 +150,10 @@ class TestConference:
             id=1,
             name="東京都議会",
             governing_body_id=13,
-            type="都道府県議会",
             members_introduction_url="https://tokyo.example.com/members",
             prefecture="東京都",
         )
         assert str(prefectural) == "東京都議会"
-        assert prefectural.type == "都道府県議会"
         assert prefectural.prefecture == "東京都"
 
         # City council
@@ -185,12 +161,10 @@ class TestConference:
             id=2,
             name="横浜市議会",
             governing_body_id=141,
-            type="市区町村議会",
             members_introduction_url="https://yokohama.example.com/members",
             prefecture="神奈川県",
         )
         assert str(city_council) == "横浜市議会"
-        assert city_council.type == "市区町村議会"
         assert city_council.prefecture == "神奈川県"
 
         # Committee
@@ -198,12 +172,10 @@ class TestConference:
             id=3,
             name="総務委員会",
             governing_body_id=13,
-            type="常任委員会",
             members_introduction_url=None,
             prefecture="東京都",
         )
         assert str(committee) == "総務委員会"
-        assert committee.type == "常任委員会"
         assert committee.prefecture == "東京都"
 
     def test_prefecture_for_national_parliament(self) -> None:
@@ -213,7 +185,6 @@ class TestConference:
             id=1,
             name="衆議院本会議",
             governing_body_id=1,
-            type="国会",
             prefecture="全国",
         )
         assert house_of_representatives.prefecture == "全国"
@@ -223,7 +194,6 @@ class TestConference:
             id=2,
             name="参議院本会議",
             governing_body_id=1,
-            type="国会",
             prefecture="全国",
         )
         assert house_of_councillors.prefecture == "全国"
@@ -312,7 +282,6 @@ class TestConference:
             id=1,
             name="衆議院本会議",
             governing_body_id=1,
-            type="国会",
             term="第220回",
         )
         assert conference_kokkai.term == "第220回"
@@ -322,7 +291,6 @@ class TestConference:
             id=2,
             name="東京都議会",
             governing_body_id=13,
-            type="都道府県議会",
             term="令和5年度",
         )
         assert conference_local.term == "令和5年度"
@@ -342,11 +310,9 @@ class TestConference:
         conference_empty = Conference(
             name="Name",
             governing_body_id=1,
-            type="",
             members_introduction_url="",
         )
         assert conference_empty.name == "Name"
-        assert conference_empty.type == ""
         assert conference_empty.members_introduction_url == ""
 
         # Very long names
@@ -381,14 +347,14 @@ class TestConference:
         conference = Conference(
             name="Test Conference",
             governing_body_id=1,
-            type=None,
             members_introduction_url=None,
             prefecture=None,
+            term=None,
         )
 
-        assert conference.type is None
         assert conference.members_introduction_url is None
         assert conference.prefecture is None
+        assert conference.term is None
 
     def test_id_assignment(self) -> None:
         """Test ID assignment behavior."""
@@ -403,22 +369,3 @@ class TestConference:
         # ID can be any integer
         conference3 = Conference(name="Test 3", governing_body_id=1, id=999999)
         assert conference3.id == 999999
-
-    def test_committee_types(self) -> None:
-        """Test various committee types."""
-        committee_types = [
-            ("総務委員会", "常任委員会"),
-            ("文教委員会", "常任委員会"),
-            ("予算特別委員会", "特別委員会"),
-            ("決算特別委員会", "特別委員会"),
-            ("議会運営委員会", "議会運営委員会"),
-        ]
-
-        for name, conf_type in committee_types:
-            conference = Conference(
-                name=name,
-                governing_body_id=1,
-                type=conf_type,
-            )
-            assert conference.name == name
-            assert conference.type == conf_type

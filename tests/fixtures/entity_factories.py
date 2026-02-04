@@ -42,7 +42,6 @@ def create_conference(**kwargs: Any) -> Conference:
         "id": 1,
         "governing_body_id": 1,
         "name": "議会全体",
-        "type": "地方議会全体",
         "members_introduction_url": None,
         "prefecture": None,
         "term": None,

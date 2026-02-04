@@ -29,7 +29,6 @@ class ConferenceModel(PydanticBaseModel):
 
     id: int | None = None
     name: str
-    type: str | None = None
     governing_body_id: int
     members_introduction_url: str | None = None
     prefecture: str | None = None
@@ -75,7 +74,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     SELECT
                         id,
                         name,
-                        type,
                         governing_body_id,
                         members_introduction_url,
                         prefecture,
@@ -97,7 +95,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     SELECT
                         id,
                         name,
-                        type,
                         governing_body_id,
                         members_introduction_url,
                         prefecture,
@@ -151,7 +148,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 SELECT
                     id,
                     name,
-                    type,
                     governing_body_id,
                     members_introduction_url,
                     prefecture,
@@ -197,7 +193,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 SELECT
                     id,
                     name,
-                    type,
                     governing_body_id,
                     members_introduction_url,
                     prefecture,
@@ -290,7 +285,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 SELECT
                     c.id,
                     c.name,
-                    c.type,
                     c.governing_body_id,
                     c.members_introduction_url,
                     c.prefecture,
@@ -343,7 +337,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 SELECT
                     id,
                     name,
-                    type,
                     governing_body_id,
                     members_introduction_url,
                     prefecture,
@@ -387,12 +380,12 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
 
             query = text("""
                 INSERT INTO conferences (
-                    name, type, governing_body_id,
+                    name, governing_body_id,
                     members_introduction_url, prefecture, term,
                     created_at, updated_at
                 )
                 VALUES (
-                    :name, :type, :governing_body_id,
+                    :name, :governing_body_id,
                     :members_introduction_url, :prefecture, :term,
                     :created_at, :updated_at
                 )
@@ -401,7 +394,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
 
             params = {
                 "name": entity.name,
-                "type": entity.type,
                 "governing_body_id": entity.governing_body_id,
                 "members_introduction_url": entity.members_introduction_url,
                 "prefecture": entity.prefecture,
@@ -446,7 +438,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             query = text("""
                 UPDATE conferences
                 SET name = :name,
-                    type = :type,
                     governing_body_id = :governing_body_id,
                     members_introduction_url = :members_introduction_url,
                     prefecture = :prefecture,
@@ -459,7 +450,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             params = {
                 "id": entity.id,
                 "name": entity.name,
-                "type": entity.type,
                 "governing_body_id": entity.governing_body_id,
                 "members_introduction_url": entity.members_introduction_url,
                 "prefecture": entity.prefecture,
@@ -554,7 +544,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
         return Conference(
             id=model.id,
             name=model.name,
-            type=model.type,
             governing_body_id=model.governing_body_id,
             members_introduction_url=model.members_introduction_url,
             prefecture=model.prefecture,
@@ -573,7 +562,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
         return ConferenceModel(
             id=entity.id,
             name=entity.name,
-            type=entity.type,
             governing_body_id=entity.governing_body_id,
             members_introduction_url=entity.members_introduction_url,
             prefecture=entity.prefecture,
@@ -588,7 +576,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             entity: Source entity
         """
         model.name = entity.name
-        model.type = entity.type
         model.governing_body_id = entity.governing_body_id
         model.members_introduction_url = entity.members_introduction_url
         model.prefecture = entity.prefecture
@@ -606,7 +593,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
         return Conference(
             id=data.get("id"),
             name=data["name"],
-            type=data.get("type"),
             governing_body_id=data["governing_body_id"],
             members_introduction_url=data.get("members_introduction_url"),
             prefecture=data.get("prefecture"),

@@ -367,13 +367,11 @@ class TestManageConferencesUseCase:
                 id=1,
                 name="衆議院本会議",
                 governing_body_id=1,
-                type="本会議",
             ),
             Conference(
                 id=2,
                 name="参議院本会議",
                 governing_body_id=1,
-                type="本会議",
             ),
         ]
         mock_conference_repository.get_all.return_value = conferences
@@ -513,21 +511,18 @@ class TestManageConferencesUseCase:
                 id=1,
                 name="衆議院本会議",
                 governing_body_id=1,
-                type="国会",
                 prefecture="全国",
             ),
             Conference(
                 id=2,
                 name="東京都議会",
                 governing_body_id=13,
-                type="都道府県議会",
                 prefecture="東京都",
             ),
             Conference(
                 id=3,
                 name="未設定の会議体",
                 governing_body_id=100,
-                type=None,
                 prefecture=None,
             ),
         ]

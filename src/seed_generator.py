@@ -103,7 +103,6 @@ class SeedGenerator:
                 text("""
                     SELECT
                         c.name,
-                        c.type,
                         c.members_introduction_url,
                         c.governing_body_id,
                         gb.name as governing_body_name,
@@ -134,7 +133,7 @@ class SeedGenerator:
             "",
             (
                 "INSERT INTO conferences "
-                "(name, type, governing_body_id, members_introduction_url) VALUES"
+                "(name, governing_body_id, members_introduction_url) VALUES"
             ),
         ]
 
@@ -201,17 +200,9 @@ class SeedGenerator:
                 else:
                     governing_body_part = "NULL"
 
-                if conf.get("type"):
-                    conf_type = conf["type"].replace("'", "''")
-                    lines.append(
-                        f"('{conf_name}', '{conf_type}', "
-                        f"{governing_body_part}, {members_url}){comma}"
-                    )
-                else:
-                    lines.append(
-                        f"('{conf_name}', NULL, "
-                        f"{governing_body_part}, {members_url}){comma}"
-                    )
+                lines.append(
+                    f"('{conf_name}', {governing_body_part}, {members_url}){comma}"
+                )
 
             first_group = False
 

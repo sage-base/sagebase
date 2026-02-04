@@ -22,7 +22,6 @@ class ConferenceFormData:
 
     name: str = ""
     governing_body_id: int | None = None
-    type: str | None = None
     members_introduction_url: str | None = None
     prefecture: str | None = None
     term: str | None = None
@@ -67,7 +66,6 @@ class ConferencePresenter:
                     "期/会期/年度": conf.term or "",
                     "都道府県": conf.prefecture or "",
                     "開催主体ID": conf.governing_body_id or "",
-                    "種別": conf.type or "",
                     "議員紹介URL": conf.members_introduction_url or "",
                 }
             )
@@ -100,7 +98,6 @@ class ConferencePresenter:
         input_dto = CreateConferenceInputDto(
             name=form_data.name,
             governing_body_id=form_data.governing_body_id,
-            type=form_data.type,
             members_introduction_url=form_data.members_introduction_url,
             prefecture=form_data.prefecture,
             term=form_data.term,
@@ -116,7 +113,6 @@ class ConferencePresenter:
             id=conference_id,
             name=form_data.name,
             governing_body_id=form_data.governing_body_id,
-            type=form_data.type,
             members_introduction_url=form_data.members_introduction_url,
             prefecture=form_data.prefecture,
             term=form_data.term,
@@ -140,7 +136,6 @@ class ConferencePresenter:
         return ConferenceFormData(
             name=conference.name,
             governing_body_id=conference.governing_body_id,
-            type=conference.type,
             members_introduction_url=conference.members_introduction_url,
             prefecture=conference.prefecture,
             term=conference.term,

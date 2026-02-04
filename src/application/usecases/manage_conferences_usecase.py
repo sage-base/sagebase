@@ -34,7 +34,6 @@ class CreateConferenceInputDto:
 
     name: str
     governing_body_id: int | None = None
-    type: str | None = None
     members_introduction_url: str | None = None
     prefecture: str | None = None
     term: str | None = None
@@ -56,7 +55,6 @@ class UpdateConferenceInputDto:
     id: int
     name: str
     governing_body_id: int | None = None
-    type: str | None = None
     members_introduction_url: str | None = None
     prefecture: str | None = None
     term: str | None = None
@@ -175,7 +173,6 @@ class ManageConferencesUseCase:
                 governing_body_id=(
                     input_dto.governing_body_id if input_dto.governing_body_id else 0
                 ),
-                type=input_dto.type,
                 members_introduction_url=input_dto.members_introduction_url,
                 prefecture=input_dto.prefecture,
                 term=input_dto.term,
@@ -203,7 +200,6 @@ class ManageConferencesUseCase:
             existing.name = input_dto.name
             if input_dto.governing_body_id is not None:
                 existing.governing_body_id = input_dto.governing_body_id
-            existing.type = input_dto.type
             existing.members_introduction_url = input_dto.members_introduction_url
             existing.prefecture = input_dto.prefecture
             existing.term = input_dto.term
@@ -252,34 +248,34 @@ class ManageConferencesUseCase:
             seed_content += "-- Generated from current database\n\n"
             seed_content += (
                 "INSERT INTO conferences "
-                "(id, name, governing_body_id, type, members_introduction_url, "
-                "prefecture) VALUES\n"
+                "(id, name, governing_body_id, members_introduction_url, "
+                "prefecture, term) VALUES\n"
             )
 
             values: list[str] = []
             for conf in all_conferences:
                 gb_id = conf.governing_body_id if conf.governing_body_id else "NULL"
-                conf_type = f"'{conf.type}'" if conf.type else "NULL"
                 members_url = (
                     f"'{conf.members_introduction_url}'"
                     if conf.members_introduction_url
                     else "NULL"
                 )
                 prefecture = f"'{conf.prefecture}'" if conf.prefecture else "NULL"
+                term = f"'{conf.term}'" if conf.term else "NULL"
                 values.append(
                     f"    ({conf.id}, '{conf.name}', {gb_id}, "
-                    f"{conf_type}, {members_url}, {prefecture})"
+                    f"{members_url}, {prefecture}, {term})"
                 )
 
             seed_content += ",\n".join(values) + "\n"
             seed_content += "ON CONFLICT (id) DO UPDATE SET\n"
             seed_content += "    name = EXCLUDED.name,\n"
             seed_content += "    governing_body_id = EXCLUDED.governing_body_id,\n"
-            seed_content += "    type = EXCLUDED.type,\n"
             seed_content += (
                 "    members_introduction_url = EXCLUDED.members_introduction_url,\n"
             )
-            seed_content += "    prefecture = EXCLUDED.prefecture;\n"
+            seed_content += "    prefecture = EXCLUDED.prefecture,\n"
+            seed_content += "    term = EXCLUDED.term;\n"
 
             # Save to file
             file_path = "database/seed_conferences_generated.sql"
