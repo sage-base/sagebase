@@ -300,7 +300,7 @@ LIMIT 10;
 ```bash
 # Pythonでデータベース接続をテスト
 docker compose -f docker/docker-compose.yml exec sagebase uv run python -c "
-from src.config.database import test_connection
+from src.infrastructure.config.database import test_connection
 test_connection()
 "
 ```
