@@ -20,6 +20,7 @@ class TestConference:
         assert conference.type is None
         assert conference.members_introduction_url is None
         assert conference.prefecture is None
+        assert conference.term is None
         assert conference.id is None
 
     def test_initialization_with_all_fields(self) -> None:
@@ -62,6 +63,7 @@ class TestConference:
         assert conference.type == "地方議会全体"
         assert conference.members_introduction_url is None
         assert conference.prefecture is None
+        assert conference.term is None
 
     def test_factory_with_overrides(self) -> None:
         """Test entity factory with custom values."""
@@ -294,6 +296,45 @@ class TestConference:
             governing_body_id=1,
         )
         assert conference.prefecture is None
+
+    def test_term_none_by_default(self) -> None:
+        """Test term is None by default when not specified."""
+        conference = Conference(
+            name="Test Conference",
+            governing_body_id=1,
+        )
+        assert conference.term is None
+
+    def test_initialization_with_term(self) -> None:
+        """Test entity initialization with term field."""
+        # 国会の会期パターン
+        conference_kokkai = Conference(
+            id=1,
+            name="衆議院本会議",
+            governing_body_id=1,
+            type="国会",
+            term="第220回",
+        )
+        assert conference_kokkai.term == "第220回"
+
+        # 地方議会の年度パターン
+        conference_local = Conference(
+            id=2,
+            name="東京都議会",
+            governing_body_id=13,
+            type="都道府県議会",
+            term="令和5年度",
+        )
+        assert conference_local.term == "令和5年度"
+
+        # termがNoneの場合
+        conference_no_term = Conference(
+            id=3,
+            name="委員会",
+            governing_body_id=1,
+            term=None,
+        )
+        assert conference_no_term.term is None
 
     def test_edge_cases(self) -> None:
         """Test edge cases for Conference entity."""

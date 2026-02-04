@@ -45,6 +45,7 @@ def create_conference(**kwargs: Any) -> Conference:
         "type": "地方議会全体",
         "members_introduction_url": None,
         "prefecture": None,
+        "term": None,
     }
     defaults.update(kwargs)
     return Conference(**defaults)

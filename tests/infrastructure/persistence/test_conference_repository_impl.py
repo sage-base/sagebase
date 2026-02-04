@@ -52,6 +52,7 @@ class TestConferenceRepositoryImpl:
             "governing_body_id": 10,
             "members_introduction_url": "https://example.com/members",
             "prefecture": "東京都",
+            "term": None,
             "created_at": None,
             "updated_at": None,
         }
@@ -66,6 +67,7 @@ class TestConferenceRepositoryImpl:
             governing_body_id=10,
             members_introduction_url="https://example.com/members",
             prefecture="東京都",
+            term=None,
         )
 
     @pytest.mark.asyncio
@@ -493,6 +495,7 @@ class TestConferenceRepositoryImpl:
             "type": "都道府県議会",
             "members_introduction_url": None,
             "prefecture": "東京都",
+            "term": None,
             "created_at": None,
             "updated_at": None,
         }
@@ -537,6 +540,7 @@ class TestConferenceRepositoryImpl:
             "type": "都道府県議会",
             "members_introduction_url": None,
             "prefecture": "東京都",
+            "term": None,
             "created_at": None,
             "updated_at": None,
         }
@@ -555,3 +559,213 @@ class TestConferenceRepositoryImpl:
         # Verify the SQL query includes prefecture
         call_args = mock_session.execute.call_args
         assert "prefecture" in call_args[0][0].text
+
+    @pytest.mark.asyncio
+    async def test_get_by_name_and_governing_body_with_term(
+        self,
+        repository: ConferenceRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_name_and_governing_body with term parameter."""
+        # Setup mock result
+        conference_dict = {
+            "id": 1,
+            "name": "衆議院本会議",
+            "type": "国会",
+            "governing_body_id": 1,
+            "members_introduction_url": None,
+            "prefecture": "全国",
+            "term": "第220回",
+            "created_at": None,
+            "updated_at": None,
+        }
+        mock_row = MagicMock()
+        mock_row._mapping = conference_dict
+        mock_row._asdict = MagicMock(return_value=conference_dict)
+        mock_result = MagicMock()
+        mock_result.fetchone = MagicMock(return_value=mock_row)
+        mock_session.execute.return_value = mock_result
+
+        # Execute with term
+        result = await repository.get_by_name_and_governing_body(
+            "衆議院本会議", 1, term="第220回"
+        )
+
+        # Assert
+        assert result is not None
+        assert result.id == 1
+        assert result.name == "衆議院本会議"
+        assert result.term == "第220回"
+        mock_session.execute.assert_called_once()
+        # Verify the SQL query includes term condition
+        call_args = mock_session.execute.call_args
+        assert "term = :term" in call_args[0][0].text
+        assert call_args[0][1]["term"] == "第220回"
+
+    @pytest.mark.asyncio
+    async def test_get_by_name_and_governing_body_with_term_none(
+        self,
+        repository: ConferenceRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_name_and_governing_body with term=None searches for NULL term."""
+        # Setup mock result
+        conference_dict = {
+            "id": 1,
+            "name": "委員会",
+            "type": "委員会",
+            "governing_body_id": 1,
+            "members_introduction_url": None,
+            "prefecture": "東京都",
+            "term": None,
+            "created_at": None,
+            "updated_at": None,
+        }
+        mock_row = MagicMock()
+        mock_row._mapping = conference_dict
+        mock_row._asdict = MagicMock(return_value=conference_dict)
+        mock_result = MagicMock()
+        mock_result.fetchone = MagicMock(return_value=mock_row)
+        mock_session.execute.return_value = mock_result
+
+        # Execute without term (term=None)
+        result = await repository.get_by_name_and_governing_body("委員会", 1)
+
+        # Assert
+        assert result is not None
+        assert result.term is None
+        mock_session.execute.assert_called_once()
+        # Verify the SQL query uses term IS NULL condition
+        call_args = mock_session.execute.call_args
+        assert "term IS NULL" in call_args[0][0].text
+
+    @pytest.mark.asyncio
+    async def test_create_conference_with_term(
+        self,
+        repository: ConferenceRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test creating a conference with term field."""
+        # Create entity with term
+        entity = Conference(
+            name="衆議院本会議",
+            governing_body_id=1,
+            type="国会",
+            term="第220回",
+        )
+
+        # Setup mock result for RETURNING *
+        created_dict = {
+            "id": 1,
+            "name": "衆議院本会議",
+            "governing_body_id": 1,
+            "type": "国会",
+            "members_introduction_url": None,
+            "prefecture": None,
+            "term": "第220回",
+            "created_at": None,
+            "updated_at": None,
+        }
+        mock_row = MagicMock()
+        mock_row._asdict = MagicMock(return_value=created_dict)
+        mock_result = MagicMock()
+        mock_result.first = MagicMock(return_value=mock_row)
+        mock_session.execute.return_value = mock_result
+
+        # Execute
+        result = await repository.create(entity)
+
+        # Assert
+        assert result.id == 1
+        assert result.term == "第220回"
+        mock_session.execute.assert_called()
+        # Verify the SQL query includes term
+        call_args = mock_session.execute.call_args
+        assert "term" in call_args[0][0].text
+
+    def test_to_entity_with_term(self, repository: ConferenceRepositoryImpl) -> None:
+        """Test _to_entity converts model with term to entity correctly."""
+        # Create model with term
+        model = ConferenceModel(
+            id=1,
+            name="衆議院本会議",
+            type="国会",
+            governing_body_id=1,
+            members_introduction_url=None,
+            prefecture="全国",
+            term="第220回",
+        )
+
+        # Convert
+        entity = repository._to_entity(model)  # type: ignore[reportPrivateUsage]
+
+        # Assert
+        assert isinstance(entity, Conference)
+        assert entity.term == "第220回"
+
+    def test_to_model_with_term(self, repository: ConferenceRepositoryImpl) -> None:
+        """Test _to_model converts entity with term to model correctly."""
+        # Create entity with term
+        entity = Conference(
+            id=1,
+            name="衆議院本会議",
+            type="国会",
+            governing_body_id=1,
+            term="第220回",
+        )
+
+        # Convert
+        model = repository._to_model(entity)  # type: ignore[reportPrivateUsage]
+
+        # Assert
+        assert isinstance(model, ConferenceModel)
+        assert model.term == "第220回"
+
+    def test_dict_to_entity_with_term(
+        self, repository: ConferenceRepositoryImpl
+    ) -> None:
+        """Test _dict_to_entity handles term field."""
+        # Dictionary with term
+        data: dict[str, Any] = {
+            "id": 1,
+            "name": "衆議院本会議",
+            "type": "国会",
+            "governing_body_id": 1,
+            "members_introduction_url": None,
+            "prefecture": "全国",
+            "term": "第220回",
+        }
+
+        # Convert
+        entity = repository._dict_to_entity(data)  # type: ignore[reportPrivateUsage]
+
+        # Assert
+        assert entity.term == "第220回"
+
+    def test_update_model_with_term(self, repository: ConferenceRepositoryImpl) -> None:
+        """Test _update_model updates term field from entity."""
+        # Create model without term
+        model = ConferenceModel(
+            id=1,
+            name="衆議院本会議",
+            type="国会",
+            governing_body_id=1,
+            members_introduction_url=None,
+            prefecture=None,
+            term=None,
+        )
+
+        # Create entity with term
+        entity = Conference(
+            id=1,
+            name="衆議院本会議",
+            governing_body_id=1,
+            type="国会",
+            term="第220回",
+        )
+
+        # Update model
+        repository._update_model(model, entity)  # type: ignore[reportPrivateUsage]
+
+        # Assert
+        assert model.term == "第220回"
