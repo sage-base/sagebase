@@ -56,8 +56,8 @@ def setup_test_data(db_session):
     # Insert test conference
     conf_result = db_session.execute(
         text("""
-        INSERT INTO conferences (governing_body_id, name, type)
-        VALUES (1, 'モニターテスト議会', '地方議会全体')
+        INSERT INTO conferences (governing_body_id, name)
+        VALUES (1, 'モニターテスト議会')
         RETURNING id
         """)
     )
