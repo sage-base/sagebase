@@ -1,0 +1,262 @@
+"""選挙管理のユースケース."""
+
+from dataclasses import dataclass
+from datetime import date
+
+from src.common.logging import get_logger
+from src.domain.entities import Election
+from src.domain.repositories.election_repository import ElectionRepository
+
+
+logger = get_logger(__name__)
+
+
+# Input DTOs
+
+
+@dataclass
+class ListElectionsInputDto:
+    """選挙一覧取得の入力DTO."""
+
+    governing_body_id: int
+
+
+@dataclass
+class CreateElectionInputDto:
+    """選挙作成の入力DTO."""
+
+    governing_body_id: int
+    term_number: int
+    election_date: date
+    election_type: str | None = None
+
+
+@dataclass
+class UpdateElectionInputDto:
+    """選挙更新の入力DTO."""
+
+    id: int
+    governing_body_id: int
+    term_number: int
+    election_date: date
+    election_type: str | None = None
+
+
+@dataclass
+class DeleteElectionInputDto:
+    """選挙削除の入力DTO."""
+
+    id: int
+
+
+# Output DTOs
+
+
+@dataclass
+class ListElectionsOutputDto:
+    """選挙一覧取得の出力DTO."""
+
+    elections: list[Election]
+    success: bool = True
+    error_message: str | None = None
+
+
+@dataclass
+class CreateElectionOutputDto:
+    """選挙作成の出力DTO."""
+
+    success: bool
+    election_id: int | None = None
+    error_message: str | None = None
+
+
+@dataclass
+class UpdateElectionOutputDto:
+    """選挙更新の出力DTO."""
+
+    success: bool
+    error_message: str | None = None
+
+
+@dataclass
+class DeleteElectionOutputDto:
+    """選挙削除の出力DTO."""
+
+    success: bool
+    error_message: str | None = None
+
+
+@dataclass
+class GenerateSeedFileOutputDto:
+    """SEEDファイル生成の出力DTO."""
+
+    success: bool
+    seed_content: str | None = None
+    file_path: str | None = None
+    error_message: str | None = None
+
+
+class ManageElectionsUseCase:
+    """選挙管理のユースケース."""
+
+    def __init__(self, election_repository: ElectionRepository) -> None:
+        """ユースケースを初期化する.
+
+        Args:
+            election_repository: 選挙リポジトリインスタンス
+        """
+        self.election_repository = election_repository
+
+    async def list_elections(
+        self, input_dto: ListElectionsInputDto
+    ) -> ListElectionsOutputDto:
+        """開催主体に属する選挙一覧を取得する."""
+        try:
+            elections = await self.election_repository.get_by_governing_body(
+                input_dto.governing_body_id
+            )
+            return ListElectionsOutputDto(elections=elections)
+        except Exception as e:
+            logger.error(f"Failed to list elections: {e}")
+            return ListElectionsOutputDto(
+                elections=[], success=False, error_message=str(e)
+            )
+
+    async def list_all_elections(self) -> ListElectionsOutputDto:
+        """全選挙一覧を取得する."""
+        try:
+            elections = await self.election_repository.get_all()
+            return ListElectionsOutputDto(elections=elections)
+        except Exception as e:
+            logger.error(f"Failed to list all elections: {e}")
+            return ListElectionsOutputDto(
+                elections=[], success=False, error_message=str(e)
+            )
+
+    async def create_election(
+        self, input_dto: CreateElectionInputDto
+    ) -> CreateElectionOutputDto:
+        """選挙を作成する."""
+        try:
+            # 重複チェック（同じ開催主体・期番号の組み合わせ）
+            existing = await self.election_repository.get_by_governing_body_and_term(
+                input_dto.governing_body_id, input_dto.term_number
+            )
+            if existing:
+                return CreateElectionOutputDto(
+                    success=False,
+                    error_message="同じ開催主体と期番号の選挙が既に存在します。",
+                )
+
+            # 期番号のバリデーション
+            if input_dto.term_number < 1:
+                return CreateElectionOutputDto(
+                    success=False,
+                    error_message="期番号は1以上である必要があります。",
+                )
+
+            # 選挙エンティティを作成
+            election = Election(
+                governing_body_id=input_dto.governing_body_id,
+                term_number=input_dto.term_number,
+                election_date=input_dto.election_date,
+                election_type=input_dto.election_type,
+            )
+
+            created = await self.election_repository.create(election)
+            return CreateElectionOutputDto(success=True, election_id=created.id)
+        except Exception as e:
+            logger.error(f"Failed to create election: {e}")
+            return CreateElectionOutputDto(success=False, error_message=str(e))
+
+    async def update_election(
+        self, input_dto: UpdateElectionInputDto
+    ) -> UpdateElectionOutputDto:
+        """選挙を更新する."""
+        try:
+            # 存在確認
+            existing = await self.election_repository.get_by_id(input_dto.id)
+            if not existing:
+                return UpdateElectionOutputDto(
+                    success=False, error_message="選挙が見つかりません。"
+                )
+
+            # 重複チェック（自身を除く）
+            duplicate = await self.election_repository.get_by_governing_body_and_term(
+                input_dto.governing_body_id, input_dto.term_number
+            )
+            if duplicate and duplicate.id != input_dto.id:
+                return UpdateElectionOutputDto(
+                    success=False,
+                    error_message="同じ開催主体と期番号の選挙が既に存在します。",
+                )
+
+            # 期番号のバリデーション
+            if input_dto.term_number < 1:
+                return UpdateElectionOutputDto(
+                    success=False,
+                    error_message="期番号は1以上である必要があります。",
+                )
+
+            # 更新
+            election = Election(
+                id=input_dto.id,
+                governing_body_id=input_dto.governing_body_id,
+                term_number=input_dto.term_number,
+                election_date=input_dto.election_date,
+                election_type=input_dto.election_type,
+            )
+
+            await self.election_repository.update(election)
+            return UpdateElectionOutputDto(success=True)
+        except Exception as e:
+            logger.error(f"Failed to update election: {e}")
+            return UpdateElectionOutputDto(success=False, error_message=str(e))
+
+    async def delete_election(
+        self, input_dto: DeleteElectionInputDto
+    ) -> DeleteElectionOutputDto:
+        """選挙を削除する."""
+        try:
+            # 存在確認
+            existing = await self.election_repository.get_by_id(input_dto.id)
+            if not existing:
+                return DeleteElectionOutputDto(
+                    success=False, error_message="選挙が見つかりません。"
+                )
+
+            result = await self.election_repository.delete(input_dto.id)
+            if result:
+                return DeleteElectionOutputDto(success=True)
+            else:
+                return DeleteElectionOutputDto(
+                    success=False,
+                    error_message="削除できませんでした（関連する会議体が存在する可能性があります）。",
+                )
+        except Exception as e:
+            logger.error(f"Failed to delete election: {e}")
+            return DeleteElectionOutputDto(success=False, error_message=str(e))
+
+    def get_election_type_options(self) -> list[str]:
+        """選挙種別の選択肢を取得する."""
+        return ["統一地方選挙", "通常選挙", "補欠選挙", "再選挙", "その他"]
+
+    async def generate_seed_file(self) -> GenerateSeedFileOutputDto:
+        """選挙のSEEDファイルを生成する."""
+        try:
+            from src.seed_generator import SeedGenerator
+
+            generator = SeedGenerator()
+            seed_content = generator.generate_elections_seed()
+
+            # ファイルに保存
+            output_path = "database/seed_elections_generated.sql"
+            with open(output_path, "w") as f:
+                f.write(seed_content)
+
+            return GenerateSeedFileOutputDto(
+                success=True, seed_content=seed_content, file_path=output_path
+            )
+        except Exception as e:
+            logger.error(f"Failed to generate seed file: {e}")
+            return GenerateSeedFileOutputDto(success=False, error_message=str(e))

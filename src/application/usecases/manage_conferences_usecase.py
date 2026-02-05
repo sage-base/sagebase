@@ -37,6 +37,7 @@ class CreateConferenceInputDto:
     members_introduction_url: str | None = None
     prefecture: str | None = None
     term: str | None = None
+    election_id: int | None = None
 
 
 @dataclass
@@ -58,6 +59,7 @@ class UpdateConferenceInputDto:
     members_introduction_url: str | None = None
     prefecture: str | None = None
     term: str | None = None
+    election_id: int | None = None
 
 
 @dataclass
@@ -176,6 +178,7 @@ class ManageConferencesUseCase:
                 members_introduction_url=input_dto.members_introduction_url,
                 prefecture=input_dto.prefecture,
                 term=input_dto.term,
+                election_id=input_dto.election_id,
             )
 
             created = await self.conference_repository.create(conference)
@@ -203,6 +206,7 @@ class ManageConferencesUseCase:
             existing.members_introduction_url = input_dto.members_introduction_url
             existing.prefecture = input_dto.prefecture
             existing.term = input_dto.term
+            existing.election_id = input_dto.election_id
             await self.conference_repository.update(existing)
             return UpdateConferenceOutputDto(success=True)
         except Exception as e:
