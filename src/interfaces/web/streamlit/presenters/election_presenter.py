@@ -8,6 +8,7 @@ import pandas as pd
 from src.application.usecases.manage_elections_usecase import (
     CreateElectionInputDto,
     DeleteElectionInputDto,
+    GenerateSeedFileOutputDto,
     ListElectionsInputDto,
     ManageElectionsUseCase,
     UpdateElectionInputDto,
@@ -287,3 +288,19 @@ class ElectionPresenter(BasePresenter[list[Election]]):
     def get_selected_governing_body(self) -> int | None:
         """選択された開催主体を取得する."""
         return self.form_state.get("selected_governing_body_id")
+
+    def generate_seed_file(self) -> tuple[bool, str | None, str | None]:
+        """選挙のSEEDファイルを生成する."""
+        return self._run_async(self._generate_seed_file_async())
+
+    async def _generate_seed_file_async(self) -> tuple[bool, str | None, str | None]:
+        """選挙のSEEDファイルを生成する（非同期実装）."""
+        try:
+            result: GenerateSeedFileOutputDto = await self.use_case.generate_seed_file()
+            if result.success:
+                return True, result.seed_content, result.file_path
+            return False, None, result.error_message
+        except Exception as e:
+            error_msg = f"Failed to generate seed file: {e}"
+            self.logger.exception(error_msg)
+            return False, None, error_msg

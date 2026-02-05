@@ -544,6 +544,128 @@ class SeedGenerator:
             output.write(result)
         return result
 
+    def generate_elections_seed(self, output: TextIO | None = None) -> str:
+        """electionsテーブルのSEEDファイルを生成する"""
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    SELECT
+                        e.id,
+                        e.governing_body_id,
+                        e.term_number,
+                        e.election_date,
+                        e.election_type,
+                        gb.name as governing_body_name,
+                        gb.type as governing_body_type
+                    FROM elections e
+                    JOIN governing_bodies gb ON e.governing_body_id = gb.id
+                    ORDER BY
+                        CASE gb.type
+                            WHEN '国' THEN 1
+                            WHEN '都道府県' THEN 2
+                            WHEN '市町村' THEN 3
+                            ELSE 4
+                        END,
+                        gb.name,
+                        e.term_number
+                """)
+            )
+            columns = result.keys()
+            elections = [dict(zip(columns, row, strict=False)) for row in result]
+
+        lines = [
+            (
+                f"-- Generated from database on "
+                f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            ),
+            "-- elections seed data",
+            "",
+            (
+                "INSERT INTO elections "
+                "(id, governing_body_id, term_number, election_date, election_type) "
+                "VALUES"
+            ),
+        ]
+
+        # 開催主体ごとにグループ化
+        grouped_data: dict[str, dict[str, Any]] = {}
+        for election in elections:
+            key = f"{election['governing_body_type']}_{election['governing_body_name']}"
+            if key not in grouped_data:
+                grouped_data[key] = {
+                    "body_name": election["governing_body_name"],
+                    "body_type": election["governing_body_type"],
+                    "elections": [],
+                }
+            grouped_data[key]["elections"].append(election)
+
+        first_group = True
+        group_keys: list[str] = list(grouped_data.keys())
+        for group_idx, (_key, data) in enumerate(grouped_data.items()):
+            body_name: str = data["body_name"]
+            body_type: str = data["body_type"]
+            elections_list: list[dict[str, Any]] = data["elections"]
+
+            if not first_group:
+                lines.append("")
+            lines.append(f"-- {body_name} ({body_type})")
+
+            for i, election in enumerate(elections_list):
+                election_id = election["id"]
+                term_number = election["term_number"]
+
+                # 日付フォーマット
+                date_str = (
+                    election["election_date"].strftime("%Y-%m-%d")
+                    if election["election_date"]
+                    else "NULL"
+                )
+
+                # election_typeの処理
+                if election.get("election_type"):
+                    etype = election["election_type"].replace("'", "''")
+                    election_type = f"'{etype}'"
+                else:
+                    election_type = "NULL"
+
+                # 開催主体IDはサブクエリで取得
+                body_name_escaped = body_name.replace("'", "''")
+                body_type_escaped = body_type.replace("'", "''")
+                governing_body_part = (
+                    f"(SELECT id FROM governing_bodies WHERE name = "
+                    f"'{body_name_escaped}' AND type = '{body_type_escaped}')"
+                )
+
+                # 最後の要素かどうかチェック
+                is_last = (
+                    group_idx == len(group_keys) - 1 and i == len(elections_list) - 1
+                )
+                comma = "" if is_last else ","
+
+                lines.append(
+                    f"({election_id}, {governing_body_part}, {term_number}, "
+                    f"'{date_str}', {election_type}){comma}"
+                )
+
+            first_group = False
+
+        lines.append(
+            "ON CONFLICT (governing_body_id, term_number) DO UPDATE SET "
+            "election_date = EXCLUDED.election_date, "
+            "election_type = EXCLUDED.election_type;"
+        )
+        lines.append("")
+        lines.append("-- Reset sequence to max id + 1")
+        lines.append(
+            "SELECT setval('elections_id_seq', "
+            "(SELECT COALESCE(MAX(id), 0) + 1 FROM elections), false);"
+        )
+
+        result = "\n".join(lines) + "\n"
+        if output:
+            output.write(result)
+        return result
+
 
 def generate_all_seeds(output_dir: str = "database") -> None:
     """すべてのSEEDファイルを生成する"""
@@ -558,6 +680,12 @@ def generate_all_seeds(output_dir: str = "database") -> None:
     path = os.path.join(output_dir, "seed_governing_bodies_generated.sql")
     with open(path, "w") as f:
         generator.generate_governing_bodies_seed(f)
+        print(f"Generated: {path}")
+
+    # elections
+    path = os.path.join(output_dir, "seed_elections_generated.sql")
+    with open(path, "w") as f:
+        generator.generate_elections_seed(f)
         print(f"Generated: {path}")
 
     # conferences

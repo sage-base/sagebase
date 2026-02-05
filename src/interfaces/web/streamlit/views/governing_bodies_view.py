@@ -319,6 +319,23 @@ def render_elections_list(presenter: ElectionPresenter, governing_body_id: int) 
     else:
         st.info("この開催主体には選挙が登録されていません")
 
+    # SEEDファイル生成セクション
+    st.divider()
+    st.markdown("### SEEDファイル生成")
+    st.markdown("現在登録されている選挙データからSEEDファイルを生成します")
+
+    if st.button("SEEDファイル生成", key="generate_election_seed", type="primary"):
+        with st.spinner("SEEDファイルを生成中..."):
+            success, seed_content, file_path_or_error = presenter.generate_seed_file()
+            if success:
+                st.success(f"✅ SEEDファイルを生成しました: {file_path_or_error}")
+                with st.expander("生成されたSEEDファイル", expanded=False):
+                    st.code(seed_content, language="sql")
+            else:
+                st.error(
+                    f"❌ SEEDファイル生成中にエラーが発生しました: {file_path_or_error}"
+                )
+
 
 def render_new_election_form(
     presenter: ElectionPresenter, governing_body_id: int
@@ -340,6 +357,7 @@ def render_new_election_form(
         election_date_input = st.date_input(
             "選挙日",
             value=date.today(),
+            min_value=date(1947, 4, 1),  # 第1回統一地方選挙
             key="new_election_date",
             help="選挙が実施された日付",
         )
@@ -420,6 +438,7 @@ def render_edit_delete_election(
             edit_election_date = st.date_input(
                 "選挙日",
                 value=selected_election.election_date,
+                min_value=date(1947, 4, 1),  # 第1回統一地方選挙
                 key="edit_election_date",
             )
 

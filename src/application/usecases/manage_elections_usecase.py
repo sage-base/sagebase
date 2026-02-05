@@ -86,6 +86,16 @@ class DeleteElectionOutputDto:
     error_message: str | None = None
 
 
+@dataclass
+class GenerateSeedFileOutputDto:
+    """SEEDファイル生成の出力DTO."""
+
+    success: bool
+    seed_content: str | None = None
+    file_path: str | None = None
+    error_message: str | None = None
+
+
 class ManageElectionsUseCase:
     """選挙管理のユースケース."""
 
@@ -230,3 +240,23 @@ class ManageElectionsUseCase:
     def get_election_type_options(self) -> list[str]:
         """選挙種別の選択肢を取得する."""
         return ["統一地方選挙", "通常選挙", "補欠選挙", "再選挙", "その他"]
+
+    async def generate_seed_file(self) -> GenerateSeedFileOutputDto:
+        """選挙のSEEDファイルを生成する."""
+        try:
+            from src.seed_generator import SeedGenerator
+
+            generator = SeedGenerator()
+            seed_content = generator.generate_elections_seed()
+
+            # ファイルに保存
+            output_path = "database/seed_elections_generated.sql"
+            with open(output_path, "w") as f:
+                f.write(seed_content)
+
+            return GenerateSeedFileOutputDto(
+                success=True, seed_content=seed_content, file_path=output_path
+            )
+        except Exception as e:
+            logger.error(f"Failed to generate seed file: {e}")
+            return GenerateSeedFileOutputDto(success=False, error_message=str(e))
