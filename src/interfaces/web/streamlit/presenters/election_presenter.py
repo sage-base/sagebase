@@ -8,13 +8,13 @@ import pandas as pd
 from src.application.dtos.election_dto import (
     CreateElectionInputDto,
     DeleteElectionInputDto,
+    ElectionOutputItem,
     GenerateSeedFileOutputDto,
     ListElectionsInputDto,
     UpdateElectionInputDto,
 )
 from src.application.usecases.manage_elections_usecase import ManageElectionsUseCase
 from src.common.logging import get_logger
-from src.domain.entities.election import Election
 from src.domain.entities.governing_body import GoverningBody
 from src.infrastructure.di.container import Container
 from src.infrastructure.external.seed_generator_service import (
@@ -31,7 +31,7 @@ from src.interfaces.web.streamlit.presenters.base import BasePresenter
 from src.interfaces.web.streamlit.utils.session_manager import SessionManager
 
 
-class ElectionPresenter(BasePresenter[list[Election]]):
+class ElectionPresenter(BasePresenter[list[ElectionOutputItem]]):
     """選挙管理のプレゼンター."""
 
     def __init__(self, container: Container | None = None):
@@ -63,11 +63,11 @@ class ElectionPresenter(BasePresenter[list[Election]]):
         """フォーム状態をセッションに保存する."""
         self.session.set("election_form_state", self.form_state)
 
-    def load_data(self) -> list[Election]:
+    def load_data(self) -> list[ElectionOutputItem]:
         """全選挙を読み込む."""
         return self._run_async(self._load_data_async())
 
-    async def _load_data_async(self) -> list[Election]:
+    async def _load_data_async(self) -> list[ElectionOutputItem]:
         """全選挙を読み込む（非同期実装）."""
         try:
             result = await self.use_case.list_all_elections()
@@ -78,7 +78,7 @@ class ElectionPresenter(BasePresenter[list[Election]]):
 
     def load_elections_by_governing_body(
         self, governing_body_id: int
-    ) -> list[Election]:
+    ) -> list[ElectionOutputItem]:
         """特定の開催主体に属する選挙を読み込む."""
         return self._run_async(
             self._load_elections_by_governing_body_async(governing_body_id)
@@ -86,7 +86,7 @@ class ElectionPresenter(BasePresenter[list[Election]]):
 
     async def _load_elections_by_governing_body_async(
         self, governing_body_id: int
-    ) -> list[Election]:
+    ) -> list[ElectionOutputItem]:
         """特定の開催主体に属する選挙を読み込む（非同期実装）."""
         try:
             result = await self.use_case.list_elections(
@@ -215,7 +215,7 @@ class ElectionPresenter(BasePresenter[list[Election]]):
             self.logger.exception(error_msg)
             return False, error_msg
 
-    def to_dataframe(self, elections: list[Election]) -> pd.DataFrame | None:
+    def to_dataframe(self, elections: list[ElectionOutputItem]) -> pd.DataFrame | None:
         """選挙リストをDataFrameに変換する."""
         if not elections:
             return None

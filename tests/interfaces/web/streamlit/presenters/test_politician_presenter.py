@@ -11,10 +11,11 @@ from src.application.dtos.politician_dto import (
     DeletePoliticianOutputDto,
     MergePoliticiansOutputDto,
     PoliticianListOutputDto,
+    PoliticianOutputItem,
     UpdatePoliticianOutputDto,
 )
 from src.application.usecases.manage_politicians_usecase import ManagePoliticiansUseCase
-from src.domain.entities import PoliticalParty, Politician
+from src.domain.entities import PoliticalParty
 
 
 @pytest.fixture
@@ -33,23 +34,27 @@ def mock_party_repo():
 
 @pytest.fixture
 def sample_politicians():
-    """サンプル政治家リスト"""
+    """サンプル政治家出力アイテムリスト"""
     return [
-        Politician(
+        PoliticianOutputItem(
             id=1,
             name="田中太郎",
             prefecture="東京都",
             political_party_id=1,
             district="新宿区",
+            furigana=None,
             profile_page_url="https://example.com/tanaka",
+            party_position=None,
         ),
-        Politician(
+        PoliticianOutputItem(
             id=2,
             name="山田花子",
             prefecture="大阪府",
             political_party_id=2,
             district="中央区",
+            furigana=None,
             profile_page_url=None,
+            party_position=None,
         ),
     ]
 
@@ -476,12 +481,15 @@ class TestToDataframe:
         """無所属の政治家を正しく表示できることを確認"""
         # Arrange
         politicians = [
-            Politician(
+            PoliticianOutputItem(
                 id=1,
                 name="無所属議員",
                 prefecture="東京都",
-                political_party_id=None,  # 無所属
+                political_party_id=None,
                 district="新宿区",
+                furigana=None,
+                profile_page_url=None,
+                party_position=None,
             )
         ]
 

@@ -5,6 +5,7 @@ from src.application.dtos.election_dto import (
     CreateElectionOutputDto,
     DeleteElectionInputDto,
     DeleteElectionOutputDto,
+    ElectionOutputItem,
     GenerateSeedFileOutputDto,
     ListElectionsInputDto,
     ListElectionsOutputDto,
@@ -47,7 +48,9 @@ class ManageElectionsUseCase:
             elections = await self.election_repository.get_by_governing_body(
                 input_dto.governing_body_id
             )
-            return ListElectionsOutputDto(elections=elections)
+            return ListElectionsOutputDto(
+                elections=[ElectionOutputItem.from_entity(e) for e in elections]
+            )
         except Exception as e:
             logger.error(f"Failed to list elections: {e}")
             return ListElectionsOutputDto(
@@ -58,7 +61,9 @@ class ManageElectionsUseCase:
         """全選挙一覧を取得する."""
         try:
             elections = await self.election_repository.get_all()
-            return ListElectionsOutputDto(elections=elections)
+            return ListElectionsOutputDto(
+                elections=[ElectionOutputItem.from_entity(e) for e in elections]
+            )
         except Exception as e:
             logger.error(f"Failed to list all elections: {e}")
             return ListElectionsOutputDto(
