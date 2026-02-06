@@ -8,16 +8,11 @@ from src.application.usecases.manage_governing_bodies_usecase import (
     CreateGoverningBodyInputDto,
     DeleteGoverningBodyInputDto,
     GoverningBodyListInputDto,
-    ManageGoverningBodiesUseCase,
     UpdateGoverningBodyInputDto,
 )
 from src.common.logging import get_logger
 from src.domain.entities import GoverningBody
 from src.infrastructure.di.container import Container
-from src.infrastructure.persistence.governing_body_repository_impl import (
-    GoverningBodyRepositoryImpl,
-)
-from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
 from src.interfaces.web.streamlit.presenters.base import BasePresenter
 from src.interfaces.web.streamlit.utils.session_manager import SessionManager
 
@@ -28,12 +23,8 @@ class GoverningBodyPresenter(BasePresenter[list[GoverningBody]]):
     def __init__(self, container: Container | None = None):
         """Initialize the presenter."""
         super().__init__(container)
-        # Initialize repositories and use case
-        self.governing_body_repo = RepositoryAdapter(GoverningBodyRepositoryImpl)
-        # Type: ignore - RepositoryAdapter duck-types as repository protocol
-        self.use_case = ManageGoverningBodiesUseCase(
-            self.governing_body_repo  # type: ignore[arg-type]
-        )
+        # DIコンテナ経由でユースケースを取得
+        self.use_case = self.container.use_cases.manage_governing_bodies_usecase()
         self.session = SessionManager()
         self.form_state = self._get_or_create_form_state()
         self.logger = get_logger(__name__)

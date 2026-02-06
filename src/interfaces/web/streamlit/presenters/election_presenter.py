@@ -13,20 +13,9 @@ from src.application.dtos.election_dto import (
     ListElectionsInputDto,
     UpdateElectionInputDto,
 )
-from src.application.usecases.manage_elections_usecase import ManageElectionsUseCase
 from src.common.logging import get_logger
 from src.domain.entities.governing_body import GoverningBody
 from src.infrastructure.di.container import Container
-from src.infrastructure.external.seed_generator_service import (
-    SeedGeneratorServiceImpl,
-)
-from src.infrastructure.persistence.election_repository_impl import (
-    ElectionRepositoryImpl,
-)
-from src.infrastructure.persistence.governing_body_repository_impl import (
-    GoverningBodyRepositoryImpl,
-)
-from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
 from src.interfaces.web.streamlit.presenters.base import BasePresenter
 from src.interfaces.web.streamlit.utils.session_manager import SessionManager
 
@@ -37,14 +26,10 @@ class ElectionPresenter(BasePresenter[list[ElectionOutputItem]]):
     def __init__(self, container: Container | None = None):
         """プレゼンターを初期化する."""
         super().__init__(container)
-        # リポジトリとユースケースを初期化
-        self.election_repo = RepositoryAdapter(ElectionRepositoryImpl)
-        self.governing_body_repo = RepositoryAdapter(GoverningBodyRepositoryImpl)
-        # Type: ignore - RepositoryAdapter duck-types as repository protocol
-        self.seed_generator_service = SeedGeneratorServiceImpl()
-        self.use_case = ManageElectionsUseCase(
-            self.election_repo,  # type: ignore[arg-type]
-            seed_generator_service=self.seed_generator_service,
+        # DIコンテナ経由でユースケースとリポジトリを取得
+        self.use_case = self.container.use_cases.manage_elections_usecase()
+        self.governing_body_repo = (
+            self.container.repositories.governing_body_repository()
         )
         self.session = SessionManager()
         self.form_state = self._get_or_create_form_state()
