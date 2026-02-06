@@ -17,6 +17,9 @@ from src.common.logging import get_logger
 from src.domain.entities.election import Election
 from src.domain.entities.governing_body import GoverningBody
 from src.infrastructure.di.container import Container
+from src.infrastructure.external.seed_generator_service import (
+    SeedGeneratorServiceImpl,
+)
 from src.infrastructure.persistence.election_repository_impl import (
     ElectionRepositoryImpl,
 )
@@ -38,8 +41,10 @@ class ElectionPresenter(BasePresenter[list[Election]]):
         self.election_repo = RepositoryAdapter(ElectionRepositoryImpl)
         self.governing_body_repo = RepositoryAdapter(GoverningBodyRepositoryImpl)
         # Type: ignore - RepositoryAdapter duck-types as repository protocol
+        self.seed_generator_service = SeedGeneratorServiceImpl()
         self.use_case = ManageElectionsUseCase(
-            self.election_repo  # type: ignore[arg-type]
+            self.election_repo,  # type: ignore[arg-type]
+            seed_generator_service=self.seed_generator_service,
         )
         self.session = SessionManager()
         self.form_state = self._get_or_create_form_state()

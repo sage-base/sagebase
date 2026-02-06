@@ -14,6 +14,9 @@ from src.application.dtos.election_dto import (
 from src.common.logging import get_logger
 from src.domain.entities import Election
 from src.domain.repositories.election_repository import ElectionRepository
+from src.domain.services.interfaces.seed_generator_service import (
+    ISeedGeneratorService,
+)
 
 
 logger = get_logger(__name__)
@@ -22,13 +25,19 @@ logger = get_logger(__name__)
 class ManageElectionsUseCase:
     """選挙管理のユースケース."""
 
-    def __init__(self, election_repository: ElectionRepository) -> None:
+    def __init__(
+        self,
+        election_repository: ElectionRepository,
+        seed_generator_service: ISeedGeneratorService | None = None,
+    ) -> None:
         """ユースケースを初期化する.
 
         Args:
             election_repository: 選挙リポジトリインスタンス
+            seed_generator_service: シードファイル生成サービスインスタンス
         """
         self.election_repository = election_repository
+        self.seed_generator_service = seed_generator_service
 
     async def list_elections(
         self, input_dto: ListElectionsInputDto
@@ -166,19 +175,19 @@ class ManageElectionsUseCase:
 
     async def generate_seed_file(self) -> GenerateSeedFileOutputDto:
         """選挙のSEEDファイルを生成する."""
+        if self.seed_generator_service is None:
+            return GenerateSeedFileOutputDto(
+                success=False,
+                error_message="シードファイル生成サービスが設定されていません",
+            )
+
         try:
-            from src.seed_generator import SeedGenerator
-
-            generator = SeedGenerator()
-            seed_content = generator.generate_elections_seed()
-
-            # ファイルに保存
-            output_path = "database/seed_elections_generated.sql"
-            with open(output_path, "w") as f:
-                f.write(seed_content)
+            result = self.seed_generator_service.generate_and_save_elections_seed()
 
             return GenerateSeedFileOutputDto(
-                success=True, seed_content=seed_content, file_path=output_path
+                success=True,
+                seed_content=result.content,
+                file_path=result.file_path,
             )
         except Exception as e:
             logger.error(f"Failed to generate seed file: {e}")
