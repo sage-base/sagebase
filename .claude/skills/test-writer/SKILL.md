@@ -209,5 +209,7 @@ docker compose -f docker/docker-compose.yml [-f docker/docker-compose.override.y
 3. **❌ Test Dependencies**: Each test must be independent
 4. **❌ Missing Async/Await**: Forget `@pytest.mark.asyncio`
 5. **❌ No Mock Verification**: Don't check if mocks were called
+6. **❌ `return` in `patch` fixture**: `with patch(...)` 内で `return` するとpatchスコープが切れる → `yield` を使う
+7. **❌ 内部メソッドのモック上書き**: `presenter._run_async = MagicMock(...)` はプロダクションコードの検証をバイパスする
 
 See [reference.md](reference.md) for detailed explanations and fixes.

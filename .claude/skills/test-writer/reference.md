@@ -208,6 +208,47 @@ def session_scope():
     ...
 ```
 
+### patchコンテキスト内のfixtureはyieldを使う
+
+`with patch(...)` 内でオブジェクトを生成して返すfixtureでは、**必ず `yield` を使う**こと。
+`return` を使うと `with` ブロックを抜けてpatchが解除され、テスト中にモックが無効になる。
+
+```python
+# ❌ BAD: returnでpatchスコープが切れる
+@pytest.fixture
+def presenter(mock_container):
+    with patch("module.Container") as mock_cls:
+        mock_cls.create_for_environment.return_value = mock_container
+        presenter = MyPresenter()
+        return presenter  # ← ここでpatchが解除される！
+
+# ✅ GOOD: yieldでテスト完了までpatchを維持
+@pytest.fixture
+def presenter(mock_container):
+    with patch("module.Container") as mock_cls:
+        mock_cls.create_for_environment.return_value = mock_container
+        presenter = MyPresenter()
+        yield presenter  # ← テスト終了後にpatchが解除される
+```
+
+### 内部メソッドをモック上書きしない
+
+テスト対象の内部メソッド（`_run_async` 等）をMagicMockで上書きすると、
+プロダクションコードの呼び出し連鎖が検証されない。代わりに、依存先のモックを正しく設定する。
+
+```python
+# ❌ BAD: _run_asyncを上書きしてプロダクションコード検証をバイパス
+def test_read_success(self, presenter):
+    presenter._run_async = MagicMock(return_value=mock_party)
+    result = presenter.read(party_id=1)  # _run_asyncの中身はテストされない
+
+# ✅ GOOD: 依存先のリポジトリモックを設定し、実際の呼び出し連鎖を検証
+def test_read_success(self, presenter, mock_repository):
+    mock_repository.get_by_id.return_value = mock_party
+    result = presenter.read(party_id=1)
+    mock_repository.get_by_id.assert_called_once_with(1)
+```
+
 ## Assertion Strategies
 
 ### Basic Assertions
