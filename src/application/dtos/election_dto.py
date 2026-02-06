@@ -56,10 +56,32 @@ class DeleteElectionInputDto:
 
 
 @dataclass
+class ElectionOutputItem:
+    """選挙の出力アイテム."""
+
+    id: int | None
+    governing_body_id: int
+    term_number: int
+    election_date: date
+    election_type: str | None
+
+    @classmethod
+    def from_entity(cls, entity: Election) -> "ElectionOutputItem":
+        """エンティティから出力アイテムを生成する."""
+        return cls(
+            id=entity.id,
+            governing_body_id=entity.governing_body_id,
+            term_number=entity.term_number,
+            election_date=entity.election_date,
+            election_type=entity.election_type,
+        )
+
+
+@dataclass
 class ListElectionsOutputDto:
     """選挙一覧取得の出力DTO."""
 
-    elections: list[Election]
+    elections: list[ElectionOutputItem]
     success: bool = True
     error_message: str | None = None
 

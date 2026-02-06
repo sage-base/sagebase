@@ -9,11 +9,11 @@ import pytest
 from src.application.dtos.election_dto import (
     CreateElectionOutputDto,
     DeleteElectionOutputDto,
+    ElectionOutputItem,
     ListElectionsOutputDto,
     UpdateElectionOutputDto,
 )
 from src.application.usecases.manage_elections_usecase import ManageElectionsUseCase
-from src.domain.entities import Election
 
 
 @pytest.fixture
@@ -23,17 +23,17 @@ def mock_use_case() -> AsyncMock:
 
 
 @pytest.fixture
-def sample_elections() -> list[Election]:
-    """サンプル選挙リスト."""
+def sample_elections() -> list[ElectionOutputItem]:
+    """サンプル選挙出力アイテムリスト."""
     return [
-        Election(
+        ElectionOutputItem(
             id=1,
             governing_body_id=88,
             term_number=21,
             election_date=date(2023, 4, 9),
             election_type="統一地方選挙",
         ),
-        Election(
+        ElectionOutputItem(
             id=2,
             governing_body_id=88,
             term_number=20,
@@ -111,7 +111,7 @@ class TestLoadElections:
         self,
         presenter: MagicMock,
         mock_use_case: AsyncMock,
-        sample_elections: list[Election],
+        sample_elections: list[ElectionOutputItem],
     ) -> None:
         """load_dataが選挙リストを返すことを確認."""
         mock_use_case.list_all_elections.return_value = ListElectionsOutputDto(
@@ -140,7 +140,7 @@ class TestLoadElections:
         self,
         presenter: MagicMock,
         mock_use_case: AsyncMock,
-        sample_elections: list[Election],
+        sample_elections: list[ElectionOutputItem],
     ) -> None:
         """特定の開催主体の選挙を読み込めることを確認."""
         mock_use_case.list_elections.return_value = ListElectionsOutputDto(
@@ -284,7 +284,7 @@ class TestToDataframe:
     def test_to_dataframe_returns_dataframe(
         self,
         presenter: MagicMock,
-        sample_elections: list[Election],
+        sample_elections: list[ElectionOutputItem],
     ) -> None:
         """選挙リストからDataFrameを作成できることを確認."""
         df = presenter.to_dataframe(sample_elections)
@@ -314,7 +314,7 @@ class TestHandleAction:
         self,
         presenter: MagicMock,
         mock_use_case: AsyncMock,
-        sample_elections: list[Election],
+        sample_elections: list[ElectionOutputItem],
     ) -> None:
         """listアクションが正しく処理されることを確認."""
         mock_use_case.list_all_elections.return_value = ListElectionsOutputDto(
@@ -329,7 +329,7 @@ class TestHandleAction:
         self,
         presenter: MagicMock,
         mock_use_case: AsyncMock,
-        sample_elections: list[Election],
+        sample_elections: list[ElectionOutputItem],
     ) -> None:
         """list_by_governing_bodyアクションが正しく処理されることを確認."""
         mock_use_case.list_elections.return_value = ListElectionsOutputDto(

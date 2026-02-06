@@ -7,6 +7,7 @@ from uuid import UUID
 
 import pandas as pd
 
+from src.application.dtos.politician_dto import PoliticianOutputItem
 from src.application.usecases.authenticate_user_usecase import AuthenticateUserUseCase
 from src.application.usecases.manage_politicians_usecase import (
     CreatePoliticianInputDto,
@@ -17,7 +18,7 @@ from src.application.usecases.manage_politicians_usecase import (
     UpdatePoliticianInputDto,
 )
 from src.common.logging import get_logger
-from src.domain.entities import PoliticalParty, Politician
+from src.domain.entities import PoliticalParty
 from src.infrastructure.di.container import Container
 from src.infrastructure.persistence.political_party_repository_impl import (
     PoliticalPartyRepositoryImpl,
@@ -34,7 +35,7 @@ from src.interfaces.web.streamlit.presenters.base import BasePresenter
 from src.interfaces.web.streamlit.utils.session_manager import SessionManager
 
 
-class PoliticianPresenter(BasePresenter[list[Politician]]):
+class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
     """Presenter for politician management."""
 
     def __init__(self, container: Container | None = None):
@@ -72,11 +73,11 @@ class PoliticianPresenter(BasePresenter[list[Politician]]):
         except Exception:
             return None
 
-    def load_data(self) -> list[Politician]:
+    def load_data(self) -> list[PoliticianOutputItem]:
         """Load all politicians."""
         return self._run_async(self._load_data_async())
 
-    async def _load_data_async(self) -> list[Politician]:
+    async def _load_data_async(self) -> list[PoliticianOutputItem]:
         """Load all politicians (async implementation)."""
         try:
             result = await self.use_case.list_politicians(PoliticianListInputDto())
@@ -87,7 +88,7 @@ class PoliticianPresenter(BasePresenter[list[Politician]]):
 
     def load_politicians_with_filters(
         self, party_id: int | None = None, search_name: str | None = None
-    ) -> list[Politician]:
+    ) -> list[PoliticianOutputItem]:
         """Load politicians with filters."""
         return self._run_async(
             self._load_politicians_with_filters_async(party_id, search_name)
@@ -95,7 +96,7 @@ class PoliticianPresenter(BasePresenter[list[Politician]]):
 
     async def _load_politicians_with_filters_async(
         self, party_id: int | None = None, search_name: str | None = None
-    ) -> list[Politician]:
+    ) -> list[PoliticianOutputItem]:
         """Load politicians with filters (async implementation)."""
         try:
             result = await self.use_case.list_politicians(
@@ -334,7 +335,7 @@ class PoliticianPresenter(BasePresenter[list[Politician]]):
             return False, 0, error_msg
 
     def to_dataframe(
-        self, politicians: list[Politician], parties: list[PoliticalParty]
+        self, politicians: list[PoliticianOutputItem], parties: list[PoliticalParty]
     ) -> pd.DataFrame | None:
         """Convert politicians to DataFrame."""
         if not politicians:

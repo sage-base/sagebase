@@ -1,12 +1,155 @@
 """ManageElectionsUseCaseのテスト."""
 
+from datetime import date
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.application.dtos.election_dto import GenerateSeedFileOutputDto
+from src.application.dtos.election_dto import (
+    ElectionOutputItem,
+    GenerateSeedFileOutputDto,
+    ListElectionsOutputDto,
+)
 from src.application.usecases.manage_elections_usecase import ManageElectionsUseCase
+from src.domain.entities import Election
 from src.domain.services.interfaces.seed_generator_service import SeedFileResult
+
+
+class TestListElections:
+    """list_electionsメソッドのテスト."""
+
+    @pytest.fixture
+    def mock_election_repository(self):
+        return AsyncMock()
+
+    @pytest.fixture
+    def use_case(self, mock_election_repository):
+        return ManageElectionsUseCase(
+            election_repository=mock_election_repository,
+        )
+
+    @pytest.mark.asyncio
+    async def test_list_elections_success(self, use_case, mock_election_repository):
+        """開催主体IDで選挙一覧を取得し、ElectionOutputItemに変換されることを確認."""
+        elections = [
+            Election(
+                id=1,
+                governing_body_id=88,
+                term_number=21,
+                election_date=date(2023, 4, 9),
+                election_type="統一地方選挙",
+            ),
+            Election(
+                id=2,
+                governing_body_id=88,
+                term_number=20,
+                election_date=date(2019, 4, 7),
+                election_type=None,
+            ),
+        ]
+        mock_election_repository.get_by_governing_body.return_value = elections
+
+        from src.application.dtos.election_dto import ListElectionsInputDto
+
+        result = await use_case.list_elections(
+            ListElectionsInputDto(governing_body_id=88)
+        )
+
+        assert isinstance(result, ListElectionsOutputDto)
+        assert result.success is True
+        assert len(result.elections) == 2
+        assert isinstance(result.elections[0], ElectionOutputItem)
+        assert result.elections[0].id == 1
+        assert result.elections[0].term_number == 21
+        assert result.elections[1].election_type is None
+
+    @pytest.mark.asyncio
+    async def test_list_elections_empty(self, use_case, mock_election_repository):
+        """選挙が存在しない場合に空リストを返すことを確認."""
+        mock_election_repository.get_by_governing_body.return_value = []
+
+        from src.application.dtos.election_dto import ListElectionsInputDto
+
+        result = await use_case.list_elections(
+            ListElectionsInputDto(governing_body_id=99)
+        )
+
+        assert result.success is True
+        assert result.elections == []
+
+    @pytest.mark.asyncio
+    async def test_list_elections_error(self, use_case, mock_election_repository):
+        """例外発生時にsuccess=Falseとerror_messageを返すことを確認."""
+        mock_election_repository.get_by_governing_body.side_effect = RuntimeError(
+            "DB error"
+        )
+
+        from src.application.dtos.election_dto import ListElectionsInputDto
+
+        result = await use_case.list_elections(
+            ListElectionsInputDto(governing_body_id=88)
+        )
+
+        assert result.success is False
+        assert result.elections == []
+        assert "DB error" in (result.error_message or "")
+
+
+class TestListAllElections:
+    """list_all_electionsメソッドのテスト."""
+
+    @pytest.fixture
+    def mock_election_repository(self):
+        return AsyncMock()
+
+    @pytest.fixture
+    def use_case(self, mock_election_repository):
+        return ManageElectionsUseCase(
+            election_repository=mock_election_repository,
+        )
+
+    @pytest.mark.asyncio
+    async def test_list_all_elections_success(self, use_case, mock_election_repository):
+        """全選挙一覧を取得し、ElectionOutputItemに変換されることを確認."""
+        elections = [
+            Election(
+                id=1,
+                governing_body_id=88,
+                term_number=21,
+                election_date=date(2023, 4, 9),
+                election_type="統一地方選挙",
+            ),
+        ]
+        mock_election_repository.get_all.return_value = elections
+
+        result = await use_case.list_all_elections()
+
+        assert isinstance(result, ListElectionsOutputDto)
+        assert result.success is True
+        assert len(result.elections) == 1
+        assert isinstance(result.elections[0], ElectionOutputItem)
+        assert result.elections[0].governing_body_id == 88
+
+    @pytest.mark.asyncio
+    async def test_list_all_elections_empty(self, use_case, mock_election_repository):
+        """選挙が存在しない場合に空リストを返すことを確認."""
+        mock_election_repository.get_all.return_value = []
+
+        result = await use_case.list_all_elections()
+
+        assert result.success is True
+        assert result.elections == []
+
+    @pytest.mark.asyncio
+    async def test_list_all_elections_error(self, use_case, mock_election_repository):
+        """例外発生時にsuccess=Falseとerror_messageを返すことを確認."""
+        mock_election_repository.get_all.side_effect = RuntimeError("Connection lost")
+
+        result = await use_case.list_all_elections()
+
+        assert result.success is False
+        assert result.elections == []
+        assert "Connection lost" in (result.error_message or "")
 
 
 class TestGenerateSeedFile:

@@ -69,10 +69,38 @@ class PoliticianListInputDto:
 
 
 @dataclass
+class PoliticianOutputItem:
+    """政治家の出力アイテム."""
+
+    id: int | None
+    name: str
+    prefecture: str
+    district: str
+    political_party_id: int | None
+    furigana: str | None
+    profile_page_url: str | None
+    party_position: str | None
+
+    @classmethod
+    def from_entity(cls, entity: Politician) -> "PoliticianOutputItem":
+        """エンティティから出力アイテムを生成する."""
+        return cls(
+            id=entity.id,
+            name=entity.name,
+            prefecture=entity.prefecture,
+            district=entity.district,
+            political_party_id=entity.political_party_id,
+            furigana=entity.furigana,
+            profile_page_url=entity.profile_page_url,
+            party_position=entity.party_position,
+        )
+
+
+@dataclass
 class PoliticianListOutputDto:
     """Output DTO for listing politicians."""
 
-    politicians: list[Politician]
+    politicians: list[PoliticianOutputItem]
 
 
 @dataclass

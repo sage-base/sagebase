@@ -17,6 +17,7 @@ from src.application.dtos.politician_dto import (
     MergePoliticiansOutputDto,
     PoliticianListInputDto,
     PoliticianListOutputDto,
+    PoliticianOutputItem,
     UpdatePoliticianInputDto,
     UpdatePoliticianOutputDto,
 )
@@ -40,6 +41,7 @@ __all__ = [
     "ManagePoliticiansUseCase",
     "PoliticianListInputDto",
     "PoliticianListOutputDto",
+    "PoliticianOutputItem",
     "CreatePoliticianInputDto",
     "CreatePoliticianOutputDto",
     "UpdatePoliticianInputDto",
@@ -121,7 +123,9 @@ class ManagePoliticiansUseCase:
             else:
                 politicians = await self.politician_repository.get_all()
 
-            return PoliticianListOutputDto(politicians=politicians)
+            return PoliticianListOutputDto(
+                politicians=[PoliticianOutputItem.from_entity(p) for p in politicians]
+            )
         except Exception as e:
             logger.error(f"Failed to list politicians: {e}")
             raise
