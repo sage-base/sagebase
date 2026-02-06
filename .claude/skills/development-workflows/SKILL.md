@@ -150,6 +150,31 @@ tests/unit/application/test_manage_new_entity_usecase.py
 tests/integration/test_new_entity_repository.py
 ```
 
+### 5. RepositoryAdapter の使い方
+
+`RepositoryAdapter` は async リポジトリを sync コンテキストから透過的に使うためのブリッジです。
+呼び出し元のコンテキストを自動検出し、sync/async を適切に処理します。
+
+```python
+# ✅ CORRECT: RepositoryAdapterは同期コンテキストで直接呼べる
+repo = RepositoryAdapter(ElectionRepositoryImpl)
+elections = repo.get_by_governing_body(governing_body_id)
+
+# ❌ WRONG: asyncio.run()で包むとTypeError（結果は既に同期的に返されている）
+repo = RepositoryAdapter(ElectionRepositoryImpl)
+elections = asyncio.run(repo.get_by_governing_body(governing_body_id))
+# → TypeError: An asyncio.Future, a coroutine or an awaitable is required
+```
+
+**DIコンテナ経由のリポジトリ**は `RepositoryAdapter` を通さず直接 async メソッドを返すため、
+Presenter では `self._run_async()` でラップする必要があります。
+
+```python
+# DIコンテナ経由（Presenter内）
+self.repo = self.container.repositories.some_repository()
+result = self._run_async(self.repo.get_all())  # asyncメソッドを_run_asyncでラップ
+```
+
 ## クイックチェックリスト
 
 ### 環境セットアップ
