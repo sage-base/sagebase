@@ -178,17 +178,16 @@ class ManageElectionsUseCase:
         if self.seed_generator_service is None:
             return GenerateSeedFileOutputDto(
                 success=False,
-                error_message="Seed generator service is not configured",
+                error_message="シードファイル生成サービスが設定されていません",
             )
 
         try:
-            seed_content = self.seed_generator_service.generate_elections_seed()
-
-            output_path = "database/seed_elections_generated.sql"
-            self.seed_generator_service.write_seed_file(seed_content, output_path)
+            result = self.seed_generator_service.generate_and_save_elections_seed()
 
             return GenerateSeedFileOutputDto(
-                success=True, seed_content=seed_content, file_path=output_path
+                success=True,
+                seed_content=result.content,
+                file_path=result.file_path,
             )
         except Exception as e:
             logger.error(f"Failed to generate seed file: {e}")

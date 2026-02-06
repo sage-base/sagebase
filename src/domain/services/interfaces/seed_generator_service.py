@@ -1,15 +1,20 @@
 """シードファイル生成サービスのインターフェース."""
 
+from dataclasses import dataclass
 from typing import Protocol
+
+
+@dataclass(frozen=True)
+class SeedFileResult:
+    """シードファイル生成結果."""
+
+    content: str
+    file_path: str
 
 
 class ISeedGeneratorService(Protocol):
     """シードファイル生成サービスのインターフェース."""
 
-    def generate_elections_seed(self) -> str:
-        """選挙のSEEDコンテンツ（SQL文字列）を生成する."""
-        ...
-
-    def write_seed_file(self, content: str, output_path: str) -> str:
-        """コンテンツをファイルに書き出し、書き出したパスを返す."""
+    def generate_and_save_elections_seed(self) -> SeedFileResult:
+        """選挙SEEDファイルを生成・保存し、結果を返す."""
         ...
