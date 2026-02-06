@@ -7,7 +7,7 @@ from src.domain.repositories.base import BaseRepository
 
 
 class ElectionMemberRepository(BaseRepository[ElectionMember]):
-    """Repository interface for election members."""
+    """選挙結果メンバーのリポジトリインターフェース."""
 
     @abstractmethod
     async def get_by_election_id(self, election_id: int) -> list[ElectionMember]:
@@ -30,5 +30,17 @@ class ElectionMemberRepository(BaseRepository[ElectionMember]):
 
         Returns:
             選挙結果メンバーエンティティのリスト
+        """
+        pass
+
+    @abstractmethod
+    async def delete_by_election_id(self, election_id: int) -> int:
+        """選挙IDに属する全メンバーを削除.
+
+        Args:
+            election_id: 選挙ID
+
+        Returns:
+            削除件数
         """
         pass

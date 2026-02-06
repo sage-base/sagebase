@@ -5,14 +5,14 @@ from typing import Any
 
 import pandas as pd
 
-from src.application.usecases.manage_elections_usecase import (
+from src.application.dtos.election_dto import (
     CreateElectionInputDto,
     DeleteElectionInputDto,
     GenerateSeedFileOutputDto,
     ListElectionsInputDto,
-    ManageElectionsUseCase,
     UpdateElectionInputDto,
 )
+from src.application.usecases.manage_elections_usecase import ManageElectionsUseCase
 from src.common.logging import get_logger
 from src.domain.entities.election import Election
 from src.domain.entities.governing_body import GoverningBody

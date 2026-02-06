@@ -9,6 +9,8 @@ class ElectionMember(BaseEntity):
     どの政治家がどの選挙で当選/落選したかを管理する。
     """
 
+    VALID_RESULTS: list[str] = ["当選", "落選", "次点", "繰上当選", "無投票当選"]
+
     def __init__(
         self,
         election_id: int,

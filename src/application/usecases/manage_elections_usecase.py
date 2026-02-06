@@ -1,99 +1,22 @@
 """選挙管理のユースケース."""
 
-from dataclasses import dataclass
-from datetime import date
-
+from src.application.dtos.election_dto import (
+    CreateElectionInputDto,
+    CreateElectionOutputDto,
+    DeleteElectionInputDto,
+    DeleteElectionOutputDto,
+    GenerateSeedFileOutputDto,
+    ListElectionsInputDto,
+    ListElectionsOutputDto,
+    UpdateElectionInputDto,
+    UpdateElectionOutputDto,
+)
 from src.common.logging import get_logger
 from src.domain.entities import Election
 from src.domain.repositories.election_repository import ElectionRepository
 
 
 logger = get_logger(__name__)
-
-
-# Input DTOs
-
-
-@dataclass
-class ListElectionsInputDto:
-    """選挙一覧取得の入力DTO."""
-
-    governing_body_id: int
-
-
-@dataclass
-class CreateElectionInputDto:
-    """選挙作成の入力DTO."""
-
-    governing_body_id: int
-    term_number: int
-    election_date: date
-    election_type: str | None = None
-
-
-@dataclass
-class UpdateElectionInputDto:
-    """選挙更新の入力DTO."""
-
-    id: int
-    governing_body_id: int
-    term_number: int
-    election_date: date
-    election_type: str | None = None
-
-
-@dataclass
-class DeleteElectionInputDto:
-    """選挙削除の入力DTO."""
-
-    id: int
-
-
-# Output DTOs
-
-
-@dataclass
-class ListElectionsOutputDto:
-    """選挙一覧取得の出力DTO."""
-
-    elections: list[Election]
-    success: bool = True
-    error_message: str | None = None
-
-
-@dataclass
-class CreateElectionOutputDto:
-    """選挙作成の出力DTO."""
-
-    success: bool
-    election_id: int | None = None
-    error_message: str | None = None
-
-
-@dataclass
-class UpdateElectionOutputDto:
-    """選挙更新の出力DTO."""
-
-    success: bool
-    error_message: str | None = None
-
-
-@dataclass
-class DeleteElectionOutputDto:
-    """選挙削除の出力DTO."""
-
-    success: bool
-    error_message: str | None = None
-
-
-@dataclass
-class GenerateSeedFileOutputDto:
-    """SEEDファイル生成の出力DTO."""
-
-    success: bool
-    seed_content: str | None = None
-    file_path: str | None = None
-    error_message: str | None = None
 
 
 class ManageElectionsUseCase:

@@ -1,97 +1,23 @@
 """選挙結果メンバー管理のユースケース."""
 
-from dataclasses import dataclass
-
+from src.application.dtos.election_member_dto import (
+    CreateElectionMemberInputDto,
+    CreateElectionMemberOutputDto,
+    DeleteElectionMemberInputDto,
+    DeleteElectionMemberOutputDto,
+    ElectionMemberOutputItem,
+    ListElectionMembersByElectionInputDto,
+    ListElectionMembersByPoliticianInputDto,
+    ListElectionMembersOutputDto,
+    UpdateElectionMemberInputDto,
+    UpdateElectionMemberOutputDto,
+)
 from src.common.logging import get_logger
 from src.domain.entities import ElectionMember
 from src.domain.repositories.election_member_repository import ElectionMemberRepository
 
 
 logger = get_logger(__name__)
-
-
-# Input DTOs
-
-
-@dataclass
-class ListElectionMembersByElectionInputDto:
-    """選挙ID別メンバー一覧取得の入力DTO."""
-
-    election_id: int
-
-
-@dataclass
-class ListElectionMembersByPoliticianInputDto:
-    """政治家ID別選挙結果一覧取得の入力DTO."""
-
-    politician_id: int
-
-
-@dataclass
-class CreateElectionMemberInputDto:
-    """選挙結果メンバー作成の入力DTO."""
-
-    election_id: int
-    politician_id: int
-    result: str
-    votes: int | None = None
-    rank: int | None = None
-
-
-@dataclass
-class UpdateElectionMemberInputDto:
-    """選挙結果メンバー更新の入力DTO."""
-
-    id: int
-    election_id: int
-    politician_id: int
-    result: str
-    votes: int | None = None
-    rank: int | None = None
-
-
-@dataclass
-class DeleteElectionMemberInputDto:
-    """選挙結果メンバー削除の入力DTO."""
-
-    id: int
-
-
-# Output DTOs
-
-
-@dataclass
-class ListElectionMembersOutputDto:
-    """選挙結果メンバー一覧取得の出力DTO."""
-
-    election_members: list[ElectionMember]
-    success: bool = True
-    error_message: str | None = None
-
-
-@dataclass
-class CreateElectionMemberOutputDto:
-    """選挙結果メンバー作成の出力DTO."""
-
-    success: bool
-    election_member_id: int | None = None
-    error_message: str | None = None
-
-
-@dataclass
-class UpdateElectionMemberOutputDto:
-    """選挙結果メンバー更新の出力DTO."""
-
-    success: bool
-    error_message: str | None = None
-
-
-@dataclass
-class DeleteElectionMemberOutputDto:
-    """選挙結果メンバー削除の出力DTO."""
-
-    success: bool
-    error_message: str | None = None
 
 
 class ManageElectionMembersUseCase:
@@ -113,7 +39,11 @@ class ManageElectionMembersUseCase:
             members = await self.election_member_repository.get_by_election_id(
                 input_dto.election_id
             )
-            return ListElectionMembersOutputDto(election_members=members)
+            return ListElectionMembersOutputDto(
+                election_members=[
+                    ElectionMemberOutputItem.from_entity(m) for m in members
+                ]
+            )
         except Exception as e:
             logger.error(f"Failed to list election members by election: {e}")
             return ListElectionMembersOutputDto(
@@ -128,7 +58,11 @@ class ManageElectionMembersUseCase:
             members = await self.election_member_repository.get_by_politician_id(
                 input_dto.politician_id
             )
-            return ListElectionMembersOutputDto(election_members=members)
+            return ListElectionMembersOutputDto(
+                election_members=[
+                    ElectionMemberOutputItem.from_entity(m) for m in members
+                ]
+            )
         except Exception as e:
             logger.error(f"Failed to list election members by politician: {e}")
             return ListElectionMembersOutputDto(
@@ -140,6 +74,15 @@ class ManageElectionMembersUseCase:
     ) -> CreateElectionMemberOutputDto:
         """選挙結果メンバーを作成する."""
         try:
+            if input_dto.result not in ElectionMember.VALID_RESULTS:
+                return CreateElectionMemberOutputDto(
+                    success=False,
+                    error_message=(
+                        "無効な選挙結果です。有効な値: "
+                        f"{', '.join(ElectionMember.VALID_RESULTS)}"
+                    ),
+                )
+
             election_member = ElectionMember(
                 election_id=input_dto.election_id,
                 politician_id=input_dto.politician_id,
@@ -161,6 +104,15 @@ class ManageElectionMembersUseCase:
     ) -> UpdateElectionMemberOutputDto:
         """選挙結果メンバーを更新する."""
         try:
+            if input_dto.result not in ElectionMember.VALID_RESULTS:
+                return UpdateElectionMemberOutputDto(
+                    success=False,
+                    error_message=(
+                        "無効な選挙結果です。有効な値: "
+                        f"{', '.join(ElectionMember.VALID_RESULTS)}"
+                    ),
+                )
+
             existing = await self.election_member_repository.get_by_id(input_dto.id)
             if not existing:
                 return UpdateElectionMemberOutputDto(
@@ -206,4 +158,4 @@ class ManageElectionMembersUseCase:
 
     def get_result_options(self) -> list[str]:
         """選挙結果の選択肢を取得する."""
-        return ["当選", "落選", "次点", "繰上当選", "無投票当選"]
+        return list(ElectionMember.VALID_RESULTS)

@@ -1,4 +1,4 @@
-"""Election member repository implementation using SQLAlchemy."""
+"""SQLAlchemyを使用した選挙結果メンバーリポジトリの実装."""
 
 import logging
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class ElectionMemberModel(PydanticBaseModel):
-    """Election member database model."""
+    """選挙結果メンバーのデータベースモデル."""
 
     id: int | None = None
     election_id: int
@@ -42,13 +42,13 @@ class ElectionMemberModel(PydanticBaseModel):
 class ElectionMemberRepositoryImpl(
     BaseRepositoryImpl[ElectionMember], ElectionMemberRepository
 ):
-    """Election member repository implementation using SQLAlchemy."""
+    """SQLAlchemyを使用した選挙結果メンバーリポジトリの実装."""
 
     def __init__(self, session: AsyncSession | ISessionAdapter):
-        """Initialize repository with database session.
+        """リポジトリを初期化する.
 
         Args:
-            session: AsyncSession for database operations
+            session: データベース操作用のAsyncSession
         """
         super().__init__(
             session=session,
@@ -151,14 +151,14 @@ class ElectionMemberRepositoryImpl(
     async def get_all(
         self, limit: int | None = None, offset: int | None = 0
     ) -> list[ElectionMember]:
-        """Get all election members.
+        """全選挙結果メンバーを取得.
 
         Args:
-            limit: Maximum number of results
-            offset: Number of results to skip
+            limit: 最大取得件数
+            offset: スキップ件数
 
         Returns:
-            List of ElectionMember entities
+            選挙結果メンバーエンティティのリスト
         """
         try:
             query_text = """
@@ -201,13 +201,13 @@ class ElectionMemberRepositoryImpl(
             ) from e
 
     async def get_by_id(self, entity_id: int) -> ElectionMember | None:
-        """Get election member by ID.
+        """IDで選挙結果メンバーを取得.
 
         Args:
-            entity_id: ElectionMember ID
+            entity_id: 選挙結果メンバーID
 
         Returns:
-            ElectionMember entity or None if not found
+            選挙結果メンバーエンティティ、見つからない場合はNone
         """
         try:
             query = text("""
@@ -245,13 +245,13 @@ class ElectionMemberRepositoryImpl(
             ) from e
 
     async def create(self, entity: ElectionMember) -> ElectionMember:
-        """Create a new election member.
+        """選挙結果メンバーを作成.
 
         Args:
-            entity: ElectionMember entity to create
+            entity: 作成する選挙結果メンバーエンティティ
 
         Returns:
-            Created ElectionMember entity with ID
+            ID付きの作成済み選挙結果メンバーエンティティ
         """
         try:
             query = text("""
@@ -301,13 +301,13 @@ class ElectionMemberRepositoryImpl(
             ) from e
 
     async def update(self, entity: ElectionMember) -> ElectionMember:
-        """Update an existing election member.
+        """選挙結果メンバーを更新.
 
         Args:
-            entity: ElectionMember entity to update
+            entity: 更新する選挙結果メンバーエンティティ
 
         Returns:
-            Updated ElectionMember entity
+            更新済み選挙結果メンバーエンティティ
         """
         try:
             query = text("""
@@ -355,13 +355,13 @@ class ElectionMemberRepositoryImpl(
             ) from e
 
     async def delete(self, entity_id: int) -> bool:
-        """Delete an election member by ID.
+        """IDで選挙結果メンバーを削除.
 
         Args:
-            entity_id: ElectionMember ID to delete
+            entity_id: 削除する選挙結果メンバーID
 
         Returns:
-            True if deleted, False otherwise
+            削除成功時True、対象なし時False
         """
         try:
             query = text("DELETE FROM election_members WHERE id = :id")
@@ -378,21 +378,47 @@ class ElectionMemberRepositoryImpl(
                 {"id": entity_id, "error": str(e)},
             ) from e
 
+    async def delete_by_election_id(self, election_id: int) -> int:
+        """選挙IDに属する全メンバーを削除.
+
+        Args:
+            election_id: 選挙ID
+
+        Returns:
+            削除件数
+        """
+        try:
+            query = text(
+                "DELETE FROM election_members WHERE election_id = :election_id"
+            )
+            result = await self.session.execute(query, {"election_id": election_id})
+            await self.session.commit()
+
+            return result.rowcount  # type: ignore[return-value]
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error deleting election members by election: {e}")
+            await self.session.rollback()
+            raise DatabaseError(
+                "Failed to delete election members by election",
+                {"election_id": election_id, "error": str(e)},
+            ) from e
+
     async def count(self) -> int:
-        """Count total number of election members."""
+        """選挙結果メンバーの総件数を取得."""
         query = text("SELECT COUNT(*) FROM election_members")
         result = await self.session.execute(query)
         count = result.scalar()
         return count if count is not None else 0
 
     def _to_entity(self, model: ElectionMemberModel) -> ElectionMember:
-        """Convert database model to domain entity.
+        """データベースモデルをドメインエンティティに変換.
 
         Args:
-            model: Database model
+            model: データベースモデル
 
         Returns:
-            Domain entity
+            ドメインエンティティ
         """
         return ElectionMember(
             id=model.id,
@@ -404,13 +430,13 @@ class ElectionMemberRepositoryImpl(
         )
 
     def _to_model(self, entity: ElectionMember) -> ElectionMemberModel:
-        """Convert domain entity to database model.
+        """ドメインエンティティをデータベースモデルに変換.
 
         Args:
-            entity: Domain entity
+            entity: ドメインエンティティ
 
         Returns:
-            Database model
+            データベースモデル
         """
         return ElectionMemberModel(
             id=entity.id,
@@ -422,11 +448,11 @@ class ElectionMemberRepositoryImpl(
         )
 
     def _update_model(self, model: ElectionMemberModel, entity: ElectionMember) -> None:
-        """Update model from entity.
+        """エンティティからモデルを更新.
 
         Args:
-            model: Database model to update
-            entity: Source entity
+            model: 更新対象のデータベースモデル
+            entity: ソースエンティティ
         """
         model.election_id = entity.election_id
         model.politician_id = entity.politician_id
@@ -435,13 +461,13 @@ class ElectionMemberRepositoryImpl(
         model.rank = entity.rank
 
     def _dict_to_entity(self, data: dict[str, Any]) -> ElectionMember:
-        """Convert dictionary to entity.
+        """辞書をエンティティに変換.
 
         Args:
-            data: Dictionary with entity data
+            data: エンティティデータの辞書
 
         Returns:
-            ElectionMember entity
+            選挙結果メンバーエンティティ
         """
         return ElectionMember(
             id=data.get("id"),

@@ -4,13 +4,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.application.usecases.manage_election_members_usecase import (
+from src.application.dtos.election_member_dto import (
     CreateElectionMemberInputDto,
     DeleteElectionMemberInputDto,
     ListElectionMembersByElectionInputDto,
     ListElectionMembersByPoliticianInputDto,
-    ManageElectionMembersUseCase,
     UpdateElectionMemberInputDto,
+)
+from src.application.usecases.manage_election_members_usecase import (
+    ManageElectionMembersUseCase,
 )
 from src.domain.entities.election_member import ElectionMember
 from src.domain.repositories.election_member_repository import ElectionMemberRepository
@@ -265,3 +267,197 @@ class TestManageElectionMembersUseCase:
         assert "繰上当選" in options
         assert "無投票当選" in options
         assert len(options) == 5
+
+    @pytest.mark.asyncio
+    async def test_list_by_politician_error(
+        self,
+        use_case: ManageElectionMembersUseCase,
+        mock_election_member_repository: MagicMock,
+    ) -> None:
+        """Test list_by_politician handles errors."""
+        mock_election_member_repository.get_by_politician_id.side_effect = Exception(
+            "DB error"
+        )
+
+        input_dto = ListElectionMembersByPoliticianInputDto(politician_id=100)
+        result = await use_case.list_by_politician(input_dto)
+
+        assert result.success is False
+        assert result.error_message == "DB error"
+        assert result.election_members == []
+
+    @pytest.mark.asyncio
+    async def test_delete_election_member_delete_returns_false(
+        self,
+        use_case: ManageElectionMembersUseCase,
+        mock_election_member_repository: MagicMock,
+    ) -> None:
+        """Test delete_election_member when delete returns False."""
+        existing = ElectionMember(
+            id=1,
+            election_id=10,
+            politician_id=100,
+            result="当選",
+        )
+        mock_election_member_repository.get_by_id.return_value = existing
+        mock_election_member_repository.delete.return_value = False
+
+        input_dto = DeleteElectionMemberInputDto(id=1)
+        result = await use_case.delete_election_member(input_dto)
+
+        assert result.success is False
+        assert "削除できませんでした" in (result.error_message or "")
+
+    @pytest.mark.asyncio
+    async def test_create_election_member_invalid_result(
+        self,
+        use_case: ManageElectionMembersUseCase,
+        mock_election_member_repository: MagicMock,
+    ) -> None:
+        """Test create_election_member with invalid result value."""
+        input_dto = CreateElectionMemberInputDto(
+            election_id=10,
+            politician_id=100,
+            result="不正な値",
+        )
+        result = await use_case.create_election_member(input_dto)
+
+        assert result.success is False
+        assert "無効な選挙結果" in (result.error_message or "")
+        mock_election_member_repository.create.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_create_election_member_minimal_params(
+        self,
+        use_case: ManageElectionMembersUseCase,
+        mock_election_member_repository: MagicMock,
+    ) -> None:
+        """Test create_election_member with minimal params (no votes/rank)."""
+        created_member = ElectionMember(
+            id=1,
+            election_id=10,
+            politician_id=100,
+            result="当選",
+        )
+        mock_election_member_repository.create.return_value = created_member
+
+        input_dto = CreateElectionMemberInputDto(
+            election_id=10,
+            politician_id=100,
+            result="当選",
+        )
+        result = await use_case.create_election_member(input_dto)
+
+        assert result.success is True
+        assert result.election_member_id == 1
+        mock_election_member_repository.create.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_update_election_member_invalid_result(
+        self,
+        use_case: ManageElectionMembersUseCase,
+        mock_election_member_repository: MagicMock,
+    ) -> None:
+        """Test update_election_member with invalid result value."""
+        input_dto = UpdateElectionMemberInputDto(
+            id=1,
+            election_id=10,
+            politician_id=100,
+            result="不正な値",
+        )
+        result = await use_case.update_election_member(input_dto)
+
+        assert result.success is False
+        assert "無効な選挙結果" in (result.error_message or "")
+        mock_election_member_repository.get_by_id.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_update_election_member_exception(
+        self,
+        use_case: ManageElectionMembersUseCase,
+        mock_election_member_repository: MagicMock,
+    ) -> None:
+        """Test update_election_member handles repository exceptions."""
+        mock_election_member_repository.get_by_id.side_effect = Exception("DB error")
+
+        input_dto = UpdateElectionMemberInputDto(
+            id=1,
+            election_id=10,
+            politician_id=100,
+            result="当選",
+        )
+        result = await use_case.update_election_member(input_dto)
+
+        assert result.success is False
+        assert result.error_message == "DB error"
+
+    @pytest.mark.asyncio
+    async def test_delete_election_member_exception(
+        self,
+        use_case: ManageElectionMembersUseCase,
+        mock_election_member_repository: MagicMock,
+    ) -> None:
+        """Test delete_election_member handles repository exceptions."""
+        mock_election_member_repository.get_by_id.side_effect = Exception("DB error")
+
+        input_dto = DeleteElectionMemberInputDto(id=1)
+        result = await use_case.delete_election_member(input_dto)
+
+        assert result.success is False
+        assert result.error_message == "DB error"
+
+
+class TestElectionMemberOutputItem:
+    """ElectionMemberOutputItemのテスト."""
+
+    def test_from_entity_with_all_fields(self) -> None:
+        """全フィールドが正しくマッピングされることを確認."""
+        from src.application.dtos.election_member_dto import (
+            ElectionMemberOutputItem,
+        )
+
+        entity = ElectionMember(
+            id=1,
+            election_id=10,
+            politician_id=100,
+            result="当選",
+            votes=5000,
+            rank=1,
+        )
+        item = ElectionMemberOutputItem.from_entity(entity)
+
+        assert item.id == 1
+        assert item.election_id == 10
+        assert item.politician_id == 100
+        assert item.result == "当選"
+        assert item.votes == 5000
+        assert item.rank == 1
+
+    def test_from_entity_with_none_optional_fields(self) -> None:
+        """Noneのオプショナルフィールドが正しく変換されることを確認."""
+        from src.application.dtos.election_member_dto import (
+            ElectionMemberOutputItem,
+        )
+
+        entity = ElectionMember(
+            id=None,
+            election_id=10,
+            politician_id=100,
+            result="当選",
+            votes=None,
+            rank=None,
+        )
+        item = ElectionMemberOutputItem.from_entity(entity)
+
+        assert item.id is None
+        assert item.votes is None
+        assert item.rank is None
+
+
+class TestElectionMemberValidResults:
+    """ElectionMember.VALID_RESULTSのテスト."""
+
+    def test_valid_results_contains_expected_values(self) -> None:
+        """VALID_RESULTSが期待される全値を含むことを確認."""
+        expected = ["当選", "落選", "次点", "繰上当選", "無投票当選"]
+        assert ElectionMember.VALID_RESULTS == expected
