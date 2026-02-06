@@ -10,6 +10,9 @@ from src.domain.services.interfaces.politician_matching_service import (
 from src.domain.services.interfaces.proposal_scraper_service import (
     IProposalScraperService,
 )
+from src.domain.services.interfaces.seed_generator_service import (
+    ISeedGeneratorService,
+)
 from src.domain.services.interfaces.web_scraper_service import IWebScraperService
 
 
@@ -18,5 +21,6 @@ __all__ = [
     "IMinutesProcessingService",
     "IPoliticianMatchingService",
     "IProposalScraperService",
+    "ISeedGeneratorService",
     "IWebScraperService",
 ]
