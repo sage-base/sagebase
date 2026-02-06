@@ -6,13 +6,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pandas as pd
 import pytest
 
-from src.application.usecases.manage_elections_usecase import (
+from src.application.dtos.election_dto import (
     CreateElectionOutputDto,
     DeleteElectionOutputDto,
     ListElectionsOutputDto,
-    ManageElectionsUseCase,
     UpdateElectionOutputDto,
 )
+from src.application.usecases.manage_elections_usecase import ManageElectionsUseCase
 from src.domain.entities import Election
 
 

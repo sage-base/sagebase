@@ -21,6 +21,29 @@ from src.application.dtos.conference_member_extraction_dto import (
     ConferenceMemberExtractionResult,
     ExtractedMemberDTO,
 )
+from src.application.dtos.election_dto import (
+    CreateElectionInputDto,
+    CreateElectionOutputDto,
+    DeleteElectionInputDto,
+    DeleteElectionOutputDto,
+    GenerateSeedFileOutputDto,
+    ListElectionsInputDto,
+    ListElectionsOutputDto,
+    UpdateElectionInputDto,
+    UpdateElectionOutputDto,
+)
+from src.application.dtos.election_member_dto import (
+    CreateElectionMemberInputDto,
+    CreateElectionMemberOutputDto,
+    DeleteElectionMemberInputDto,
+    DeleteElectionMemberOutputDto,
+    ElectionMemberOutputItem,
+    ListElectionMembersByElectionInputDto,
+    ListElectionMembersByPoliticianInputDto,
+    ListElectionMembersOutputDto,
+    UpdateElectionMemberInputDto,
+    UpdateElectionMemberOutputDto,
+)
 from src.application.dtos.extraction_log_dto import (
     DailyCountDTO,
     ExtractionLogDetailDTO,
@@ -98,6 +121,27 @@ __all__ = [
     "ParliamentaryGroupBaseDTO",
     "PoliticianBaseDTO",
     "SpeakerBaseDTO",
+    # Election DTOs
+    "CreateElectionInputDto",
+    "CreateElectionOutputDto",
+    "DeleteElectionInputDto",
+    "DeleteElectionOutputDto",
+    "GenerateSeedFileOutputDto",
+    "ListElectionsInputDto",
+    "ListElectionsOutputDto",
+    "UpdateElectionInputDto",
+    "UpdateElectionOutputDto",
+    # Election Member DTOs
+    "CreateElectionMemberInputDto",
+    "CreateElectionMemberOutputDto",
+    "DeleteElectionMemberInputDto",
+    "DeleteElectionMemberOutputDto",
+    "ElectionMemberOutputItem",
+    "ListElectionMembersByElectionInputDto",
+    "ListElectionMembersByPoliticianInputDto",
+    "ListElectionMembersOutputDto",
+    "UpdateElectionMemberInputDto",
+    "UpdateElectionMemberOutputDto",
     # Conference DTOs
     "AffiliationDTO",
     "ConferenceDTO",
