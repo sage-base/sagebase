@@ -22,6 +22,12 @@ def mock_use_case():
 
 
 @pytest.fixture
+def mock_repository():
+    """PoliticalPartyRepositoryのモック"""
+    return AsyncMock()
+
+
+@pytest.fixture
 def sample_parties():
     """サンプル政党リスト"""
     return [
@@ -43,21 +49,26 @@ def sample_statistics():
 
 
 @pytest.fixture
-def presenter(mock_use_case):
+def mock_container(mock_use_case, mock_repository):
+    """DIコンテナのモック"""
+    container = MagicMock()
+    container.use_cases.manage_political_parties_usecase.return_value = mock_use_case
+    container.repositories.political_party_repository.return_value = mock_repository
+    return container
+
+
+@pytest.fixture
+def presenter(mock_container, mock_use_case):
     """PoliticalPartyPresenterのインスタンス"""
     with (
-        patch(
-            "src.interfaces.web.streamlit.presenters.political_party_presenter.RepositoryAdapter"
-        ),
         patch(
             "src.interfaces.web.streamlit.presenters.political_party_presenter.SessionManager"
         ) as mock_session,
         patch(
-            "src.interfaces.web.streamlit.presenters.political_party_presenter.ManagePoliticalPartiesUseCase"
-        ) as mock_uc_class,
-        patch("src.interfaces.web.streamlit.presenters.base.Container"),
+            "src.interfaces.web.streamlit.presenters.base.Container"
+        ) as mock_container_cls,
     ):
-        mock_uc_class.return_value = mock_use_case
+        mock_container_cls.create_for_environment.return_value = mock_container
 
         mock_session_instance = MagicMock()
         mock_session_instance.get = MagicMock(return_value={})
@@ -69,8 +80,7 @@ def presenter(mock_use_case):
         )
 
         presenter = PoliticalPartyPresenter()
-        presenter.use_case = mock_use_case
-        return presenter
+        yield presenter
 
 
 class TestPoliticalPartyPresenterInit:
@@ -78,18 +88,24 @@ class TestPoliticalPartyPresenterInit:
 
     def test_init_creates_instance(self):
         """Presenterが正しく初期化されることを確認"""
+        mock_container = MagicMock()
+        mock_container.use_cases.manage_political_parties_usecase.return_value = (
+            AsyncMock()
+        )
+        mock_container.repositories.political_party_repository.return_value = (
+            AsyncMock()
+        )
+
         with (
-            patch(
-                "src.interfaces.web.streamlit.presenters.political_party_presenter.RepositoryAdapter"
-            ),
             patch(
                 "src.interfaces.web.streamlit.presenters.political_party_presenter.SessionManager"
             ) as mock_session,
             patch(
-                "src.interfaces.web.streamlit.presenters.political_party_presenter.ManagePoliticalPartiesUseCase"
-            ),
-            patch("src.interfaces.web.streamlit.presenters.base.Container"),
+                "src.interfaces.web.streamlit.presenters.base.Container"
+            ) as mock_container_cls,
         ):
+            mock_container_cls.create_for_environment.return_value = mock_container
+
             mock_session_instance = MagicMock()
             mock_session_instance.get = MagicMock(return_value={})
             mock_session.return_value = mock_session_instance
@@ -109,15 +125,12 @@ class TestLoadData:
         self, presenter, mock_use_case, sample_parties, sample_statistics
     ):
         """政党リストをフィルタ付きで読み込めることを確認"""
-        # Arrange
         mock_use_case.list_parties.return_value = PoliticalPartyListOutputDto(
             parties=sample_parties, statistics=sample_statistics
         )
 
-        # Act
         result = await presenter._load_data_filtered_async("all")
 
-        # Assert
         assert len(result.parties) == 2
         assert result.statistics.total == 2
 
@@ -125,24 +138,19 @@ class TestLoadData:
         self, presenter, mock_use_case, sample_parties, sample_statistics
     ):
         """URL設定済みフィルタで読み込めることを確認"""
-        # Arrange
         mock_use_case.list_parties.return_value = PoliticalPartyListOutputDto(
             parties=[sample_parties[0]], statistics=sample_statistics
         )
 
-        # Act
         result = await presenter._load_data_filtered_async("with_url")
 
-        # Assert
         assert len(result.parties) == 1
         mock_use_case.list_parties.assert_called_once()
 
     async def test_load_data_filtered_exception(self, presenter, mock_use_case):
         """例外発生時にエラーを伝播することを確認"""
-        # Arrange
         mock_use_case.list_parties.side_effect = Exception("Database error")
 
-        # Act & Assert
         with pytest.raises(Exception, match="Database error"):
             await presenter._load_data_filtered_async("all")
 
@@ -164,48 +172,39 @@ class TestCRUDOperations:
         ):
             presenter.delete()
 
-    def test_read_success(self, presenter):
+    def test_read_success(self, presenter, mock_repository):
         """政党を読み込めることを確認"""
-        # Arrange
         mock_party = PoliticalParty(id=1, name="自民党")
-        presenter.repository = MagicMock()
-        presenter.repository.get_by_id = MagicMock(return_value=mock_party)
+        mock_repository.get_by_id.return_value = mock_party
 
-        # Act
         result = presenter.read(party_id=1)
 
-        # Assert
         assert result.id == 1
         assert result.name == "自民党"
+        mock_repository.get_by_id.assert_called_once_with(1)
 
     def test_read_without_party_id(self, presenter):
         """party_idなしでエラーが発生することを確認"""
         with pytest.raises(ValueError, match="party_id is required"):
             presenter.read()
 
-    def test_read_not_found(self, presenter):
+    def test_read_not_found(self, presenter, mock_repository):
         """政党が見つからない場合のエラーを確認"""
-        # Arrange
-        presenter.repository = MagicMock()
-        presenter.repository.get_by_id = MagicMock(return_value=None)
+        mock_repository.get_by_id.return_value = None
 
-        # Act & Assert
         with pytest.raises(ValueError, match="見つかりません"):
             presenter.read(party_id=999)
 
     async def test_update_success(self, presenter, mock_use_case):
         """URL更新が成功することを確認"""
-        # Arrange
         mock_use_case.update_party_url.return_value = UpdatePoliticalPartyUrlOutputDto(
             success=True, message="更新成功"
         )
 
-        # Act
         result = await presenter._update_async(
             party_id=1, members_list_url="https://example.com/new"
         )
 
-        # Assert
         assert result.success is True
         mock_use_case.update_party_url.assert_called_once()
 
@@ -222,21 +221,14 @@ class TestList:
         self, presenter, mock_use_case, sample_parties, sample_statistics
     ):
         """政党リストを取得できることを確認"""
-        # Arrange
         mock_use_case.list_parties.return_value = PoliticalPartyListOutputDto(
             parties=sample_parties, statistics=sample_statistics
         )
-        presenter._run_async = MagicMock(
-            return_value=PoliticalPartyListOutputDto(
-                parties=sample_parties, statistics=sample_statistics
-            )
-        )
 
-        # Act
         result = presenter.list()
 
-        # Assert
         assert len(result) == 2
+        mock_use_case.list_parties.assert_called_once()
 
 
 class TestGenerateSeedFile:
@@ -244,28 +236,18 @@ class TestGenerateSeedFile:
 
     def test_generate_seed_file_success(self, presenter, mock_use_case):
         """シードファイル生成が成功することを確認"""
-        # Arrange
         mock_use_case.generate_seed_file.return_value = GenerateSeedFileOutputDto(
             success=True,
             message="シードファイルを生成しました",
             content="INSERT INTO...",
             file_path="/tmp/seed.sql",
         )
-        presenter._run_async = MagicMock(
-            return_value=GenerateSeedFileOutputDto(
-                success=True,
-                message="シードファイルを生成しました",
-                content="INSERT INTO...",
-                file_path="/tmp/seed.sql",
-            )
-        )
 
-        # Act
         result = presenter.generate_seed_file()
 
-        # Assert
         assert result.success is True
         assert result.file_path == "/tmp/seed.sql"
+        mock_use_case.generate_seed_file.assert_called_once()
 
 
 class TestToDataframe:
@@ -273,10 +255,8 @@ class TestToDataframe:
 
     def test_to_dataframe_success(self, presenter, sample_parties):
         """政党リストをDataFrameに変換できることを確認"""
-        # Act
         df = presenter.to_dataframe(sample_parties)
 
-        # Assert
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 2
         assert "ID" in df.columns
@@ -287,10 +267,8 @@ class TestToDataframe:
 
     def test_to_dataframe_empty(self, presenter):
         """空のリストを処理できることを確認"""
-        # Act
         df = presenter.to_dataframe([])
 
-        # Assert
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 0
         assert "ID" in df.columns
@@ -301,48 +279,38 @@ class TestFormState:
 
     def test_set_editing_mode(self, presenter):
         """編集モードを設定できることを確認"""
-        # Arrange
         presenter.form_state = MagicMock()
         presenter._save_form_state = MagicMock()
 
-        # Act
         presenter.set_editing_mode(party_id=1)
 
-        # Assert
         presenter.form_state.set_editing.assert_called_once_with(1)
         presenter._save_form_state.assert_called_once()
 
     def test_cancel_editing(self, presenter):
         """編集モードをキャンセルできることを確認"""
-        # Arrange
         presenter.form_state = MagicMock()
         presenter._save_form_state = MagicMock()
 
-        # Act
         presenter.cancel_editing()
 
-        # Assert
         presenter.form_state.reset.assert_called_once()
         presenter._save_form_state.assert_called_once()
 
     def test_is_editing_true(self, presenter):
         """編集中かどうかを正しく判定できることを確認"""
-        # Arrange
         presenter.form_state = MagicMock()
         presenter.form_state.is_editing = True
         presenter.form_state.current_id = 1
 
-        # Act & Assert
         assert presenter.is_editing(party_id=1) is True
 
     def test_is_editing_false(self, presenter):
         """編集中でない場合を正しく判定できることを確認"""
-        # Arrange
         presenter.form_state = MagicMock()
         presenter.form_state.is_editing = False
         presenter.form_state.current_id = None
 
-        # Act & Assert
         assert presenter.is_editing(party_id=1) is False
 
 
@@ -351,10 +319,8 @@ class TestGetStatisticsSummary:
 
     def test_get_statistics_summary(self, presenter, sample_statistics):
         """統計サマリーを取得できることを確認"""
-        # Act
         summary = presenter.get_statistics_summary(sample_statistics)
 
-        # Assert
         assert "全政党数" in summary
         assert summary["全政党数"] == "2"
         assert "URL設定済み" in summary

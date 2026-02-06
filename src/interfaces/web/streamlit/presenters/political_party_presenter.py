@@ -12,7 +12,6 @@ import pandas as pd
 
 from src.application.usecases.manage_political_parties_usecase import (
     GenerateSeedFileOutputDto,
-    ManagePoliticalPartiesUseCase,
     PoliticalPartyListInputDto,
     PoliticalPartyListOutputDto,
     UpdatePoliticalPartyUrlInputDto,
@@ -20,10 +19,6 @@ from src.application.usecases.manage_political_parties_usecase import (
 )
 from src.domain.entities.political_party import PoliticalParty
 from src.infrastructure.di.container import Container
-from src.infrastructure.persistence.political_party_repository_impl import (
-    PoliticalPartyRepositoryImpl,
-)
-from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
 from src.interfaces.web.streamlit.dto.base import FormStateDTO
 from src.interfaces.web.streamlit.presenters.base import CRUDPresenter
 from src.interfaces.web.streamlit.utils.session_manager import SessionManager
@@ -39,11 +34,9 @@ class PoliticalPartyPresenter(CRUDPresenter[list[PoliticalParty]]):
             container: Dependency injection container
         """
         super().__init__(container)
-        self.repository = RepositoryAdapter(PoliticalPartyRepositoryImpl)
-        # Type: ignore - RepositoryAdapter duck-types as repository protocol
-        self.use_case = ManagePoliticalPartiesUseCase(
-            self.repository  # type: ignore[arg-type]
-        )
+        # DIコンテナ経由でユースケースとリポジトリを取得
+        self.use_case = self.container.use_cases.manage_political_parties_usecase()
+        self.repository = self.container.repositories.political_party_repository()
         self.session = SessionManager(namespace="political_party")
         self.form_state = self._get_or_create_form_state()
 
@@ -107,7 +100,7 @@ class PoliticalPartyPresenter(CRUDPresenter[list[PoliticalParty]]):
         if not party_id:
             raise ValueError("party_id is required")
 
-        party = self.repository.get_by_id(party_id)  # type: ignore[attr-defined]
+        party = self._run_async(self.repository.get_by_id(party_id))
         if not party:
             raise ValueError(f"政党ID {party_id} が見つかりません")
         return party

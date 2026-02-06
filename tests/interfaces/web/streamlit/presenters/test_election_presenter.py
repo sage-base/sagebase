@@ -23,6 +23,12 @@ def mock_use_case() -> AsyncMock:
 
 
 @pytest.fixture
+def mock_governing_body_repo() -> AsyncMock:
+    """GoverningBodyRepositoryのモック."""
+    return AsyncMock()
+
+
+@pytest.fixture
 def sample_elections() -> list[ElectionOutputItem]:
     """サンプル選挙出力アイテムリスト."""
     return [
@@ -44,21 +50,28 @@ def sample_elections() -> list[ElectionOutputItem]:
 
 
 @pytest.fixture
-def presenter(mock_use_case: AsyncMock) -> MagicMock:
+def mock_container(mock_use_case, mock_governing_body_repo):
+    """DIコンテナのモック."""
+    container = MagicMock()
+    container.use_cases.manage_elections_usecase.return_value = mock_use_case
+    container.repositories.governing_body_repository.return_value = (
+        mock_governing_body_repo
+    )
+    return container
+
+
+@pytest.fixture
+def presenter(mock_container, mock_use_case) -> MagicMock:
     """ElectionPresenterのインスタンス."""
     with (
-        patch(
-            "src.interfaces.web.streamlit.presenters.election_presenter.RepositoryAdapter"  # noqa: E501
-        ),
         patch(
             "src.interfaces.web.streamlit.presenters.election_presenter.SessionManager"
         ) as mock_session,
         patch(
-            "src.interfaces.web.streamlit.presenters.election_presenter.ManageElectionsUseCase"  # noqa: E501
-        ) as mock_uc_class,
-        patch("src.interfaces.web.streamlit.presenters.base.Container"),
+            "src.interfaces.web.streamlit.presenters.base.Container"
+        ) as mock_container_cls,
     ):
-        mock_uc_class.return_value = mock_use_case
+        mock_container_cls.create_for_environment.return_value = mock_container
 
         mock_session_instance = MagicMock()
         mock_session_instance.get_or_create = MagicMock(return_value={})
@@ -70,8 +83,7 @@ def presenter(mock_use_case: AsyncMock) -> MagicMock:
         )
 
         presenter = ElectionPresenter()
-        presenter.use_case = mock_use_case
-        return presenter
+        yield presenter
 
 
 class TestElectionPresenterInit:
@@ -79,18 +91,20 @@ class TestElectionPresenterInit:
 
     def test_init_creates_instance(self) -> None:
         """Presenterが正しく初期化されることを確認."""
+        mock_container = MagicMock()
+        mock_container.use_cases.manage_elections_usecase.return_value = AsyncMock()
+        mock_container.repositories.governing_body_repository.return_value = AsyncMock()
+
         with (
             patch(
-                "src.interfaces.web.streamlit.presenters.election_presenter.RepositoryAdapter"  # noqa: E501
-            ),
-            patch(
-                "src.interfaces.web.streamlit.presenters.election_presenter.SessionManager"  # noqa: E501
+                "src.interfaces.web.streamlit.presenters.election_presenter.SessionManager"
             ) as mock_session,
             patch(
-                "src.interfaces.web.streamlit.presenters.election_presenter.ManageElectionsUseCase"  # noqa: E501
-            ),
-            patch("src.interfaces.web.streamlit.presenters.base.Container"),
+                "src.interfaces.web.streamlit.presenters.base.Container"
+            ) as mock_container_cls,
         ):
+            mock_container_cls.create_for_environment.return_value = mock_container
+
             mock_session_instance = MagicMock()
             mock_session_instance.get_or_create = MagicMock(return_value={})
             mock_session.return_value = mock_session_instance

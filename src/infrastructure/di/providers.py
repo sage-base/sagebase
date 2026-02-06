@@ -26,8 +26,15 @@ from src.application.usecases.link_speaker_to_politician_usecase import (
 from src.application.usecases.manage_conference_members_usecase import (
     ManageConferenceMembersUseCase,
 )
+from src.application.usecases.manage_elections_usecase import ManageElectionsUseCase
+from src.application.usecases.manage_governing_bodies_usecase import (
+    ManageGoverningBodiesUseCase,
+)
 from src.application.usecases.manage_parliamentary_group_judges_usecase import (
     ManageParliamentaryGroupJudgesUseCase,
+)
+from src.application.usecases.manage_political_parties_usecase import (
+    ManagePoliticalPartiesUseCase,
 )
 from src.application.usecases.match_speakers_usecase import MatchSpeakersUseCase
 from src.application.usecases.process_minutes_usecase import ProcessMinutesUseCase
@@ -72,6 +79,7 @@ from src.infrastructure.external.politician_matching import (
 from src.infrastructure.external.role_name_mapping.baml_role_name_mapping_service import (
     BAMLRoleNameMappingService,
 )
+from src.infrastructure.external.seed_generator_service import SeedGeneratorServiceImpl
 from src.infrastructure.external.web_scraper_service import (
     IWebScraperService,
     PlaywrightScraperService,
@@ -88,6 +96,9 @@ from src.infrastructure.persistence.conversation_repository_impl import (
 )
 from src.infrastructure.persistence.data_coverage_repository_impl import (
     DataCoverageRepositoryImpl,
+)
+from src.infrastructure.persistence.election_repository_impl import (
+    ElectionRepositoryImpl,
 )
 from src.infrastructure.persistence.extracted_conference_member_repository_impl import (
     ExtractedConferenceMemberRepositoryImpl,
@@ -356,6 +367,11 @@ class RepositoryContainer(containers.DeclarativeContainer):
         session=database.async_session,
     )
 
+    election_repository = providers.Factory(
+        ElectionRepositoryImpl,
+        session=database.async_session,
+    )
+
     governing_body_repository = providers.Factory(
         GoverningBodyRepositoryImpl,
         session=database.async_session,
@@ -514,6 +530,9 @@ class ServiceContainer(containers.DeclarativeContainer):
     minutes_divider_service: providers.Provider[IMinutesDividerService] = (
         providers.Factory(BAMLMinutesDivider)
     )
+
+    # Seed generator service (シードファイル生成)
+    seed_generator_service = providers.Factory(SeedGeneratorServiceImpl)
 
 
 class UseCaseContainer(containers.DeclarativeContainer):
@@ -674,6 +693,28 @@ class UseCaseContainer(containers.DeclarativeContainer):
         storage_service=services.storage_service,
         role_name_mapping_service=services.role_name_mapping_service,
         minutes_divider_service=services.minutes_divider_service,
+    )
+
+    # Manage Elections UseCase (Issue #1075)
+    # 選挙管理用ユースケース
+    manage_elections_usecase = providers.Factory(
+        ManageElectionsUseCase,
+        election_repository=repositories.election_repository,
+        seed_generator_service=services.seed_generator_service,
+    )
+
+    # Manage Governing Bodies UseCase (Issue #1075)
+    # 開催主体管理用ユースケース
+    manage_governing_bodies_usecase = providers.Factory(
+        ManageGoverningBodiesUseCase,
+        governing_body_repository=repositories.governing_body_repository,
+    )
+
+    # Manage Political Parties UseCase (Issue #1075)
+    # 政党管理用ユースケース
+    manage_political_parties_usecase = providers.Factory(
+        ManagePoliticalPartiesUseCase,
+        repository=repositories.political_party_repository,
     )
 
     # Manage Parliamentary Group Judges UseCase (Issue #1007)

@@ -130,9 +130,7 @@ def _render_election_selector(
 
     # Load elections for the selected governing body
     election_repo = RepositoryAdapter(ElectionRepositoryImpl)
-    elections: list[Election] = asyncio.run(
-        election_repo.get_by_governing_body(governing_body_id)
-    )
+    elections: list[Election] = election_repo.get_by_governing_body(governing_body_id)
 
     if not elections:
         st.info("この開催主体には選挙が登録されていません。")

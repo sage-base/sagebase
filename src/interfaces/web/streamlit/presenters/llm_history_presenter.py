@@ -11,10 +11,6 @@ from src.domain.entities.llm_processing_history import (
     ProcessingStatus,
     ProcessingType,
 )
-from src.infrastructure.persistence.llm_processing_history_repository_impl import (
-    LLMProcessingHistoryRepositoryImpl,
-)
-from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
 from src.interfaces.web.streamlit.dto.base import WebResponseDTO
 from src.interfaces.web.streamlit.presenters.base import BasePresenter
 from src.interfaces.web.streamlit.utils.session_manager import SessionManager
@@ -30,7 +26,10 @@ class LLMHistoryPresenter(BasePresenter[list[LLMProcessingHistory]]):
             container: Dependency injection container
         """
         super().__init__(container)
-        self.history_repo = RepositoryAdapter(LLMProcessingHistoryRepositoryImpl)
+        # DIコンテナ経由でリポジトリを取得
+        self.history_repo = (
+            self.container.repositories.llm_processing_history_repository()
+        )
         self.session = SessionManager(namespace="llm_history")
         self.logger = get_logger(self.__class__.__name__)
 
@@ -40,7 +39,7 @@ class LLMHistoryPresenter(BasePresenter[list[LLMProcessingHistory]]):
         Returns:
             List of LLM processing histories
         """
-        return self.history_repo.get_all()
+        return self._run_async(self.history_repo.get_all())
 
     def handle_action(self, action: str, **kwargs: Any) -> Any:
         """Handle user actions from the view.
@@ -98,20 +97,24 @@ class LLMHistoryPresenter(BasePresenter[list[LLMProcessingHistory]]):
             model = None if model_name == "すべて" else model_name
 
             # Search histories
-            histories = self.history_repo.search(
-                processing_type=proc_type,
-                model_name=model,
-                status=proc_status,
-                start_date=start_date,
-                end_date=end_date,
-                limit=limit,
-                offset=offset,
+            histories = self._run_async(
+                self.history_repo.search(
+                    processing_type=proc_type,
+                    model_name=model,
+                    status=proc_status,
+                    start_date=start_date,
+                    end_date=end_date,
+                    limit=limit,
+                    offset=offset,
+                )
             )
 
             # Get total count for pagination
-            total_count = self.history_repo.count_by_status(
-                status=proc_status if proc_status else ProcessingStatus.COMPLETED,
-                processing_type=proc_type,
+            total_count = self._run_async(
+                self.history_repo.count_by_status(
+                    status=proc_status if proc_status else ProcessingStatus.COMPLETED,
+                    processing_type=proc_type,
+                )
             )
 
             return WebResponseDTO.success_response(
@@ -149,11 +152,13 @@ class LLMHistoryPresenter(BasePresenter[list[LLMProcessingHistory]]):
                 end_date = datetime.now()
 
             # Get all histories in date range
-            histories = self.history_repo.search(
-                start_date=start_date,
-                end_date=end_date,
-                limit=10000,  # Large limit to get all
-                offset=0,
+            histories = self._run_async(
+                self.history_repo.search(
+                    start_date=start_date,
+                    end_date=end_date,
+                    limit=10000,  # Large limit to get all
+                    offset=0,
+                )
             )
 
             # Calculate statistics
@@ -304,7 +309,7 @@ class LLMHistoryPresenter(BasePresenter[list[LLMProcessingHistory]]):
             Response with history details
         """
         try:
-            history = self.history_repo.get_by_id(history_id)
+            history = self._run_async(self.history_repo.get_by_id(history_id))
             if not history:
                 return WebResponseDTO.error_response(
                     f"履歴ID {history_id} が見つかりません"
