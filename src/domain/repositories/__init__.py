@@ -3,6 +3,9 @@
 from src.domain.repositories.base import BaseRepository
 from src.domain.repositories.conference_repository import ConferenceRepository
 from src.domain.repositories.conversation_repository import ConversationRepository
+from src.domain.repositories.election_member_repository import (
+    ElectionMemberRepository,
+)
 from src.domain.repositories.election_repository import ElectionRepository
 from src.domain.repositories.governing_body_repository import GoverningBodyRepository
 from src.domain.repositories.llm_processing_history_repository import (
@@ -29,6 +32,7 @@ __all__ = [
     "BaseRepository",
     "ConferenceRepository",
     "ConversationRepository",
+    "ElectionMemberRepository",
     "ElectionRepository",
     "GoverningBodyRepository",
     "LLMProcessingHistoryRepository",

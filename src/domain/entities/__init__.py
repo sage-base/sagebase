@@ -4,6 +4,7 @@ from src.domain.entities.base import BaseEntity
 from src.domain.entities.conference import Conference
 from src.domain.entities.conversation import Conversation
 from src.domain.entities.election import Election
+from src.domain.entities.election_member import ElectionMember
 from src.domain.entities.governing_body import GoverningBody
 from src.domain.entities.llm_processing_history import (
     LLMProcessingHistory,
@@ -33,6 +34,7 @@ __all__ = [
     "Conference",
     "Conversation",
     "Election",
+    "ElectionMember",
     "GoverningBody",
     "LLMProcessingHistory",
     "Meeting",
