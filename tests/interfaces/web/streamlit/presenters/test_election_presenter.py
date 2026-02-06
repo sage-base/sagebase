@@ -83,7 +83,7 @@ def presenter(mock_container, mock_use_case) -> MagicMock:
         )
 
         presenter = ElectionPresenter()
-        return presenter
+        yield presenter
 
 
 class TestElectionPresenterInit:

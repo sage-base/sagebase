@@ -80,7 +80,7 @@ def presenter(mock_container, mock_use_case):
         )
 
         presenter = PoliticalPartyPresenter()
-        return presenter
+        yield presenter
 
 
 class TestPoliticalPartyPresenterInit:
@@ -172,27 +172,25 @@ class TestCRUDOperations:
         ):
             presenter.delete()
 
-    def test_read_success(self, presenter):
+    def test_read_success(self, presenter, mock_repository):
         """政党を読み込めることを確認"""
         mock_party = PoliticalParty(id=1, name="自民党")
-        presenter.repository = MagicMock()
-        presenter.repository.get_by_id = MagicMock(return_value=mock_party)
-        presenter._run_async = MagicMock(return_value=mock_party)
+        mock_repository.get_by_id.return_value = mock_party
 
         result = presenter.read(party_id=1)
 
         assert result.id == 1
         assert result.name == "自民党"
+        mock_repository.get_by_id.assert_called_once_with(1)
 
     def test_read_without_party_id(self, presenter):
         """party_idなしでエラーが発生することを確認"""
         with pytest.raises(ValueError, match="party_id is required"):
             presenter.read()
 
-    def test_read_not_found(self, presenter):
+    def test_read_not_found(self, presenter, mock_repository):
         """政党が見つからない場合のエラーを確認"""
-        presenter.repository = MagicMock()
-        presenter._run_async = MagicMock(return_value=None)
+        mock_repository.get_by_id.return_value = None
 
         with pytest.raises(ValueError, match="見つかりません"):
             presenter.read(party_id=999)
@@ -226,15 +224,11 @@ class TestList:
         mock_use_case.list_parties.return_value = PoliticalPartyListOutputDto(
             parties=sample_parties, statistics=sample_statistics
         )
-        presenter._run_async = MagicMock(
-            return_value=PoliticalPartyListOutputDto(
-                parties=sample_parties, statistics=sample_statistics
-            )
-        )
 
         result = presenter.list()
 
         assert len(result) == 2
+        mock_use_case.list_parties.assert_called_once()
 
 
 class TestGenerateSeedFile:
@@ -248,19 +242,12 @@ class TestGenerateSeedFile:
             content="INSERT INTO...",
             file_path="/tmp/seed.sql",
         )
-        presenter._run_async = MagicMock(
-            return_value=GenerateSeedFileOutputDto(
-                success=True,
-                message="シードファイルを生成しました",
-                content="INSERT INTO...",
-                file_path="/tmp/seed.sql",
-            )
-        )
 
         result = presenter.generate_seed_file()
 
         assert result.success is True
         assert result.file_path == "/tmp/seed.sql"
+        mock_use_case.generate_seed_file.assert_called_once()
 
 
 class TestToDataframe:

@@ -72,7 +72,7 @@ def presenter(mock_container, mock_use_case):
         )
 
         presenter = GoverningBodyPresenter()
-        return presenter
+        yield presenter
 
 
 class TestGoverningBodyPresenterInit:
