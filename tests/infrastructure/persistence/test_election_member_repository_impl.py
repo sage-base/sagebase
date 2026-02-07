@@ -4,14 +4,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.election_member import ElectionMember
-from src.infrastructure.exceptions import DatabaseError
 from src.infrastructure.persistence.election_member_repository_impl import (
-    ElectionMemberModel,
     ElectionMemberRepositoryImpl,
+)
+from src.infrastructure.persistence.sqlalchemy_models import (
+    ElectionMemberModel,
 )
 
 
@@ -23,8 +23,11 @@ class TestElectionMemberRepositoryImpl:
         """Create mock async session."""
         session = MagicMock(spec=AsyncSession)
         session.execute = AsyncMock()
-        session.commit = AsyncMock()
-        session.rollback = AsyncMock()
+        session.get = AsyncMock()
+        session.add = MagicMock()
+        session.flush = AsyncMock()
+        session.refresh = AsyncMock()
+        session.delete = AsyncMock()
         return session
 
     @pytest.fixture
@@ -33,7 +36,7 @@ class TestElectionMemberRepositoryImpl:
         return ElectionMemberRepositoryImpl(mock_session)
 
     @pytest.fixture
-    def sample_election_member_entity(self) -> ElectionMember:
+    def sample_entity(self) -> ElectionMember:
         """Sample election member entity."""
         return ElectionMember(
             id=1,
@@ -44,29 +47,31 @@ class TestElectionMemberRepositoryImpl:
             rank=1,
         )
 
+    @pytest.fixture
+    def sample_model(self) -> MagicMock:
+        """Sample SQLAlchemy model mock."""
+        model = MagicMock(spec=ElectionMemberModel)
+        model.id = 1
+        model.election_id = 10
+        model.politician_id = 100
+        model.result = "当選"
+        model.votes = 5000
+        model.rank = 1
+        return model
+
+    # --- Domain-specific methods ---
+
     @pytest.mark.asyncio
     async def test_get_by_election_id(
         self,
         repository: ElectionMemberRepositoryImpl,
         mock_session: MagicMock,
+        sample_model: MagicMock,
     ) -> None:
-        """Test get_by_election_id returns members for election."""
-        mock_row = MagicMock()
-        mock_row._asdict = MagicMock(
-            return_value={
-                "id": 1,
-                "election_id": 10,
-                "politician_id": 100,
-                "result": "当選",
-                "votes": 5000,
-                "rank": 1,
-                "created_at": None,
-                "updated_at": None,
-            }
-        )
-
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = [sample_model]
         mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row])
+        mock_result.scalars.return_value = mock_scalars
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_by_election_id(10)
@@ -78,44 +83,68 @@ class TestElectionMemberRepositoryImpl:
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_get_by_election_id_multiple(
+        self,
+        repository: ElectionMemberRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        model1 = MagicMock(spec=ElectionMemberModel)
+        model1.id = 1
+        model1.election_id = 10
+        model1.politician_id = 100
+        model1.result = "当選"
+        model1.votes = 5000
+        model1.rank = 1
+
+        model2 = MagicMock(spec=ElectionMemberModel)
+        model2.id = 2
+        model2.election_id = 10
+        model2.politician_id = 101
+        model2.result = "落選"
+        model2.votes = 3000
+        model2.rank = 2
+
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = [model1, model2]
+        mock_result = MagicMock()
+        mock_result.scalars.return_value = mock_scalars
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_election_id(10)
+
+        assert len(result) == 2
+        assert result[0].politician_id == 100
+        assert result[0].result == "当選"
+        assert result[1].politician_id == 101
+        assert result[1].result == "落選"
+
+    @pytest.mark.asyncio
     async def test_get_by_election_id_empty(
         self,
         repository: ElectionMemberRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test get_by_election_id returns empty list when no members."""
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = []
         mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[])
+        mock_result.scalars.return_value = mock_scalars
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_by_election_id(999)
 
         assert result == []
-        mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_by_politician_id(
         self,
         repository: ElectionMemberRepositoryImpl,
         mock_session: MagicMock,
+        sample_model: MagicMock,
     ) -> None:
-        """Test get_by_politician_id returns election results for politician."""
-        mock_row = MagicMock()
-        mock_row._asdict = MagicMock(
-            return_value={
-                "id": 1,
-                "election_id": 10,
-                "politician_id": 100,
-                "result": "当選",
-                "votes": 5000,
-                "rank": 1,
-                "created_at": None,
-                "updated_at": None,
-            }
-        )
-
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = [sample_model]
         mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row])
+        mock_result.scalars.return_value = mock_scalars
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_by_politician_id(100)
@@ -131,47 +160,63 @@ class TestElectionMemberRepositoryImpl:
         repository: ElectionMemberRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test get_by_politician_id returns empty list when no results."""
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = []
         mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[])
+        mock_result.scalars.return_value = mock_scalars
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_by_politician_id(999)
 
         assert result == []
+
+    @pytest.mark.asyncio
+    async def test_delete_by_election_id(
+        self,
+        repository: ElectionMemberRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        mock_result = MagicMock()
+        mock_result.rowcount = 3
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.delete_by_election_id(10)
+
+        assert result == 3
         mock_session.execute.assert_called_once()
+        mock_session.flush.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_delete_by_election_id_empty(
+        self,
+        repository: ElectionMemberRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        mock_result = MagicMock()
+        mock_result.rowcount = 0
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.delete_by_election_id(999)
+
+        assert result == 0
+
+    # --- BaseRepositoryImpl inherited CRUD ---
 
     @pytest.mark.asyncio
     async def test_get_by_id_found(
         self,
         repository: ElectionMemberRepositoryImpl,
         mock_session: MagicMock,
+        sample_model: MagicMock,
     ) -> None:
-        """Test get_by_id when election member is found."""
-        mock_row = MagicMock()
-        mock_row._asdict = MagicMock(
-            return_value={
-                "id": 1,
-                "election_id": 10,
-                "politician_id": 100,
-                "result": "当選",
-                "votes": 5000,
-                "rank": 1,
-                "created_at": None,
-                "updated_at": None,
-            }
-        )
-
-        mock_result = MagicMock()
-        mock_result.first = MagicMock(return_value=mock_row)
-        mock_session.execute.return_value = mock_result
+        mock_session.get.return_value = sample_model
 
         result = await repository.get_by_id(1)
 
         assert result is not None
         assert result.id == 1
         assert result.election_id == 10
-        mock_session.execute.assert_called_once()
+        mock_session.get.assert_called_once_with(ElectionMemberModel, 1)
 
     @pytest.mark.asyncio
     async def test_get_by_id_not_found(
@@ -179,177 +224,123 @@ class TestElectionMemberRepositoryImpl:
         repository: ElectionMemberRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test get_by_id when election member is not found."""
-        mock_result = MagicMock()
-        mock_result.first = MagicMock(return_value=None)
-        mock_session.execute.return_value = mock_result
+        mock_session.get.return_value = None
 
         result = await repository.get_by_id(999)
 
         assert result is None
-        mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_all(
         self,
         repository: ElectionMemberRepositoryImpl,
         mock_session: MagicMock,
+        sample_model: MagicMock,
     ) -> None:
-        """Test get_all returns all election members."""
-        mock_row1 = MagicMock()
-        mock_row1._asdict = MagicMock(
-            return_value={
-                "id": 1,
-                "election_id": 10,
-                "politician_id": 100,
-                "result": "当選",
-                "votes": 5000,
-                "rank": 1,
-                "created_at": None,
-                "updated_at": None,
-            }
-        )
+        model2 = MagicMock(spec=ElectionMemberModel)
+        model2.id = 2
+        model2.election_id = 10
+        model2.politician_id = 101
+        model2.result = "落選"
+        model2.votes = 3000
+        model2.rank = 2
 
-        mock_row2 = MagicMock()
-        mock_row2._asdict = MagicMock(
-            return_value={
-                "id": 2,
-                "election_id": 10,
-                "politician_id": 101,
-                "result": "落選",
-                "votes": 3000,
-                "rank": 2,
-                "created_at": None,
-                "updated_at": None,
-            }
-        )
-
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = [sample_model, model2]
         mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
+        mock_result.scalars.return_value = mock_scalars
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_all()
 
         assert len(result) == 2
-        mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_create_success(
+    async def test_create(
         self,
         repository: ElectionMemberRepositoryImpl,
         mock_session: MagicMock,
-        sample_election_member_entity: ElectionMember,
+        sample_entity: ElectionMember,
     ) -> None:
-        """Test create successfully creates election member."""
-        mock_row = MagicMock()
-        mock_row._asdict = MagicMock(
-            return_value={
-                "id": 1,
-                "election_id": 10,
-                "politician_id": 100,
-                "result": "当選",
-                "votes": 5000,
-                "rank": 1,
-                "created_at": None,
-                "updated_at": None,
-            }
-        )
+        async def mock_refresh(model: MagicMock) -> None:
+            model.id = 1
+            model.election_id = sample_entity.election_id
+            model.politician_id = sample_entity.politician_id
+            model.result = sample_entity.result
+            model.votes = sample_entity.votes
+            model.rank = sample_entity.rank
 
-        mock_result = MagicMock()
-        mock_result.first = MagicMock(return_value=mock_row)
-        mock_session.execute.return_value = mock_result
+        mock_session.refresh.side_effect = mock_refresh
 
-        result = await repository.create(sample_election_member_entity)
+        result = await repository.create(sample_entity)
 
         assert result.id == 1
         assert result.result == "当選"
-        mock_session.execute.assert_called_once()
-        mock_session.commit.assert_called_once()
+        mock_session.add.assert_called_once()
+        mock_session.flush.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_create_failure(
+    async def test_update(
         self,
         repository: ElectionMemberRepositoryImpl,
         mock_session: MagicMock,
-        sample_election_member_entity: ElectionMember,
+        sample_entity: ElectionMember,
+        sample_model: MagicMock,
     ) -> None:
-        """Test create raises RuntimeError when creation fails."""
-        mock_result = MagicMock()
-        mock_result.first = MagicMock(return_value=None)
-        mock_session.execute.return_value = mock_result
+        mock_session.get.return_value = sample_model
 
-        with pytest.raises(RuntimeError, match="Failed to create election member"):
-            await repository.create(sample_election_member_entity)
+        async def mock_refresh(model: MagicMock) -> None:
+            model.result = "落選"
+            model.votes = 3000
+            model.rank = 2
 
-    @pytest.mark.asyncio
-    async def test_update_success(
-        self,
-        repository: ElectionMemberRepositoryImpl,
-        mock_session: MagicMock,
-        sample_election_member_entity: ElectionMember,
-    ) -> None:
-        """Test update successfully updates election member."""
-        mock_row = MagicMock()
-        mock_row._asdict = MagicMock(
-            return_value={
-                "id": 1,
-                "election_id": 10,
-                "politician_id": 100,
-                "result": "落選",
-                "votes": 3000,
-                "rank": 2,
-                "created_at": None,
-                "updated_at": None,
-            }
-        )
+        mock_session.refresh.side_effect = mock_refresh
+        sample_entity.result = "落選"
+        sample_entity.votes = 3000
+        sample_entity.rank = 2
 
-        mock_result = MagicMock()
-        mock_result.first = MagicMock(return_value=mock_row)
-        mock_session.execute.return_value = mock_result
-
-        sample_election_member_entity.result = "落選"
-        sample_election_member_entity.votes = 3000
-        sample_election_member_entity.rank = 2
-        result = await repository.update(sample_election_member_entity)
+        result = await repository.update(sample_entity)
 
         assert result.result == "落選"
         assert result.votes == 3000
-        mock_session.execute.assert_called_once()
-        mock_session.commit.assert_called_once()
+        mock_session.flush.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_update_no_id(
+        self,
+        repository: ElectionMemberRepositoryImpl,
+    ) -> None:
+        entity = ElectionMember(election_id=10, politician_id=100, result="当選")
+
+        with pytest.raises(ValueError, match="Entity must have an ID"):
+            await repository.update(entity)
 
     @pytest.mark.asyncio
     async def test_update_not_found(
         self,
         repository: ElectionMemberRepositoryImpl,
         mock_session: MagicMock,
-        sample_election_member_entity: ElectionMember,
+        sample_entity: ElectionMember,
     ) -> None:
-        """Test update raises UpdateError when election member not found."""
-        from src.infrastructure.exceptions import UpdateError
+        mock_session.get.return_value = None
 
-        mock_result = MagicMock()
-        mock_result.first = MagicMock(return_value=None)
-        mock_session.execute.return_value = mock_result
-
-        with pytest.raises(UpdateError, match="ElectionMember with ID 1 not found"):
-            await repository.update(sample_election_member_entity)
+        with pytest.raises(ValueError, match="not found"):
+            await repository.update(sample_entity)
 
     @pytest.mark.asyncio
     async def test_delete_success(
         self,
         repository: ElectionMemberRepositoryImpl,
         mock_session: MagicMock,
+        sample_model: MagicMock,
     ) -> None:
-        """Test delete successfully deletes election member."""
-        mock_delete_result = MagicMock()
-        mock_delete_result.rowcount = 1
-        mock_session.execute.return_value = mock_delete_result
+        mock_session.get.return_value = sample_model
 
         result = await repository.delete(1)
 
         assert result is True
-        mock_session.execute.assert_called_once()
-        mock_session.commit.assert_called_once()
+        mock_session.delete.assert_called_once_with(sample_model)
+        mock_session.flush.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_delete_not_found(
@@ -357,16 +348,11 @@ class TestElectionMemberRepositoryImpl:
         repository: ElectionMemberRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test delete returns False when election member not found."""
-        mock_delete_result = MagicMock()
-        mock_delete_result.rowcount = 0
-        mock_session.execute.return_value = mock_delete_result
+        mock_session.get.return_value = None
 
         result = await repository.delete(999)
 
         assert result is False
-        mock_session.execute.assert_called_once()
-        mock_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_count(
@@ -374,41 +360,69 @@ class TestElectionMemberRepositoryImpl:
         repository: ElectionMemberRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test count returns total number."""
         mock_result = MagicMock()
-        mock_result.scalar = MagicMock(return_value=15)
+        mock_result.scalar.return_value = 15
         mock_session.execute.return_value = mock_result
 
         result = await repository.count()
 
         assert result == 15
-        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_count_none_scalar(
+        self,
+        repository: ElectionMemberRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.count()
+
+        assert result == 0
+
+    # --- Conversion methods ---
 
     def test_to_entity(self, repository: ElectionMemberRepositoryImpl) -> None:
-        """Test _to_entity converts model to entity correctly."""
-        model = ElectionMemberModel(
-            id=1,
-            election_id=10,
-            politician_id=100,
-            result="当選",
-            votes=5000,
-            rank=1,
-        )
+        model = MagicMock(spec=ElectionMemberModel)
+        model.id = 1
+        model.election_id = 10
+        model.politician_id = 100
+        model.result = "当選"
+        model.votes = 5000
+        model.rank = 1
 
-        entity = repository._to_entity(model)
+        entity = repository._to_entity(model)  # type: ignore[reportPrivateUsage]
 
         assert isinstance(entity, ElectionMember)
         assert entity.id == 1
         assert entity.election_id == 10
         assert entity.result == "当選"
 
+    def test_to_entity_with_null_optional_fields(
+        self, repository: ElectionMemberRepositoryImpl
+    ) -> None:
+        model = MagicMock(spec=ElectionMemberModel)
+        model.id = 1
+        model.election_id = 10
+        model.politician_id = 100
+        model.result = "無投票当選"
+        model.votes = None
+        model.rank = None
+
+        entity = repository._to_entity(model)  # type: ignore[reportPrivateUsage]
+
+        assert entity.votes is None
+        assert entity.rank is None
+        assert entity.result == "無投票当選"
+
     def test_to_model(
         self,
         repository: ElectionMemberRepositoryImpl,
-        sample_election_member_entity: ElectionMember,
+        sample_entity: ElectionMember,
     ) -> None:
-        """Test _to_model converts entity to model correctly."""
-        model = repository._to_model(sample_election_member_entity)
+        model = repository._to_model(sample_entity)  # type: ignore[reportPrivateUsage]
 
         assert isinstance(model, ElectionMemberModel)
         assert model.election_id == 10
@@ -418,19 +432,11 @@ class TestElectionMemberRepositoryImpl:
     def test_update_model(
         self,
         repository: ElectionMemberRepositoryImpl,
-        sample_election_member_entity: ElectionMember,
+        sample_entity: ElectionMember,
     ) -> None:
-        """Test _update_model updates model fields from entity."""
-        model = ElectionMemberModel(
-            id=1,
-            election_id=1,
-            politician_id=1,
-            result="落選",
-            votes=100,
-            rank=10,
-        )
+        model = MagicMock(spec=ElectionMemberModel)
 
-        repository._update_model(model, sample_election_member_entity)
+        repository._update_model(model, sample_entity)  # type: ignore[reportPrivateUsage]
 
         assert model.election_id == 10
         assert model.politician_id == 100
@@ -438,161 +444,10 @@ class TestElectionMemberRepositoryImpl:
         assert model.votes == 5000
         assert model.rank == 1
 
-    def test_dict_to_entity(self, repository: ElectionMemberRepositoryImpl) -> None:
-        """Test _dict_to_entity converts dict to entity correctly."""
-        data = {
-            "id": 1,
-            "election_id": 10,
-            "politician_id": 100,
-            "result": "当選",
-            "votes": 5000,
-            "rank": 1,
-        }
+    # --- Entity tests ---
 
-        entity = repository._dict_to_entity(data)
-
-        assert isinstance(entity, ElectionMember)
-        assert entity.id == 1
-        assert entity.election_id == 10
-        assert entity.result == "当選"
-
-    def test_election_member_str(
-        self, sample_election_member_entity: ElectionMember
-    ) -> None:
-        """Test ElectionMember __str__ method."""
-        result = str(sample_election_member_entity)
+    def test_election_member_str(self, sample_entity: ElectionMember) -> None:
+        result = str(sample_entity)
         assert "election_id=10" in result
         assert "politician_id=100" in result
         assert "result=当選" in result
-
-    @pytest.mark.asyncio
-    async def test_get_by_election_id_database_error(
-        self,
-        repository: ElectionMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test get_by_election_id raises DatabaseError on SQLAlchemyError."""
-        mock_session.execute.side_effect = SQLAlchemyError("connection error")
-
-        with pytest.raises(DatabaseError, match="Failed to get election members"):
-            await repository.get_by_election_id(10)
-
-    @pytest.mark.asyncio
-    async def test_get_by_politician_id_database_error(
-        self,
-        repository: ElectionMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test get_by_politician_id raises DatabaseError on SQLAlchemyError."""
-        mock_session.execute.side_effect = SQLAlchemyError("connection error")
-
-        with pytest.raises(DatabaseError, match="Failed to get election members"):
-            await repository.get_by_politician_id(100)
-
-    @pytest.mark.asyncio
-    async def test_create_database_error(
-        self,
-        repository: ElectionMemberRepositoryImpl,
-        mock_session: MagicMock,
-        sample_election_member_entity: ElectionMember,
-    ) -> None:
-        """Test create raises DatabaseError on SQLAlchemyError."""
-        mock_session.execute.side_effect = SQLAlchemyError("insert error")
-
-        with pytest.raises(DatabaseError, match="Failed to create election member"):
-            await repository.create(sample_election_member_entity)
-
-        mock_session.rollback.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_delete_by_election_id(
-        self,
-        repository: ElectionMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test delete_by_election_id removes all members for election."""
-        mock_result = MagicMock()
-        mock_result.rowcount = 3
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.delete_by_election_id(10)
-
-        assert result == 3
-        mock_session.execute.assert_called_once()
-        mock_session.commit.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_delete_by_election_id_empty(
-        self,
-        repository: ElectionMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test delete_by_election_id when no members exist."""
-        mock_result = MagicMock()
-        mock_result.rowcount = 0
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.delete_by_election_id(999)
-
-        assert result == 0
-        mock_session.execute.assert_called_once()
-        mock_session.commit.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_get_all_with_pagination(
-        self,
-        repository: ElectionMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test get_all with limit and offset parameters."""
-        mock_row = MagicMock()
-        mock_row._asdict = MagicMock(
-            return_value={
-                "id": 1,
-                "election_id": 10,
-                "politician_id": 100,
-                "result": "当選",
-                "votes": 5000,
-                "rank": 1,
-                "created_at": None,
-                "updated_at": None,
-            }
-        )
-
-        mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row])
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.get_all(limit=10, offset=5)
-
-        assert len(result) == 1
-        mock_session.execute.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_count_none_scalar(
-        self,
-        repository: ElectionMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test count returns 0 when scalar returns None."""
-        mock_result = MagicMock()
-        mock_result.scalar = MagicMock(return_value=None)
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.count()
-
-        assert result == 0
-
-    @pytest.mark.asyncio
-    async def test_delete_by_election_id_database_error(
-        self,
-        repository: ElectionMemberRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test delete_by_election_id raises DatabaseError on SQLAlchemyError."""
-        mock_session.execute.side_effect = SQLAlchemyError("delete error")
-
-        with pytest.raises(DatabaseError, match="Failed to delete election members"):
-            await repository.delete_by_election_id(10)
-
-        mock_session.rollback.assert_called_once()
