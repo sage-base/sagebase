@@ -141,6 +141,41 @@ up: _setup_worktree
 		docker compose {{compose_cmd}} exec sagebase uv run sagebase streamlit
 	fi
 
+# Start containers with Google OAuth disabled (for automated testing / Claude Code verification)
+up-noauth: _setup_worktree
+	#!/bin/bash
+	# Start containers without rebuilding (fast startup)
+	docker compose {{compose_cmd}} up -d
+	# Wait for containers to be healthy
+	echo "Waiting for containers to be ready..."
+	sleep 3
+	# Run database migrations with Alembic (idempotent - safe to run every time)
+	echo "Running database migrations with Alembic..."
+	docker compose {{compose_cmd}} exec sagebase uv run alembic upgrade head 2>&1 || true
+	echo "✅ Migrations complete!"
+	# Load seed data (only on first run)
+	./scripts/load-seeds.sh "{{compose_cmd}}"
+	# Detect actual host port from docker-compose.override.yml if it exists
+	if [ -f docker/docker-compose.override.yml ]; then
+		HOST_PORT=$(grep ":8501" docker/docker-compose.override.yml | awk -F'"' '{print $2}' | cut -d: -f1)
+	else
+		HOST_PORT=8501
+	fi
+	# Check if Streamlit is already running in the container
+	if docker compose {{compose_cmd}} exec sagebase pgrep -f "streamlit run" > /dev/null 2>&1; then
+		echo "🔄 Streamlit is already running, restarting to apply changes..."
+		docker compose {{compose_cmd}} exec sagebase pkill -f "streamlit run" || true
+		sleep 2
+	fi
+	echo "🔓 Starting Streamlit with Google OAuth DISABLED..."
+	echo "Press Ctrl+C to stop the server"
+	echo ""
+	if [ -n "$HOST_PORT" ] && [ "$HOST_PORT" != "8501" ]; then
+		docker compose {{compose_cmd}} exec -e GOOGLE_OAUTH_DISABLED=true -e STREAMLIT_HOST_PORT=$HOST_PORT sagebase uv run sagebase streamlit
+	else
+		docker compose {{compose_cmd}} exec -e GOOGLE_OAUTH_DISABLED=true sagebase uv run sagebase streamlit
+	fi
+
 # Connect to database
 db: _setup_worktree
 	docker compose {{compose_cmd}} exec postgres psql -U sagebase_user -d sagebase_db

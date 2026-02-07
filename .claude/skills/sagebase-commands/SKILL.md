@@ -21,6 +21,7 @@ This skill activates automatically when:
 
 ```bash
 just up              # Start containers and launch Streamlit
+just up-noauth       # Start containers and launch Streamlit (auth disabled, for testing)
 just down            # Stop and remove containers
 just db              # Connect to database
 just test            # Run tests with type checking
