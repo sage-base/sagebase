@@ -1,5 +1,6 @@
 """ConferencePresenterのテスト"""
 
+from datetime import date
 from unittest.mock import AsyncMock, patch
 
 import pandas as pd
@@ -7,6 +8,7 @@ import pytest
 
 from src.application.dtos.election_dto import (
     ElectionOutputItem,
+    ListElectionsInputDto,
     ListElectionsOutputDto,
 )
 from src.application.usecases.manage_conferences_usecase import (
@@ -505,13 +507,11 @@ class TestConferenceFormData:
 class TestGetElectionsForGoverningBody:
     """get_elections_for_governing_bodyメソッドのテスト"""
 
-    def test_returns_elections_via_usecase(
+    async def test_returns_elections_via_usecase(
         self, presenter_with_elections, mock_elections_use_case
     ):
         """UseCase経由で選挙一覧を取得できることを確認"""
         # Arrange
-        from datetime import date
-
         elections = [
             ElectionOutputItem(
                 id=1,
@@ -533,24 +533,26 @@ class TestGetElectionsForGoverningBody:
         )
 
         # Act
-        result = presenter_with_elections.get_elections_for_governing_body(100)
+        result = await presenter_with_elections.get_elections_for_governing_body(100)
 
         # Assert
         assert len(result) == 2
         assert result[0].id == 1
         assert result[0].term_number == 1
         assert result[1].id == 2
-        mock_elections_use_case.list_elections.assert_called_once()
+        mock_elections_use_case.list_elections.assert_called_once_with(
+            ListElectionsInputDto(governing_body_id=100)
+        )
 
-    def test_returns_empty_when_no_elections_usecase(self, presenter):
+    async def test_returns_empty_when_no_elections_usecase(self, presenter):
         """elections_use_caseがNoneの場合は空リストを返すことを確認"""
         # Act
-        result = presenter.get_elections_for_governing_body(100)
+        result = await presenter.get_elections_for_governing_body(100)
 
         # Assert
         assert result == []
 
-    def test_returns_empty_list_when_no_elections(
+    async def test_returns_empty_list_when_no_elections(
         self, presenter_with_elections, mock_elections_use_case
     ):
         """選挙がない場合は空リストを返すことを確認"""
@@ -560,7 +562,20 @@ class TestGetElectionsForGoverningBody:
         )
 
         # Act
-        result = presenter_with_elections.get_elections_for_governing_body(100)
+        result = await presenter_with_elections.get_elections_for_governing_body(100)
+
+        # Assert
+        assert result == []
+
+    async def test_returns_empty_on_exception(
+        self, presenter_with_elections, mock_elections_use_case
+    ):
+        """UseCase例外時に空リストを返しエラーが握りつぶされないことを確認"""
+        # Arrange
+        mock_elections_use_case.list_elections.side_effect = RuntimeError("DB error")
+
+        # Act
+        result = await presenter_with_elections.get_elections_for_governing_body(100)
 
         # Assert
         assert result == []

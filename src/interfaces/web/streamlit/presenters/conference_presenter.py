@@ -1,7 +1,5 @@
 """Presenter for conference management."""
 
-import asyncio
-
 from dataclasses import dataclass
 
 import pandas as pd
@@ -19,8 +17,12 @@ from src.application.usecases.manage_conferences_usecase import (
     UpdateConferenceInputDto,
 )
 from src.application.usecases.manage_elections_usecase import ManageElectionsUseCase
+from src.common.logging import get_logger
 from src.domain.entities import Conference
 from src.interfaces.web.streamlit.utils.session_manager import SessionManager
+
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -146,7 +148,7 @@ class ConferencePresenter:
         output_dto = await self.use_case.generate_seed_file()
         return output_dto.success, output_dto.file_path, output_dto.error_message
 
-    def get_elections_for_governing_body(
+    async def get_elections_for_governing_body(
         self, governing_body_id: int
     ) -> list[ElectionOutputItem]:
         """開催主体に紐づく選挙一覧を取得する.
@@ -159,9 +161,15 @@ class ConferencePresenter:
         """
         if self.elections_use_case is None:
             return []
-        input_dto = ListElectionsInputDto(governing_body_id=governing_body_id)
-        output_dto = asyncio.run(self.elections_use_case.list_elections(input_dto))
-        return output_dto.elections
+        try:
+            input_dto = ListElectionsInputDto(governing_body_id=governing_body_id)
+            output_dto = await self.elections_use_case.list_elections(input_dto)
+            return output_dto.elections
+        except Exception as e:
+            logger.error(
+                f"Failed to load elections for governing body {governing_body_id}: {e}"
+            )
+            return []
 
     def load_conference_for_edit(self, conference: Conference) -> ConferenceFormData:
         """Load conference data for editing."""
