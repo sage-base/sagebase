@@ -80,8 +80,11 @@ process.stdin.on('end', async () => {
       }
     }
 
+    // Get port info from docker-compose.override.yml
+    const portInfo = getWorktreePortInfo(workingDir);
+
     // Build status line
-    const statusLine = `[${model}] 📁 ${currentDir} | 🪙 ${tokenDisplay} | ${percentageColor}${percentage}%\x1b[0m${prStatus}`;
+    const statusLine = `[${model}] 📁 ${currentDir}${portInfo} | 🪙 ${tokenDisplay} | ${percentageColor}${percentage}%\x1b[0m${prStatus}`;
 
     console.log(statusLine);
   } catch (error) {
@@ -139,6 +142,48 @@ function formatTokenCount(tokens) {
     return `${(tokens / 1000).toFixed(1)}K`;
   }
   return tokens.toString();
+}
+
+function getWorktreePortInfo(workingDir) {
+  try {
+    const overridePath = path.join(workingDir, 'docker', 'docker-compose.override.yml');
+    if (!fs.existsSync(overridePath)) {
+      return '';
+    }
+
+    const content = fs.readFileSync(overridePath, 'utf8');
+
+    // ホスト側ポートを抽出（"hostPort:containerPort" の hostPort部分）
+    const portMap = {};
+    const lines = content.split('\n');
+    let currentService = null;
+
+    for (const line of lines) {
+      const serviceMatch = line.match(/^\s{2}(\S+):/);
+      if (serviceMatch && serviceMatch[1] !== 'ports') {
+        currentService = serviceMatch[1];
+      }
+      const portMatch = line.match(/- "(\d+):(\d+)"/);
+      if (portMatch && currentService) {
+        const hostPort = portMatch[1];
+        const containerPort = portMatch[2];
+        // 主要ポートのみラベル付きで表示
+        if (containerPort === '8501') {
+          portMap['UI'] = hostPort;
+        } else if (containerPort === '5432') {
+          portMap['DB'] = hostPort;
+        } else if (containerPort === '8050') {
+          portMap['BI'] = hostPort;
+        }
+      }
+    }
+
+    const parts = Object.entries(portMap).map(([label, port]) => `${label}:${port}`);
+    if (parts.length === 0) return '';
+    return ` | 🔌 ${parts.join(' ')}`;
+  } catch (error) {
+    return '';
+  }
 }
 
 async function getPRInfo(workingDir) {
