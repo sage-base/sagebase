@@ -11,12 +11,9 @@ import streamlit as st
 
 from ..constants import CONFERENCE_PREFECTURES
 
-from src.domain.entities import Conference, Election
+from src.application.dtos.election_dto import ElectionOutputItem
+from src.domain.entities import Conference
 from src.domain.repositories import ConferenceRepository, GoverningBodyRepository
-from src.infrastructure.persistence.election_repository_impl import (
-    ElectionRepositoryImpl,
-)
-from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
 from src.interfaces.web.streamlit.presenters.conference_presenter import (
     ConferenceFormData,
     ConferencePresenter,
@@ -125,13 +122,16 @@ def _render_filters(conferences: list[Conference]) -> list[Conference]:
 
 
 def _render_election_selector(
-    governing_body_id: int | None, current_election_id: int | None
+    presenter: ConferencePresenter,
+    governing_body_id: int | None,
+    current_election_id: int | None,
 ) -> int | None:
     """Render election selector dropdown.
 
-    選択された開催主体に紐づく選挙を取得し、ドロップダウンで表示します。
+    選択された開催主体に紐づく選挙をPresenter経由で取得し、ドロップダウンで表示します。
 
     Args:
+        presenter: 会議体プレゼンター
         governing_body_id: 開催主体ID
         current_election_id: 現在選択されている選挙ID
 
@@ -142,9 +142,10 @@ def _render_election_selector(
         st.info("選挙を選択するには、先に開催主体を選択してください。")
         return None
 
-    # Load elections for the selected governing body
-    election_repo = RepositoryAdapter(ElectionRepositoryImpl)
-    elections: list[Election] = election_repo.get_by_governing_body(governing_body_id)
+    # Presenter経由でUseCase→Repositoryの順にアクセス
+    elections: list[ElectionOutputItem] = presenter.get_elections_for_governing_body(
+        governing_body_id
+    )
 
     if not elections:
         st.info("この開催主体には選挙が登録されていません。")
@@ -222,7 +223,7 @@ def _render_edit_form(
 
         # Election selection (based on selected governing body)
         election_id = _render_election_selector(
-            governing_body_id, form_data.election_id
+            presenter, governing_body_id, form_data.election_id
         )
 
         # Prefecture selection

@@ -5,6 +5,10 @@ from unittest.mock import AsyncMock, patch
 import pandas as pd
 import pytest
 
+from src.application.dtos.election_dto import (
+    ElectionOutputItem,
+    ListElectionsOutputDto,
+)
 from src.application.usecases.manage_conferences_usecase import (
     ConferenceListOutputDto,
     CreateConferenceOutputDto,
@@ -13,6 +17,7 @@ from src.application.usecases.manage_conferences_usecase import (
     ManageConferencesUseCase,
     UpdateConferenceOutputDto,
 )
+from src.application.usecases.manage_elections_usecase import ManageElectionsUseCase
 from src.domain.entities import Conference
 from src.interfaces.web.streamlit.presenters.conference_presenter import (
     ConferenceFormData,
@@ -27,12 +32,30 @@ def mock_use_case():
 
 
 @pytest.fixture
+def mock_elections_use_case():
+    """ManageElectionsUseCaseのモック"""
+    return AsyncMock(spec=ManageElectionsUseCase)
+
+
+@pytest.fixture
 def presenter(mock_use_case):
     """ConferencePresenterのインスタンス"""
     with patch(
         "src.interfaces.web.streamlit.presenters.conference_presenter.SessionManager"
     ):
         return ConferencePresenter(use_case=mock_use_case)
+
+
+@pytest.fixture
+def presenter_with_elections(mock_use_case, mock_elections_use_case):
+    """選挙UseCase付きConferencePresenterのインスタンス"""
+    with patch(
+        "src.interfaces.web.streamlit.presenters.conference_presenter.SessionManager"
+    ):
+        return ConferencePresenter(
+            use_case=mock_use_case,
+            elections_use_case=mock_elections_use_case,
+        )
 
 
 @pytest.fixture
@@ -477,3 +500,67 @@ class TestConferenceFormData:
         assert form_data.governing_body_id == 100
         assert form_data.members_introduction_url == "https://example.com"
         assert form_data.prefecture == "大阪府"
+
+
+class TestGetElectionsForGoverningBody:
+    """get_elections_for_governing_bodyメソッドのテスト"""
+
+    def test_returns_elections_via_usecase(
+        self, presenter_with_elections, mock_elections_use_case
+    ):
+        """UseCase経由で選挙一覧を取得できることを確認"""
+        # Arrange
+        from datetime import date
+
+        elections = [
+            ElectionOutputItem(
+                id=1,
+                governing_body_id=100,
+                term_number=1,
+                election_date=date(2023, 4, 1),
+                election_type="統一地方選挙",
+            ),
+            ElectionOutputItem(
+                id=2,
+                governing_body_id=100,
+                term_number=2,
+                election_date=date(2027, 4, 1),
+                election_type=None,
+            ),
+        ]
+        mock_elections_use_case.list_elections.return_value = ListElectionsOutputDto(
+            elections=elections
+        )
+
+        # Act
+        result = presenter_with_elections.get_elections_for_governing_body(100)
+
+        # Assert
+        assert len(result) == 2
+        assert result[0].id == 1
+        assert result[0].term_number == 1
+        assert result[1].id == 2
+        mock_elections_use_case.list_elections.assert_called_once()
+
+    def test_returns_empty_when_no_elections_usecase(self, presenter):
+        """elections_use_caseがNoneの場合は空リストを返すことを確認"""
+        # Act
+        result = presenter.get_elections_for_governing_body(100)
+
+        # Assert
+        assert result == []
+
+    def test_returns_empty_list_when_no_elections(
+        self, presenter_with_elections, mock_elections_use_case
+    ):
+        """選挙がない場合は空リストを返すことを確認"""
+        # Arrange
+        mock_elections_use_case.list_elections.return_value = ListElectionsOutputDto(
+            elections=[]
+        )
+
+        # Act
+        result = presenter_with_elections.get_elections_for_governing_body(100)
+
+        # Assert
+        assert result == []

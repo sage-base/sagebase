@@ -1,10 +1,16 @@
 """Presenter for conference management."""
 
+import asyncio
+
 from dataclasses import dataclass
 
 import pandas as pd
 import streamlit as st
 
+from src.application.dtos.election_dto import (
+    ElectionOutputItem,
+    ListElectionsInputDto,
+)
 from src.application.usecases.manage_conferences_usecase import (
     ConferenceListInputDto,
     CreateConferenceInputDto,
@@ -12,6 +18,7 @@ from src.application.usecases.manage_conferences_usecase import (
     ManageConferencesUseCase,
     UpdateConferenceInputDto,
 )
+from src.application.usecases.manage_elections_usecase import ManageElectionsUseCase
 from src.domain.entities import Conference
 from src.interfaces.web.streamlit.utils.session_manager import SessionManager
 
@@ -31,9 +38,14 @@ class ConferenceFormData:
 class ConferencePresenter:
     """Presenter for conference management."""
 
-    def __init__(self, use_case: ManageConferencesUseCase):
+    def __init__(
+        self,
+        use_case: ManageConferencesUseCase,
+        elections_use_case: ManageElectionsUseCase | None = None,
+    ):
         """Initialize the presenter."""
         self.use_case = use_case
+        self.elections_use_case = elections_use_case
         self.session = SessionManager()
 
     async def load_conferences(
@@ -133,6 +145,23 @@ class ConferencePresenter:
         """Generate seed file."""
         output_dto = await self.use_case.generate_seed_file()
         return output_dto.success, output_dto.file_path, output_dto.error_message
+
+    def get_elections_for_governing_body(
+        self, governing_body_id: int
+    ) -> list[ElectionOutputItem]:
+        """開催主体に紐づく選挙一覧を取得する.
+
+        Args:
+            governing_body_id: 開催主体ID
+
+        Returns:
+            選挙DTOのリスト
+        """
+        if self.elections_use_case is None:
+            return []
+        input_dto = ListElectionsInputDto(governing_body_id=governing_body_id)
+        output_dto = asyncio.run(self.elections_use_case.list_elections(input_dto))
+        return output_dto.elections
 
     def load_conference_for_edit(self, conference: Conference) -> ConferenceFormData:
         """Load conference data for editing."""
