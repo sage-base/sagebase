@@ -200,3 +200,38 @@ class PoliticianOperationLogModel(Base):
             f"operation_type={self.operation_type}"
             f")>"
         )
+
+
+class ElectionMemberModel(Base):
+    """SQLAlchemy model for election_members table."""
+
+    __tablename__ = "election_members"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    election_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("elections.id", use_alter=True, name="fk_em_election"),
+    )
+    politician_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("politicians.id", use_alter=True, name="fk_em_politician"),
+    )
+    result: Mapped[str] = mapped_column(String(50))
+    votes: Mapped[int | None] = mapped_column(Integer)
+    rank: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ElectionMemberModel("
+            f"id={self.id}, "
+            f"election_id={self.election_id}, "
+            f"politician_id={self.politician_id}, "
+            f"result={self.result}"
+            f")>"
+        )
