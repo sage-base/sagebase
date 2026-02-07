@@ -93,6 +93,8 @@ Before committing tests:
 - [ ] **Async Properly**: Uses `@pytest.mark.asyncio` and `AsyncMock`
 - [ ] **Mock Verification**: Asserts mock calls when relevant
 - [ ] **Type Hints**: Complete type annotations
+- [ ] **Nullable Fields**: `T | None` フィールドは `None` ケースもテスト
+- [ ] **List Results**: リスト返却メソッドは 0件・1件・複数件 をテスト
 
 ## Test Structure
 
