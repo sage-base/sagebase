@@ -8,7 +8,7 @@ import asyncio
 import streamlit as st
 
 from ..constants import CONFERENCE_PREFECTURES
-from ..widgets import render_election_selector
+from ..widgets import render_governing_body_and_election_selector
 
 from src.domain.repositories import GoverningBodyRepository
 from src.interfaces.web.streamlit.presenters.conference_presenter import (
@@ -37,7 +37,18 @@ def render_new_conference_form(
 
     # Load governing bodies for dropdown
     governing_bodies = governing_body_repo.get_all()
-    gb_options = {f"{gb.name} ({gb.type})": gb.id for gb in governing_bodies}
+    gb_options: dict[str, int | None] = {
+        f"{gb.name} ({gb.type})": gb.id for gb in governing_bodies
+    }
+
+    # 開催主体・選挙選択（st.fragmentでタブ遷移を防止）
+    governing_body_id, election_id = render_governing_body_and_election_selector(
+        presenter=presenter,
+        gb_options=gb_options,
+        governing_body_index=0 if not form_data.governing_body_id else 0,
+        current_election_id=form_data.election_id,
+        key_prefix="new",
+    )
 
     with st.form("conference_create_form"):
         # Conference name
@@ -45,19 +56,6 @@ def render_new_conference_form(
             "会議体名 *",
             value=form_data.name,
             placeholder="例: 議会",
-        )
-
-        # Governing body selection
-        selected_gb = st.selectbox(
-            "開催主体 *",
-            options=list(gb_options.keys()),
-            index=0 if not form_data.governing_body_id else None,
-        )
-        governing_body_id = gb_options[selected_gb] if selected_gb else None
-
-        # Election selection (based on selected governing body)
-        election_id = render_election_selector(
-            presenter, governing_body_id, form_data.election_id
         )
 
         # Prefecture selection
