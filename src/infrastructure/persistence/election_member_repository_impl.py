@@ -1,7 +1,5 @@
 """SQLAlchemyを使用した選挙結果メンバーリポジトリの実装."""
 
-from typing import Any
-
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,7 +58,7 @@ class ElectionMemberRepositoryImpl(
         await self.session.flush()
         return result.rowcount
 
-    def _to_entity(self, model: Any) -> ElectionMember:
+    def _to_entity(self, model: ElectionMemberModel) -> ElectionMember:
         return ElectionMember(
             id=model.id,
             election_id=model.election_id,
@@ -70,7 +68,7 @@ class ElectionMemberRepositoryImpl(
             rank=model.rank,
         )
 
-    def _to_model(self, entity: ElectionMember) -> Any:
+    def _to_model(self, entity: ElectionMember) -> ElectionMemberModel:
         return ElectionMemberModel(
             election_id=entity.election_id,
             politician_id=entity.politician_id,
@@ -79,7 +77,7 @@ class ElectionMemberRepositoryImpl(
             rank=entity.rank,
         )
 
-    def _update_model(self, model: Any, entity: ElectionMember) -> None:
+    def _update_model(self, model: ElectionMemberModel, entity: ElectionMember) -> None:
         model.election_id = entity.election_id
         model.politician_id = entity.politician_id
         model.result = entity.result

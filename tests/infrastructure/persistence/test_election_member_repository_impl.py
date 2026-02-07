@@ -83,6 +83,42 @@ class TestElectionMemberRepositoryImpl:
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_get_by_election_id_multiple(
+        self,
+        repository: ElectionMemberRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        model1 = MagicMock(spec=ElectionMemberModel)
+        model1.id = 1
+        model1.election_id = 10
+        model1.politician_id = 100
+        model1.result = "当選"
+        model1.votes = 5000
+        model1.rank = 1
+
+        model2 = MagicMock(spec=ElectionMemberModel)
+        model2.id = 2
+        model2.election_id = 10
+        model2.politician_id = 101
+        model2.result = "落選"
+        model2.votes = 3000
+        model2.rank = 2
+
+        mock_scalars = MagicMock()
+        mock_scalars.all.return_value = [model1, model2]
+        mock_result = MagicMock()
+        mock_result.scalars.return_value = mock_scalars
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_election_id(10)
+
+        assert len(result) == 2
+        assert result[0].politician_id == 100
+        assert result[0].result == "当選"
+        assert result[1].politician_id == 101
+        assert result[1].result == "落選"
+
+    @pytest.mark.asyncio
     async def test_get_by_election_id_empty(
         self,
         repository: ElectionMemberRepositoryImpl,
@@ -363,6 +399,23 @@ class TestElectionMemberRepositoryImpl:
         assert entity.id == 1
         assert entity.election_id == 10
         assert entity.result == "当選"
+
+    def test_to_entity_with_null_optional_fields(
+        self, repository: ElectionMemberRepositoryImpl
+    ) -> None:
+        model = MagicMock(spec=ElectionMemberModel)
+        model.id = 1
+        model.election_id = 10
+        model.politician_id = 100
+        model.result = "無投票当選"
+        model.votes = None
+        model.rank = None
+
+        entity = repository._to_entity(model)  # type: ignore[reportPrivateUsage]
+
+        assert entity.votes is None
+        assert entity.rank is None
+        assert entity.result == "無投票当選"
 
     def test_to_model(
         self,
