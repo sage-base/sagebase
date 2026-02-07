@@ -10,13 +10,10 @@ from typing import cast
 import streamlit as st
 
 from ..constants import CONFERENCE_PREFECTURES
+from ..widgets import render_governing_body_and_election_selector
 
-from src.domain.entities import Conference, Election
+from src.domain.entities import Conference
 from src.domain.repositories import ConferenceRepository, GoverningBodyRepository
-from src.infrastructure.persistence.election_repository_impl import (
-    ElectionRepositoryImpl,
-)
-from src.infrastructure.persistence.repository_adapter import RepositoryAdapter
 from src.interfaces.web.streamlit.presenters.conference_presenter import (
     ConferenceFormData,
     ConferencePresenter,
@@ -124,58 +121,6 @@ def _render_filters(conferences: list[Conference]) -> list[Conference]:
     return filtered_conferences
 
 
-def _render_election_selector(
-    governing_body_id: int | None, current_election_id: int | None
-) -> int | None:
-    """Render election selector dropdown.
-
-    選択された開催主体に紐づく選挙を取得し、ドロップダウンで表示します。
-
-    Args:
-        governing_body_id: 開催主体ID
-        current_election_id: 現在選択されている選挙ID
-
-    Returns:
-        選択された選挙ID（なしの場合はNone）
-    """
-    if not governing_body_id:
-        st.info("選挙を選択するには、先に開催主体を選択してください。")
-        return None
-
-    # Load elections for the selected governing body
-    election_repo = RepositoryAdapter(ElectionRepositoryImpl)
-    elections: list[Election] = election_repo.get_by_governing_body(governing_body_id)
-
-    if not elections:
-        st.info("この開催主体には選挙が登録されていません。")
-        return None
-
-    # Build options
-    election_options: dict[str, int | None] = {"（選挙を選択しない）": None}
-    for election in elections:
-        label = f"第{election.term_number}期 ({election.election_date})"
-        if election.election_type:
-            label += f" - {election.election_type}"
-        election_options[label] = election.id
-
-    # Find current selection index
-    current_index = 0
-    if current_election_id:
-        for i, (_, eid) in enumerate(election_options.items()):
-            if eid == current_election_id:
-                current_index = i
-                break
-
-    selected_election = st.selectbox(
-        "選挙（期）",
-        options=list(election_options.keys()),
-        index=current_index,
-        help="会議体を紐付ける選挙（期）を選択してください",
-    )
-
-    return election_options.get(selected_election) if selected_election else None
-
-
 def _render_edit_form(
     presenter: ConferencePresenter,
     conference: Conference,
@@ -195,34 +140,35 @@ def _render_edit_form(
 
     # Load governing bodies for dropdown
     governing_bodies = governing_body_repo.get_all()
-    gb_options = {f"{gb.name} ({gb.type})": gb.id for gb in governing_bodies}
+    gb_options: dict[str, int | None] = {
+        f"{gb.name} ({gb.type})": gb.id for gb in governing_bodies
+    }
+
+    # 現在の開催主体のインデックスを計算
+    current_gb = next(
+        (
+            f"{gb.name} ({gb.type})"
+            for gb in governing_bodies
+            if gb.id == form_data.governing_body_id
+        ),
+        None,
+    )
+    gb_index = list(gb_options.keys()).index(current_gb) if current_gb else 0
+
+    # 開催主体・選挙選択（st.fragmentでタブ遷移を防止）
+    governing_body_id, election_id = render_governing_body_and_election_selector(
+        presenter=presenter,
+        gb_options=gb_options,
+        governing_body_index=gb_index,
+        current_election_id=form_data.election_id,
+        key_prefix=f"edit_{conference_id}",
+    )
 
     with st.form(f"conference_edit_form_{conference_id}"):
         # Conference name
         name = st.text_input(
             "会議体名 *",
             value=form_data.name,
-        )
-
-        # Governing body selection
-        current_gb = next(
-            (
-                f"{gb.name} ({gb.type})"
-                for gb in governing_bodies
-                if gb.id == form_data.governing_body_id
-            ),
-            None,
-        )
-        selected_gb = st.selectbox(
-            "開催主体 *",
-            options=list(gb_options.keys()),
-            index=list(gb_options.keys()).index(current_gb) if current_gb else 0,
-        )
-        governing_body_id = gb_options[selected_gb] if selected_gb else None
-
-        # Election selection (based on selected governing body)
-        election_id = _render_election_selector(
-            governing_body_id, form_data.election_id
         )
 
         # Prefecture selection

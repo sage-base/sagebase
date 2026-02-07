@@ -19,6 +19,7 @@ from src.application.usecases.manage_conference_members_usecase import (
 from src.application.usecases.manage_conferences_usecase import (
     ManageConferencesUseCase,
 )
+from src.application.usecases.manage_elections_usecase import ManageElectionsUseCase
 from src.domain.repositories import ConferenceRepository, GoverningBodyRepository
 from src.domain.services.conference_domain_service import ConferenceDomainService
 from src.infrastructure.external.web_scraper_service import PlaywrightScraperService
@@ -27,6 +28,9 @@ from src.infrastructure.persistence.conference_member_repository_impl import (
 )
 from src.infrastructure.persistence.conference_repository_impl import (
     ConferenceRepositoryImpl,
+)
+from src.infrastructure.persistence.election_repository_impl import (
+    ElectionRepositoryImpl,
 )
 from src.infrastructure.persistence.extracted_conference_member_repository_impl import (
     ExtractedConferenceMemberRepositoryImpl,
@@ -62,18 +66,22 @@ def render_conferences_page() -> None:
     # Initialize repositories
     conference_repo = RepositoryAdapter(ConferenceRepositoryImpl)
     governing_body_repo = RepositoryAdapter(GoverningBodyRepositoryImpl)
+    election_repo = RepositoryAdapter(ElectionRepositoryImpl)
     extracted_member_repo = RepositoryAdapter(ExtractedConferenceMemberRepositoryImpl)
     meeting_repo = RepositoryAdapter(MeetingRepositoryImpl)
     politician_repo = RepositoryAdapter(PoliticianRepositoryImpl)
     conference_member_repo = RepositoryAdapter(ConferenceMemberRepositoryImpl)
 
-    # Initialize use case and presenter
+    # Initialize use cases and presenter
     # Type: ignore - RepositoryAdapter duck-types as repository protocol
     use_case = ManageConferencesUseCase(
         conference_repo,  # type: ignore[arg-type]
         meeting_repo,  # type: ignore[arg-type]
     )
-    presenter = ConferencePresenter(use_case)
+    elections_use_case = ManageElectionsUseCase(
+        election_repo,  # type: ignore[arg-type]
+    )
+    presenter = ConferencePresenter(use_case, elections_use_case)
 
     # 会議体メンバー管理UseCase初期化
     conference_service = ConferenceDomainService()
