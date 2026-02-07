@@ -484,6 +484,7 @@ ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 ```bash
 # Container management
 just up              # Start containers and launch Streamlit
+just up-noauth       # Start Streamlit with Google OAuth disabled (for testing)
 just down            # Stop and remove containers
 just restart         # Restart containers
 
