@@ -50,6 +50,7 @@ Before approving code, verify:
 ✅ Interfaces in Domain: `class IRepo(BaseRepository[T])`
 ✅ Implementations in Infrastructure: `class RepoImpl(BaseRepositoryImpl[T], IRepo)`
 ✅ All methods are `async def`
+✅ `_to_entity` / `_to_model` / `_update_model` は具体的なモデル型を使用（`Any` ではなく `XxxModel`）
 
 ### 4. DTO Pattern
 **Always use DTOs between layers**
