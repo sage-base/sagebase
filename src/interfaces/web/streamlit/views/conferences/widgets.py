@@ -3,8 +3,6 @@
 会議体管理画面の複数タブで共有されるUIコンポーネントを提供します。
 """
 
-import asyncio
-
 import streamlit as st
 
 from src.application.dtos.election_dto import ElectionOutputItem
@@ -34,9 +32,9 @@ def render_election_selector(
         st.info("選挙を選択するには、先に開催主体を選択してください。")
         return None
 
-    # Presenter経由でUseCase→Repositoryの順にアクセス
-    elections: list[ElectionOutputItem] = asyncio.run(
-        presenter.get_elections_for_governing_body(governing_body_id)
+    # Presenter経由でUseCase→Repositoryの順にアクセス（同期呼び出し）
+    elections: list[ElectionOutputItem] = presenter.get_elections_for_governing_body(
+        governing_body_id
     )
 
     if not elections:

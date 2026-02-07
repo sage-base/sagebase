@@ -148,10 +148,13 @@ class ConferencePresenter:
         output_dto = await self.use_case.generate_seed_file()
         return output_dto.success, output_dto.file_path, output_dto.error_message
 
-    async def get_elections_for_governing_body(
+    def get_elections_for_governing_body(
         self, governing_body_id: int
     ) -> list[ElectionOutputItem]:
         """開催主体に紐づく選挙一覧を取得する.
+
+        同期メソッドとして提供し、内部でnest_asyncioを使用してStreamlit環境の
+        ネストされたイベントループに対応します。
 
         Args:
             governing_body_id: 開催主体ID
@@ -162,8 +165,24 @@ class ConferencePresenter:
         if self.elections_use_case is None:
             return []
         try:
+            import asyncio
+
+            import nest_asyncio
+
+            nest_asyncio.apply()
+
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
             input_dto = ListElectionsInputDto(governing_body_id=governing_body_id)
-            output_dto = await self.elections_use_case.list_elections(input_dto)
+            coro = self.elections_use_case.list_elections(input_dto)
+            output_dto = loop.run_until_complete(coro)
             return output_dto.elections
         except Exception as e:
             logger.error(
