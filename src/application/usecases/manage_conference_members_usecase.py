@@ -346,7 +346,7 @@ class ManageConferenceMembersUseCase:
         election_members = await self.election_member_repo.get_by_election_id(
             conference.election_id
         )
-        elected = [m for m in election_members if m.result == "当選"]
+        elected = [m for m in election_members if m.is_elected]
 
         candidates: list[PoliticianCandidateDTO] = []
         for em in elected:

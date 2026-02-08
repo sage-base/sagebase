@@ -18,6 +18,7 @@ from src.application.usecases.manage_conference_members_usecase import (
     ManageConferenceMembersUseCase,
     ManualMatchInputDTO,
     SearchPoliticiansInputDTO,
+    SearchPoliticiansOutputDTO,
 )
 from src.domain.entities.conference_member import ConferenceMember
 from src.domain.entities.extracted_conference_member import ExtractedConferenceMember
@@ -254,6 +255,17 @@ def _render_member_details(
     display_members = members[:DETAILS_DISPLAY_LIMIT]
     affiliation_map = _fetch_affiliation_map(display_members, conference_member_repo)
 
+    # 当選者情報をconference_idごとに1回だけ取得してキャッシュ
+    election_cache: dict[int, SearchPoliticiansOutputDTO] = {}
+    for member in display_members:
+        cid = member.conference_id
+        if cid not in election_cache:
+            election_cache[cid] = _run_async(
+                manage_members_usecase.get_election_candidates(
+                    GetElectionCandidatesInputDTO(conference_id=cid)
+                )
+            )
+
     for member in display_members:
         # 紐付け状態を取得
         affiliation = affiliation_map.get(member.id)  # type: ignore[arg-type]
@@ -283,12 +295,14 @@ def _render_member_details(
 
                 # 手動政治家選択UI（所属情報が未作成の場合）
                 if not is_linked:
-                    _render_manual_match(member, manage_members_usecase)
+                    cached = election_cache.get(member.conference_id)
+                    _render_manual_match(member, manage_members_usecase, cached)
 
 
 def _render_manual_match(
     member: ExtractedConferenceMember,
     manage_members_usecase: ManageConferenceMembersUseCase,
+    election_candidates_result: SearchPoliticiansOutputDTO | None = None,
 ) -> None:
     """手動政治家選択UIを表示する.
 
@@ -299,15 +313,13 @@ def _render_manual_match(
     Args:
         member: メンバーエンティティ
         manage_members_usecase: 会議体メンバー管理UseCase
+        election_candidates_result: キャッシュ済み当選者候補
     """
     st.markdown("---")
     st.markdown("**手動で政治家を選択**")
 
-    election_candidates_result = _run_async(
-        manage_members_usecase.get_election_candidates(
-            GetElectionCandidatesInputDTO(conference_id=member.conference_id)
-        )
-    )
+    if election_candidates_result is None:
+        election_candidates_result = SearchPoliticiansOutputDTO(candidates=[])
     has_election_candidates = len(election_candidates_result.candidates) > 0
 
     if has_election_candidates:

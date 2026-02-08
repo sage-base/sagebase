@@ -10,6 +10,7 @@ class ElectionMember(BaseEntity):
     """
 
     VALID_RESULTS: list[str] = ["当選", "落選", "次点", "繰上当選", "無投票当選"]
+    ELECTED_RESULTS: list[str] = ["当選", "繰上当選", "無投票当選"]
 
     def __init__(
         self,
@@ -44,3 +45,8 @@ class ElectionMember(BaseEntity):
             f"politician_id={self.politician_id}, "
             f"result={self.result})"
         )
+
+    @property
+    def is_elected(self) -> bool:
+        """当選しているかどうかを判定する."""
+        return self.result in self.ELECTED_RESULTS

@@ -533,6 +533,9 @@ class TestGetElectionCandidates:
         assert result.candidates[0].id == 100
         assert result.candidates[1].name == "佐藤花子"
         assert result.candidates[1].id == 200
+        mock_conference_repo.get_by_id.assert_called_once_with(1)
+        mock_election_member_repo.get_by_election_id.assert_called_once_with(10)
+        assert mock_politician_repo.get_by_id.call_count == 2
 
     @pytest.mark.asyncio
     async def test_get_election_candidates_no_election_id(
@@ -605,3 +608,95 @@ class TestGetElectionCandidates:
         result = await usecase.get_election_candidates(request)
 
         assert len(result.candidates) == 0
+
+    @pytest.mark.asyncio
+    async def test_get_election_candidates_includes_special_elected(
+        self,
+        usecase,
+        mock_election_member_repo,
+        mock_politician_repo,
+    ):
+        """繰上当選・無投票当選も当選者として含まれること."""
+        mock_election_member_repo.get_by_election_id.return_value = [
+            ElectionMember(
+                id=1,
+                election_id=10,
+                politician_id=100,
+                result="繰上当選",
+                votes=0,
+            ),
+            ElectionMember(
+                id=2,
+                election_id=10,
+                politician_id=200,
+                result="無投票当選",
+                votes=0,
+            ),
+            ElectionMember(
+                id=3,
+                election_id=10,
+                politician_id=300,
+                result="落選",
+                votes=1000,
+            ),
+            ElectionMember(
+                id=4,
+                election_id=10,
+                politician_id=400,
+                result="次点",
+                votes=2000,
+            ),
+        ]
+        mock_politician_repo.get_by_id.side_effect = [
+            Politician(
+                id=100, name="田中三郎", prefecture="東京都", district="東京1区"
+            ),
+            Politician(
+                id=200, name="高橋四郎", prefecture="東京都", district="東京2区"
+            ),
+        ]
+
+        request = GetElectionCandidatesInputDTO(conference_id=1)
+        result = await usecase.get_election_candidates(request)
+
+        assert len(result.candidates) == 2
+        assert result.candidates[0].name == "田中三郎"
+        assert result.candidates[1].name == "高橋四郎"
+
+    @pytest.mark.asyncio
+    async def test_get_election_candidates_skips_missing_politician(
+        self,
+        usecase,
+        mock_election_member_repo,
+        mock_politician_repo,
+    ):
+        """政治家が見つからない当選者はスキップされること."""
+        mock_election_member_repo.get_by_election_id.return_value = [
+            ElectionMember(
+                id=1,
+                election_id=10,
+                politician_id=100,
+                result="当選",
+                votes=5000,
+            ),
+            ElectionMember(
+                id=2,
+                election_id=10,
+                politician_id=200,
+                result="当選",
+                votes=4000,
+            ),
+        ]
+        mock_politician_repo.get_by_id.side_effect = [
+            Politician(
+                id=100, name="山田太郎", prefecture="東京都", district="東京1区"
+            ),
+            None,
+        ]
+
+        request = GetElectionCandidatesInputDTO(conference_id=1)
+        result = await usecase.get_election_candidates(request)
+
+        assert len(result.candidates) == 1
+        assert result.candidates[0].id == 100
+        assert result.candidates[0].name == "山田太郎"
