@@ -202,6 +202,27 @@ class PoliticianOperationLogModel(Base):
         )
 
 
+class ElectionModel(Base):
+    """SQLAlchemy model for elections table."""
+
+    __tablename__ = "elections"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    governing_body_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("governing_bodies.id", use_alter=True, name="fk_election_gb"),
+    )
+    term_number: Mapped[int] = mapped_column(Integer)
+    election_date: Mapped[date] = mapped_column()
+    election_type: Mapped[str | None] = mapped_column(String(50))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
 class ElectionMemberModel(Base):
     """SQLAlchemy model for election_members table."""
 
