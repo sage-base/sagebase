@@ -96,6 +96,7 @@ Before committing tests:
 - [ ] **Nullable Fields**: `T | None` フィールドは `None` ケースもテスト
 - [ ] **List Results**: リスト返却メソッドは 0件・1件・複数件 をテスト
 - [ ] **Private Method Calls**: `_to_entity` 等のプライベートメソッド呼び出しには `# type: ignore[reportPrivateUsage]` を付与
+- [ ] **Entity Constructor**: テストデータ作成時、ドメインエンティティのコンストラクタ引数を実際のクラス定義で確認済み
 
 ## Test Structure
 
@@ -214,5 +215,6 @@ docker compose -f docker/docker-compose.yml [-f docker/docker-compose.override.y
 5. **❌ No Mock Verification**: Don't check if mocks were called
 6. **❌ `return` in `patch` fixture**: `with patch(...)` 内で `return` するとpatchスコープが切れる → `yield` を使う
 7. **❌ 内部メソッドのモック上書き**: `presenter._run_async = MagicMock(...)` はプロダクションコードの検証をバイパスする
+8. **❌ ドメインエンティティのコンストラクタ引数ミス**: テストデータ作成時に存在しないキーワード引数を使用 → 必ず`find_symbol`等でコンストラクタを確認する
 
 See [reference.md](reference.md) for detailed explanations and fixes.
