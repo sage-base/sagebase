@@ -23,6 +23,7 @@ Before approving code, verify:
 - [ ] **Repository Pattern**: All repos inherit from `BaseRepository[T]` and use async/await
 - [ ] **DTO Usage**: DTOs used for layer boundaries, not raw entities
 - [ ] **DTO Placement**: DTOは`src/application/dtos/`に配置（UseCaseファイル内に混在させない）
+- [ ] **DTO型変更時の全層追跡**: DTOのフィールド型を変更した場合、Presenter層だけでなくView層（`src/interfaces/web/streamlit/views/`）も確認。`WebResponseDTO.data: dict[str, Any]`境界でpyrightの型チェックが効かないため手動確認が必須
 - [ ] **UseCase間依存**: Orchestratorパターンとして許容される場合のみ（抽出ログ統合等）
 - [ ] **Type Safety**: Complete type hints with proper `Optional` handling
 - [ ] **Tests**: Unit tests for domain services and use cases
