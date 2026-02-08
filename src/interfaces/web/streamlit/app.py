@@ -20,6 +20,7 @@ from src.interfaces.web.streamlit.middleware.security_headers import (
 from src.interfaces.web.streamlit.views import (
     render_conferences_page,
     render_conversations_page,
+    render_election_members_page,
     render_extraction_logs_page,
     render_governing_bodies_page,
     render_llm_history_page,
@@ -97,6 +98,12 @@ def main():
         ),
         st.Page(
             render_proposals_page, title="議案管理", icon="📋", url_path="proposals"
+        ),
+        st.Page(
+            render_election_members_page,
+            title="選挙結果メンバー",
+            icon="🗳️",
+            url_path="election_members",
         ),
         st.Page(
             render_conversations_page,
