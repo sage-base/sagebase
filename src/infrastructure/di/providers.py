@@ -26,6 +26,9 @@ from src.application.usecases.link_speaker_to_politician_usecase import (
 from src.application.usecases.manage_conference_members_usecase import (
     ManageConferenceMembersUseCase,
 )
+from src.application.usecases.manage_election_members_usecase import (
+    ManageElectionMembersUseCase,
+)
 from src.application.usecases.manage_elections_usecase import ManageElectionsUseCase
 from src.application.usecases.manage_governing_bodies_usecase import (
     ManageGoverningBodiesUseCase,
@@ -96,6 +99,9 @@ from src.infrastructure.persistence.conversation_repository_impl import (
 )
 from src.infrastructure.persistence.data_coverage_repository_impl import (
     DataCoverageRepositoryImpl,
+)
+from src.infrastructure.persistence.election_member_repository_impl import (
+    ElectionMemberRepositoryImpl,
 )
 from src.infrastructure.persistence.election_repository_impl import (
     ElectionRepositoryImpl,
@@ -369,6 +375,11 @@ class RepositoryContainer(containers.DeclarativeContainer):
 
     election_repository = providers.Factory(
         ElectionRepositoryImpl,
+        session=database.async_session,
+    )
+
+    election_member_repository = providers.Factory(
+        ElectionMemberRepositoryImpl,
         session=database.async_session,
     )
 
@@ -701,6 +712,13 @@ class UseCaseContainer(containers.DeclarativeContainer):
         ManageElectionsUseCase,
         election_repository=repositories.election_repository,
         seed_generator_service=services.seed_generator_service,
+    )
+
+    # Manage Election Members UseCase (Issue #1070)
+    # 選挙結果メンバー管理用ユースケース
+    manage_election_members_usecase = providers.Factory(
+        ManageElectionMembersUseCase,
+        election_member_repository=repositories.election_member_repository,
     )
 
     # Manage Governing Bodies UseCase (Issue #1075)
