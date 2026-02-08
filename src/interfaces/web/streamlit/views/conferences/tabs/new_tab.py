@@ -24,7 +24,7 @@ def render_new_conference_form(
     """Render new conference registration form.
 
     会議体の新規登録フォームをレンダリングします。
-    会議体名、開催主体、都道府県、種別、議員紹介URL、選挙の入力フォームを提供します。
+    会議体名、開催主体、都道府県、期/会期/年度、選挙の入力フォームを提供します。
 
     Args:
         presenter: 会議体プレゼンター

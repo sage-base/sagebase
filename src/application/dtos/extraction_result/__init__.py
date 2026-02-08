@@ -1,8 +1,5 @@
 """抽出結果DTOモジュール。"""
 
-from src.application.dtos.extraction_result.conference_member_extraction_result import (
-    ConferenceMemberExtractionResult,
-)
 from src.application.dtos.extraction_result.conversation_extraction_result import (
     ConversationExtractionResult,
 )
@@ -18,7 +15,6 @@ from src.application.dtos.extraction_result.speaker_extraction_result import (
 
 
 __all__ = [
-    "ConferenceMemberExtractionResult",
     "ConversationExtractionResult",
     "ParliamentaryGroupMemberExtractionResult",
     "ParliamentaryGroupMembershipExtractionResult",

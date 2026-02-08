@@ -41,13 +41,3 @@ class LLMPoliticianMatchContext(TypedDict):
     prefecture: str | None
     electoral_district: str | None
     candidates: list[dict[str, str]]
-
-
-class LLMConferenceMemberExtractContext(TypedDict):
-    """Context for LLM conference member extraction."""
-
-    conference_name: str
-    governing_body_name: str
-    url: str
-    html_content: str
-    extraction_date: str
