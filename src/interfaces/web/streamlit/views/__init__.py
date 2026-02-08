@@ -5,6 +5,7 @@
 
 from .conferences import render_conferences_page
 from .conversations import render_conversations_page
+from .election_members_view import render_election_members_page
 from .extraction_logs_view import render_extraction_logs_page
 from .governing_bodies_view import render_governing_bodies_page
 from .llm_history_view import render_llm_history_page
@@ -15,6 +16,7 @@ from .politicians_view import render_politicians_page
 
 
 __all__ = [
+    "render_election_members_page",
     "render_conferences_page",
     "render_conversations_page",
     "render_extraction_logs_page",
