@@ -17,7 +17,6 @@ class TestConference:
 
         assert conference.name == "東京都議会"
         assert conference.governing_body_id == 1
-        assert conference.members_introduction_url is None
         assert conference.prefecture is None
         assert conference.term is None
         assert conference.id is None
@@ -28,7 +27,6 @@ class TestConference:
             id=10,
             name="大阪市議会",
             governing_body_id=5,
-            members_introduction_url="https://example.com/members",
             prefecture="大阪府",
             term="令和5年度",
         )
@@ -36,7 +34,6 @@ class TestConference:
         assert conference.id == 10
         assert conference.name == "大阪市議会"
         assert conference.governing_body_id == 5
-        assert conference.members_introduction_url == "https://example.com/members"
         assert conference.prefecture == "大阪府"
         assert conference.term == "令和5年度"
 
@@ -59,7 +56,6 @@ class TestConference:
         assert conference.id == 1
         assert conference.governing_body_id == 1
         assert conference.name == "議会全体"
-        assert conference.members_introduction_url is None
         assert conference.prefecture is None
         assert conference.term is None
 
@@ -69,7 +65,6 @@ class TestConference:
             id=99,
             name="愛知県議会",
             governing_body_id=10,
-            members_introduction_url="https://aichi.example.com/members",
             prefecture="愛知県",
             term="令和6年度",
         )
@@ -77,9 +72,6 @@ class TestConference:
         assert conference.id == 99
         assert conference.name == "愛知県議会"
         assert conference.governing_body_id == 10
-        assert (
-            conference.members_introduction_url == "https://aichi.example.com/members"
-        )
         assert conference.prefecture == "愛知県"
         assert conference.term == "令和6年度"
 
@@ -100,23 +92,6 @@ class TestConference:
             conference = Conference(name=name, governing_body_id=1)
             assert conference.name == name
             assert str(conference) == name
-
-    def test_members_introduction_url_formats(self) -> None:
-        """Test various URL formats for members introduction."""
-        urls = [
-            "https://example.com/members",
-            "http://city.jp/council/members",
-            "https://www.prefecture.go.jp/members.html",
-            None,
-        ]
-
-        for url in urls:
-            conference = Conference(
-                name="Test Conference",
-                governing_body_id=1,
-                members_introduction_url=url,
-            )
-            assert conference.members_introduction_url == url
 
     def test_governing_body_id_variations(self) -> None:
         """Test various governing body IDs."""
@@ -150,7 +125,6 @@ class TestConference:
             id=1,
             name="東京都議会",
             governing_body_id=13,
-            members_introduction_url="https://tokyo.example.com/members",
             prefecture="東京都",
         )
         assert str(prefectural) == "東京都議会"
@@ -161,7 +135,6 @@ class TestConference:
             id=2,
             name="横浜市議会",
             governing_body_id=141,
-            members_introduction_url="https://yokohama.example.com/members",
             prefecture="神奈川県",
         )
         assert str(city_council) == "横浜市議会"
@@ -172,7 +145,6 @@ class TestConference:
             id=3,
             name="総務委員会",
             governing_body_id=13,
-            members_introduction_url=None,
             prefecture="東京都",
         )
         assert str(committee) == "総務委員会"
@@ -306,15 +278,6 @@ class TestConference:
 
     def test_edge_cases(self) -> None:
         """Test edge cases for Conference entity."""
-        # Empty strings
-        conference_empty = Conference(
-            name="Name",
-            governing_body_id=1,
-            members_introduction_url="",
-        )
-        assert conference_empty.name == "Name"
-        assert conference_empty.members_introduction_url == ""
-
         # Very long names
         long_name = "東京都" * 50
         conference_long = Conference(
@@ -333,26 +296,15 @@ class TestConference:
         assert conference_special.name == special_name
         assert str(conference_special) == special_name
 
-        # Very long URL
-        long_url = "https://example.com/" + "a" * 200
-        conference_long_url = Conference(
-            name="Test",
-            governing_body_id=1,
-            members_introduction_url=long_url,
-        )
-        assert conference_long_url.members_introduction_url == long_url
-
     def test_optional_fields_none_behavior(self) -> None:
         """Test behavior when optional fields are explicitly set to None."""
         conference = Conference(
             name="Test Conference",
             governing_body_id=1,
-            members_introduction_url=None,
             prefecture=None,
             term=None,
         )
 
-        assert conference.members_introduction_url is None
         assert conference.prefecture is None
         assert conference.term is None
 

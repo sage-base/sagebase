@@ -17,9 +17,6 @@ from src.application.usecases.process_minutes_usecase import ProcessMinutesUseCa
 from src.application.usecases.update_conversation_from_extraction_usecase import (
     UpdateConversationFromExtractionUseCase,
 )
-from src.application.usecases.update_extracted_conference_member_from_extraction_usecase import (  # noqa: E501
-    UpdateExtractedConferenceMemberFromExtractionUseCase,
-)
 from src.application.usecases.update_extracted_parliamentary_group_member_from_extraction_usecase import (  # noqa: E501
     UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase,
 )
@@ -39,7 +36,6 @@ __all__ = [
     "MatchSpeakersUseCase",
     "ProcessMinutesUseCase",
     "UpdateConversationFromExtractionUseCase",
-    "UpdateExtractedConferenceMemberFromExtractionUseCase",
     "UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase",
     "UpdateParliamentaryGroupMembershipFromExtractionUseCase",
     "UpdateSpeakerFromExtractionUseCase",

@@ -6,7 +6,6 @@ from typing import Any
 from src.domain.entities.conference import Conference
 from src.domain.entities.conference_member import ConferenceMember
 from src.domain.entities.conversation import Conversation
-from src.domain.entities.extracted_conference_member import ExtractedConferenceMember
 from src.domain.entities.extracted_parliamentary_group_member import (
     ExtractedParliamentaryGroupMember,
 )
@@ -42,7 +41,6 @@ def create_conference(**kwargs: Any) -> Conference:
         "id": 1,
         "governing_body_id": 1,
         "name": "議会全体",
-        "members_introduction_url": None,
         "prefecture": None,
         "term": None,
     }
@@ -146,26 +144,6 @@ def create_parliamentary_group(**kwargs: Any) -> ParliamentaryGroup:
     }
     defaults.update(kwargs)
     return ParliamentaryGroup(**defaults)
-
-
-def create_extracted_conference_member(**kwargs: Any) -> ExtractedConferenceMember:
-    """Create a test extracted conference member.
-
-    Bronze Layer（抽出ログ層）のエンティティ。
-    政治家との紐付けはGold Layer（ConferenceMember）で管理される。
-    """
-    defaults = {
-        "id": 1,
-        "conference_id": 1,
-        "extracted_name": "山田太郎",
-        "source_url": "https://example.com/members",
-        "extracted_role": "議員",
-        "extracted_party_name": "自由民主党",
-        "extracted_at": datetime.now(),
-        "additional_data": None,
-    }
-    defaults.update(kwargs)
-    return ExtractedConferenceMember(**defaults)
 
 
 def create_extracted_parliamentary_group_member(

@@ -437,7 +437,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         ]
 
         tables_with_matched_politician_id = [
-            ("extracted_conference_members", "matched_politician_id"),
             ("extracted_parliamentary_group_members", "matched_politician_id"),
             ("extracted_proposal_judges", "matched_politician_id"),
         ]
@@ -461,7 +460,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         # NULLableカラム: politician_idをNULLに設定
         nullable_tables = [
             ("speakers", "politician_id"),
-            ("extracted_conference_members", "matched_politician_id"),
             ("extracted_parliamentary_group_members", "matched_politician_id"),
             ("extracted_proposal_judges", "matched_politician_id"),
         ]

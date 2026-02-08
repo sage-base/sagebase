@@ -84,19 +84,6 @@ class PlaywrightScraperService(IWebScraperService):
             logger.error(f"Failed to fetch HTML from {url}: {e}")
             raise ValueError(f"Failed to fetch HTML from {url}: {e}") from e
 
-    async def scrape_conference_members(self, url: str) -> list[dict[str, Any]]:
-        """Scrape conference members using Playwright."""
-        # Implementation would use Playwright to navigate and extract data
-        # This is a placeholder
-        return [
-            {
-                "name": "佐藤花子",
-                "party": "○○党",
-                "role": "議長",
-                "profile_url": "https://example.com/member/1",
-            }
-        ]
-
     async def scrape_meeting_minutes(
         self, url: str, upload_to_gcs: bool = False
     ) -> dict[str, Any]:

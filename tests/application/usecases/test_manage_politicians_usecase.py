@@ -380,7 +380,6 @@ class TestManagePoliticiansUseCase:
             "party_membership_history": 0,
             "proposal_judges": 0,
             "politician_affiliations": 0,
-            "extracted_conference_members": 0,
             "extracted_parliamentary_group_members": 0,
             "extracted_proposal_judges": 0,
         }

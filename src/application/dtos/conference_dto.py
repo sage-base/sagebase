@@ -13,20 +13,8 @@ class ConferenceDTO:
     governing_body_id: int
     governing_body_name: str
     type: str | None
-    members_introduction_url: str | None
     total_members: int | None = None
     active_groups: int | None = None
-
-
-@dataclass
-class ExtractedConferenceMemberDTO:
-    """DTO for extracted conference member."""
-
-    name: str
-    conference_id: int
-    party_name: str | None = None
-    role: str | None = None
-    profile_url: str | None = None
 
 
 @dataclass

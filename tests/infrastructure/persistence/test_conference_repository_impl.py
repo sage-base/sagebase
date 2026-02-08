@@ -11,8 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.domain.entities.conference import Conference
 from src.infrastructure.exceptions import (
     DatabaseError,
-    RecordNotFoundError,
-    UpdateError,
 )
 from src.infrastructure.persistence.conference_repository_impl import (
     ConferenceModel,
@@ -49,7 +47,6 @@ class TestConferenceRepositoryImpl:
             "id": 1,
             "name": "本会議",
             "governing_body_id": 10,
-            "members_introduction_url": "https://example.com/members",
             "prefecture": "東京都",
             "term": None,
             "created_at": None,
@@ -63,7 +60,6 @@ class TestConferenceRepositoryImpl:
             id=1,
             name="本会議",
             governing_body_id=10,
-            members_introduction_url="https://example.com/members",
             prefecture="東京都",
             term=None,
         )
@@ -92,7 +88,6 @@ class TestConferenceRepositoryImpl:
         assert result.id == 1
         assert result.name == "本会議"
         assert result.governing_body_id == 10
-        assert result.members_introduction_url == "https://example.com/members"
         assert result.prefecture == "東京都"
         mock_session.execute.assert_called_once()
 
@@ -182,102 +177,6 @@ class TestConferenceRepositoryImpl:
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_with_members_url(
-        self,
-        repository: ConferenceRepositoryImpl,
-        mock_session: MagicMock,
-        sample_conference_dict: dict[str, Any],
-    ) -> None:
-        """Test get_with_members_url returns conferences with members URL."""
-        # Setup mock result
-        mock_row = MagicMock()
-        mock_row._mapping = sample_conference_dict
-        mock_row._asdict = MagicMock(return_value=sample_conference_dict)
-        mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row])
-        mock_session.execute.return_value = mock_result
-
-        # Execute
-        result = await repository.get_with_members_url()
-
-        # Assert
-        assert len(result) == 1
-        assert result[0].members_introduction_url == "https://example.com/members"
-        mock_session.execute.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_update_members_url_success(
-        self, repository: ConferenceRepositoryImpl, mock_session: MagicMock
-    ) -> None:
-        """Test update_members_url successfully updates URL."""
-        # Setup mock result
-        mock_result = MagicMock()
-        mock_result.rowcount = 1
-        mock_session.execute.return_value = mock_result
-
-        # Execute
-        result = await repository.update_members_url(
-            1, "https://example.com/new-members"
-        )
-
-        # Assert
-        assert result is True
-        mock_session.execute.assert_called_once()
-        mock_session.commit.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_update_members_url_not_found(
-        self, repository: ConferenceRepositoryImpl, mock_session: MagicMock
-    ) -> None:
-        """Test update_members_url raises error when conference not found."""
-        # Setup mock result
-        mock_result = MagicMock()
-        mock_result.rowcount = 0
-        mock_session.execute.return_value = mock_result
-
-        # Execute and assert
-        with pytest.raises(RecordNotFoundError) as exc_info:
-            await repository.update_members_url(1, "https://example.com/new-members")
-
-        assert "Conference" in str(exc_info.value)
-        assert "1" in str(exc_info.value)
-        mock_session.execute.assert_called_once()
-        mock_session.commit.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_update_members_url_database_error(
-        self, repository: ConferenceRepositoryImpl, mock_session: MagicMock
-    ) -> None:
-        """Test update_members_url handles database error."""
-        # Setup mock to raise exception
-        mock_session.execute.side_effect = SQLAlchemyError("Database error")
-
-        # Execute and assert
-        with pytest.raises(UpdateError) as exc_info:
-            await repository.update_members_url(1, "https://example.com/new-members")
-
-        assert "Failed to update members URL for conference ID 1" in str(exc_info.value)
-        mock_session.rollback.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_update_members_url_clear(
-        self, repository: ConferenceRepositoryImpl, mock_session: MagicMock
-    ) -> None:
-        """Test update_members_url can clear URL by setting to None."""
-        # Setup mock result
-        mock_result = MagicMock()
-        mock_result.rowcount = 1
-        mock_session.execute.return_value = mock_result
-
-        # Execute
-        result = await repository.update_members_url(1, None)
-
-        # Assert
-        assert result is True
-        mock_session.execute.assert_called_once()
-        mock_session.commit.assert_called_once()
-
-    @pytest.mark.asyncio
     async def test_get_all_with_limit(
         self,
         repository: ConferenceRepositoryImpl,
@@ -352,7 +251,6 @@ class TestConferenceRepositoryImpl:
             id=1,
             name="本会議",
             governing_body_id=10,
-            members_introduction_url="https://example.com/members",
             prefecture="東京都",
         )
 
@@ -364,7 +262,6 @@ class TestConferenceRepositoryImpl:
         assert entity.id == 1
         assert entity.name == "本会議"
         assert entity.governing_body_id == 10
-        assert entity.members_introduction_url == "https://example.com/members"
         assert entity.prefecture == "東京都"
 
     def test_to_model(
@@ -379,7 +276,6 @@ class TestConferenceRepositoryImpl:
         assert model.id == 1
         assert model.name == "本会議"
         assert model.governing_body_id == 10
-        assert model.members_introduction_url == "https://example.com/members"
         assert model.prefecture == "東京都"
 
     def test_update_model(
@@ -391,7 +287,6 @@ class TestConferenceRepositoryImpl:
             id=1,
             name="旧会議",
             governing_body_id=5,
-            members_introduction_url=None,
             prefecture=None,
         )
 
@@ -401,7 +296,6 @@ class TestConferenceRepositoryImpl:
         # Assert
         assert model.name == "本会議"
         assert model.governing_body_id == 10
-        assert model.members_introduction_url == "https://example.com/members"
         assert model.prefecture == "東京都"
 
     def test_dict_to_entity(
@@ -418,7 +312,6 @@ class TestConferenceRepositoryImpl:
         assert entity.id == 1
         assert entity.name == "本会議"
         assert entity.governing_body_id == 10
-        assert entity.members_introduction_url == "https://example.com/members"
         assert entity.prefecture == "東京都"
 
     def test_dict_to_entity_with_missing_optional_fields(
@@ -439,7 +332,6 @@ class TestConferenceRepositoryImpl:
         assert entity.id is None
         assert entity.name == "本会議"
         assert entity.governing_body_id == 10
-        assert entity.members_introduction_url is None
         assert entity.prefecture is None
 
     def test_dict_to_entity_with_prefecture_zenkoku(
@@ -451,7 +343,6 @@ class TestConferenceRepositoryImpl:
             "id": 1,
             "name": "衆議院本会議",
             "governing_body_id": 1,
-            "members_introduction_url": None,
             "prefecture": "全国",
         }
 
@@ -480,7 +371,6 @@ class TestConferenceRepositoryImpl:
             "id": 1,
             "name": "東京都議会",
             "governing_body_id": 13,
-            "members_introduction_url": None,
             "prefecture": "東京都",
             "term": None,
             "created_at": None,
@@ -523,7 +413,6 @@ class TestConferenceRepositoryImpl:
             "id": 1,
             "name": "東京都議会",
             "governing_body_id": 13,
-            "members_introduction_url": None,
             "prefecture": "東京都",
             "term": None,
             "created_at": None,
@@ -557,7 +446,6 @@ class TestConferenceRepositoryImpl:
             "id": 1,
             "name": "衆議院本会議",
             "governing_body_id": 1,
-            "members_introduction_url": None,
             "prefecture": "全国",
             "term": "第220回",
             "created_at": None,
@@ -598,7 +486,6 @@ class TestConferenceRepositoryImpl:
             "id": 1,
             "name": "委員会",
             "governing_body_id": 1,
-            "members_introduction_url": None,
             "prefecture": "東京都",
             "term": None,
             "created_at": None,
@@ -641,7 +528,6 @@ class TestConferenceRepositoryImpl:
             "id": 1,
             "name": "衆議院本会議",
             "governing_body_id": 1,
-            "members_introduction_url": None,
             "prefecture": None,
             "term": "第220回",
             "created_at": None,
@@ -671,7 +557,6 @@ class TestConferenceRepositoryImpl:
             id=1,
             name="衆議院本会議",
             governing_body_id=1,
-            members_introduction_url=None,
             prefecture="全国",
             term="第220回",
         )
@@ -709,7 +594,6 @@ class TestConferenceRepositoryImpl:
             "id": 1,
             "name": "衆議院本会議",
             "governing_body_id": 1,
-            "members_introduction_url": None,
             "prefecture": "全国",
             "term": "第220回",
         }
@@ -727,7 +611,6 @@ class TestConferenceRepositoryImpl:
             id=1,
             name="衆議院本会議",
             governing_body_id=1,
-            members_introduction_url=None,
             prefecture=None,
             term=None,
         )

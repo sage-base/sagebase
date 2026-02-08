@@ -193,12 +193,6 @@ def _render_edit_form(
             help="国会の場合は「第XXX回」、地方議会の場合は「令和X年度」など",
         )
 
-        # Members introduction URL
-        members_url = st.text_input(
-            "議員紹介URL",
-            value=form_data.members_introduction_url or "",
-        )
-
         # Action buttons
         col1, col2 = st.columns(2)
         with col1:
@@ -216,7 +210,6 @@ def _render_edit_form(
                 election_id,
                 prefecture,
                 term,
-                members_url,
             )
 
         if delete_button:
@@ -232,7 +225,6 @@ def _handle_update(
     election_id: int | None,
     prefecture: str,
     term: str,
-    members_url: str,
 ) -> None:
     """Handle conference update.
 
@@ -245,7 +237,6 @@ def _handle_update(
         election_id: 選挙ID
         prefecture: 都道府県
         term: 期/会期/年度
-        members_url: 議員紹介URL
     """
     # Validation
     if not name:
@@ -259,7 +250,6 @@ def _handle_update(
         form_data.election_id = election_id
         form_data.prefecture = prefecture if prefecture else None
         form_data.term = term if term else None
-        form_data.members_introduction_url = members_url if members_url else None
 
         # Update conference
         success, error_message = asyncio.run(

@@ -31,17 +31,6 @@ class IWebScraperService(Protocol):
         """
         ...
 
-    async def scrape_conference_members(self, url: str) -> list[dict[str, Any]]:
-        """Scrape conference member information from website.
-
-        Args:
-            url: URL of the conference members page
-
-        Returns:
-            List of scraped member information
-        """
-        ...
-
     async def scrape_meeting_minutes(self, url: str) -> dict[str, Any]:
         """Scrape meeting minutes from website.
 

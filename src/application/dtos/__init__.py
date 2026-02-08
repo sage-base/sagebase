@@ -3,7 +3,6 @@
 from src.application.dtos.base_dto import (
     ConferenceBaseDTO,
     ConversationBaseDTO,
-    ExtractedConferenceMemberBaseDTO,
     GoverningBodyDTO,
     MeetingBaseDTO,
     MinutesBaseDTO,
@@ -15,11 +14,6 @@ from src.application.dtos.conference_dto import (
     AffiliationDTO,
     ConferenceDTO,
     CreateAffiliationDTO,
-    ExtractedConferenceMemberDTO,
-)
-from src.application.dtos.conference_member_extraction_dto import (
-    ConferenceMemberExtractionResult,
-    ExtractedMemberDTO,
 )
 from src.application.dtos.election_dto import (
     CreateElectionInputDto,
@@ -119,7 +113,6 @@ __all__ = [
     # Base DTOs (for backward compatibility with domain types)
     "ConferenceBaseDTO",
     "ConversationBaseDTO",
-    "ExtractedConferenceMemberBaseDTO",
     "GoverningBodyDTO",
     "MeetingBaseDTO",
     "MinutesBaseDTO",
@@ -152,10 +145,6 @@ __all__ = [
     "AffiliationDTO",
     "ConferenceDTO",
     "CreateAffiliationDTO",
-    "ExtractedConferenceMemberDTO",
-    # Conference Member Extraction DTOs
-    "ConferenceMemberExtractionResult",
-    "ExtractedMemberDTO",
     # Extraction Result DTOs
     "ConversationExtractionResult",
     "ParliamentaryGroupMembershipExtractionResult",

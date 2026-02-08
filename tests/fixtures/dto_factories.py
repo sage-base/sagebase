@@ -5,7 +5,6 @@ from typing import Any
 from src.application.dtos.conference_dto import (
     AffiliationDTO,
     ConferenceDTO,
-    ExtractedConferenceMemberDTO,
 )
 from src.application.dtos.minutes_dto import (
     ExtractedSpeechDTO,
@@ -108,7 +107,6 @@ def create_conference_dto(**kwargs: Any) -> ConferenceDTO:
         "name": "議会全体",
         "description": None,
         "is_active": True,
-        "members_introduction_url": None,
         "member_count": 0,
     }
     defaults.update(kwargs)
@@ -129,23 +127,3 @@ def create_affiliation_dto(**kwargs: Any) -> AffiliationDTO:
     }
     defaults.update(kwargs)
     return AffiliationDTO(**defaults)
-
-
-def create_extracted_conference_member_dto(
-    **kwargs: Any,
-) -> ExtractedConferenceMemberDTO:
-    """Create a test ExtractedConferenceMemberDTO."""
-    defaults = {
-        "id": 1,
-        "conference_id": 1,
-        "name": "山田太郎",
-        "role": None,
-        "party_affiliation": None,
-        "matching_status": "pending",
-        "confidence_score": None,
-        "matched_politician_id": None,
-        "source_url": "https://example.com/members",
-        "extracted_at": None,
-    }
-    defaults.update(kwargs)
-    return ExtractedConferenceMemberDTO(**defaults)
