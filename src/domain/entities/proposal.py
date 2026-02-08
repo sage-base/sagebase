@@ -43,3 +43,15 @@ class Proposal(BaseEntity):
     def __str__(self) -> str:
         identifier = f"ID:{self.id}"
         return f"Proposal {identifier}: {self.title[:50]}..."
+
+    @property
+    def has_business_key(self) -> bool:
+        """ビジネスキー（自然キー）が完全に設定されているか判定する."""
+        return all(
+            [
+                self.governing_body_id is not None,
+                self.session_number is not None,
+                self.proposal_number is not None,
+                self.proposal_type is not None,
+            ]
+        )

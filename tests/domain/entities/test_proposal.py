@@ -173,3 +173,28 @@ class TestProposal:
         assert proposal.external_id == "https://smartnews-smri.example.com/gian/002"
         assert proposal.deliberation_status == "未了"
         assert proposal.deliberation_result == "rejected"
+
+    def test_has_business_key_complete(self) -> None:
+        """Test has_business_key returns True when all 4 key fields are set."""
+        proposal = Proposal(
+            title="テスト議案",
+            governing_body_id=1,
+            session_number=213,
+            proposal_number=42,
+            proposal_type="衆法",
+        )
+        assert proposal.has_business_key is True
+
+    def test_has_business_key_incomplete(self) -> None:
+        """Test has_business_key returns False when any key field is missing."""
+        proposal = Proposal(
+            title="テスト議案",
+            governing_body_id=1,
+            session_number=213,
+        )
+        assert proposal.has_business_key is False
+
+    def test_has_business_key_none(self) -> None:
+        """Test has_business_key returns False when no key fields are set."""
+        proposal = Proposal(title="テスト議案")
+        assert proposal.has_business_key is False

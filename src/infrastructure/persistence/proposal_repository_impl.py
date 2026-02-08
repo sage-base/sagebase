@@ -81,6 +81,21 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             model_class=ProposalModel,
         )
 
+    def _row_to_dict(self, row: Any) -> dict[str, Any]:
+        """Convert SQLAlchemy result row to dictionary.
+
+        Args:
+            row: SQLAlchemy result row
+
+        Returns:
+            Row data as dictionary
+        """
+        if hasattr(row, "_asdict"):
+            return row._asdict()
+        elif hasattr(row, "_mapping"):
+            return dict(row._mapping)
+        return dict(row)
+
     async def get_all(
         self, limit: int | None = None, offset: int | None = 0
     ) -> list[Proposal]:
@@ -108,16 +123,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             result = await self.session.execute(text(query_text), params)
             rows = result.fetchall()
 
-            results = []
-            for row in rows:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                results.append(self._dict_to_entity(row_dict))
-            return results
+            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting all proposals: {e}")
@@ -143,13 +149,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             row = result.fetchone()
 
             if row:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._dict_to_entity(self._row_to_dict(row))
             return None
 
         except SQLAlchemyError as e:
@@ -210,13 +210,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             await self.session.commit()
 
             if row:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._dict_to_entity(self._row_to_dict(row))
 
             raise DatabaseError("Failed to create proposal", {"entity": entity})
 
@@ -285,13 +279,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             await self.session.commit()
 
             if row:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._dict_to_entity(self._row_to_dict(row))
 
             raise DatabaseError(
                 f"Proposal with ID {entity.id} not found", {"entity": entity}
@@ -314,7 +302,6 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             True if deleted, False otherwise
         """
         try:
-            # Check if there are related records
             check_query = text("""
                 SELECT COUNT(*) FROM proposal_judges WHERE proposal_id = :proposal_id
             """)
@@ -322,7 +309,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             count = result.scalar()
 
             if count and count > 0:
-                return False  # Cannot delete if there are related judges
+                return False
 
             query = text("DELETE FROM proposals WHERE id = :id")
             result = await self.session.execute(query, {"id": entity_id})
@@ -336,6 +323,22 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             raise DatabaseError(
                 "Failed to delete proposal", {"id": entity_id, "error": str(e)}
             ) from e
+
+    async def count(self) -> int:
+        """Count total number of proposals.
+
+        Returns:
+            Total count of proposals
+        """
+        try:
+            query = text("SELECT COUNT(*) FROM proposals")
+            result = await self.session.execute(query)
+            count = result.scalar()
+            return count if count is not None else 0
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error counting proposals: {e}")
+            raise DatabaseError("Failed to count proposals", {"error": str(e)}) from e
 
     def _to_entity(self, model: ProposalModel) -> Proposal:
         """Convert database model to domain entity.
@@ -460,16 +463,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             result = await self.session.execute(query, {"meeting_id": meeting_id})
             rows = result.fetchall()
 
-            results = []
-            for row in rows:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                results.append(self._dict_to_entity(row_dict))
-            return results
+            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting proposals by meeting ID: {e}")
@@ -498,16 +492,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             result = await self.session.execute(query, {"conference_id": conference_id})
             rows = result.fetchall()
 
-            results = []
-            for row in rows:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                results.append(self._dict_to_entity(row_dict))
-            return results
+            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting proposals by conference ID: {e}")
@@ -538,13 +523,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             row = result.fetchone()
 
             if row:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._dict_to_entity(self._row_to_dict(row))
             return None
 
         except SQLAlchemyError as e:
@@ -596,13 +575,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             row = result.fetchone()
 
             if row:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._dict_to_entity(self._row_to_dict(row))
             return None
 
         except SQLAlchemyError as e:
@@ -672,13 +645,9 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
                 )
                 row = result.fetchone()
                 if row:
-                    if hasattr(row, "_asdict"):
-                        row_dict = row._asdict()  # type: ignore[attr-defined]
-                    elif hasattr(row, "_mapping"):
-                        row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                    else:
-                        row_dict = dict(row)
-                    created_proposals.append(self._dict_to_entity(row_dict))
+                    created_proposals.append(
+                        self._dict_to_entity(self._row_to_dict(row))
+                    )
 
             await self.session.commit()
             return created_proposals

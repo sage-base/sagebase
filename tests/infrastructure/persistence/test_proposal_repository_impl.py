@@ -61,19 +61,6 @@ class TestProposalRepositoryImpl:
             "updated_at": None,
         }
 
-    @pytest.fixture
-    def sample_proposal_entity(self) -> Proposal:
-        """Sample proposal entity."""
-        return Proposal(
-            id=1,
-            title="令和6年度予算案の承認について",
-            detail_url="https://example.com/proposal/001",
-            status_url="https://example.com/proposal/status/001",
-            votes_url="https://example.com/proposal/votes/001",
-            meeting_id=100,
-            conference_id=10,
-        )
-
     @pytest.mark.asyncio
     async def test_get_by_id_found(
         self,
@@ -455,22 +442,23 @@ class TestProposalRepositoryImpl:
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_database_errors(
+    async def test_get_by_meeting_id_database_error(
         self, repository: ProposalRepositoryImpl, mock_session: MagicMock
     ) -> None:
-        """Test database error handling in methods."""
-        # Setup mock to raise exception
+        """Test get_by_meeting_id database error handling."""
         mock_session.execute.side_effect = SQLAlchemyError("Database error")
 
-        # Test get_by_meeting_id
         with pytest.raises(DatabaseError) as exc_info:
             await repository.get_by_meeting_id(100)
         assert "Failed to get proposals by meeting ID" in str(exc_info.value)
 
-        # Reset side effect
+    @pytest.mark.asyncio
+    async def test_get_by_conference_id_database_error(
+        self, repository: ProposalRepositoryImpl, mock_session: MagicMock
+    ) -> None:
+        """Test get_by_conference_id database error handling."""
         mock_session.execute.side_effect = SQLAlchemyError("Database error")
 
-        # Test get_by_conference_id
         with pytest.raises(DatabaseError) as exc_info:
             await repository.get_by_conference_id(10)
         assert "Failed to get proposals by conference ID" in str(exc_info.value)
@@ -674,3 +662,130 @@ class TestProposalRepositoryImpl:
             await repository.bulk_create(entities)
         assert "Failed to bulk create proposals" in str(exc_info.value)
         mock_session.rollback.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_find_by_url_found(
+        self,
+        repository: ProposalRepositoryImpl,
+        mock_session: MagicMock,
+        sample_proposal_dict: dict[str, Any],
+    ) -> None:
+        """Test find_by_url when proposal is found."""
+        mock_row = MagicMock()
+        mock_row._asdict = MagicMock(return_value=sample_proposal_dict)
+        mock_result = MagicMock()
+        mock_result.fetchone = MagicMock(return_value=mock_row)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.find_by_url("https://example.com/proposal/001")
+
+        assert result is not None
+        assert result.id == 1
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_find_by_url_not_found(
+        self,
+        repository: ProposalRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test find_by_url when proposal is not found."""
+        mock_result = MagicMock()
+        mock_result.fetchone = MagicMock(return_value=None)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.find_by_url("https://nonexistent.example.com")
+
+        assert result is None
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_find_by_url_database_error(
+        self,
+        repository: ProposalRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test find_by_url database error handling."""
+        mock_session.execute.side_effect = SQLAlchemyError("Database error")
+
+        with pytest.raises(DatabaseError) as exc_info:
+            await repository.find_by_url("https://example.com/proposal/001")
+        assert "Failed to find proposal by URL" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_get_all_without_limit(
+        self,
+        repository: ProposalRepositoryImpl,
+        mock_session: MagicMock,
+        sample_proposal_dict: dict[str, Any],
+    ) -> None:
+        """Test get_all without limit."""
+        mock_row = MagicMock()
+        mock_row._asdict = MagicMock(return_value=sample_proposal_dict)
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[mock_row])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_all()
+
+        assert len(result) == 1
+        assert result[0].id == 1
+
+    @pytest.mark.asyncio
+    async def test_get_all_empty_result(
+        self,
+        repository: ProposalRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_all returns empty list when no proposals exist."""
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_all()
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_count_success(
+        self,
+        repository: ProposalRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test count returns total number of proposals."""
+        mock_result = MagicMock()
+        mock_result.scalar = MagicMock(return_value=42)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.count()
+
+        assert result == 42
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_count_empty(
+        self,
+        repository: ProposalRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test count returns 0 when no proposals exist."""
+        mock_result = MagicMock()
+        mock_result.scalar = MagicMock(return_value=0)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.count()
+
+        assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_count_database_error(
+        self,
+        repository: ProposalRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test count database error handling."""
+        mock_session.execute.side_effect = SQLAlchemyError("Database error")
+
+        with pytest.raises(DatabaseError) as exc_info:
+            await repository.count()
+        assert "Failed to count proposals" in str(exc_info.value)

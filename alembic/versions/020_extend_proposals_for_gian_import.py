@@ -65,7 +65,7 @@ def upgrade() -> None:
         ALTER TABLE proposals
         ADD CONSTRAINT proposals_governing_body_id_fkey
         FOREIGN KEY (governing_body_id) REFERENCES governing_bodies(id)
-        ON DELETE SET NULL;
+        ON DELETE RESTRICT;
     """)
 
     op.execute("""
