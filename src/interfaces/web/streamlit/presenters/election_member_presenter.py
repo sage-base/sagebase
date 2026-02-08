@@ -8,6 +8,7 @@ from src.application.dtos.election_member_dto import (
     CreateElectionMemberInputDto,
     DeleteElectionMemberInputDto,
     ElectionMemberOutputItem,
+    ListElectionMembersByElectionInputDto,
     UpdateElectionMemberInputDto,
 )
 from src.common.logging import get_logger
@@ -26,9 +27,6 @@ class ElectionMemberPresenter(BasePresenter[list[ElectionMemberOutputItem]]):
         self.use_case = self.container.use_cases.manage_election_members_usecase()
         self.election_use_case = self.container.use_cases.manage_elections_usecase()
         self.politician_repo = self.container.repositories.politician_repository()
-        self.governing_body_repo = (
-            self.container.repositories.governing_body_repository()
-        )
         self.session = SessionManager()
         self.logger = get_logger(__name__)
 
@@ -47,10 +45,6 @@ class ElectionMemberPresenter(BasePresenter[list[ElectionMemberOutputItem]]):
     ) -> list[ElectionMemberOutputItem]:
         """選挙別メンバー一覧を読み込む（非同期実装）."""
         try:
-            from src.application.dtos.election_member_dto import (
-                ListElectionMembersByElectionInputDto,
-            )
-
             result = await self.use_case.list_by_election(
                 ListElectionMembersByElectionInputDto(election_id=election_id)
             )

@@ -15,7 +15,9 @@ from src.application.dtos.election_member_dto import (
 from src.application.usecases.manage_election_members_usecase import (
     ManageElectionMembersUseCase,
 )
+from src.application.usecases.manage_elections_usecase import ManageElectionsUseCase
 from src.domain.entities import Politician
+from src.domain.repositories.politician_repository import PoliticianRepository
 
 
 @pytest.fixture
@@ -27,19 +29,13 @@ def mock_use_case() -> AsyncMock:
 @pytest.fixture
 def mock_politician_repo() -> AsyncMock:
     """PoliticianRepositoryのモック."""
-    return AsyncMock()
-
-
-@pytest.fixture
-def mock_governing_body_repo() -> AsyncMock:
-    """GoverningBodyRepositoryのモック."""
-    return AsyncMock()
+    return AsyncMock(spec=PoliticianRepository)
 
 
 @pytest.fixture
 def mock_election_use_case() -> AsyncMock:
     """ManageElectionsUseCaseのモック."""
-    return AsyncMock()
+    return AsyncMock(spec=ManageElectionsUseCase)
 
 
 @pytest.fixture
@@ -78,16 +74,12 @@ def mock_container(
     mock_use_case,
     mock_election_use_case,
     mock_politician_repo,
-    mock_governing_body_repo,
 ):
     """DIコンテナのモック."""
     container = MagicMock()
     container.use_cases.manage_election_members_usecase.return_value = mock_use_case
     container.use_cases.manage_elections_usecase.return_value = mock_election_use_case
     container.repositories.politician_repository.return_value = mock_politician_repo
-    container.repositories.governing_body_repository.return_value = (
-        mock_governing_body_repo
-    )
     return container
 
 
@@ -123,7 +115,6 @@ class TestElectionMemberPresenterInit:
         )
         mock_container.use_cases.manage_elections_usecase.return_value = AsyncMock()
         mock_container.repositories.politician_repository.return_value = AsyncMock()
-        mock_container.repositories.governing_body_repository.return_value = AsyncMock()
 
         with (
             patch(
@@ -194,6 +185,18 @@ class TestLoadMembers:
 
         assert len(result) == 2
         mock_politician_repo.get_all.assert_called_once()
+
+    def test_load_politicians_error(
+        self,
+        presenter,
+        mock_politician_repo: AsyncMock,
+    ) -> None:
+        """政治家読み込みエラー時に空リストを返すことを確認."""
+        mock_politician_repo.get_all.side_effect = Exception("DB Error")
+
+        result = presenter.load_politicians()
+
+        assert result == []
 
 
 class TestCreateElectionMember:
@@ -309,6 +312,24 @@ class TestUpdateElectionMember:
         assert success is False
         assert error == "メンバーが見つかりません。"
 
+    def test_update_exception(
+        self,
+        presenter,
+        mock_use_case: AsyncMock,
+    ) -> None:
+        """例外発生時にエラーメッセージを返すことを確認."""
+        mock_use_case.update_election_member.side_effect = Exception("DB Error")
+
+        success, error = presenter.update(
+            id=1,
+            election_id=10,
+            politician_id=100,
+            result="当選",
+        )
+
+        assert success is False
+        assert error is not None
+
 
 class TestDeleteElectionMember:
     """メンバー削除テスト."""
@@ -346,6 +367,19 @@ class TestDeleteElectionMember:
         assert success is False
         assert error == "削除に失敗しました。"
 
+    def test_delete_exception(
+        self,
+        presenter,
+        mock_use_case: AsyncMock,
+    ) -> None:
+        """例外発生時にエラーメッセージを返すことを確認."""
+        mock_use_case.delete_election_member.side_effect = Exception("DB Error")
+
+        success, error = presenter.delete(id=1)
+
+        assert success is False
+        assert error is not None
+
 
 class TestToDataframe:
     """DataFrame変換テスト."""
@@ -376,6 +410,27 @@ class TestToDataframe:
         """空リストの場合はNoneを返すことを確認."""
         df = presenter.to_dataframe([], {})
         assert df is None
+
+    def test_to_dataframe_with_none_values(
+        self,
+        presenter,
+    ) -> None:
+        """votes/rankがNoneの場合に空文字で表示されることを確認."""
+        members = [
+            ElectionMemberOutputItem(
+                id=1,
+                election_id=10,
+                politician_id=100,
+                result="無投票当選",
+                votes=None,
+                rank=None,
+            ),
+        ]
+        df = presenter.to_dataframe(members, {100: "田中太郎"})
+
+        assert df is not None
+        assert df.iloc[0]["得票数"] == ""
+        assert df.iloc[0]["順位"] == ""
 
     def test_to_dataframe_unknown_politician(
         self,
@@ -441,6 +496,36 @@ class TestHandleAction:
     ) -> None:
         """必須パラメータ不足でエラーを返すことを確認."""
         success, error = presenter.handle_action("create", election_id=10)
+
+        assert success is False
+        assert "必須パラメータが不足しています" in error
+
+    def test_handle_action_update(
+        self,
+        presenter,
+        mock_use_case: AsyncMock,
+    ) -> None:
+        """updateアクションが正しく処理されることを確認."""
+        mock_use_case.update_election_member.return_value = (
+            UpdateElectionMemberOutputDto(success=True)
+        )
+
+        success, error = presenter.handle_action(
+            "update",
+            id=1,
+            election_id=10,
+            politician_id=100,
+            result="繰上当選",
+        )
+
+        assert success is True
+
+    def test_handle_action_update_missing_params(
+        self,
+        presenter,
+    ) -> None:
+        """update必須パラメータ不足でエラーを返すことを確認."""
+        success, error = presenter.handle_action("update", id=1)
 
         assert success is False
         assert "必須パラメータが不足しています" in error
