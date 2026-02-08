@@ -808,3 +808,90 @@ This complete example shows:
 - ✅ DTOs for layer boundaries
 - ✅ Complete type safety
 - ✅ Async/await throughout
+
+---
+
+## OutputItem Pattern (XxxOutputItem + from_entity())
+
+ドメインエンティティをDTOのフィールドとして直接公開する代わりに、`XxxOutputItem` dataclass と `from_entity()` classmethod を使ってプリミティブ型に変換するパターン。
+
+### パターンの構造
+
+```python
+# src/application/dtos/xxx_dto.py
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.domain.entities.xxx import Xxx
+
+@dataclass
+class XxxOutputItem:
+    """Xxxの出力アイテム."""
+    id: int | None
+    name: str
+    # ... プリミティブ型のフィールドのみ（enum は .value で str に変換）
+
+    @classmethod
+    def from_entity(cls, entity: Xxx) -> XxxOutputItem:
+        """エンティティから出力アイテムを生成する."""
+        return cls(
+            id=entity.id,
+            name=entity.name,
+            # ...
+        )
+```
+
+### ❌ BAD: DTOがドメインエンティティを直接公開
+
+```python
+# src/application/dtos/extraction_log_dto.py
+from src.domain.entities.extraction_log import ExtractionLog  # 実行時依存
+
+@dataclass
+class PaginatedExtractionLogsDTO:
+    logs: list[ExtractionLog]  # ドメインエンティティが漏洩
+    total_count: int
+```
+
+### ✅ GOOD: OutputItemを経由してプリミティブ型のみ公開
+
+```python
+# src/application/dtos/extraction_log_dto.py
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.domain.entities.extraction_log import ExtractionLog
+
+@dataclass
+class ExtractionLogOutputItem:
+    id: int | None
+    entity_type: str  # EntityType enum の .value に変換済み
+    # ...
+
+    @classmethod
+    def from_entity(cls, entity: ExtractionLog) -> ExtractionLogOutputItem:
+        return cls(id=entity.id, entity_type=entity.entity_type.value, ...)
+
+@dataclass
+class PaginatedExtractionLogsDTO:
+    logs: list[ExtractionLogOutputItem]  # OutputItem経由で公開
+    total_count: int
+```
+
+### OutputItemパターン適用時のチェックリスト
+
+DTOのフィールド型をドメインエンティティからOutputItemに変更する際は、以下の全層を確認すること：
+
+1. **Application層 (DTO)**: `XxxOutputItem` を追加、DTOフィールドの型を変更、`__init__.py` にエクスポート追加
+2. **Application層 (UseCase)**: `from_entity()` でエンティティからOutputItemへ変換する処理を追加
+3. **Infrastructure層 (Repository)**: DTOを構築している箇所で `from_entity()` 変換を追加
+4. **Interfaces層 (Presenter)**: 型ヒントをOutputItemに変更。enum の `.value` 呼び出しが不要になる箇所を修正
+5. **Interfaces層 (View) ⚠️必須**: Presenterから `WebResponseDTO.data` 経由で受け取るデータの型が変わるため、View層のコードも必ず確認。**`WebResponseDTO.data: dict[str, Any]` 境界では pyright の型チェックが効かない**ため、手動で以下を確認：
+   - ドメインエンティティのimportが残っていないか
+   - `.value` 等のenum属性アクセスが不要になっていないか（OutputItemでは既にstrに変換済み）
+   - 型ヒントがOutputItemに更新されているか
+6. **Tests**: OutputItem型のアサーション追加、テストデータ構築で `from_entity()` を使用
