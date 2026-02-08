@@ -29,6 +29,9 @@ from src.infrastructure.persistence.conference_member_repository_impl import (
 from src.infrastructure.persistence.conference_repository_impl import (
     ConferenceRepositoryImpl,
 )
+from src.infrastructure.persistence.election_member_repository_impl import (
+    ElectionMemberRepositoryImpl,
+)
 from src.infrastructure.persistence.election_repository_impl import (
     ElectionRepositoryImpl,
 )
@@ -71,6 +74,7 @@ def render_conferences_page() -> None:
     meeting_repo = RepositoryAdapter(MeetingRepositoryImpl)
     politician_repo = RepositoryAdapter(PoliticianRepositoryImpl)
     conference_member_repo = RepositoryAdapter(ConferenceMemberRepositoryImpl)
+    election_member_repo = RepositoryAdapter(ElectionMemberRepositoryImpl)
 
     # Initialize use cases and presenter
     # Type: ignore - RepositoryAdapter duck-types as repository protocol
@@ -92,6 +96,7 @@ def render_conferences_page() -> None:
         extracted_member_repository=extracted_member_repo,  # type: ignore[arg-type]
         conference_member_repository=conference_member_repo,  # type: ignore[arg-type]
         web_scraper_service=_create_scraper_service(),
+        election_member_repository=election_member_repo,  # type: ignore[arg-type]
     )
 
     # Create tabs

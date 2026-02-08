@@ -14,6 +14,7 @@ import pandas as pd
 import streamlit as st
 
 from src.application.usecases.manage_conference_members_usecase import (
+    GetElectionCandidatesInputDTO,
     ManageConferenceMembersUseCase,
     ManualMatchInputDTO,
     SearchPoliticiansInputDTO,
@@ -291,7 +292,9 @@ def _render_manual_match(
 ) -> None:
     """手動政治家選択UIを表示する.
 
-    抽出済みメンバーに対して、政治家を検索して紐付けるUIを提供します。
+    会議体にelection_idが設定されている場合、当選者を優先表示します。
+    「当選者以外も表示」チェックボックスで全政治家の名前検索も可能です。
+    election_idが未設定の場合は従来通り名前検索のみ表示します。
 
     Args:
         member: メンバーエンティティ
@@ -300,54 +303,93 @@ def _render_manual_match(
     st.markdown("---")
     st.markdown("**手動で政治家を選択**")
 
-    search_name = st.text_input(
-        "政治家名で検索",
-        value=member.extracted_name,
-        key=f"search_politician_{member.id}",
+    election_candidates_result = _run_async(
+        manage_members_usecase.get_election_candidates(
+            GetElectionCandidatesInputDTO(conference_id=member.conference_id)
+        )
     )
+    has_election_candidates = len(election_candidates_result.candidates) > 0
 
-    if search_name:
-        search_dto = SearchPoliticiansInputDTO(name=search_name)
-        search_result = _run_async(
-            manage_members_usecase.search_politicians(search_dto)
+    if has_election_candidates:
+        show_all = st.checkbox(
+            "当選者以外も表示",
+            key=f"show_all_politicians_{member.id}",
+        )
+    else:
+        show_all = True
+
+    candidate_options: dict[str, int | None] = {
+        "-- 選択してください --": None,
+    }
+
+    if has_election_candidates and not show_all:
+        for c in election_candidates_result.candidates:
+            label = f"{c.name} (ID: {c.id})"
+            candidate_options[label] = c.id
+    else:
+        search_name = st.text_input(
+            "政治家名で検索",
+            value=member.extracted_name,
+            key=f"search_politician_{member.id}",
         )
 
-        if not search_result.candidates:
-            st.warning(f"「{search_name}」に該当する政治家が見つかりません。")
+        if search_name:
+            search_dto = SearchPoliticiansInputDTO(name=search_name)
+            search_result = _run_async(
+                manage_members_usecase.search_politicians(search_dto)
+            )
+
+            if not search_result.candidates:
+                st.warning(f"「{search_name}」に該当する政治家が見つかりません。")
+                return
+
+            if has_election_candidates:
+                election_ids = {c.id for c in election_candidates_result.candidates}
+                elected = [c for c in search_result.candidates if c.id in election_ids]
+                others = [
+                    c for c in search_result.candidates if c.id not in election_ids
+                ]
+                if elected:
+                    for c in elected:
+                        label = f"⭐ {c.name} (ID: {c.id})"
+                        candidate_options[label] = c.id
+                for c in others:
+                    label = f"{c.name} (ID: {c.id})"
+                    candidate_options[label] = c.id
+            else:
+                for c in search_result.candidates:
+                    label = f"{c.name} (ID: {c.id})"
+                    candidate_options[label] = c.id
         else:
-            candidate_options: dict[str, int | None] = {
-                "-- 選択してください --": None,
-            }
-            for c in search_result.candidates:
-                label = f"{c.name} (ID: {c.id})"
-                candidate_options[label] = c.id
+            return
 
-            with st.form(key=f"manual_match_form_{member.id}"):
-                selected = st.selectbox(
-                    "政治家を選択",
-                    options=list(candidate_options.keys()),
-                    key=f"select_politician_{member.id}",
+    if len(candidate_options) <= 1:
+        return
+
+    with st.form(key=f"manual_match_form_{member.id}"):
+        selected = st.selectbox(
+            "政治家を選択",
+            options=list(candidate_options.keys()),
+            key=f"select_politician_{member.id}",
+        )
+
+        submitted = st.form_submit_button(
+            "この政治家にマッチング",
+            type="primary",
+        )
+
+        if submitted:
+            selected_politician_id = candidate_options[selected]
+            if selected_politician_id is None:
+                st.warning("政治家を選択してください。")
+            else:
+                input_dto = ManualMatchInputDTO(
+                    member_id=member.id or 0,
+                    politician_id=selected_politician_id,
                 )
-
-                submitted = st.form_submit_button(
-                    "この政治家にマッチング",
-                    type="primary",
-                )
-
-                if submitted:
-                    selected_politician_id = candidate_options[selected]
-                    if selected_politician_id is None:
-                        st.warning("政治家を選択してください。")
-                    else:
-                        input_dto = ManualMatchInputDTO(
-                            member_id=member.id or 0,
-                            politician_id=selected_politician_id,
-                        )
-                        output = _run_async(
-                            manage_members_usecase.manual_match(input_dto)
-                        )
-                        if output.success:
-                            st.success(output.message)
-                            st.rerun()
-                        else:
-                            st.error(output.message)
+                output = _run_async(manage_members_usecase.manual_match(input_dto))
+                if output.success:
+                    st.success(output.message)
+                    st.rerun()
+                else:
+                    st.error(output.message)

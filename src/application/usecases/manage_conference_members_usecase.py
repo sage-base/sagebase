@@ -9,6 +9,9 @@ from src.domain.repositories.conference_member_repository import (
     ConferenceMemberRepository,
 )
 from src.domain.repositories.conference_repository import ConferenceRepository
+from src.domain.repositories.election_member_repository import (
+    ElectionMemberRepository,
+)
 from src.domain.repositories.extracted_conference_member_repository import (
     ExtractedConferenceMemberRepository,
 )
@@ -75,6 +78,13 @@ class SearchPoliticiansInputDTO:
 
 
 @dataclass
+class GetElectionCandidatesInputDTO:
+    """当選者候補取得の入力DTO."""
+
+    conference_id: int
+
+
+@dataclass
 class PoliticianCandidateDTO:
     """政治家候補のDTO."""
 
@@ -124,6 +134,7 @@ class ManageConferenceMembersUseCase:
         extracted_repo: 抽出済みメンバーリポジトリ
         conference_member_repo: 会議体メンバーリポジトリ
         scraper: Webスクレイピングサービス
+        election_member_repo: 選挙結果メンバーリポジトリ（当選者絞り込み用）
 
     Example:
         >>> use_case = ManageConferenceMembersUseCase(...)
@@ -147,6 +158,7 @@ class ManageConferenceMembersUseCase:
         extracted_member_repository: ExtractedConferenceMemberRepository,
         conference_member_repository: ConferenceMemberRepository,
         web_scraper_service: IWebScraperService,
+        election_member_repository: ElectionMemberRepository | None = None,
     ):
         """会議体メンバー管理ユースケースを初期化する
 
@@ -157,6 +169,7 @@ class ManageConferenceMembersUseCase:
             extracted_member_repository: 抽出済みメンバーリポジトリの実装
             conference_member_repository: 会議体メンバーリポジトリの実装
             web_scraper_service: Webスクレイピングサービス
+            election_member_repository: 選挙結果メンバーリポジトリ
         """
         self.conference_repo = conference_repository
         self.politician_repo = politician_repository
@@ -164,6 +177,7 @@ class ManageConferenceMembersUseCase:
         self.extracted_repo = extracted_member_repository
         self.conference_member_repo = conference_member_repository
         self.scraper = web_scraper_service
+        self.election_member_repo = election_member_repository
 
     async def extract_members(
         self, request: ExtractMembersInputDTO
@@ -307,6 +321,42 @@ class ManageConferenceMembersUseCase:
                 PoliticianCandidateDTO(id=c.id or 0, name=c.name) for c in candidates
             ]
         )
+
+    async def get_election_candidates(
+        self, request: GetElectionCandidatesInputDTO
+    ) -> SearchPoliticiansOutputDTO:
+        """会議体に紐づく選挙の当選者を取得する
+
+        会議体のelection_idから選挙結果メンバーを取得し、
+        当選者の政治家情報を返します。
+
+        Args:
+            request: 当選者候補取得リクエストDTO
+
+        Returns:
+            SearchPoliticiansOutputDTO: 当選者の政治家候補リスト
+        """
+        if self.election_member_repo is None:
+            return SearchPoliticiansOutputDTO(candidates=[])
+
+        conference = await self.conference_repo.get_by_id(request.conference_id)
+        if not conference or not conference.election_id:
+            return SearchPoliticiansOutputDTO(candidates=[])
+
+        election_members = await self.election_member_repo.get_by_election_id(
+            conference.election_id
+        )
+        elected = [m for m in election_members if m.result == "当選"]
+
+        candidates: list[PoliticianCandidateDTO] = []
+        for em in elected:
+            politician = await self.politician_repo.get_by_id(em.politician_id)
+            if politician:
+                candidates.append(
+                    PoliticianCandidateDTO(id=politician.id or 0, name=politician.name)
+                )
+
+        return SearchPoliticiansOutputDTO(candidates=candidates)
 
     def _to_extracted_dto(
         self, member: ExtractedConferenceMember
