@@ -97,6 +97,8 @@ Before committing tests:
 - [ ] **List Results**: リスト返却メソッドは 0件・1件・複数件 をテスト
 - [ ] **Private Method Calls**: `_to_entity` 等のプライベートメソッド呼び出しには `# type: ignore[reportPrivateUsage]` を付与
 - [ ] **Entity Constructor**: テストデータ作成時、ドメインエンティティのコンストラクタ引数を実際のクラス定義で確認済み
+- [ ] **Guard Clause Coverage**: `if x:` / `if x is None` 等のガードクローズは、`None`や空を返すケースもテスト
+- [ ] **Domain Constant Coverage**: エンティティの定数リスト（`VALID_RESULTS`等）でフィルタする場合、全値パターンをテスト（特に類似値: 「当選」と「繰上当選」「無投票当選」等）
 
 ## Test Structure
 

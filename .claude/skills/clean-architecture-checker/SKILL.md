@@ -27,6 +27,7 @@ Before approving code, verify:
 - [ ] **UseCase間依存**: Orchestratorパターンとして許容される場合のみ（抽出ログ統合等）
 - [ ] **Type Safety**: Complete type hints with proper `Optional` handling
 - [ ] **Tests**: Unit tests for domain services and use cases
+- [ ] **ドメインロジックの配置**: UseCase内で文字列リテラル比較やドメイン定数の直接参照でフィルタリングしていないか → エンティティのプロパティ/メソッドに移す
 
 ## Core Principles
 
@@ -70,7 +71,34 @@ Before approving code, verify:
 ❌ UseCase間で循環依存を作らない
 ❌ Bronze Layer / Gold Layer の保護機構をバイパスしない
 
-### 6. Type Safety
+### 6. ドメインロジックの配置
+**ビジネス判定ロジックはドメイン層（エンティティ/ドメインサービス）に配置する**
+
+エンティティが定数リスト（`VALID_RESULTS`等）を持つ場合、その定数を使った判定はエンティティのプロパティとして定義する。UseCase内で文字列リテラルを直接比較してはいけない。
+
+❌ UseCase内で文字列リテラルによるフィルタ:
+```python
+# Application層 - ドメイン知識がUseCaseに漏洩
+elected = [m for m in members if m.result == "当選"]
+```
+
+✅ エンティティにプロパティを定義:
+```python
+# Domain層 - エンティティが判定ロジックを持つ
+class ElectionMember(BaseEntity):
+    ELECTED_RESULTS = ["当選", "繰上当選", "無投票当選"]
+
+    @property
+    def is_elected(self) -> bool:
+        return self.result in self.ELECTED_RESULTS
+
+# Application層 - エンティティのプロパティを使う
+elected = [m for m in members if m.is_elected]
+```
+
+**なぜ重要か**: 定数リストに複数の関連値がある場合（「当選」「繰上当選」「無投票当選」等）、文字列リテラル比較では一部の値を見落とすリスクがある。エンティティに判定ロジックを集約することで、漏れを防ぎテストも容易になる。
+
+### 7. Type Safety
 **Leverage Python 3.11+ type hints**
 
 ✅ All public methods have type hints
