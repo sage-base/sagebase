@@ -7,6 +7,7 @@ import pytest
 
 from src.application.dtos.extraction_log_dto import (
     ExtractionLogFilterDTO,
+    ExtractionLogOutputItem,
 )
 from src.application.usecases.get_extraction_logs_usecase import (
     GetExtractionLogsUseCase,
@@ -78,6 +79,9 @@ class TestGetExtractionLogsUseCase:
         assert result.total_count == 2
         assert result.page_size == 10
         assert result.current_offset == 0
+        assert all(isinstance(log, ExtractionLogOutputItem) for log in result.logs)
+        assert result.logs[0].entity_type == "politician"
+        assert result.logs[1].entity_type == "speaker"
         mock_repo.search_with_date_range.assert_called_once()
         mock_repo.count_with_filters.assert_called_once()
 

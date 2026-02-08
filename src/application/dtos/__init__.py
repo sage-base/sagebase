@@ -49,6 +49,7 @@ from src.application.dtos.extraction_log_dto import (
     DailyCountDTO,
     ExtractionLogDetailDTO,
     ExtractionLogFilterDTO,
+    ExtractionLogOutputItem,
     ExtractionStatisticsDTO,
     PaginatedExtractionLogsDTO,
 )
@@ -73,7 +74,9 @@ from src.application.dtos.parliamentary_group_member_dto import (
     ParliamentaryGroupMemberExtractionResultDTO,
 )
 from src.application.dtos.parliamentary_group_membership_dto import (
+    ParliamentaryGroupMembershipOutputItem,
     ParliamentaryGroupMembershipWithRelationsDTO,
+    ParliamentaryGroupOutputItem,
 )
 from src.application.dtos.politician_dto import (
     CreatePoliticianDTO,
@@ -167,7 +170,9 @@ __all__ = [
     "ParliamentaryGroupMemberAgentResultDTO",
     "ParliamentaryGroupMemberExtractionResultDTO",
     # Parliamentary Group Membership DTOs
+    "ParliamentaryGroupMembershipOutputItem",
     "ParliamentaryGroupMembershipWithRelationsDTO",
+    "ParliamentaryGroupOutputItem",
     # Politician DTOs
     "CreatePoliticianDTO",
     "CreatePoliticianInputDto",
@@ -203,6 +208,7 @@ __all__ = [
     "DailyCountDTO",
     "ExtractionLogDetailDTO",
     "ExtractionLogFilterDTO",
+    "ExtractionLogOutputItem",
     "ExtractionStatisticsDTO",
     "PaginatedExtractionLogsDTO",
 ]

@@ -7,8 +7,11 @@ from uuid import uuid4
 import pytest
 
 from src.application.dtos.parliamentary_group_membership_dto import (
+    ParliamentaryGroupMembershipOutputItem,
     ParliamentaryGroupMembershipWithRelationsDTO,
+    ParliamentaryGroupOutputItem,
 )
+from src.application.dtos.politician_dto import PoliticianOutputItem
 from src.application.dtos.work_history_dto import WorkType
 from src.application.usecases.get_work_history_usecase import GetWorkHistoryUseCase
 from src.domain.entities.parliamentary_group import ParliamentaryGroup
@@ -68,7 +71,9 @@ async def test_get_work_history_all_types():
         created_at=datetime.now(),
     )
     membership_dto = ParliamentaryGroupMembershipWithRelationsDTO(
-        membership=membership, politician=politician, parliamentary_group=group
+        membership=ParliamentaryGroupMembershipOutputItem.from_entity(membership),
+        politician=PoliticianOutputItem.from_entity(politician),
+        parliamentary_group=ParliamentaryGroupOutputItem.from_entity(group),
     )
     membership_repo.find_by_created_user = AsyncMock(return_value=[membership_dto])
 
@@ -205,7 +210,9 @@ async def test_get_work_history_filter_by_work_type_membership_creation():
         created_at=datetime.now(),
     )
     membership_dto = ParliamentaryGroupMembershipWithRelationsDTO(
-        membership=membership, politician=politician, parliamentary_group=group
+        membership=ParliamentaryGroupMembershipOutputItem.from_entity(membership),
+        politician=PoliticianOutputItem.from_entity(politician),
+        parliamentary_group=ParliamentaryGroupOutputItem.from_entity(group),
     )
     membership_repo.find_by_created_user = AsyncMock(return_value=[membership_dto])
 
@@ -450,9 +457,11 @@ async def test_get_work_history_membership_without_created_at():
         created_at=None,  # No timestamp
     )
     membership1_dto = ParliamentaryGroupMembershipWithRelationsDTO(
-        membership=membership1,
-        politician=politician1,
-        parliamentary_group=parliamentary_group1,
+        membership=ParliamentaryGroupMembershipOutputItem.from_entity(membership1),
+        politician=PoliticianOutputItem.from_entity(politician1),
+        parliamentary_group=ParliamentaryGroupOutputItem.from_entity(
+            parliamentary_group1
+        ),
     )
 
     # Membership with created_at
@@ -469,9 +478,11 @@ async def test_get_work_history_membership_without_created_at():
         created_at=datetime.now(),
     )
     membership2_dto = ParliamentaryGroupMembershipWithRelationsDTO(
-        membership=membership2,
-        politician=politician2,
-        parliamentary_group=parliamentary_group2,
+        membership=ParliamentaryGroupMembershipOutputItem.from_entity(membership2),
+        politician=PoliticianOutputItem.from_entity(politician2),
+        parliamentary_group=ParliamentaryGroupOutputItem.from_entity(
+            parliamentary_group2
+        ),
     )
 
     speaker_repo.find_by_matched_user = AsyncMock(return_value=[])
@@ -531,9 +542,11 @@ async def test_get_work_history_sorted_by_date_descending():
         created_at=datetime(2024, 1, 10, 10, 0),  # Earlier date
     )
     membership_dto = ParliamentaryGroupMembershipWithRelationsDTO(
-        membership=membership,
-        politician=politician2,
-        parliamentary_group=parliamentary_group,
+        membership=ParliamentaryGroupMembershipOutputItem.from_entity(membership),
+        politician=PoliticianOutputItem.from_entity(politician2),
+        parliamentary_group=ParliamentaryGroupOutputItem.from_entity(
+            parliamentary_group
+        ),
     )
 
     speaker_repo.find_by_matched_user = AsyncMock(return_value=[speaker_dto])
