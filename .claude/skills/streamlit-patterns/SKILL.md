@@ -28,6 +28,9 @@ Streamlit UIを実装する際に陥りやすい落とし穴と、正しい実�
 ### 部分リラン
 - [ ] フォーム外のウィジェットが全ページリランを引き起こす場合、`@st.fragment`でラップしている
 
+### パフォーマンス
+- [ ] ループ内で同一引数のAPI/UseCase呼び出しを繰り返していない（ループ外でキャッシュして渡す）
+
 ### Presenter/View新規作成
 - [ ] DI Container（`src/infrastructure/di/providers.py`）にRepository/UseCaseが登録済みか確認した
 - [ ] Presenterのコンストラクタで注入する依存は、実際にメソッドで使うものだけに絞っている
@@ -192,6 +195,44 @@ class MyPresenter(BasePresenter[list[SomeOutputItem]]):
 
 ---
 
+## パターン5: ループ内の冗長なAPI呼び出し
+
+### 問題
+メンバー詳細のように複数アイテムをループ表示する際、各アイテムの描画関数内で同一引数のAPI/UseCase呼び出しを繰り返すと、表示件数分のクエリが発生する。
+
+### ❌ 悪い例: ループ内で毎回呼び出し
+```python
+for member in display_members:
+    _render_member_detail(member, usecase)
+
+def _render_member_detail(member, usecase):
+    # 同じconference_idに対して毎回呼ばれる → N回のDB問い合わせ
+    candidates = _run_async(
+        usecase.get_election_candidates(
+            GetElectionCandidatesInputDTO(conference_id=member.conference_id)
+        )
+    )
+```
+
+### ✅ 良い例: ループ外でキャッシュして渡す
+```python
+# conference_idごとに1回だけ取得
+cache: dict[int, SearchPoliticiansOutputDTO] = {}
+for member in display_members:
+    cid = member.conference_id
+    if cid not in cache:
+        cache[cid] = _run_async(
+            usecase.get_election_candidates(
+                GetElectionCandidatesInputDTO(conference_id=cid)
+            )
+        )
+
+for member in display_members:
+    _render_member_detail(member, usecase, cache.get(member.conference_id))
+```
+
+---
+
 ## 実装パターンまとめ
 
 | 状況 | 解決策 |
@@ -201,6 +242,7 @@ class MyPresenter(BasePresenter[list[SomeOutputItem]]):
 | フォーム外ウィジェット変更でタブリセット | `@st.fragment`でラップ |
 | フラグメント↔フォーム間の値受け渡し | `st.session_state`を使用 |
 | Presenter/View新規作成 | DI Container登録確認 + 依存の最小化 |
+| ループ内で同一引数のAPI呼び出し | ループ外でキャッシュ（dict）して各アイテムに渡す |
 
 ---
 
