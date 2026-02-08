@@ -37,32 +37,6 @@ class TestConferenceDomainService:
             ),
         ]
 
-    def test_validate_conference_member_url_valid(self, service):
-        """Test validation of valid conference member URLs."""
-        valid_urls = [
-            "https://example.com/member/list",
-            "https://example.com/議員一覧",
-            "https://example.com/councillor/profile",
-            "https://example.com/議員紹介",
-            "https://example.com/members",
-        ]
-
-        for url in valid_urls:
-            assert service.validate_conference_member_url(url) is True
-
-    def test_validate_conference_member_url_invalid(self, service):
-        """Test validation of invalid conference member URLs."""
-        invalid_urls = [
-            "",
-            None,
-            "https://example.com/news",
-            "https://example.com/about",
-            "https://example.com/contact",
-        ]
-
-        for url in invalid_urls:
-            assert service.validate_conference_member_url(url) is False
-
     def test_extract_member_role(self, service):
         """Test extracting member role from text."""
         # Test exact matches

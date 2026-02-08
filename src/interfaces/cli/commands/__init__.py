@@ -1,6 +1,5 @@
 """CLI commands package"""
 
-from .conference_member_commands import get_conference_member_commands
 from .coverage_commands import get_coverage_commands
 from .database_commands import get_database_commands
 from .evaluation_commands import get_evaluation_commands
@@ -17,7 +16,6 @@ __all__ = [
     "get_scraping_commands",
     "get_ui_commands",
     "get_database_commands",
-    "get_conference_member_commands",
     "get_parliamentary_group_commands",
     "get_seed_commands",
     "get_coverage_commands",

@@ -2,7 +2,6 @@
 
 from .common import EntityId, OptionalDate, OptionalInt, OptionalStr, Timestamp
 from .llm import (
-    LLMConferenceMemberExtractContext,
     LLMExtractResult,
     LLMMatchResult,
     LLMPoliticianMatchContext,
@@ -22,5 +21,4 @@ __all__ = [
     "LLMExtractResult",
     "LLMSpeakerMatchContext",
     "LLMPoliticianMatchContext",
-    "LLMConferenceMemberExtractContext",
 ]

@@ -8,24 +8,6 @@ from src.domain.entities.conference import Conference
 class ConferenceDomainService:
     """Domain service for conference-related business logic."""
 
-    def validate_conference_member_url(self, url: str) -> bool:
-        """Validate if URL is a valid conference member introduction URL."""
-        if not url:
-            return False
-
-        # Check for common patterns in Japanese council websites
-        valid_patterns = [
-            "member",
-            "議員",
-            "紹介",
-            "一覧",
-            "profile",
-            "councillor",
-        ]
-
-        url_lower = url.lower()
-        return any(pattern in url_lower for pattern in valid_patterns)
-
     def extract_member_role(self, text: str) -> str | None:
         """Extract member role from text."""
         # Common roles in Japanese councils

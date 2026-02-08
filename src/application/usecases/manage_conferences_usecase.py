@@ -16,7 +16,6 @@ class ConferenceListInputDto:
     """Input DTO for listing conferences."""
 
     governing_body_id: int | None = None
-    with_members_url: bool | None = None
 
 
 @dataclass
@@ -24,8 +23,6 @@ class ConferenceListOutputDto:
     """Output DTO for listing conferences."""
 
     conferences: list[Conference]
-    with_url_count: int
-    without_url_count: int
 
 
 @dataclass
@@ -34,7 +31,6 @@ class CreateConferenceInputDto:
 
     name: str
     governing_body_id: int | None = None
-    members_introduction_url: str | None = None
     prefecture: str | None = None
     term: str | None = None
     election_id: int | None = None
@@ -56,7 +52,6 @@ class UpdateConferenceInputDto:
     id: int
     name: str
     governing_body_id: int | None = None
-    members_introduction_url: str | None = None
     prefecture: str | None = None
     term: str | None = None
     election_id: int | None = None
@@ -123,25 +118,9 @@ class ManageConferencesUseCase:
                 )
             else:
                 conferences = await self.conference_repository.get_all()
-            # Apply URL filter if specified
-            if input_dto.with_members_url is not None:
-                if input_dto.with_members_url:
-                    conferences = [c for c in conferences if c.members_introduction_url]
-                else:
-                    conferences = [
-                        c for c in conferences if not c.members_introduction_url
-                    ]
 
-            # Count statistics
-            all_conferences = await self.conference_repository.get_all()
-            with_url_count = len(
-                [c for c in all_conferences if c.members_introduction_url]
-            )
-            without_url_count = len(all_conferences) - with_url_count
             return ConferenceListOutputDto(
                 conferences=conferences,
-                with_url_count=with_url_count,
-                without_url_count=without_url_count,
             )
         except Exception as e:
             logger.error(f"Failed to list conferences: {e}")
@@ -175,7 +154,6 @@ class ManageConferencesUseCase:
                 governing_body_id=(
                     input_dto.governing_body_id if input_dto.governing_body_id else 0
                 ),
-                members_introduction_url=input_dto.members_introduction_url,
                 prefecture=input_dto.prefecture,
                 term=input_dto.term,
                 election_id=input_dto.election_id,
@@ -203,7 +181,6 @@ class ManageConferencesUseCase:
             existing.name = input_dto.name
             if input_dto.governing_body_id is not None:
                 existing.governing_body_id = input_dto.governing_body_id
-            existing.members_introduction_url = input_dto.members_introduction_url
             existing.prefecture = input_dto.prefecture
             existing.term = input_dto.term
             existing.election_id = input_dto.election_id
@@ -252,32 +229,23 @@ class ManageConferencesUseCase:
             seed_content += "-- Generated from current database\n\n"
             seed_content += (
                 "INSERT INTO conferences "
-                "(id, name, governing_body_id, members_introduction_url, "
+                "(id, name, governing_body_id, "
                 "prefecture, term) VALUES\n"
             )
 
             values: list[str] = []
             for conf in all_conferences:
                 gb_id = conf.governing_body_id if conf.governing_body_id else "NULL"
-                members_url = (
-                    f"'{conf.members_introduction_url}'"
-                    if conf.members_introduction_url
-                    else "NULL"
-                )
                 prefecture = f"'{conf.prefecture}'" if conf.prefecture else "NULL"
                 term = f"'{conf.term}'" if conf.term else "NULL"
                 values.append(
-                    f"    ({conf.id}, '{conf.name}', {gb_id}, "
-                    f"{members_url}, {prefecture}, {term})"
+                    f"    ({conf.id}, '{conf.name}', {gb_id}, {prefecture}, {term})"
                 )
 
             seed_content += ",\n".join(values) + "\n"
             seed_content += "ON CONFLICT (id) DO UPDATE SET\n"
             seed_content += "    name = EXCLUDED.name,\n"
             seed_content += "    governing_body_id = EXCLUDED.governing_body_id,\n"
-            seed_content += (
-                "    members_introduction_url = EXCLUDED.members_introduction_url,\n"
-            )
             seed_content += "    prefecture = EXCLUDED.prefecture,\n"
             seed_content += "    term = EXCLUDED.term;\n"
 

@@ -26,7 +26,6 @@ class ConferenceBaseDTO(TypedDict):
     governing_body_id: int
     name: str
     description: str | None
-    members_introduction_url: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -112,20 +111,5 @@ class ParliamentaryGroupBaseDTO(TypedDict):
     abbreviated_name: str | None
     political_party_id: int | None
     is_active: bool
-    created_at: datetime
-    updated_at: datetime
-
-
-class ExtractedConferenceMemberBaseDTO(TypedDict):
-    """抽出された会議体メンバーデータ転送オブジェクト"""
-
-    id: int
-    conference_id: int
-    name: str
-    party_affiliation: str | None
-    role: str | None
-    matching_status: str
-    matched_politician_id: int | None
-    confidence_score: float | None
     created_at: datetime
     updated_at: datetime

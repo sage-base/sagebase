@@ -24,7 +24,7 @@ def render_new_conference_form(
     """Render new conference registration form.
 
     会議体の新規登録フォームをレンダリングします。
-    会議体名、開催主体、都道府県、種別、議員紹介URL、選挙の入力フォームを提供します。
+    会議体名、開催主体、都道府県、期/会期/年度、選挙の入力フォームを提供します。
 
     Args:
         presenter: 会議体プレゼンター
@@ -81,13 +81,6 @@ def render_new_conference_form(
             help="国会の場合は「第XXX回」、地方議会の場合は「令和X年度」など",
         )
 
-        # Members introduction URL
-        members_url = st.text_input(
-            "議員紹介URL",
-            value=form_data.members_introduction_url or "",
-            placeholder="例: https://example.com/members",
-        )
-
         # Submit button
         submitted = st.form_submit_button("登録", type="primary")
 
@@ -100,7 +93,6 @@ def render_new_conference_form(
                 election_id,
                 prefecture,
                 term,
-                members_url,
             )
 
 
@@ -112,7 +104,6 @@ def _handle_form_submission(
     election_id: int | None,
     prefecture: str,
     term: str,
-    members_url: str,
 ) -> None:
     """Handle form submission for conference creation.
 
@@ -124,7 +115,6 @@ def _handle_form_submission(
         election_id: 選挙ID
         prefecture: 都道府県
         term: 期/会期/年度
-        members_url: 議員紹介URL
     """
     # Validation
     if not name:
@@ -138,7 +128,6 @@ def _handle_form_submission(
         form_data.election_id = election_id
         form_data.prefecture = prefecture if prefecture else None
         form_data.term = term if term else None
-        form_data.members_introduction_url = members_url if members_url else None
 
         # Create conference
         success, error_message = asyncio.run(presenter.create_conference(form_data))

@@ -60,12 +60,10 @@ class TestSeedGenerator:
         """conferencesのSEED生成テスト"""
         # モックデータの準備
         mock_rows = [
-            ("衆議院", "議院", None, 1, "日本国", "国"),
-            ("参議院", "議院", None, 1, "日本国", "国"),
+            ("衆議院", 1, "日本国", "国"),
+            ("参議院", 1, "日本国", "国"),
             (
                 "東京都議会",
-                "議会",
-                "https://example.com/members",
                 2,
                 "東京都",
                 "都道府県",
@@ -76,8 +74,6 @@ class TestSeedGenerator:
         mock_result.__iter__ = MagicMock(return_value=iter(mock_rows))
         mock_result.keys.return_value = [
             "name",
-            "type",
-            "members_introduction_url",
             "governing_body_id",
             "governing_body_name",
             "governing_body_type",
@@ -94,13 +90,10 @@ class TestSeedGenerator:
 
         # 検証
         assert "INSERT INTO conferences " in result
-        assert (
-            "(name, type, governing_body_id, members_introduction_url) VALUES" in result
-        )
-        assert "('衆議院', '議院'," in result
-        assert "('参議院', '議院'," in result
-        assert "('東京都議会', '議会'," in result
-        assert "'https://example.com/members'" in result
+        assert "(name, governing_body_id) VALUES" in result
+        assert "('衆議院'," in result
+        assert "('参議院'," in result
+        assert "('東京都議会'," in result
         assert "ON CONFLICT (name, governing_body_id) DO NOTHING;" in result
 
     def test_generate_political_parties_seed(self, seed_generator):
@@ -324,9 +317,10 @@ class TestSeedGenerator:
         generate_all_seeds()
 
         # 検証 - 各ファイルが作成されること
-        assert mock_open.call_count == 6  # 6つのSEEDファイル
+        assert mock_open.call_count == 7  # 7つのSEEDファイル
         expected_files = [
             "database/seed_governing_bodies_generated.sql",
+            "database/seed_elections_generated.sql",
             "database/seed_conferences_generated.sql",
             "database/seed_political_parties_generated.sql",
             "database/seed_parliamentary_groups_generated.sql",

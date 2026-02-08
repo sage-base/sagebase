@@ -103,7 +103,6 @@ class SeedGenerator:
                 text("""
                     SELECT
                         c.name,
-                        c.members_introduction_url,
                         c.governing_body_id,
                         gb.name as governing_body_name,
                         gb.type as governing_body_type
@@ -131,10 +130,7 @@ class SeedGenerator:
             ),
             "-- conferences seed data",
             "",
-            (
-                "INSERT INTO conferences "
-                "(name, governing_body_id, members_introduction_url) VALUES"
-            ),
+            ("INSERT INTO conferences (name, governing_body_id) VALUES"),
         ]
 
         # 開催主体ごとにグループ化
@@ -182,13 +178,6 @@ class SeedGenerator:
 
                 comma = "" if is_last else ","
 
-                # members_introduction_urlの処理
-                if conf.get("members_introduction_url"):
-                    url = conf["members_introduction_url"].replace(chr(39), chr(39) * 2)
-                    members_url = f"'{url}'"
-                else:
-                    members_url = "NULL"
-
                 # governing_body_idの処理
                 if body_name:
                     body_name_escaped = body_name.replace("'", "''")
@@ -200,9 +189,7 @@ class SeedGenerator:
                 else:
                     governing_body_part = "NULL"
 
-                lines.append(
-                    f"('{conf_name}', {governing_body_part}, {members_url}){comma}"
-                )
+                lines.append(f"('{conf_name}', {governing_body_part}){comma}")
 
             first_group = False
 

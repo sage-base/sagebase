@@ -11,7 +11,6 @@ on:
           - "" # All tasks
           - "minutes_division"
           - "speaker_matching"
-          - "conference_member_matching"
       dataset:
         description: "Custom dataset path (optional)"
         required: false
@@ -196,9 +195,6 @@ jobs:
           elif [[ "${{ inputs.task }}" == "speaker_matching" ]]; then
             echo "**Estimated tokens**: ~30,000" >> $GITHUB_STEP_SUMMARY
             echo "**Estimated cost**: ~$0.30" >> $GITHUB_STEP_SUMMARY
-          elif [[ "${{ inputs.task }}" == "conference_member_matching" ]]; then
-            echo "**Estimated tokens**: ~35,000" >> $GITHUB_STEP_SUMMARY
-            echo "**Estimated cost**: ~$0.35" >> $GITHUB_STEP_SUMMARY
           else
             echo "**Estimated tokens**: ~115,000 (all tasks)" >> $GITHUB_STEP_SUMMARY
             echo "**Estimated cost**: ~$1.15 (all tasks)" >> $GITHUB_STEP_SUMMARY

@@ -41,9 +41,6 @@ from src.application.usecases.manage_political_parties_usecase import (
 )
 from src.application.usecases.match_speakers_usecase import MatchSpeakersUseCase
 from src.application.usecases.process_minutes_usecase import ProcessMinutesUseCase
-from src.application.usecases.update_extracted_conference_member_from_extraction_usecase import (  # noqa: E501
-    UpdateExtractedConferenceMemberFromExtractionUseCase,
-)
 from src.application.usecases.update_extracted_parliamentary_group_member_from_extraction_usecase import (  # noqa: E501
     UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase,
 )
@@ -106,9 +103,6 @@ from src.infrastructure.persistence.election_member_repository_impl import (
 from src.infrastructure.persistence.election_repository_impl import (
     ElectionRepositoryImpl,
 )
-from src.infrastructure.persistence.extracted_conference_member_repository_impl import (
-    ExtractedConferenceMemberRepositoryImpl,
-)
 from src.infrastructure.persistence.extracted_parliamentary_group_member_repository_impl import (  # noqa: E501
     ExtractedParliamentaryGroupMemberRepositoryImpl,
 )
@@ -164,19 +158,6 @@ from src.infrastructure.persistence.proposal_submitter_repository_impl import (
 from src.infrastructure.persistence.speaker_repository_impl import SpeakerRepositoryImpl
 from src.infrastructure.persistence.unit_of_work_impl import UnitOfWorkImpl
 from src.infrastructure.persistence.user_repository_impl import UserRepositoryImpl
-
-
-def _create_conference_member_extraction_agent():
-    """会議体メンバー抽出エージェントを作成するヘルパー関数
-
-    遅延インポートを使用して循環参照を回避します。
-    Issue #903: LangGraph+BAML統合
-    """
-    from src.infrastructure.external.conference_member_extractor.factory import (
-        MemberExtractorFactory,
-    )
-
-    return MemberExtractorFactory.create_agent()
 
 
 def _create_politician_matching_agent(
@@ -398,11 +379,6 @@ class RepositoryContainer(containers.DeclarativeContainer):
         session=database.async_session,
     )
 
-    extracted_conference_member_repository = providers.Factory(
-        ExtractedConferenceMemberRepositoryImpl,
-        session=database.async_session,
-    )
-
     extracted_parliamentary_group_member_repository = providers.Factory(
         ExtractedParliamentaryGroupMemberRepositoryImpl,
         session=database.async_session,
@@ -526,12 +502,6 @@ class ServiceContainer(containers.DeclarativeContainer):
 
     text_extractor_service = providers.Factory(lambda: MockService("text_extractor"))
 
-    # Conference member extraction agent (Issue #903)
-    # LangGraph + BAMLの二層構造を持つエージェント
-    conference_member_extraction_agent = providers.Factory(
-        lambda: _create_conference_member_extraction_agent()
-    )
-
     # Role name mapping service (Issue #944)
     role_name_mapping_service: providers.Provider[IRoleNameMappingService] = (
         providers.Factory(BAMLRoleNameMappingService)
@@ -573,14 +543,6 @@ class UseCaseContainer(containers.DeclarativeContainer):
         session_adapter=database.async_session,
     )
 
-    # Update Extracted Conference Member from Extraction UseCase (Issue #867)
-    update_extracted_conference_member_usecase = providers.Factory(
-        UpdateExtractedConferenceMemberFromExtractionUseCase,
-        extracted_conference_member_repo=repositories.extracted_conference_member_repository,
-        extraction_log_repo=repositories.extraction_log_repository,
-        session_adapter=database.async_session,
-    )
-
     # Update Extracted Parliamentary Group Member from Extraction UseCase (Issue #867)
     update_extracted_parliamentary_group_member_usecase = providers.Factory(
         UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase,
@@ -617,11 +579,8 @@ class UseCaseContainer(containers.DeclarativeContainer):
     manage_conference_members_usecase = providers.Factory(
         ManageConferenceMembersUseCase,
         conference_repository=repositories.conference_repository,
-        extracted_member_repository=repositories.extracted_conference_member_repository,
         politician_repository=repositories.politician_repository,
         conference_member_repository=repositories.conference_member_repository,
-        web_scraper_service=services.web_scraper_service,
-        llm_service=services.llm_service,
     )
 
     speaker_extraction_usecase = providers.Factory(

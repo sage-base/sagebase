@@ -179,23 +179,18 @@ Sagebaseでは、以下の機能にBAML (Boundary ML)を使用しています。
 - **実装**: `src/infrastructure/external/minutes_divider/baml_minutes_divider.py`
 - **備考**: Pydantic実装は削除済み、BAML実装のみ使用
 
-#### 2. 会議体メンバー抽出（Conference Member Extraction） **BAML専用**
-- **BAML定義**: `baml_src/member_extraction.baml`
-- **実装**: `src/infrastructure/external/conference_member_extractor/baml_extractor.py`
-- **備考**: Pydantic実装は削除済み、BAML実装のみ使用
-
-#### 3. 議員団メンバー抽出（Parliamentary Group Member Extraction） **BAML専用**
+#### 2. 議員団メンバー抽出（Parliamentary Group Member Extraction） **BAML専用**
 - **BAML定義**: `baml_src/parliamentary_group_member_extractor.baml`
 - **実装**: `src/infrastructure/external/parliamentary_group_member_extractor/baml_extractor.py`
 - **備考**: Pydantic実装は削除済み、BAML実装のみ使用
 
-#### 4. 政治家マッチング（Politician Matching） **BAML専用**
+#### 3. 政治家マッチング（Politician Matching） **BAML専用**
 - **BAML定義**: `baml_src/politician_matching.baml`
 - **実装**: `src/infrastructure/external/politician_matching/baml_politician_matching_service.py`
 - **備考**: Pydantic実装は削除済み、BAML実装のみ使用
 - **ハイブリッドアプローチ**: ルールベースマッチング（高速パス）+ BAMLマッチング
 
-#### 5. 役職-人名マッピング抽出（Role Name Mapping） **BAML専用**
+#### 4. 役職-人名マッピング抽出（Role Name Mapping） **BAML専用**
 - **BAML定義**: `baml_src/role_name_mapping.baml`
 - **機能**: 議事録の出席者情報から役職（議長、副議長、知事など）と人名の対応を抽出
 - **備考**: 出席者セクションの検出と信頼度スコアリングを提供

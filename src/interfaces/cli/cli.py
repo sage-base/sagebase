@@ -10,9 +10,6 @@ import click
 from src.common.logging import setup_logging
 from src.infrastructure.config.sentry import init_sentry
 from src.infrastructure.config.settings import get_settings
-from src.interfaces.cli.commands.conference_member_commands import (
-    get_conference_member_commands,
-)
 from src.interfaces.cli.commands.coverage_commands import get_coverage_commands
 from src.interfaces.cli.commands.di_example_commands import get_di_example_commands
 from src.interfaces.cli.commands.evaluation_commands import get_evaluation_commands
@@ -95,7 +92,6 @@ def register_legacy_commands(cli_group: click.Group) -> None:
     """
     # Commands still using the old structure
     command_getters: list[Callable[[], list[click.Command]]] = [
-        get_conference_member_commands,
         get_parliamentary_group_commands,
         get_parliamentary_group_member_commands,
         get_proposal_commands,

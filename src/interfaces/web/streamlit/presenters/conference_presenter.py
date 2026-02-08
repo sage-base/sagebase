@@ -31,7 +31,6 @@ class ConferenceFormData:
 
     name: str = ""
     governing_body_id: int | None = None
-    members_introduction_url: str | None = None
     prefecture: str | None = None
     term: str | None = None
     election_id: int | None = None
@@ -53,12 +52,10 @@ class ConferencePresenter:
     async def load_conferences(
         self,
         governing_body_id: int | None = None,
-        with_members_url: bool | None = None,
-    ) -> tuple[pd.DataFrame, int, int]:
+    ) -> pd.DataFrame:
         """Load conferences list."""
         input_dto = ConferenceListInputDto(
             governing_body_id=governing_body_id,
-            with_members_url=with_members_url,
         )
         output_dto = await self.use_case.list_conferences(input_dto)
 
@@ -68,7 +65,7 @@ class ConferencePresenter:
         else:
             df = pd.DataFrame()
 
-        return df, output_dto.with_url_count, output_dto.without_url_count
+        return df
 
     def _conferences_to_dataframe(self, conferences: list[Conference]) -> pd.DataFrame:
         """Convert conferences to DataFrame."""
@@ -81,7 +78,6 @@ class ConferencePresenter:
                     "期/会期/年度": conf.term or "",
                     "都道府県": conf.prefecture or "",
                     "開催主体ID": conf.governing_body_id or "",
-                    "議員紹介URL": conf.members_introduction_url or "",
                 }
             )
         return pd.DataFrame(data)
@@ -113,7 +109,6 @@ class ConferencePresenter:
         input_dto = CreateConferenceInputDto(
             name=form_data.name,
             governing_body_id=form_data.governing_body_id,
-            members_introduction_url=form_data.members_introduction_url,
             prefecture=form_data.prefecture,
             term=form_data.term,
             election_id=form_data.election_id,
@@ -129,7 +124,6 @@ class ConferencePresenter:
             id=conference_id,
             name=form_data.name,
             governing_body_id=form_data.governing_body_id,
-            members_introduction_url=form_data.members_introduction_url,
             prefecture=form_data.prefecture,
             term=form_data.term,
             election_id=form_data.election_id,
@@ -151,17 +145,7 @@ class ConferencePresenter:
     def get_elections_for_governing_body(
         self, governing_body_id: int
     ) -> list[ElectionOutputItem]:
-        """開催主体に紐づく選挙一覧を取得する.
-
-        同期メソッドとして提供し、内部でnest_asyncioを使用してStreamlit環境の
-        ネストされたイベントループに対応します。
-
-        Args:
-            governing_body_id: 開催主体ID
-
-        Returns:
-            選挙DTOのリスト
-        """
+        """開催主体に紐づく選挙一覧を取得する."""
         if self.elections_use_case is None:
             return []
         try:
@@ -195,7 +179,6 @@ class ConferencePresenter:
         return ConferenceFormData(
             name=conference.name,
             governing_body_id=conference.governing_body_id,
-            members_introduction_url=conference.members_introduction_url,
             prefecture=conference.prefecture,
             term=conference.term,
             election_id=conference.election_id,

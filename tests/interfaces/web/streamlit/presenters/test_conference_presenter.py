@@ -69,14 +69,12 @@ def sample_conferences():
             name="総務委員会",
             governing_body_id=100,
             prefecture="東京都",
-            members_introduction_url="https://example.com/members1",
         ),
         Conference(
             id=2,
             name="本会議",
             governing_body_id=100,
             prefecture="東京都",
-            members_introduction_url=None,
         ),
     ]
 
@@ -103,19 +101,15 @@ class TestLoadConferences:
         # Arrange
         output_dto = ConferenceListOutputDto(
             conferences=sample_conferences,
-            with_url_count=1,
-            without_url_count=1,
         )
         mock_use_case.list_conferences.return_value = output_dto
 
         # Act
-        df, with_url_count, without_url_count = await presenter.load_conferences()
+        df = await presenter.load_conferences()
 
         # Assert
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 2
-        assert with_url_count == 1
-        assert without_url_count == 1
         mock_use_case.list_conferences.assert_called_once()
 
     async def test_load_conferences_with_filters(
@@ -125,39 +119,29 @@ class TestLoadConferences:
         # Arrange
         output_dto = ConferenceListOutputDto(
             conferences=sample_conferences[:1],
-            with_url_count=1,
-            without_url_count=0,
         )
         mock_use_case.list_conferences.return_value = output_dto
 
         # Act
-        df, with_url_count, without_url_count = await presenter.load_conferences(
-            governing_body_id=100, with_members_url=True
-        )
+        df = await presenter.load_conferences(governing_body_id=100)
 
         # Assert
         assert len(df) == 1
-        assert with_url_count == 1
-        assert without_url_count == 0
 
     async def test_load_conferences_empty(self, presenter, mock_use_case):
         """空の会議体リストを処理できることを確認"""
         # Arrange
         output_dto = ConferenceListOutputDto(
             conferences=[],
-            with_url_count=0,
-            without_url_count=0,
         )
         mock_use_case.list_conferences.return_value = output_dto
 
         # Act
-        df, with_url_count, without_url_count = await presenter.load_conferences()
+        df = await presenter.load_conferences()
 
         # Assert
         assert isinstance(df, pd.DataFrame)
         assert len(df) == 0
-        assert with_url_count == 0
-        assert without_url_count == 0
 
 
 class TestConferencesToDataframe:
@@ -175,13 +159,11 @@ class TestConferencesToDataframe:
         assert "会議体名" in df.columns
         assert "都道府県" in df.columns
         assert "開催主体ID" in df.columns
-        assert "議員紹介URL" in df.columns
 
         # 最初の行の値を確認
         assert df.iloc[0]["ID"] == 1
         assert df.iloc[0]["会議体名"] == "総務委員会"
         assert df.iloc[0]["都道府県"] == "東京都"
-        assert df.iloc[0]["議員紹介URL"] == "https://example.com/members1"
 
     def test_conferences_to_dataframe_with_none_values(self, presenter):
         """None値を含む会議体を正しく変換できることを確認"""
@@ -192,7 +174,6 @@ class TestConferencesToDataframe:
                 name="テスト会議",
                 governing_body_id=None,
                 prefecture=None,
-                members_introduction_url=None,
             )
         ]
 
@@ -202,7 +183,6 @@ class TestConferencesToDataframe:
         # Assert
         assert df.iloc[0]["都道府県"] == ""
         assert df.iloc[0]["開催主体ID"] == ""
-        assert df.iloc[0]["議員紹介URL"] == ""
 
 
 class TestFormData:
@@ -303,7 +283,6 @@ class TestCreateConference:
             name="新規会議体",
             governing_body_id=100,
             prefecture="東京都",
-            members_introduction_url="https://example.com/members",
         )
 
         # Act
@@ -446,7 +425,6 @@ class TestLoadConferenceForEdit:
             name="編集対象会議体",
             governing_body_id=100,
             prefecture="東京都",
-            members_introduction_url="https://example.com/members",
         )
 
         # Act
@@ -457,7 +435,6 @@ class TestLoadConferenceForEdit:
         assert form_data.name == "編集対象会議体"
         assert form_data.governing_body_id == 100
         assert form_data.prefecture == "東京都"
-        assert form_data.members_introduction_url == "https://example.com/members"
 
     def test_load_conference_for_edit_with_none_values(self, presenter):
         """None値を含む会議体を正しく変換できることを確認"""
@@ -467,7 +444,6 @@ class TestLoadConferenceForEdit:
             name="会議体",
             governing_body_id=None,
             prefecture=None,
-            members_introduction_url=None,
         )
 
         # Act
@@ -476,7 +452,6 @@ class TestLoadConferenceForEdit:
         # Assert
         assert form_data.governing_body_id is None
         assert form_data.prefecture is None
-        assert form_data.members_introduction_url is None
 
 
 class TestConferenceFormData:
@@ -487,7 +462,6 @@ class TestConferenceFormData:
         form_data = ConferenceFormData()
         assert form_data.name == ""
         assert form_data.governing_body_id is None
-        assert form_data.members_introduction_url is None
         assert form_data.prefecture is None
 
     def test_custom_values(self):
@@ -495,12 +469,10 @@ class TestConferenceFormData:
         form_data = ConferenceFormData(
             name="テスト会議体",
             governing_body_id=100,
-            members_introduction_url="https://example.com",
             prefecture="大阪府",
         )
         assert form_data.name == "テスト会議体"
         assert form_data.governing_body_id == 100
-        assert form_data.members_introduction_url == "https://example.com"
         assert form_data.prefecture == "大阪府"
 
 

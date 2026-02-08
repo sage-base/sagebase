@@ -15,7 +15,6 @@ from src.domain.repositories.conference_repository import ConferenceRepository
 from src.domain.repositories.session_adapter import ISessionAdapter
 from src.infrastructure.exceptions import (
     DatabaseError,
-    RecordNotFoundError,
     UpdateError,
 )
 from src.infrastructure.persistence.base_repository_impl import BaseRepositoryImpl
@@ -30,7 +29,6 @@ class ConferenceModel(PydanticBaseModel):
     id: int | None = None
     name: str
     governing_body_id: int
-    members_introduction_url: str | None = None
     prefecture: str | None = None
     term: str | None = None
     election_id: int | None = None
@@ -76,7 +74,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                         id,
                         name,
                         governing_body_id,
-                        members_introduction_url,
                         prefecture,
                         term,
                         election_id,
@@ -98,7 +95,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                         id,
                         name,
                         governing_body_id,
-                        members_introduction_url,
                         prefecture,
                         term,
                         election_id,
@@ -152,7 +148,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     id,
                     name,
                     governing_body_id,
-                    members_introduction_url,
                     prefecture,
                     term,
                     election_id,
@@ -186,93 +181,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 {"governing_body_id": governing_body_id, "error": str(e)},
             ) from e
 
-    async def get_with_members_url(self) -> list[Conference]:
-        """Get conferences that have members introduction URL.
-
-        Returns:
-            List of Conference entities with members URL
-        """
-        try:
-            query = text("""
-                SELECT
-                    id,
-                    name,
-                    governing_body_id,
-                    members_introduction_url,
-                    prefecture,
-                    term,
-                    election_id,
-                    created_at,
-                    updated_at
-                FROM conferences
-                WHERE members_introduction_url IS NOT NULL
-                ORDER BY governing_body_id, name, term
-            """)
-
-            result = await self.session.execute(query)
-            rows = result.fetchall()
-
-            results = []
-            for row in rows:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                results.append(self._dict_to_entity(row_dict))
-            return results
-
-        except SQLAlchemyError as e:
-            logger.error(f"Database error getting conferences with members URL: {e}")
-            raise DatabaseError(
-                "Failed to get conferences with members URL", {"error": str(e)}
-            ) from e
-
-    async def update_members_url(
-        self, conference_id: int, members_introduction_url: str | None
-    ) -> bool:
-        """Update conference members introduction URL.
-
-        Args:
-            conference_id: Conference ID
-            members_introduction_url: New members introduction URL
-
-        Returns:
-            True if update was successful
-        """
-        try:
-            query = text("""
-                UPDATE conferences
-                SET members_introduction_url = :members_introduction_url,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = :conference_id
-            """)
-
-            result = await self.session.execute(
-                query,
-                {
-                    "conference_id": conference_id,
-                    "members_introduction_url": members_introduction_url,
-                },
-            )
-
-            # Check if any rows were affected
-            if hasattr(result, "rowcount") and result.rowcount == 0:  # type: ignore[attr-defined]
-                raise RecordNotFoundError("Conference", conference_id)
-
-            await self.session.commit()
-            logger.info(f"Updated members URL for conference ID: {conference_id}")
-            return True
-
-        except SQLAlchemyError as e:
-            await self.session.rollback()
-            logger.error(f"Database error updating conference members URL: {e}")
-            raise UpdateError(
-                f"Failed to update members URL for conference ID {conference_id}",
-                {"conference_id": conference_id, "error": str(e)},
-            ) from e
-
     async def get_all(
         self, limit: int | None = None, offset: int | None = 0
     ) -> list[Conference]:
@@ -291,7 +199,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     c.id,
                     c.name,
                     c.governing_body_id,
-                    c.members_introduction_url,
                     c.prefecture,
                     c.term,
                     c.election_id,
@@ -344,7 +251,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     id,
                     name,
                     governing_body_id,
-                    members_introduction_url,
                     prefecture,
                     term,
                     election_id,
@@ -388,12 +294,12 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             query = text("""
                 INSERT INTO conferences (
                     name, governing_body_id,
-                    members_introduction_url, prefecture, term, election_id,
+                    prefecture, term, election_id,
                     created_at, updated_at
                 )
                 VALUES (
                     :name, :governing_body_id,
-                    :members_introduction_url, :prefecture, :term, :election_id,
+                    :prefecture, :term, :election_id,
                     :created_at, :updated_at
                 )
                 RETURNING *
@@ -402,7 +308,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             params = {
                 "name": entity.name,
                 "governing_body_id": entity.governing_body_id,
-                "members_introduction_url": entity.members_introduction_url,
                 "prefecture": entity.prefecture,
                 "term": entity.term,
                 "election_id": entity.election_id,
@@ -447,7 +352,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 UPDATE conferences
                 SET name = :name,
                     governing_body_id = :governing_body_id,
-                    members_introduction_url = :members_introduction_url,
                     prefecture = :prefecture,
                     term = :term,
                     election_id = :election_id,
@@ -460,7 +364,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 "id": entity.id,
                 "name": entity.name,
                 "governing_body_id": entity.governing_body_id,
-                "members_introduction_url": entity.members_introduction_url,
                 "prefecture": entity.prefecture,
                 "term": entity.term,
                 "election_id": entity.election_id,
@@ -510,17 +413,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             if meetings_count and meetings_count > 0:
                 return False  # Cannot delete if there are related meetings
 
-            # 会派は開催主体に属するため、会議体削除時に会派を削除する必要はない
-
-            # Delete related extracted_conference_members
-            await self.session.execute(
-                text("""
-                    DELETE FROM extracted_conference_members
-                    WHERE conference_id = :conference_id
-                """),
-                {"conference_id": entity_id},
-            )
-
             # Delete the conference
             query = text("DELETE FROM conferences WHERE id = :id")
             result = await self.session.execute(query, {"id": entity_id})
@@ -543,71 +435,41 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
         return count if count is not None else 0
 
     def _to_entity(self, model: ConferenceModel) -> Conference:
-        """Convert database model to domain entity.
-
-        Args:
-            model: Database model
-
-        Returns:
-            Domain entity
-        """
+        """Convert database model to domain entity."""
         return Conference(
             id=model.id,
             name=model.name,
             governing_body_id=model.governing_body_id,
-            members_introduction_url=model.members_introduction_url,
             prefecture=model.prefecture,
             term=model.term,
             election_id=model.election_id,
         )
 
     def _to_model(self, entity: Conference) -> ConferenceModel:
-        """Convert domain entity to database model.
-
-        Args:
-            entity: Domain entity
-
-        Returns:
-            Database model
-        """
+        """Convert domain entity to database model."""
         return ConferenceModel(
             id=entity.id,
             name=entity.name,
             governing_body_id=entity.governing_body_id,
-            members_introduction_url=entity.members_introduction_url,
             prefecture=entity.prefecture,
             term=entity.term,
             election_id=entity.election_id,
         )
 
     def _update_model(self, model: ConferenceModel, entity: Conference) -> None:
-        """Update model from entity.
-
-        Args:
-            model: Database model to update
-            entity: Source entity
-        """
+        """Update model from entity."""
         model.name = entity.name
         model.governing_body_id = entity.governing_body_id
-        model.members_introduction_url = entity.members_introduction_url
         model.prefecture = entity.prefecture
         model.term = entity.term
         model.election_id = entity.election_id
 
     def _dict_to_entity(self, data: dict[str, Any]) -> Conference:
-        """Convert dictionary to entity.
-
-        Args:
-            data: Dictionary with entity data
-
-        Returns:
-            Conference entity
-        """
+        """Convert dictionary to entity."""
         return Conference(
             id=data.get("id"),
             name=data["name"],
             governing_body_id=data["governing_body_id"],
-            members_introduction_url=data.get("members_introduction_url"),
             prefecture=data.get("prefecture"),
             term=data.get("term"),
             election_id=data.get("election_id"),
