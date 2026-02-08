@@ -95,6 +95,7 @@ Before committing tests:
 - [ ] **Type Hints**: Complete type annotations
 - [ ] **Nullable Fields**: `T | None` フィールドは `None` ケースもテスト
 - [ ] **List Results**: リスト返却メソッドは 0件・1件・複数件 をテスト
+- [ ] **Private Method Calls**: `_to_entity` 等のプライベートメソッド呼び出しには `# type: ignore[reportPrivateUsage]` を付与
 
 ## Test Structure
 

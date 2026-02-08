@@ -52,6 +52,7 @@ Before approving code, verify:
 ✅ Implementations in Infrastructure: `class RepoImpl(BaseRepositoryImpl[T], IRepo)`
 ✅ All methods are `async def`
 ✅ `_to_entity` / `_to_model` / `_update_model` は具体的なモデル型を使用（`Any` ではなく `XxxModel`）
+✅ `sqlalchemy_models.py` に新規モデル追加時は既存モデルと一貫した `__repr__` メソッドを定義
 
 ### 4. DTO Pattern
 **Always use DTOs between layers**
