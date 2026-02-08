@@ -100,6 +100,36 @@ Before committing tests:
 - [ ] **Guard Clause Coverage**: `if x:` / `if x is None` 等のガードクローズは、`None`や空を返すケースもテスト
 - [ ] **Domain Constant Coverage**: エンティティの定数リスト（`VALID_RESULTS`等）でフィルタする場合、全値パターンをテスト（特に類似値: 「当選」と「繰上当選」「無投票当選」等）
 
+## リポジトリテストの網羅性
+
+リポジトリ実装のテストでは、**全publicメソッド**に対してテストを作成すること。新しいメソッドだけでなく、既存メソッドのテスト漏れも確認する。
+
+### チェックリスト
+- [ ] **全publicメソッドにテストがあるか**: リポジトリインターフェースの全メソッド + `count()` 等の `BaseRepositoryImpl` メソッド
+- [ ] **正常系**: 成功パス（データあり）
+- [ ] **空結果**: データなし・0件の場合
+- [ ] **エラー系**: `DatabaseError` 発生時
+- [ ] **境界値**: limit=0, limit=None 等
+
+### よくあるテスト漏れパターン
+
+```python
+# ❌ 新メソッドのテストのみ追加し、既存メソッドを放置
+class TestNewRepo:
+    def test_new_method(self): ...  # 新メソッドだけテスト
+
+# ✅ 既存メソッドも含めて全publicメソッドをテスト
+class TestNewRepo:
+    def test_get_all_with_limit(self): ...
+    def test_get_all_without_limit(self): ...
+    def test_get_all_empty(self): ...
+    def test_get_by_id_found(self): ...
+    def test_get_by_id_not_found(self): ...
+    def test_count_success(self): ...
+    def test_count_empty(self): ...
+    def test_new_method(self): ...
+```
+
 ## Test Structure
 
 ```

@@ -28,6 +28,8 @@ Before approving code, verify:
 - [ ] **Type Safety**: Complete type hints with proper `Optional` handling
 - [ ] **Tests**: Unit tests for domain services and use cases
 - [ ] **ドメインロジックの配置**: UseCase内で文字列リテラル比較やドメイン定数の直接参照でフィルタリングしていないか → エンティティのプロパティ/メソッドに移す
+- [ ] **リポジトリ実装のDRY**: Raw SQLリポジトリでSELECTカラムリストが重複していないか → 定数に抽出。Row→Dict変換が重複していないか → ヘルパーメソッドに抽出
+- [ ] **BaseRepositoryImplのオーバーライド**: Raw SQLリポジトリで `count()` 等のORMベースメソッドが正しく動作するか確認
 
 ## Core Principles
 
@@ -104,6 +106,60 @@ elected = [m for m in members if m.is_elected]
 ✅ All public methods have type hints
 ✅ Use `T | None` for nullable types
 ✅ Explicit `None` checks for Optional values
+
+### 8. リポジトリ実装のDRY原則
+**Raw SQLリポジトリ実装で繰り返しコードを避ける**
+
+#### SELECTカラムリストの定数化
+複数メソッドで同じカラムリストを使うSQLリポジトリでは、モジュールレベル定数に抽出する。
+
+```python
+# ✅ 定数に抽出（1箇所で管理）
+_SELECT_COLUMNS = """
+    id, title, detail_url, status_url, meeting_id,
+    created_at, updated_at
+"""
+
+async def get_all(self, ...) -> list[Entity]:
+    query = text(f"SELECT {_SELECT_COLUMNS} FROM table_name ...")
+
+async def get_by_id(self, id: int) -> Entity | None:
+    query = text(f"SELECT {_SELECT_COLUMNS} FROM table_name WHERE id = :id")
+```
+
+```python
+# ❌ 各メソッドにカラムリストをコピー（変更漏れの原因）
+async def get_all(self, ...) -> list[Entity]:
+    query = text("SELECT id, title, detail_url, ... FROM table_name ...")
+
+async def get_by_id(self, id: int) -> Entity | None:
+    query = text("SELECT id, title, detail_url, ... FROM table_name WHERE id = :id")
+```
+
+#### Row→Dict変換のヘルパーメソッド化
+SQLAlchemyの `Row` オブジェクトをdictに変換するロジックが複数箇所にある場合、ヘルパーメソッドに抽出する。
+
+```python
+# ✅ ヘルパーメソッド
+def _row_to_dict(self, row: Any) -> dict[str, Any]:
+    if hasattr(row, "_asdict"):
+        return row._asdict()
+    elif hasattr(row, "_mapping"):
+        return dict(row._mapping)
+    return dict(row)
+```
+
+#### BaseRepositoryImplのcount()オーバーライド
+`BaseRepositoryImpl.count()` はORMモデルに依存している。Raw SQLリポジトリでは `count()` をオーバーライドすること。
+
+```python
+# ✅ Raw SQLでオーバーライド
+async def count(self) -> int:
+    query = text("SELECT COUNT(*) FROM table_name")
+    result = await self.session.execute(query)
+    count = result.scalar()
+    return count if count is not None else 0
+```
 
 ## 既知の技術的負債
 

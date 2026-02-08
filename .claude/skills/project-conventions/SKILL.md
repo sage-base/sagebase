@@ -153,6 +153,31 @@ _docs/
 - この `_docs/` ディレクトリは `.gitignore` に含まれており、Gitリポジトリには含まれません
 - チーム全体で共有すべき情報は `docs/` ディレクトリに記載してください
 
+### 5. FK制約のON DELETE方針
+
+マイグレーションでFK制約を追加する際、参照先テーブルの性質に応じてON DELETE動作を選択すること。
+
+#### ルール
+
+| 参照先の性質 | ON DELETE | 理由 |
+|-------------|-----------|------|
+| マスタデータ（`governing_bodies`, `conferences`等） | `RESTRICT` | 参照整合性を厳格に保護。削除は手動対応 |
+| 通常データ（親子関係） | `CASCADE` | 親削除時に子も自動削除 |
+| 任意の関連（NULL許容FK） | `SET NULL` | 関連先削除時にNULLで残す |
+
+```sql
+-- ✅ マスタデータへのFK → RESTRICT
+ALTER TABLE proposals
+ADD CONSTRAINT proposals_governing_body_id_fkey
+FOREIGN KEY (governing_body_id) REFERENCES governing_bodies(id)
+ON DELETE RESTRICT;
+
+-- ❌ マスタデータへのFK → SET NULL（不適切）
+-- マスタデータが削除されること自体が異常なため、黙って NULL にせず検知する
+FOREIGN KEY (governing_body_id) REFERENCES governing_bodies(id)
+ON DELETE SET NULL;
+```
+
 ## クイックチェックリスト
 
 ### コミット前
