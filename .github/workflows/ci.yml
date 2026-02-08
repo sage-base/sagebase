@@ -472,7 +472,6 @@ jobs:
         test:
           - statement
           - speaker
-          - conference_member
           - parliamentary_group_member
 
     steps:
