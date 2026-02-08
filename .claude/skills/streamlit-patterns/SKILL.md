@@ -28,6 +28,11 @@ Streamlit UIを実装する際に陥りやすい落とし穴と、正しい実�
 ### 部分リラン
 - [ ] フォーム外のウィジェットが全ページリランを引き起こす場合、`@st.fragment`でラップしている
 
+### Presenter/View新規作成
+- [ ] DI Container（`src/infrastructure/di/providers.py`）にRepository/UseCaseが登録済みか確認した
+- [ ] Presenterのコンストラクタで注入する依存は、実際にメソッドで使うものだけに絞っている
+- [ ] 「念のため」の未使用依存を注入していない
+
 ---
 
 ## パターン1: Streamlitでの非同期処理
@@ -154,6 +159,39 @@ child_id = st.session_state.get(child_key)
 
 ---
 
+## パターン4: Presenter/View新規作成時のDI確認
+
+### 問題
+新しいPresenter/Viewを作成する際、対応するRepository/UseCaseがDI Container（`providers.py`）に
+登録されていないことがあります。また、「後で使うかもしれない」と不要な依存を注入してしまうことがあります。
+
+### チェック手順
+
+1. **DI Container登録の確認**: `src/infrastructure/di/providers.py`を開き、使用するRepository/UseCaseが
+   `RepositoryContainer`/`UseCaseContainer`に登録されているか確認する
+2. **未登録の場合**: RepositoryImpl/UseCaseの`Factory`登録を追加する
+3. **依存の最小化**: Presenterのコンストラクタでは、メソッドで実際に呼び出す依存だけを注入する
+
+### ❌ 悪い例: 未使用の依存を注入
+```python
+class MyPresenter(BasePresenter[list[SomeOutputItem]]):
+    def __init__(self, container: Container | None = None):
+        super().__init__(container)
+        self.use_case = self.container.use_cases.manage_something_usecase()
+        self.other_repo = self.container.repositories.other_repository()  # どのメソッドでも使わない！
+```
+
+### ✅ 良い例: 必要な依存だけを注入
+```python
+class MyPresenter(BasePresenter[list[SomeOutputItem]]):
+    def __init__(self, container: Container | None = None):
+        super().__init__(container)
+        self.use_case = self.container.use_cases.manage_something_usecase()
+        # other_repo は使わないので注入しない
+```
+
+---
+
 ## 実装パターンまとめ
 
 | 状況 | 解決策 |
@@ -162,6 +200,7 @@ child_id = st.session_state.get(child_key)
 | カスケードセレクター（親→子の連動） | 依存ウィジェットを`st.form`外に配置 |
 | フォーム外ウィジェット変更でタブリセット | `@st.fragment`でラップ |
 | フラグメント↔フォーム間の値受け渡し | `st.session_state`を使用 |
+| Presenter/View新規作成 | DI Container登録確認 + 依存の最小化 |
 
 ---
 

@@ -77,6 +77,20 @@ Before approving code, verify:
 ✅ Use `T | None` for nullable types
 ✅ Explicit `None` checks for Optional values
 
+## 既知の技術的負債
+
+以下はプロジェクト全体に存在する技術的負債です。新規実装で同じパターンに遭遇した場合の判断材料としてください。
+
+### 1. ドメインエンティティのView層への漏洩
+**現状**: `Politician`エンティティがPresenter/View層で直接使用されている（`ElectionPresenter`、`ElectionMemberPresenter`、`GoverningBodyPresenter`等）。
+**理想**: DTOを経由して外部層に公開すべき。
+**方針**: 新規Presenterでは可能な限りDTOを使用するが、既存パターンとの一貫性も考慮する。プロジェクト全体のリファクタリングは別Issue対応。
+
+### 2. Presenter→Repository直接利用
+**現状**: 一部のPresenterがUseCaseを経由せずRepositoryを直接利用している（例: `politician_repo.get_all()`）。
+**理想**: Presenterは常にUseCaseを経由すべき。
+**方針**: 単純な読み取り操作（get_all等）についてはPresenterからの直接利用が慣例化している。ビジネスロジックを含む操作は必ずUseCaseを経由すること。
+
 ## Common Violations
 
 See [examples.md](examples.md) for detailed good/bad code examples.
