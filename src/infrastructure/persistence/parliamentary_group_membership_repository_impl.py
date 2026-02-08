@@ -8,8 +8,11 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.dtos.parliamentary_group_membership_dto import (
+    ParliamentaryGroupMembershipOutputItem,
     ParliamentaryGroupMembershipWithRelationsDTO,
+    ParliamentaryGroupOutputItem,
 )
+from src.application.dtos.politician_dto import PoliticianOutputItem
 from src.domain.entities.parliamentary_group import ParliamentaryGroup
 from src.domain.entities.parliamentary_group_membership import (
     ParliamentaryGroupMembership as ParliamentaryGroupMembershipEntity,
@@ -323,10 +326,10 @@ class ParliamentaryGroupMembershipRepositoryImpl(
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        # Convert rows to DTOs
+        # Convert rows to DTOs with OutputItems
         results = []
         for row in rows:
-            membership = ParliamentaryGroupMembershipEntity(
+            membership_entity = ParliamentaryGroupMembershipEntity(
                 id=row.id,
                 politician_id=row.politician_id,
                 parliamentary_group_id=row.parliamentary_group_id,
@@ -337,31 +340,36 @@ class ParliamentaryGroupMembershipRepositoryImpl(
                 created_at=row.created_at,
                 updated_at=row.updated_at,
             )
+            membership_item = ParliamentaryGroupMembershipOutputItem.from_entity(
+                membership_entity
+            )
 
-            # Create related entities if they exist
-            parliamentary_group = None
+            parliamentary_group_item = None
             if row.parliamentary_group_name:
-                parliamentary_group = ParliamentaryGroup(
+                pg_entity = ParliamentaryGroup(
                     id=row.parliamentary_group_id,
                     name=row.parliamentary_group_name,
                     governing_body_id=PLACEHOLDER_GOVERNING_BODY_ID,
                 )
+                parliamentary_group_item = ParliamentaryGroupOutputItem.from_entity(
+                    pg_entity
+                )
 
-            politician = None
+            politician_item = None
             if row.politician_name:
-                politician = Politician(
+                p_entity = Politician(
                     id=row.politician_id,
                     name=row.politician_name,
                     prefecture=getattr(row, "politician_prefecture", "") or "",
                     district=getattr(row, "politician_district", "") or "",
                 )
+                politician_item = PoliticianOutputItem.from_entity(p_entity)
 
-            # Create DTO with membership and related entities
             results.append(
                 ParliamentaryGroupMembershipWithRelationsDTO(
-                    membership=membership,
-                    politician=politician,
-                    parliamentary_group=parliamentary_group,
+                    membership=membership_item,
+                    politician=politician_item,
+                    parliamentary_group=parliamentary_group_item,
                 )
             )
 

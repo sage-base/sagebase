@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from src.application.dtos.extraction_log_dto import (
     DailyCountDTO,
     ExtractionLogFilterDTO,
+    ExtractionLogOutputItem,
     ExtractionStatisticsDTO,
     PaginatedExtractionLogsDTO,
 )
@@ -73,7 +74,7 @@ class GetExtractionLogsUseCase:
             )
 
             return PaginatedExtractionLogsDTO(
-                logs=logs,
+                logs=[ExtractionLogOutputItem.from_entity(log) for log in logs],
                 total_count=total_count,
                 page_size=filter_dto.limit,
                 current_offset=filter_dto.offset,

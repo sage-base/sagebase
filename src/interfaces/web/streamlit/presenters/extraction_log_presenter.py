@@ -5,19 +5,22 @@ from typing import Any
 
 import pandas as pd
 
-from src.application.dtos.extraction_log_dto import ExtractionLogFilterDTO
+from src.application.dtos.extraction_log_dto import (
+    ExtractionLogFilterDTO,
+    ExtractionLogOutputItem,
+)
 from src.application.usecases.get_extraction_logs_usecase import (
     GetExtractionLogsUseCase,
 )
 from src.common.logging import get_logger
-from src.domain.entities.extraction_log import EntityType, ExtractionLog
+from src.domain.entities.extraction_log import EntityType
 from src.infrastructure.persistence.repository_registry import create_repository_adapter
 from src.interfaces.web.streamlit.dto.base import WebResponseDTO
 from src.interfaces.web.streamlit.presenters.base import BasePresenter
 from src.interfaces.web.streamlit.utils.session_manager import SessionManager
 
 
-class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
+class ExtractionLogPresenter(BasePresenter[list[ExtractionLogOutputItem]]):
     """抽出ログ管理用Presenter。
 
     UseCaseを通じてリポジトリにアクセスすることで、
@@ -40,13 +43,14 @@ class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
         self.session = SessionManager(namespace="extraction_logs")
         self.logger = get_logger(self.__class__.__name__)
 
-    def load_data(self) -> list[ExtractionLog]:
+    def load_data(self) -> list[ExtractionLogOutputItem]:
         """全ての抽出ログを読み込む。
 
         Returns:
             抽出ログのリスト
         """
-        return self._extraction_log_repo.get_all()
+        entities = self._extraction_log_repo.get_all()
+        return [ExtractionLogOutputItem.from_entity(e) for e in entities]
 
     def handle_action(self, action: str, **kwargs: Any) -> Any:
         """ユーザーアクションを処理する。
@@ -197,7 +201,7 @@ class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
                 f"統計情報の取得に失敗しました: {str(e)}"
             )
 
-    def export_to_csv(self, logs: list[ExtractionLog]) -> str:
+    def export_to_csv(self, logs: list[ExtractionLogOutputItem]) -> str:
         """ログをCSV形式でエクスポートする。
 
         Args:
@@ -215,7 +219,7 @@ class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
             data.append(
                 {
                     "ID": log.id,
-                    "エンティティタイプ": log.entity_type.value,
+                    "エンティティタイプ": log.entity_type,
                     "エンティティID": log.entity_id,
                     "パイプラインバージョン": log.pipeline_version,
                     "信頼度スコア": log.confidence_score,
@@ -271,17 +275,18 @@ class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
                     f"ログID {log_id} が見つかりません"
                 )
 
-            # 詳細データをフォーマット
+            log_item = ExtractionLogOutputItem.from_entity(log)
+
             detail_data = {
-                "id": log.id,
-                "entity_type": log.entity_type.value,
-                "entity_id": log.entity_id,
-                "pipeline_version": log.pipeline_version,
-                "confidence_score": log.confidence_score,
-                "extracted_data": log.extracted_data,
-                "extraction_metadata": log.extraction_metadata,
-                "created_at": log.created_at,
-                "updated_at": log.updated_at,
+                "id": log_item.id,
+                "entity_type": log_item.entity_type,
+                "entity_id": log_item.entity_id,
+                "pipeline_version": log_item.pipeline_version,
+                "confidence_score": log_item.confidence_score,
+                "extracted_data": log_item.extracted_data,
+                "extraction_metadata": log_item.extraction_metadata,
+                "created_at": log_item.created_at,
+                "updated_at": log_item.updated_at,
             }
 
             return WebResponseDTO.success_response(detail_data)
@@ -313,10 +318,12 @@ class ExtractionLogPresenter(BasePresenter[list[ExtractionLog]]):
                 )
             )
 
+            log_items = [ExtractionLogOutputItem.from_entity(log) for log in logs]
+
             return WebResponseDTO.success_response(
                 data={
-                    "logs": logs,
-                    "total_count": len(logs),
+                    "logs": log_items,
+                    "total_count": len(log_items),
                     "entity_type": entity_type,
                     "entity_id": entity_id,
                 }
