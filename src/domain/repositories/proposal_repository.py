@@ -44,3 +44,36 @@ class ProposalRepository(BaseRepository[Proposal]):
             Proposal if found, None otherwise
         """
         pass
+
+    @abstractmethod
+    async def find_by_identifier(
+        self,
+        governing_body_id: int,
+        session_number: int,
+        proposal_number: int,
+        proposal_type: str,
+    ) -> Proposal | None:
+        """Find proposal by unique identifier combination.
+
+        Args:
+            governing_body_id: Governing body ID
+            session_number: Session number
+            proposal_number: Proposal number
+            proposal_type: Proposal type
+
+        Returns:
+            Proposal if found, None otherwise
+        """
+        pass
+
+    @abstractmethod
+    async def bulk_create(self, entities: list[Proposal]) -> list[Proposal]:
+        """Create multiple proposals at once.
+
+        Args:
+            entities: List of Proposal entities to create
+
+        Returns:
+            List of created Proposal entities with IDs
+        """
+        pass

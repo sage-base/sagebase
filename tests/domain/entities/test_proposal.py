@@ -17,6 +17,14 @@ class TestProposal:
         assert proposal.votes_url is None
         assert proposal.meeting_id is None
         assert proposal.conference_id is None
+        assert proposal.proposal_category is None
+        assert proposal.proposal_type is None
+        assert proposal.governing_body_id is None
+        assert proposal.session_number is None
+        assert proposal.proposal_number is None
+        assert proposal.external_id is None
+        assert proposal.deliberation_status is None
+        assert proposal.deliberation_result is None
 
     def test_initialization_with_all_fields(self) -> None:
         """Test entity initialization with all fields."""
@@ -28,6 +36,14 @@ class TestProposal:
             votes_url="https://example.com/proposal/votes/001",
             meeting_id=100,
             conference_id=10,
+            proposal_category="legislation",
+            proposal_type="衆法",
+            governing_body_id=5,
+            session_number=213,
+            proposal_number=42,
+            external_id="https://smartnews-smri.example.com/gian/001",
+            deliberation_status="成立",
+            deliberation_result="passed",
         )
 
         assert proposal.id == 1
@@ -37,6 +53,14 @@ class TestProposal:
         assert proposal.votes_url == "https://example.com/proposal/votes/001"
         assert proposal.meeting_id == 100
         assert proposal.conference_id == 10
+        assert proposal.proposal_category == "legislation"
+        assert proposal.proposal_type == "衆法"
+        assert proposal.governing_body_id == 5
+        assert proposal.session_number == 213
+        assert proposal.proposal_number == 42
+        assert proposal.external_id == "https://smartnews-smri.example.com/gian/001"
+        assert proposal.deliberation_status == "成立"
+        assert proposal.deliberation_result == "passed"
 
     def test_str_representation_with_id(self) -> None:
         """Test string representation with ID."""
@@ -126,3 +150,51 @@ class TestProposal:
         )
         assert proposal_with_both.meeting_id == 42
         assert proposal_with_both.conference_id == 10
+
+    def test_extended_fields(self) -> None:
+        """Test extended fields for gian import."""
+        proposal = Proposal(
+            title="テスト議案",
+            proposal_category="budget",
+            proposal_type="閣法",
+            governing_body_id=3,
+            session_number=214,
+            proposal_number=15,
+            external_id="https://smartnews-smri.example.com/gian/002",
+            deliberation_status="未了",
+            deliberation_result="rejected",
+        )
+
+        assert proposal.proposal_category == "budget"
+        assert proposal.proposal_type == "閣法"
+        assert proposal.governing_body_id == 3
+        assert proposal.session_number == 214
+        assert proposal.proposal_number == 15
+        assert proposal.external_id == "https://smartnews-smri.example.com/gian/002"
+        assert proposal.deliberation_status == "未了"
+        assert proposal.deliberation_result == "rejected"
+
+    def test_has_business_key_complete(self) -> None:
+        """Test has_business_key returns True when all 4 key fields are set."""
+        proposal = Proposal(
+            title="テスト議案",
+            governing_body_id=1,
+            session_number=213,
+            proposal_number=42,
+            proposal_type="衆法",
+        )
+        assert proposal.has_business_key is True
+
+    def test_has_business_key_incomplete(self) -> None:
+        """Test has_business_key returns False when any key field is missing."""
+        proposal = Proposal(
+            title="テスト議案",
+            governing_body_id=1,
+            session_number=213,
+        )
+        assert proposal.has_business_key is False
+
+    def test_has_business_key_none(self) -> None:
+        """Test has_business_key returns False when no key fields are set."""
+        proposal = Proposal(title="テスト議案")
+        assert proposal.has_business_key is False
