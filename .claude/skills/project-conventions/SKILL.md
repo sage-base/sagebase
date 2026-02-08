@@ -15,6 +15,7 @@ Polibaseプロジェクトの開発規約、ベストプラクティス、守る
 - CI/CD失敗時
 - ユーザーが「コミット」「pre-commit」「フック」「規約」「ルール」と言った時
 - 中間ファイルやドキュメントを作成する時
+- 機能やコードの除却（削除）を行う時
 
 ## 重要な規約
 
@@ -171,6 +172,39 @@ _docs/
 - [ ] **実装の目的を `_docs/features/` に記録したか**
 - [ ] **重要な技術判断を `_docs/thinking/` に記録したか**
 - [ ] **削除したコードの理由を `_docs/deleted/` に記録したか**
+
+### 機能除却（Feature Removal）時
+機能を削除する際は、直接的な参照だけでなく関連するすべての箇所を確認すること。
+
+#### コード層の確認
+- [ ] **Domain層**: エンティティ、リポジトリIF、ドメインサービス、型定義（`domain/types/`）
+- [ ] **Application層**: ユースケース、DTO（`dtos/extraction_result/` 等の関連DTO含む）
+- [ ] **Infrastructure層**: リポジトリ実装、外部サービス、DIプロバイダー（`providers.py`）
+- [ ] **Interface層**: CLI コマンド、Streamlit UI（タブ、ビュー、プレゼンター）
+- [ ] **テスト**: 対応するテストファイル、テストフィクスチャ（`dto_factories.py`、`entity_factories.py`）
+
+#### CI/CDの確認（見落としやすい）
+- [ ] **`.github/workflows/ci.yml`**: テストマトリクスに削除したテストファイルへの参照がないか
+- [ ] **`.github/workflows/llm-evaluation.yml`**: 評価タスクの選択肢に削除した機能がないか
+- [ ] **その他のワークフロー**: 削除した機能に関連するジョブがないか
+
+#### ドキュメントの確認
+- [ ] **CLAUDE.md**: 削除した機能のセクションが残っていないか（BAML対応機能一覧等）
+- [ ] **docstring**: 削除したフィールドやURLへの言及が残っていないか
+
+#### 関連コードの網羅的検索
+直接的な名前（例: `extracted_conference_member`）だけでなく、**異なる命名パターン**の関連型も検索すること：
+
+```bash
+# ❌ 不十分な検索 - 直接的な名前のみ
+grep -r "extracted_conference_member" src/
+
+# ✅ 十分な検索 - 関連する命名パターンも含める
+grep -r "extracted_conference_member" src/
+grep -r "ConferenceMemberExtraction" src/    # キャメルケース変形
+grep -r "conference_member_extract" src/     # 部分一致
+grep -r "LLMConferenceMember" src/           # 関連する型
+```
 
 ## 詳細リファレンス
 
