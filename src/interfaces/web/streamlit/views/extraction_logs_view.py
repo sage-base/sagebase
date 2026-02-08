@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import plotly.express as px
 import streamlit as st
 
-from src.domain.entities.extraction_log import ExtractionLog
+from src.application.dtos.extraction_log_dto import ExtractionLogOutputItem
 from src.interfaces.web.streamlit.presenters.extraction_log_presenter import (
     ExtractionLogPresenter,
 )
@@ -172,11 +172,13 @@ def render_logs_list_tab(presenter: ExtractionLogPresenter) -> None:
         handle_ui_error(e, "ログ検索中にエラーが発生しました")
 
 
-def render_log_item(log: ExtractionLog, presenter: ExtractionLogPresenter) -> None:
+def render_log_item(
+    log: ExtractionLogOutputItem, presenter: ExtractionLogPresenter
+) -> None:
     """単一のログアイテムを描画する。
 
     Args:
-        log: 抽出ログエンティティ
+        log: 抽出ログ出力アイテム
         presenter: 抽出ログPresenterインスタンス
     """
     with st.container():
@@ -192,7 +194,7 @@ def render_log_item(log: ExtractionLog, presenter: ExtractionLogPresenter) -> No
         )
         header = (
             f"{confidence_emoji} [{log.id}] "
-            f"{log.entity_type.value} (ID: {log.entity_id}) - {created_at_str}"
+            f"{log.entity_type} (ID: {log.entity_id}) - {created_at_str}"
         )
 
         with st.expander(header):
@@ -200,7 +202,7 @@ def render_log_item(log: ExtractionLog, presenter: ExtractionLogPresenter) -> No
             col1, col2, col3 = st.columns(3)
 
             with col1:
-                st.metric("エンティティタイプ", log.entity_type.value)
+                st.metric("エンティティタイプ", log.entity_type)
                 st.metric("エンティティID", log.entity_id)
 
             with col2:
@@ -234,11 +236,13 @@ def render_log_item(log: ExtractionLog, presenter: ExtractionLogPresenter) -> No
                 render_log_detail(log, presenter)
 
 
-def render_log_detail(log: ExtractionLog, presenter: ExtractionLogPresenter) -> None:
+def render_log_detail(
+    log: ExtractionLogOutputItem, presenter: ExtractionLogPresenter
+) -> None:
     """ログの詳細情報を描画する。
 
     Args:
-        log: 抽出ログエンティティ
+        log: 抽出ログ出力アイテム
         presenter: 抽出ログPresenterインスタンス
     """
     st.subheader(f"ログ詳細 ID: {log.id}")
