@@ -30,6 +30,12 @@ Streamlit UIを実装する際に陥りやすい落とし穴と、正しい実�
 
 ### パフォーマンス
 - [ ] ループ内で同一引数のAPI/UseCase呼び出しを繰り返していない（ループ外でキャッシュして渡す）
+- [ ] ビューで`get_all()`を呼んでいない（ページネーションまたはフィルタ必須）
+- [ ] 1行あたりのStreamlit要素数が多すぎない（目安: 5個以下。`st.markdown`統合で削減）
+
+### パフォーマンス問題の調査
+- [ ] UIパフォーマンス問題の調査時、報告されたタブだけでなく**全タブ・全フラグメント**を確認した
+- [ ] `@st.fragment`でも初回ロード時は全タブが描画されることを考慮した
 
 ### Presenter/View新規作成
 - [ ] DI Container（`src/infrastructure/di/providers.py`）にRepository/UseCaseが登録済みか確認した
@@ -233,6 +239,92 @@ for member in display_members:
 
 ---
 
+## パターン6: ビューでの`get_all()`禁止とWebSocket過負荷
+
+### 問題
+Streamlitでは各UI要素（`st.markdown`, `st.button`, `st.columns`等）がWebSocketメッセージを生成する。
+ビューで`get_all()`を使って大量レコードを取得し、各行を複数のStreamlit要素でレンダリングすると、
+WebSocketメッセージが数万〜数十万件に達し、`tornado.websocket.WebSocketClosedError`でクラッシュする。
+
+### ❌ 悪い例: `get_all()`で全件取得して全行表示
+```python
+# judges テーブルに数万件 × 各行10要素 = 数十万WebSocketメッセージ → クラッシュ
+judges = presenter.load_extracted_judges(proposal_id=None)  # get_all()
+for judge in judges:
+    col1, col2, col3 = st.columns(3)      # 要素1
+    with col1:
+        st.markdown(f"**{judge.name}**")   # 要素2
+    with col2:
+        st.markdown(judge.status)          # 要素3
+    with col3:
+        st.button("編集", key=f"edit_{judge.id}")  # 要素4
+```
+
+### ✅ 良い例: フィルタ/ページネーション必須 + 要素統合
+```python
+# 必ずフィルタまたはページネーションで件数を制限
+judges = presenter.load_extracted_judges(proposal_id=proposal_id)  # フィルタ済み
+
+for judge in judges:
+    # 複数のst.markdownを1つに統合してWebSocketメッセージを削減
+    col1, col2 = st.columns([5, 1])
+    with col1:
+        st.markdown(f"**{judge.name}** | {judge.status}")  # 1要素に統合
+    with col2:
+        st.button("編集", key=f"edit_{judge.id}")
+```
+
+### 目安
+- 1行あたりのStreamlit要素数: **5個以下**
+- 1ページの表示件数: **10〜20件**（ページネーション必須）
+- `get_all()`は**ビューから直接呼ばない**（フィルタ条件またはID指定を必須にする）
+
+### 参考実装
+`src/interfaces/web/streamlit/views/proposals_view.py`: `render_proposal_display()`が要素統合の実装例
+
+---
+
+## パターン7: `@st.fragment`と初回ロードの落とし穴
+
+### 問題
+`@st.fragment`はウィジェット変更時の**部分リラン**には有効だが、
+**ページ初回ロード時は全フラグメントが描画される**。
+そのため、`@st.fragment`で囲んだタブ内に重いデータ取得（`get_all()`等）があると、
+そのタブが表示されていなくても初回ロードで実行されてしまう。
+
+### ❌ 悪い例: fragmentで囲んでいるから安全、と思い込む
+```python
+tab1, tab2, tab3 = st.tabs(["一覧", "抽出結果", "確定結果"])
+
+with tab2:
+    @st.fragment
+    def render_tab2():
+        # ユーザーがTab2を選択していなくても、ページ初回ロードで実行される！
+        all_judges = presenter.load_all_judges()  # 数万件取得
+        for judge in all_judges:
+            render_judge_row(judge)  # 数万行 × 10要素 = WebSocketクラッシュ
+    render_tab2()
+```
+
+### ✅ 良い例: 重いタブは必ずフィルタ条件を要求する
+```python
+with tab2:
+    @st.fragment
+    def render_tab2():
+        # フィルタ条件を必須にし、初回ロードでは全件取得しない
+        proposal_id = st.number_input("議案ID", min_value=1, value=1)
+        judges = presenter.load_judges(proposal_id=proposal_id)  # 数件〜数十件
+        for judge in judges:
+            render_judge_row(judge)
+    render_tab2()
+```
+
+### 調査のポイント
+UIパフォーマンス問題（WebSocketClosedError等）を調査する際は、**報告されたタブだけでなく全タブ・全フラグメントを確認する**こと。
+問題のあるタブが表示されていなくても、初回ロード時に描画が走っている可能性がある。
+
+---
+
 ## 実装パターンまとめ
 
 | 状況 | 解決策 |
@@ -243,6 +335,8 @@ for member in display_members:
 | フラグメント↔フォーム間の値受け渡し | `st.session_state`を使用 |
 | Presenter/View新規作成 | DI Container登録確認 + 依存の最小化 |
 | ループ内で同一引数のAPI呼び出し | ループ外でキャッシュ（dict）して各アイテムに渡す |
+| ビューで大量レコードを表示 | `get_all()`禁止、フィルタ/ページネーション必須、要素統合 |
+| `@st.fragment`タブで重いデータ取得 | 初回ロードで全タブ描画されるため、フィルタ条件を必須にする |
 
 ---
 
