@@ -47,6 +47,7 @@ just migrate-rollback
 - [ ] **冪等性確保**: `IF NOT EXISTS` / `IF EXISTS` を使用
 - [ ] **テスト**: `just migrate` で適用確認
 - [ ] **ロールバックテスト**: `just migrate-rollback` で戻せることを確認
+- [ ] **シードファイル更新**: カラム追加・削除時は `sagebase generate-seeds` でシードファイルを再生成（既存シードが削除カラムを参照してDBリセットが失敗する原因になる）
 
 ## コマンドリファレンス
 
