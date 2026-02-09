@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from tests.fixtures.smri_record_factories import make_smri_record_with_judges
+
 from src.application.dtos.smartnews_smri_import_dto import (
     ImportSmartNewsSmriInputDto,
     ImportSmartNewsSmriOutputDto,
@@ -42,20 +44,6 @@ def _make_record(
         "",
         [["200", result, "経過", url, "", "", proposal_type, *[""] * 16]],
     ]
-
-
-def _make_record_with_judges(
-    sansei: str = "",
-    hantai: str = "",
-    **kwargs: Any,
-) -> list[Any]:
-    record = _make_record(**kwargs)
-    nested_row = record[10][0]
-    while len(nested_row) <= 15:
-        nested_row.append("")
-    nested_row[14] = sansei
-    nested_row[15] = hantai
-    return record
 
 
 def _write_json(records: list[list[Any]]) -> Path:
@@ -262,7 +250,7 @@ class TestImportSmartNewsSmriUseCaseWithJudges:
             proposal_repository=mock_repo,
             extracted_proposal_judge_repository=mock_judge_repo,
         )
-        records = [_make_record_with_judges(sansei="自民党;公明党", hantai="立憲")]
+        records = [make_smri_record_with_judges(sansei="自民党;公明党", hantai="立憲")]
         file_path = _write_json(records)
         input_dto = ImportSmartNewsSmriInputDto(
             file_path=file_path, governing_body_id=1
@@ -283,7 +271,7 @@ class TestImportSmartNewsSmriUseCaseWithJudges:
         use_case = ImportSmartNewsSmriUseCase(
             proposal_repository=mock_repo,
         )
-        records = [_make_record_with_judges(sansei="自民党")]
+        records = [make_smri_record_with_judges(sansei="自民党")]
         file_path = _write_json(records)
         input_dto = ImportSmartNewsSmriInputDto(
             file_path=file_path, governing_body_id=1
@@ -304,7 +292,7 @@ class TestImportSmartNewsSmriUseCaseWithJudges:
             proposal_repository=mock_repo,
             extracted_proposal_judge_repository=mock_judge_repo,
         )
-        records = [_make_record_with_judges(sansei="自民党")]
+        records = [make_smri_record_with_judges(sansei="自民党")]
         file_path = _write_json(records)
         input_dto = ImportSmartNewsSmriInputDto(
             file_path=file_path, governing_body_id=1

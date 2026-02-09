@@ -6,6 +6,8 @@ from typing import Any
 
 import pytest
 
+from tests.fixtures.smri_record_factories import make_smri_record_with_judges
+
 from src.infrastructure.importers.smartnews_smri_importer import (
     SmartNewsSmriImporter,
 )
@@ -48,20 +50,6 @@ def _make_record(
             ]
         ],
     ]
-
-
-def _make_record_with_judges(
-    sansei: str = "",
-    hantai: str = "",
-    **kwargs: Any,
-) -> list[Any]:
-    record = _make_record(**kwargs)
-    nested_row = record[10][0]
-    while len(nested_row) <= 15:
-        nested_row.append("")
-    nested_row[14] = sansei
-    nested_row[15] = hantai
-    return record
 
 
 class TestSmartNewsSmriImporterParseRecord:
@@ -221,7 +209,7 @@ class TestLoadJson:
 
 class TestParseGroupJudges:
     def test_sansei_and_hantai(self) -> None:
-        record = _make_record_with_judges(
+        record = make_smri_record_with_judges(
             sansei="自由民主党;公明党", hantai="立憲民主党"
         )
         judges = SmartNewsSmriImporter.parse_group_judges(record, proposal_id=10)
@@ -238,7 +226,7 @@ class TestParseGroupJudges:
         assert judges[2].extracted_judgment == "反対"
 
     def test_semicolon_split(self) -> None:
-        record = _make_record_with_judges(sansei="A;B;C", hantai="D;E")
+        record = make_smri_record_with_judges(sansei="A;B;C", hantai="D;E")
         judges = SmartNewsSmriImporter.parse_group_judges(record, proposal_id=1)
 
         sansei = [j for j in judges if j.extracted_judgment == "賛成"]
@@ -247,7 +235,7 @@ class TestParseGroupJudges:
         assert len(hantai) == 2
 
     def test_whitespace_trimming(self) -> None:
-        record = _make_record_with_judges(sansei=" 自民党 ; 公明党 ")
+        record = make_smri_record_with_judges(sansei=" 自民党 ; 公明党 ")
         judges = SmartNewsSmriImporter.parse_group_judges(record, proposal_id=1)
 
         assert len(judges) == 2
@@ -255,7 +243,7 @@ class TestParseGroupJudges:
         assert judges[1].extracted_parliamentary_group_name == "公明党"
 
     def test_empty_fields_returns_empty(self) -> None:
-        record = _make_record_with_judges(sansei="", hantai="")
+        record = make_smri_record_with_judges(sansei="", hantai="")
         judges = SmartNewsSmriImporter.parse_group_judges(record, proposal_id=1)
 
         assert judges == []
@@ -297,7 +285,7 @@ class TestParseGroupJudges:
         assert judges == []
 
     def test_semicolons_only(self) -> None:
-        record = _make_record_with_judges(sansei=";;;", hantai=";")
+        record = make_smri_record_with_judges(sansei=";;;", hantai=";")
         judges = SmartNewsSmriImporter.parse_group_judges(record, proposal_id=1)
 
         assert judges == []

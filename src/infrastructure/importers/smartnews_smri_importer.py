@@ -80,21 +80,21 @@ class SmartNewsSmriImporter:
                 raw = row[idx]
                 if not raw:
                     continue
-                for name in raw.split(";"):
-                    name = name.strip()
-                    if not name:
+                for group_name in raw.split(";"):
+                    stripped = group_name.strip()
+                    if not stripped:
                         continue
                     judges.append(
                         ExtractedProposalJudge(
                             proposal_id=proposal_id,
-                            extracted_parliamentary_group_name=name,
+                            extracted_parliamentary_group_name=stripped,
                             extracted_judgment=judgment,
                             source_url=_SOURCE_URL,
                             matching_status="pending",
                         )
                     )
         except (IndexError, TypeError):
-            pass
+            logger.debug("会派賛否データの解析をスキップ: %s", record[:4])
         return judges
 
     @staticmethod
