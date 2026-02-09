@@ -4,6 +4,8 @@ import argparse
 import asyncio
 import logging
 import sys
+import tempfile
+import urllib.request
 
 from pathlib import Path
 
@@ -36,9 +38,38 @@ logger = logging.getLogger(__name__)
 
 GOVERNING_BODY_NAME = "日本国"
 GOVERNING_BODY_TYPE = "国"
+SMRI_RAW_URL = (
+    "https://raw.githubusercontent.com/"
+    "smartnews-smri/house-of-representatives/main/data/gian_summary.json"
+)
 
 
-async def main(file_path: Path, batch_size: int) -> None:
+def fetch_gian_summary() -> Path:
+    """GitHubからgian_summary.jsonをダウンロードして一時ファイルパスを返す."""
+    logger.info("GitHubからダウンロード中: %s", SMRI_RAW_URL)
+    tmp = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
+    urllib.request.urlretrieve(SMRI_RAW_URL, tmp.name)  # noqa: S310
+    logger.info(
+        "ダウンロード完了: %s (%.1f MB)",
+        tmp.name,
+        Path(tmp.name).stat().st_size / 1_000_000,
+    )
+    return Path(tmp.name)
+
+
+async def main(file_path: Path | None, batch_size: int) -> None:
+    auto_fetched = False
+    if file_path is None:
+        file_path = fetch_gian_summary()
+        auto_fetched = True
+    try:
+        await _run_import(file_path, batch_size)
+    finally:
+        if auto_fetched:
+            file_path.unlink(missing_ok=True)
+
+
+async def _run_import(file_path: Path, batch_size: int) -> None:
     async with get_async_session() as session:
         gb_repo = GoverningBodyRepositoryImpl(session)
         governing_body = await gb_repo.get_by_name_and_type(
@@ -91,7 +122,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "file_path",
         type=Path,
-        help="gian_summary.json ファイルのパス",
+        nargs="?",
+        default=None,
+        help="gian_summary.json のパス（省略時はGitHubから自動取得）",
     )
     parser.add_argument(
         "--batch-size",
@@ -101,7 +134,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    if not args.file_path.exists():
+    if args.file_path is not None and not args.file_path.exists():
         logger.error("ファイルが見つかりません: %s", args.file_path)
         sys.exit(1)
 
