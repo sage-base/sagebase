@@ -238,6 +238,29 @@ docker compose -f docker/docker-compose.yml [-f docker/docker-compose.override.y
 docker compose -f docker/docker-compose.yml [-f docker/docker-compose.override.yml] exec sagebase uv run pytest tests/unit/
 ```
 
+## テストヘルパーの配置ルール
+
+複数のテストファイルで使うヘルパー関数（レコードファクトリ等）は、**最初から`tests/fixtures/`に配置する**こと。
+ローカルヘルパーとして書いた後にコピペで別ファイルに持ち込むと重複が生まれる。
+
+```python
+# ❌ 悪い例 - 同じヘルパーを複数テストファイルにコピペ
+# tests/infrastructure/test_importer.py
+def _make_record_with_judges(...): ...
+
+# tests/application/test_usecase.py
+def _make_record_with_judges(...): ...  # 重複！
+
+# ✅ 良い例 - 共通ファクトリに配置してインポート
+# tests/fixtures/smri_record_factories.py
+def make_smri_record_with_judges(...): ...
+
+# tests/infrastructure/test_importer.py
+from tests.fixtures.smri_record_factories import make_smri_record_with_judges
+```
+
+**判断基準**: ヘルパーが2つ以上のテストファイルで必要になると分かっている場合は、最初から`tests/fixtures/`に作成する。
+
 ## Common Anti-Patterns
 
 1. **❌ Real API Calls**: Most common mistake!

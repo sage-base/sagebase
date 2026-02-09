@@ -6,6 +6,8 @@ from typing import Any
 
 import pytest
 
+from tests.fixtures.smri_record_factories import make_smri_record_with_judges
+
 from src.infrastructure.importers.smartnews_smri_importer import (
     SmartNewsSmriImporter,
 )
@@ -203,3 +205,105 @@ class TestLoadJson:
             f.flush()
             with pytest.raises(json.JSONDecodeError):
                 importer.load_json(Path(f.name))
+
+
+class TestParseGroupJudges:
+    def test_sansei_and_hantai(self) -> None:
+        record = make_smri_record_with_judges(
+            sansei="自由民主党;公明党", hantai="立憲民主党"
+        )
+        judges = SmartNewsSmriImporter.parse_group_judges(record, proposal_id=10)
+
+        assert len(judges) == 3
+        assert judges[0].extracted_parliamentary_group_name == "自由民主党"
+        assert judges[0].extracted_judgment == "賛成"
+        assert judges[0].proposal_id == 10
+        assert judges[0].source_url == "smartnews-smri/house-of-representatives"
+        assert judges[0].matching_status == "pending"
+        assert judges[1].extracted_parliamentary_group_name == "公明党"
+        assert judges[1].extracted_judgment == "賛成"
+        assert judges[2].extracted_parliamentary_group_name == "立憲民主党"
+        assert judges[2].extracted_judgment == "反対"
+
+    def test_semicolon_split(self) -> None:
+        record = make_smri_record_with_judges(sansei="A;B;C", hantai="D;E")
+        judges = SmartNewsSmriImporter.parse_group_judges(record, proposal_id=1)
+
+        sansei = [j for j in judges if j.extracted_judgment == "賛成"]
+        hantai = [j for j in judges if j.extracted_judgment == "反対"]
+        assert len(sansei) == 3
+        assert len(hantai) == 2
+
+    def test_whitespace_trimming(self) -> None:
+        record = make_smri_record_with_judges(sansei=" 自民党 ; 公明党 ")
+        judges = SmartNewsSmriImporter.parse_group_judges(record, proposal_id=1)
+
+        assert len(judges) == 2
+        assert judges[0].extracted_parliamentary_group_name == "自民党"
+        assert judges[1].extracted_parliamentary_group_name == "公明党"
+
+    def test_empty_fields_returns_empty(self) -> None:
+        record = make_smri_record_with_judges(sansei="", hantai="")
+        judges = SmartNewsSmriImporter.parse_group_judges(record, proposal_id=1)
+
+        assert judges == []
+
+    def test_missing_nested_data(self) -> None:
+        record: list[Any] = [
+            "衆法",
+            "200",
+            "1",
+            "テスト",
+            "200",
+            "成立",
+            "",
+            "",
+            "",
+            "",
+            [],
+        ]
+        judges = SmartNewsSmriImporter.parse_group_judges(record, proposal_id=1)
+
+        assert judges == []
+
+    def test_malformed_nested_data(self) -> None:
+        record: list[Any] = [
+            "衆法",
+            "200",
+            "1",
+            "テスト",
+            "200",
+            "成立",
+            "",
+            "",
+            "",
+            "",
+            None,
+        ]
+        judges = SmartNewsSmriImporter.parse_group_judges(record, proposal_id=1)
+
+        assert judges == []
+
+    def test_semicolons_only(self) -> None:
+        record = make_smri_record_with_judges(sansei=";;;", hantai=";")
+        judges = SmartNewsSmriImporter.parse_group_judges(record, proposal_id=1)
+
+        assert judges == []
+
+    def test_short_nested_row(self) -> None:
+        record: list[Any] = [
+            "衆法",
+            "200",
+            "1",
+            "テスト",
+            "200",
+            "成立",
+            "",
+            "",
+            "",
+            "",
+            [["200", "成立", "経過", "url"]],
+        ]
+        judges = SmartNewsSmriImporter.parse_group_judges(record, proposal_id=1)
+
+        assert judges == []
