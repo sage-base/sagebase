@@ -290,6 +290,25 @@ except Exception as e:
     # 明示的にフォールバック処理を行う
 ```
 
+### 5. 意図的な例外吸収でもログは必須
+
+データパース等で意図的に例外を吸収してフォールバック値を返す場合でも、最低限`logger.debug`でログを残すこと。
+運用時に「何件のレコードで問題が発生したか」を把握できないとデバッグが困難になる。
+
+```python
+# ❌ 悪い例 - 意図的でもpassのみは禁止
+try:
+    value = parse_complex_data(record)
+except (IndexError, TypeError):
+    pass  # 何が起きたか全く分からない
+
+# ✅ 良い例 - 最低限debugログを残す
+try:
+    value = parse_complex_data(record)
+except (IndexError, TypeError):
+    logger.debug("データの解析をスキップ: %s", record[:4])
+```
+
 ---
 
 ## 再試行可能なエラーの判定
