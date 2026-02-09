@@ -711,6 +711,17 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         """複数議案の提出者を一括取得する（async実装）."""
         return await self.submitter_repository.get_by_proposal_ids(proposal_ids)  # type: ignore[attr-defined]
 
+    def load_all_parliamentary_group_names(self) -> dict[int, str]:
+        """全アクティブ会派のID→名前マップを取得する."""
+        return self._run_async(self._load_all_parliamentary_group_names_async())
+
+    async def _load_all_parliamentary_group_names_async(
+        self,
+    ) -> dict[int, str]:
+        """全アクティブ会派のID→名前マップを取得する（async実装）."""
+        groups = await self.parliamentary_group_repository.get_active()  # type: ignore[attr-defined]
+        return {g.id: g.name for g in groups if g.id}
+
     def update_submitters(
         self,
         proposal_id: int,

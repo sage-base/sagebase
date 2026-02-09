@@ -943,3 +943,62 @@ class TestBuildProposalRelatedDataMap:
 
         # Assert
         assert result == {}
+
+
+class TestLoadSubmittersBatch:
+    """load_submitters_batchメソッドのテスト"""
+
+    async def test_load_submitters_batch_success(self, presenter):
+        """複数議案の提出者を一括取得できることを確認"""
+        from src.domain.entities.proposal_submitter import ProposalSubmitter
+        from src.domain.value_objects.submitter_type import SubmitterType
+
+        mock_submitter_repo = AsyncMock()
+        presenter.submitter_repository = mock_submitter_repo
+
+        expected_map = {
+            1: [
+                ProposalSubmitter(
+                    id=10,
+                    proposal_id=1,
+                    submitter_type=SubmitterType.POLITICIAN,
+                    politician_id=100,
+                ),
+            ],
+            2: [
+                ProposalSubmitter(
+                    id=11,
+                    proposal_id=2,
+                    submitter_type=SubmitterType.MAYOR,
+                    raw_name="田中市長",
+                ),
+            ],
+        }
+        mock_submitter_repo.get_by_proposal_ids.return_value = expected_map
+
+        result = await presenter._load_submitters_batch_async([1, 2])
+
+        assert len(result) == 2
+        assert 1 in result
+        assert 2 in result
+        mock_submitter_repo.get_by_proposal_ids.assert_awaited_once_with([1, 2])
+
+    async def test_load_submitters_batch_empty_list(self, presenter):
+        """空リストを渡した場合に空辞書が返ることを確認"""
+        mock_submitter_repo = AsyncMock()
+        presenter.submitter_repository = mock_submitter_repo
+        mock_submitter_repo.get_by_proposal_ids.return_value = {}
+
+        result = await presenter._load_submitters_batch_async([])
+
+        assert result == {}
+
+    async def test_load_submitters_batch_no_submitters_found(self, presenter):
+        """該当提出者がない場合に空辞書が返ることを確認"""
+        mock_submitter_repo = AsyncMock()
+        presenter.submitter_repository = mock_submitter_repo
+        mock_submitter_repo.get_by_proposal_ids.return_value = {}
+
+        result = await presenter._load_submitters_batch_async([999])
+
+        assert result == {}

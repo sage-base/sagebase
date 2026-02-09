@@ -289,6 +289,15 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
         if proposals:
             st.subheader("議案一覧")
 
+            # フィルター変更時にページをリセット
+            current_filter_key = (
+                f"{filter_type}:{meeting_filter}:{actual_conference_filter}"
+            )
+            prev_filter_key = st.session_state.get("proposals_filter_key", "")
+            if current_filter_key != prev_filter_key:
+                st.session_state.proposals_page = 0
+                st.session_state.proposals_filter_key = current_filter_key
+
             # ページネーション
             if "proposals_page" not in st.session_state:
                 st.session_state.proposals_page = 0
@@ -317,6 +326,7 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
             conference_names: dict[int, str] = {
                 c["id"]: c["name"] for c in conferences_list
             }
+            pg_names = presenter.load_all_parliamentary_group_names()
 
             for proposal in page_proposals:
                 render_proposal_row(
@@ -325,6 +335,7 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
                     submitters_map,
                     politician_names,
                     conference_names,
+                    pg_names,
                 )
 
             # ページネーションUI
@@ -609,6 +620,7 @@ def render_proposal_row(
     submitters_map: dict[int, list[ProposalSubmitter]] | None = None,
     politician_names: dict[int, str] | None = None,
     conference_names: dict[int, str] | None = None,
+    pg_names: dict[int, str] | None = None,
 ) -> None:
     """Render a single proposal row."""
     # Check if this proposal is being edited
@@ -616,7 +628,12 @@ def render_proposal_row(
         render_edit_proposal_form(presenter, proposal)
     else:
         render_proposal_display(
-            presenter, proposal, submitters_map, politician_names, conference_names
+            presenter,
+            proposal,
+            submitters_map,
+            politician_names,
+            conference_names,
+            pg_names,
         )
 
 
@@ -626,6 +643,7 @@ def render_submitters_display(
     submitters_map: dict[int, list[ProposalSubmitter]] | None = None,
     politician_names: dict[int, str] | None = None,
     conference_names: dict[int, str] | None = None,
+    pg_names: dict[int, str] | None = None,
 ) -> None:
     """提出者情報を種別アイコン付きで表示する.
 
@@ -635,9 +653,9 @@ def render_submitters_display(
         submitters_map: プリロード済み提出者マップ（議案ID→提出者リスト）
         politician_names: プリロード済み政治家名マップ（政治家ID→名前）
         conference_names: プリロード済み会議体名マップ（会議体ID→名前）
+        pg_names: プリロード済み会派名マップ（会派ID→名前）
     """
     try:
-        # プリロード済みデータがあればそれを使用、なければ個別取得（後方互換）
         if submitters_map is not None and proposal.id is not None:
             submitters = submitters_map.get(proposal.id, [])
         else:
@@ -647,7 +665,6 @@ def render_submitters_display(
             st.markdown("**提出者**: 未設定")
             return
 
-        # プリロード済みデータがない場合のみ個別取得
         if politician_names is None:
             politicians = presenter.load_politicians()
             politician_names = {p.id: p.name for p in politicians if p.id is not None}
@@ -656,16 +673,13 @@ def render_submitters_display(
             conferences = presenter.load_conferences()
             conference_names = {c["id"]: c["name"] for c in conferences}
 
-        # 会派名はsubmittersから必要な場合のみ取得
-        pg_names: dict[int, str] = {}
-        needs_pg = any(s.parliamentary_group_id for s in submitters)
-        if needs_pg:
-            parliamentary_groups = presenter.load_parliamentary_groups_for_proposal(
-                proposal.id  # type: ignore[arg-type]
-            )
-            pg_names = {pg.id: pg.name for pg in parliamentary_groups if pg.id}
+        if pg_names is None:
+            needs_pg = any(s.parliamentary_group_id for s in submitters)
+            if needs_pg:
+                pg_names = presenter.load_all_parliamentary_group_names()
+            else:
+                pg_names = {}
 
-        # ここまでで politician_names, conference_names は確実に非None
         assert politician_names is not None
         assert conference_names is not None
 
@@ -711,6 +725,7 @@ def render_proposal_display(
     submitters_map: dict[int, list[ProposalSubmitter]] | None = None,
     politician_names: dict[int, str] | None = None,
     conference_names: dict[int, str] | None = None,
+    pg_names: dict[int, str] | None = None,
 ) -> None:
     """Render proposal in display mode."""
     # Get related data from session state
@@ -744,7 +759,12 @@ def render_proposal_display(
 
             # Display submitters with type icons
             render_submitters_display(
-                presenter, proposal, submitters_map, politician_names, conference_names
+                presenter,
+                proposal,
+                submitters_map,
+                politician_names,
+                conference_names,
+                pg_names,
             )
 
             if proposal.detail_url:
