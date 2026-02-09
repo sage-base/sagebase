@@ -28,7 +28,7 @@ from src.interfaces.web.streamlit.views.politicians_view import PREFECTURES
 logger = get_logger(__name__)
 
 # 議案一覧のページサイズ
-PROPOSALS_PAGE_SIZE = 20
+PROPOSALS_PAGE_SIZE = 10
 
 # 提出者種別のアイコンマッピング
 SUBMITTER_TYPE_ICONS: dict[str, str] = {
@@ -290,13 +290,18 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
 
         # DB側ページネーションで必要なページ分だけ取得
         # _run_async呼び出しを1回に統合し、fragment内でのevent loopブロックを最小化
-        page_data = presenter.load_proposals_page_data(
-            filter_type=filter_type,
-            meeting_id=meeting_filter,
-            conference_id=actual_conference_filter,
-            limit=PROPOSALS_PAGE_SIZE,
-            offset=offset,
-        )
+        # ロード中フラグで多重rerunを防止
+        st.session_state["_proposals_loading"] = True
+        try:
+            page_data = presenter.load_proposals_page_data(
+                filter_type=filter_type,
+                meeting_id=meeting_filter,
+                conference_id=actual_conference_filter,
+                limit=PROPOSALS_PAGE_SIZE,
+                offset=offset,
+            )
+        finally:
+            st.session_state["_proposals_loading"] = False
 
         proposals = page_data.result.proposals
         total_count = page_data.result.total_count
@@ -337,18 +342,24 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
 
             # ページネーションUI
             # on_clickコールバックを使用（st.rerunを避けevent loop衝突を防止）
+            # ロード中は何もしないガードで多重rerunを防止
             def _go_prev() -> None:
+                if st.session_state.get("_proposals_loading"):
+                    return
                 st.session_state.proposals_page -= 1
 
             def _go_next() -> None:
+                if st.session_state.get("_proposals_loading"):
+                    return
                 st.session_state.proposals_page += 1
 
             if total_pages > 1:
+                is_loading = st.session_state.get("_proposals_loading", False)
                 col_prev, col_info, col_next = st.columns([1, 2, 1])
                 with col_prev:
                     st.button(
                         "← 前へ",
-                        disabled=st.session_state.proposals_page == 0,
+                        disabled=st.session_state.proposals_page == 0 or is_loading,
                         key="proposals_prev_page",
                         on_click=_go_prev,
                     )
@@ -360,7 +371,8 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
                 with col_next:
                     st.button(
                         "次へ →",
-                        disabled=st.session_state.proposals_page >= total_pages - 1,
+                        disabled=st.session_state.proposals_page >= total_pages - 1
+                        or is_loading,
                         key="proposals_next_page",
                         on_click=_go_next,
                     )
@@ -370,6 +382,7 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
             st.info("表示する議案がありません。")
 
     except Exception as e:
+        st.session_state["_proposals_loading"] = False
         handle_ui_error(e, "議案一覧の読み込み")
 
 
@@ -641,6 +654,46 @@ def render_proposal_row(
         )
 
 
+def _build_submitters_text(
+    proposal: Proposal,
+    submitters_map: dict[int, list[ProposalSubmitter]] | None = None,
+    politician_names: dict[int, str] | None = None,
+    conference_names: dict[int, str] | None = None,
+    pg_names: dict[int, str] | None = None,
+) -> str:
+    """提出者情報を文字列として構築する（Streamlit要素を生成しない）."""
+    if submitters_map is not None and proposal.id is not None:
+        submitters = submitters_map.get(proposal.id, [])
+    else:
+        return "未設定"
+
+    if not submitters:
+        return "未設定"
+
+    parts: list[str] = []
+    for s in submitters:
+        icon = get_submitter_type_icon(s.submitter_type.value)
+        name = s.raw_name or ""
+        if s.politician_id and politician_names:
+            name = politician_names.get(
+                s.politician_id, name or f"ID:{s.politician_id}"
+            )
+        elif s.parliamentary_group_id and pg_names:
+            name = pg_names.get(
+                s.parliamentary_group_id,
+                name or f"ID:{s.parliamentary_group_id}",
+            )
+        elif s.conference_id and conference_names:
+            name = conference_names.get(
+                s.conference_id, name or f"ID:{s.conference_id}"
+            )
+        elif not name:
+            name = get_submitter_type_label(s.submitter_type.value)
+        parts.append(f"{icon} {name}")
+
+    return ", ".join(parts) if parts else "未設定"
+
+
 def render_submitters_display(
     presenter: ProposalPresenter,
     proposal: Proposal,
@@ -649,78 +702,11 @@ def render_submitters_display(
     conference_names: dict[int, str] | None = None,
     pg_names: dict[int, str] | None = None,
 ) -> None:
-    """提出者情報を種別アイコン付きで表示する.
-
-    Args:
-        presenter: ProposalPresenter
-        proposal: 議案エンティティ
-        submitters_map: プリロード済み提出者マップ（議案ID→提出者リスト）
-        politician_names: プリロード済み政治家名マップ（政治家ID→名前）
-        conference_names: プリロード済み会議体名マップ（会議体ID→名前）
-        pg_names: プリロード済み会派名マップ（会派ID→名前）
-    """
-    try:
-        if submitters_map is not None and proposal.id is not None:
-            submitters = submitters_map.get(proposal.id, [])
-        else:
-            submitters = presenter.load_submitters(proposal.id)  # type: ignore[arg-type]
-
-        if not submitters:
-            st.markdown("**提出者**: 未設定")
-            return
-
-        if politician_names is None:
-            politicians = presenter.load_politicians()
-            politician_names = {p.id: p.name for p in politicians if p.id is not None}
-
-        if conference_names is None:
-            conferences = presenter.load_conferences()
-            conference_names = {c["id"]: c["name"] for c in conferences}
-
-        if pg_names is None:
-            needs_pg = any(s.parliamentary_group_id for s in submitters)
-            if needs_pg:
-                pg_names = presenter.load_all_parliamentary_group_names()
-            else:
-                pg_names = {}
-
-        assert politician_names is not None
-        assert conference_names is not None
-
-        submitter_display_parts = []
-
-        for s in submitters:
-            submitter_type = s.submitter_type.value
-            icon = get_submitter_type_icon(submitter_type)
-            label = get_submitter_type_label(submitter_type)
-
-            # 名前を解決
-            name = s.raw_name or ""
-            if s.politician_id:
-                name = politician_names.get(
-                    s.politician_id, name or f"ID:{s.politician_id}"
-                )
-            elif s.parliamentary_group_id:
-                name = pg_names.get(
-                    s.parliamentary_group_id, name or f"ID:{s.parliamentary_group_id}"
-                )
-            elif s.conference_id:
-                name = conference_names.get(
-                    s.conference_id, name or f"ID:{s.conference_id}"
-                )
-            elif not name:
-                name = label
-
-            submitter_display_parts.append(f"{icon} {name}")
-
-        if submitter_display_parts:
-            st.markdown(f"**提出者**: {', '.join(submitter_display_parts)}")
-        else:
-            st.markdown("**提出者**: 未設定")
-
-    except Exception:
-        logger.exception("提出者情報の読み込みに失敗")
-        st.markdown("**提出者**: （読み込みエラー）")
+    """提出者情報を種別アイコン付きで表示する."""
+    text = _build_submitters_text(
+        proposal, submitters_map, politician_names, conference_names, pg_names
+    )
+    st.markdown(f"**提出者**: {text}")
 
 
 def render_proposal_display(
@@ -731,8 +717,11 @@ def render_proposal_display(
     conference_names: dict[int, str] | None = None,
     pg_names: dict[int, str] | None = None,
 ) -> None:
-    """Render proposal in display mode."""
-    # Get related data from session state
+    """Render proposal in display mode.
+
+    WebSocket負荷を削減するため、1行あたりのStreamlit要素数を最小化する。
+    複数のst.markdownを1つに統合し、columns数も最小限にする。
+    """
     related_data_map: dict[int, dict[str, str | None]] = st.session_state.get(
         "proposal_related_data_map", {}
     )
@@ -740,87 +729,71 @@ def render_proposal_display(
     conference_name = related_data.get("conference_name")
     governing_body_name = related_data.get("governing_body_name")
 
-    with st.container():
-        col1, col2 = st.columns([4, 1])
+    info_lines: list[str] = [f"**議案 #{proposal.id}** {proposal.title[:100]}"]
 
-        with col1:
-            st.markdown(f"**議案 #{proposal.id}**")
-            st.markdown(f"{proposal.title[:100]}...")
+    meta_parts: list[str] = []
+    if conference_name:
+        meta_parts.append(f"会議体: {conference_name}")
+    if governing_body_name:
+        meta_parts.append(f"開催主体: {governing_body_name}")
+    if meta_parts:
+        info_lines.append(" | ".join(meta_parts))
 
-            col_info1, col_info2 = st.columns(2)
-            with col_info1:
-                # 会議体名を表示（取得できない場合はIDを表示）
-                if conference_name:
-                    st.markdown(f"**会議体**: {conference_name}")
-                else:
-                    st.markdown(f"**会議体ID**: {proposal.conference_id or '未設定'}")
-            with col_info2:
-                # 開催主体名を表示
-                if governing_body_name:
-                    st.markdown(f"**開催主体**: {governing_body_name}")
-                else:
-                    st.markdown("**開催主体**: 未設定")
+    submitter_text = _build_submitters_text(
+        proposal, submitters_map, politician_names, conference_names, pg_names
+    )
+    info_lines.append(f"提出者: {submitter_text}")
 
-            # Display submitters with type icons
-            render_submitters_display(
-                presenter,
-                proposal,
-                submitters_map,
-                politician_names,
-                conference_names,
-                pg_names,
-            )
+    url_parts: list[str] = []
+    if proposal.detail_url:
+        url_parts.append(f"[詳細]({proposal.detail_url})")
+    if proposal.status_url:
+        url_parts.append(f"[状態]({proposal.status_url})")
+    if proposal.votes_url:
+        url_parts.append(f"[賛否]({proposal.votes_url})")
+    if url_parts:
+        info_lines.append(" | ".join(url_parts))
 
-            if proposal.detail_url:
-                st.markdown(f"[詳細URL]({proposal.detail_url})")
-            if proposal.status_url:
-                st.markdown(f"[状態URL]({proposal.status_url})")
-            if proposal.votes_url:
-                st.markdown(f"[賛否URL]({proposal.votes_url})")
+    col1, col2 = st.columns([5, 1])
+    with col1:
+        st.markdown("  \n".join(info_lines))
+    with col2:
+        if st.button("編集", key=f"edit_proposal_{proposal.id}"):
+            if proposal.id is not None:
+                presenter.set_editing_mode(proposal.id)
+                st.rerun()
+        if st.button(
+            "削除",
+            key=f"delete_proposal_{proposal.id}",
+            type="secondary",
+        ):
+            st.session_state[f"confirm_delete_{proposal.id}"] = True
 
-        with col2:
-            # Action buttons
-            col_btn1, col_btn2 = st.columns(2)
-            with col_btn1:
-                if st.button("編集", key=f"edit_proposal_{proposal.id}"):
-                    if proposal.id is not None:
-                        presenter.set_editing_mode(proposal.id)
-                        st.rerun()
-
-            with col_btn2:
-                if st.button(
-                    "削除",
-                    key=f"delete_proposal_{proposal.id}",
-                    type="secondary",
-                ):
-                    st.session_state[f"confirm_delete_{proposal.id}"] = True
-
-            # Delete confirmation
-            if st.session_state.get(f"confirm_delete_{proposal.id}", False):
-                st.warning("本当に削除しますか？")
-                col_confirm1, col_confirm2 = st.columns(2)
-                with col_confirm1:
-                    if st.button("はい", key=f"confirm_yes_{proposal.id}"):
-                        try:
-                            user_id = presenter.get_current_user_id()
-                            result = presenter.delete(
-                                proposal_id=proposal.id,
-                                user_id=user_id,
-                            )
-                            if result.success:
-                                st.success(result.message)
-                                del st.session_state[f"confirm_delete_{proposal.id}"]
-                                st.rerun()
-                            else:
-                                st.error(result.message)
-                        except Exception as e:
-                            handle_ui_error(e, "議案の削除")
-                with col_confirm2:
-                    if st.button("いいえ", key=f"confirm_no_{proposal.id}"):
+    if st.session_state.get(f"confirm_delete_{proposal.id}", False):
+        st.warning("本当に削除しますか？")
+        col_confirm1, col_confirm2 = st.columns(2)
+        with col_confirm1:
+            if st.button("はい", key=f"confirm_yes_{proposal.id}"):
+                try:
+                    user_id = presenter.get_current_user_id()
+                    result = presenter.delete(
+                        proposal_id=proposal.id,
+                        user_id=user_id,
+                    )
+                    if result.success:
+                        st.success(result.message)
                         del st.session_state[f"confirm_delete_{proposal.id}"]
                         st.rerun()
+                    else:
+                        st.error(result.message)
+                except Exception as e:
+                    handle_ui_error(e, "議案の削除")
+        with col_confirm2:
+            if st.button("いいえ", key=f"confirm_no_{proposal.id}"):
+                del st.session_state[f"confirm_delete_{proposal.id}"]
+                st.rerun()
 
-        st.divider()
+    st.divider()
 
 
 def render_edit_proposal_form(presenter: ProposalPresenter, proposal: Proposal) -> None:
@@ -1124,17 +1097,20 @@ def render_extracted_judges_tab(presenter: ProposalPresenter) -> None:
 
     with col1:
         proposal_id_filter = st.number_input(
-            "議案IDでフィルター (0=全て)", min_value=0, value=0, step=1
+            "議案IDでフィルター", min_value=1, value=1, step=1
         )
 
     with col2:
         status_options = ["すべて", "pending", "matched", "needs_review", "no_match"]
         status_filter = st.selectbox("ステータス", options=status_options, index=0)
 
+    if not proposal_id_filter:
+        st.info("表示する議案IDを入力してください。")
+        return
+
     # Load extracted judges
     try:
-        filter_id = proposal_id_filter if proposal_id_filter > 0 else None
-        judges = presenter.load_extracted_judges(proposal_id=filter_id)
+        judges = presenter.load_extracted_judges(proposal_id=int(proposal_id_filter))
 
         # Filter by status if needed
         if status_filter != "すべて":
@@ -1310,17 +1286,20 @@ def render_final_judges_tab(presenter: ProposalPresenter) -> None:
 
     with col1:
         proposal_id_filter = st.number_input(
-            "議案IDでフィルター (0=全て)",
-            min_value=0,
-            value=0,
+            "議案IDでフィルター",
+            min_value=1,
+            value=1,
             step=1,
             key="final_filter",
         )
 
+    if not proposal_id_filter:
+        st.info("表示する議案IDを入力してください。")
+        return
+
     # Load final judges
     try:
-        filter_id = proposal_id_filter if proposal_id_filter > 0 else None
-        judges = presenter.load_proposal_judges(proposal_id=filter_id)
+        judges = presenter.load_proposal_judges(proposal_id=int(proposal_id_filter))
 
         with col2:
             st.metric("確定件数", len(judges))

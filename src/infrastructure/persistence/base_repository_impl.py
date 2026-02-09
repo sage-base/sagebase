@@ -69,6 +69,15 @@ class BaseRepositoryImpl[T: BaseEntity](BaseRepository[T]):
 
         return [self._to_entity(model) for model in models]
 
+    async def get_by_ids(self, entity_ids: list[int]) -> list[T]:
+        """Get entities by their IDs."""
+        if not entity_ids:
+            return []
+        query = select(self.model_class).where(self.model_class.id.in_(entity_ids))
+        result = await self.session.execute(query)
+        models = result.scalars().all()
+        return [self._to_entity(model) for model in models]
+
     async def create(self, entity: T) -> T:
         """Create a new entity."""
         model = self._to_model(entity)
