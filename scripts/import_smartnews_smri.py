@@ -10,10 +10,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.infrastructure.config.async_database import get_async_session
-from src.infrastructure.importers.smartnews_smri_importer import (
-    SmartNewsSmriImporter,
+from src.application.dtos.smartnews_smri_import_dto import (
+    ImportSmartNewsSmriInputDto,
 )
+from src.application.usecases.import_smartnews_smri_usecase import (
+    ImportSmartNewsSmriUseCase,
+)
+from src.infrastructure.config.async_database import get_async_session
 from src.infrastructure.persistence.governing_body_repository_impl import (
     GoverningBodyRepositoryImpl,
 )
@@ -47,19 +50,23 @@ async def main(file_path: Path, batch_size: int) -> None:
             )
             sys.exit(1)
 
-        logger.info("開催主体: %s (ID=%d)", governing_body.name, governing_body.id)
-
-        proposal_repo = ProposalRepositoryImpl(session)
-        importer = SmartNewsSmriImporter(
-            proposal_repository=proposal_repo,
-            governing_body_id=governing_body.id,
+        logger.info(
+            "開催主体: %s (ID=%d)",
+            governing_body.name,
+            governing_body.id,
         )
 
-        logger.info("JSONファイル読み込み: %s", file_path)
-        records = importer.load_json(file_path)
-        logger.info("レコード数: %d", len(records))
+        proposal_repo = ProposalRepositoryImpl(session)
+        use_case = ImportSmartNewsSmriUseCase(
+            proposal_repository=proposal_repo,
+        )
 
-        result = await importer.import_data(records, batch_size=batch_size)
+        input_dto = ImportSmartNewsSmriInputDto(
+            file_path=file_path,
+            governing_body_id=governing_body.id,
+            batch_size=batch_size,
+        )
+        result = await use_case.execute(input_dto)
 
         logger.info("--- インポート結果 ---")
         logger.info("合計: %d", result.total)
@@ -73,7 +80,7 @@ async def main(file_path: Path, batch_size: int) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="smartnews-smri gian_summary.json をProposalテーブルにインポート"
+        description="smartnews-smri gian_summary.json をインポート"
     )
     parser.add_argument(
         "file_path",

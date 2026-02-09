@@ -1,6 +1,10 @@
 """Tests for Proposal entity."""
 
-from src.domain.entities.proposal import Proposal
+from src.domain.entities.proposal import (
+    DELIBERATION_RESULT_MAP,
+    PROPOSAL_CATEGORY_MAP,
+    Proposal,
+)
 
 
 class TestProposal:
@@ -198,3 +202,116 @@ class TestProposal:
         """Test has_business_key returns False when no key fields are set."""
         proposal = Proposal(title="テスト議案")
         assert proposal.has_business_key is False
+
+
+class TestProposalNormalization:
+    """Test cases for Proposal normalization methods."""
+
+    def test_normalize_category_legislation(self) -> None:
+        for t in ["衆法", "閣法", "参法"]:
+            assert Proposal.normalize_category(t) == "legislation"
+
+    def test_normalize_category_budget(self) -> None:
+        assert Proposal.normalize_category("予算") == "budget"
+
+    def test_normalize_category_treaty(self) -> None:
+        assert Proposal.normalize_category("条約") == "treaty"
+
+    def test_normalize_category_approval(self) -> None:
+        for t in ["承認", "承諾"]:
+            assert Proposal.normalize_category(t) == "approval"
+
+    def test_normalize_category_audit(self) -> None:
+        for t in ["決算", "国有財産", "ＮＨＫ決算"]:
+            assert Proposal.normalize_category(t) == "audit"
+
+    def test_normalize_category_other(self) -> None:
+        for t in [
+            "決議",
+            "規程",
+            "規則",
+            "議決",
+            "国庫債務",
+            "憲法八条議決案",
+        ]:
+            assert Proposal.normalize_category(t) == "other"
+
+    def test_normalize_category_unknown_defaults_to_other(self) -> None:
+        assert Proposal.normalize_category("不明") == "other"
+
+    def test_normalize_category_all_known_types(self) -> None:
+        known_types = [
+            "衆法",
+            "閣法",
+            "参法",
+            "予算",
+            "条約",
+            "承認",
+            "承諾",
+            "決算",
+            "国有財産",
+            "ＮＨＫ決算",
+            "決議",
+            "規程",
+            "規則",
+            "議決",
+            "国庫債務",
+            "憲法八条議決案",
+        ]
+        for t in known_types:
+            assert t in PROPOSAL_CATEGORY_MAP
+
+    def test_normalize_result_passed(self) -> None:
+        passed_originals = [
+            "成立",
+            "本院議了",
+            "両院承認",
+            "両院承諾",
+            "本院可決",
+            "参議院回付案（同意）",
+            "衆議院議決案（可決）",
+            "参議院議了",
+            "両院議決",
+            "承認",
+            "修正承諾",
+            "撤回承諾",
+            "議決不要",
+            "本院修正議決",
+        ]
+        for r in passed_originals:
+            assert Proposal.normalize_result(r) == "passed", f"{r} should map to passed"
+
+    def test_normalize_result_expired(self) -> None:
+        assert Proposal.normalize_result("未了") == "expired"
+
+    def test_normalize_result_withdrawn(self) -> None:
+        assert Proposal.normalize_result("撤回") == "withdrawn"
+
+    def test_normalize_result_pending(self) -> None:
+        for r in [
+            "衆議院で閉会中審査",
+            "参議院で閉会中審査",
+            "中間報告",
+        ]:
+            assert Proposal.normalize_result(r) == "pending"
+
+    def test_normalize_result_rejected(self) -> None:
+        for r in [
+            "両院の意見が一致しない旨報告",
+            "参議院回付案（不同意）",
+            "承諾なし",
+        ]:
+            assert Proposal.normalize_result(r) == "rejected"
+
+    def test_normalize_result_empty_returns_none(self) -> None:
+        assert Proposal.normalize_result("") is None
+
+    def test_normalize_result_unknown_returns_other(self) -> None:
+        assert Proposal.normalize_result("不明な結果") == "other"
+
+    def test_normalize_result_strips_whitespace(self) -> None:
+        assert Proposal.normalize_result("衆議院回付案(同意) ") == "passed"
+        assert Proposal.normalize_result(" 成立 ") == "passed"
+
+    def test_all_result_map_entries(self) -> None:
+        assert "" not in DELIBERATION_RESULT_MAP
