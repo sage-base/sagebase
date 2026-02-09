@@ -44,6 +44,22 @@ just test
 just db
 ```
 
+#### ⚠️ バインドマウントの範囲
+
+Dockerコンテナにバインドマウントされているのは以下のディレクトリ/ファイルのみです：
+
+- `src/` → `/app/src/`
+- `tests/` → `/app/tests/`
+- `baml_src/` → `/app/baml_src/`
+- `pyproject.toml` → `/app/pyproject.toml`
+- `.streamlit/` → `/app/.streamlit/`
+
+**`scripts/` はマウントされていません。** `scripts/` 配下のファイルを変更した場合は、コンテナの再ビルドが必要です：
+
+```bash
+docker compose -f docker/docker-compose.yml up -d --build sagebase
+```
+
 #### 理由
 - 環境の一貫性
 - 依存関係の管理
