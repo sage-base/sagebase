@@ -15,6 +15,7 @@ from src.common.logging import get_logger
 from src.domain.entities.extracted_proposal_judge import ExtractedProposalJudge
 from src.domain.entities.proposal import Proposal
 from src.domain.entities.proposal_judge import ProposalJudge
+from src.domain.entities.proposal_submitter import ProposalSubmitter
 from src.domain.value_objects.submitter_type import SubmitterType
 from src.interfaces.web.streamlit.presenters.politician_presenter import (
     PoliticianPresenter,
@@ -26,6 +27,8 @@ from src.interfaces.web.streamlit.views.politicians_view import PREFECTURES
 
 logger = get_logger(__name__)
 
+# 議案一覧のページサイズ
+PROPOSALS_PAGE_SIZE = 20
 
 # 提出者種別のアイコンマッピング
 SUBMITTER_TYPE_ICONS: dict[str, str] = {
@@ -157,6 +160,7 @@ def render_proposals_page() -> None:
 
 def render_proposals_tab(presenter: ProposalPresenter) -> None:
     """Render the proposals management tab."""
+
     # Filter section
     col1, col2, col3 = st.columns([2, 1, 1])
 
@@ -284,8 +288,69 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
         # Display proposals list
         if proposals:
             st.subheader("議案一覧")
-            for proposal in proposals:
-                render_proposal_row(presenter, proposal)
+
+            # ページネーション
+            if "proposals_page" not in st.session_state:
+                st.session_state.proposals_page = 0
+
+            total_pages = max(
+                1,
+                (len(proposals) + PROPOSALS_PAGE_SIZE - 1) // PROPOSALS_PAGE_SIZE,
+            )
+            # ページ番号がはみ出さないよう補正
+            if st.session_state.proposals_page >= total_pages:
+                st.session_state.proposals_page = total_pages - 1
+
+            page = st.session_state.proposals_page
+            start = page * PROPOSALS_PAGE_SIZE
+            end = start + PROPOSALS_PAGE_SIZE
+            page_proposals = proposals[start:end]
+
+            # ページ内議案の提出者を一括プリロード
+            page_proposal_ids = [p.id for p in page_proposals if p.id is not None]
+            submitters_map = presenter.load_submitters_batch(page_proposal_ids)
+            politicians = presenter.load_politicians()
+            politician_names: dict[int, str] = {
+                p.id: p.name for p in politicians if p.id is not None
+            }
+            conferences_list = presenter.load_conferences()
+            conference_names: dict[int, str] = {
+                c["id"]: c["name"] for c in conferences_list
+            }
+
+            for proposal in page_proposals:
+                render_proposal_row(
+                    presenter,
+                    proposal,
+                    submitters_map,
+                    politician_names,
+                    conference_names,
+                )
+
+            # ページネーションUI
+            if total_pages > 1:
+                col_prev, col_info, col_next = st.columns([1, 2, 1])
+                with col_prev:
+                    if st.button(
+                        "← 前へ",
+                        disabled=st.session_state.proposals_page == 0,
+                        key="proposals_prev_page",
+                    ):
+                        st.session_state.proposals_page -= 1
+                        st.rerun()
+                with col_info:
+                    st.markdown(
+                        f"ページ {st.session_state.proposals_page + 1} / {total_pages}"
+                        f"（全{len(proposals)}件）",
+                    )
+                with col_next:
+                    if st.button(
+                        "次へ →",
+                        disabled=st.session_state.proposals_page >= total_pages - 1,
+                        key="proposals_next_page",
+                    ):
+                        st.session_state.proposals_page += 1
+                        st.rerun()
         else:
             st.info("表示する議案がありません。")
 
@@ -538,39 +603,71 @@ def render_scrape_proposal_section(presenter: ProposalPresenter) -> None:
                             handle_ui_error(e, "議案の抽出")
 
 
-def render_proposal_row(presenter: ProposalPresenter, proposal: Proposal) -> None:
+def render_proposal_row(
+    presenter: ProposalPresenter,
+    proposal: Proposal,
+    submitters_map: dict[int, list[ProposalSubmitter]] | None = None,
+    politician_names: dict[int, str] | None = None,
+    conference_names: dict[int, str] | None = None,
+) -> None:
     """Render a single proposal row."""
     # Check if this proposal is being edited
     if proposal.id is not None and presenter.is_editing(proposal.id):
         render_edit_proposal_form(presenter, proposal)
     else:
-        render_proposal_display(presenter, proposal)
+        render_proposal_display(
+            presenter, proposal, submitters_map, politician_names, conference_names
+        )
 
 
-def render_submitters_display(presenter: ProposalPresenter, proposal: Proposal) -> None:
+def render_submitters_display(
+    presenter: ProposalPresenter,
+    proposal: Proposal,
+    submitters_map: dict[int, list[ProposalSubmitter]] | None = None,
+    politician_names: dict[int, str] | None = None,
+    conference_names: dict[int, str] | None = None,
+) -> None:
     """提出者情報を種別アイコン付きで表示する.
 
     Args:
         presenter: ProposalPresenter
         proposal: 議案エンティティ
+        submitters_map: プリロード済み提出者マップ（議案ID→提出者リスト）
+        politician_names: プリロード済み政治家名マップ（政治家ID→名前）
+        conference_names: プリロード済み会議体名マップ（会議体ID→名前）
     """
     try:
-        submitters = presenter.load_submitters(proposal.id)  # type: ignore[arg-type]
+        # プリロード済みデータがあればそれを使用、なければ個別取得（後方互換）
+        if submitters_map is not None and proposal.id is not None:
+            submitters = submitters_map.get(proposal.id, [])
+        else:
+            submitters = presenter.load_submitters(proposal.id)  # type: ignore[arg-type]
+
         if not submitters:
             st.markdown("**提出者**: 未設定")
             return
 
-        # 名前解決用のデータを取得
-        politicians = presenter.load_politicians()
-        politician_names = {p.id: p.name for p in politicians}
+        # プリロード済みデータがない場合のみ個別取得
+        if politician_names is None:
+            politicians = presenter.load_politicians()
+            politician_names = {p.id: p.name for p in politicians if p.id is not None}
 
-        parliamentary_groups = presenter.load_parliamentary_groups_for_proposal(
-            proposal.id  # type: ignore[arg-type]
-        )
-        pg_names = {pg.id: pg.name for pg in parliamentary_groups if pg.id}
+        if conference_names is None:
+            conferences = presenter.load_conferences()
+            conference_names = {c["id"]: c["name"] for c in conferences}
 
-        conferences = presenter.load_conferences()
-        conference_names = {c["id"]: c["name"] for c in conferences}
+        # 会派名はsubmittersから必要な場合のみ取得
+        pg_names: dict[int, str] = {}
+        needs_pg = any(s.parliamentary_group_id for s in submitters)
+        if needs_pg:
+            parliamentary_groups = presenter.load_parliamentary_groups_for_proposal(
+                proposal.id  # type: ignore[arg-type]
+            )
+            pg_names = {pg.id: pg.name for pg in parliamentary_groups if pg.id}
+
+        # ここまでで politician_names, conference_names は確実に非None
+        assert politician_names is not None
+        assert conference_names is not None
 
         submitter_display_parts = []
 
@@ -608,7 +705,13 @@ def render_submitters_display(presenter: ProposalPresenter, proposal: Proposal) 
         st.markdown("**提出者**: （読み込みエラー）")
 
 
-def render_proposal_display(presenter: ProposalPresenter, proposal: Proposal) -> None:
+def render_proposal_display(
+    presenter: ProposalPresenter,
+    proposal: Proposal,
+    submitters_map: dict[int, list[ProposalSubmitter]] | None = None,
+    politician_names: dict[int, str] | None = None,
+    conference_names: dict[int, str] | None = None,
+) -> None:
     """Render proposal in display mode."""
     # Get related data from session state
     related_data_map: dict[int, dict[str, str | None]] = st.session_state.get(
@@ -640,7 +743,9 @@ def render_proposal_display(presenter: ProposalPresenter, proposal: Proposal) ->
                     st.markdown("**開催主体**: 未設定")
 
             # Display submitters with type icons
-            render_submitters_display(presenter, proposal)
+            render_submitters_display(
+                presenter, proposal, submitters_map, politician_names, conference_names
+            )
 
             if proposal.detail_url:
                 st.markdown(f"[詳細URL]({proposal.detail_url})")

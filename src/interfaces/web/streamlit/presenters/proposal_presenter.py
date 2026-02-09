@@ -692,6 +692,25 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         """Load submitters for a proposal (async implementation)."""
         return await self.submitter_repository.get_by_proposal(proposal_id)  # type: ignore[attr-defined]
 
+    def load_submitters_batch(
+        self, proposal_ids: list[int]
+    ) -> dict[int, list[ProposalSubmitter]]:
+        """複数議案の提出者を一括取得する.
+
+        Args:
+            proposal_ids: 議案IDのリスト
+
+        Returns:
+            議案IDをキー、提出者リストを値とする辞書
+        """
+        return self._run_async(self._load_submitters_batch_async(proposal_ids))
+
+    async def _load_submitters_batch_async(
+        self, proposal_ids: list[int]
+    ) -> dict[int, list[ProposalSubmitter]]:
+        """複数議案の提出者を一括取得する（async実装）."""
+        return await self.submitter_repository.get_by_proposal_ids(proposal_ids)  # type: ignore[attr-defined]
+
     def update_submitters(
         self,
         proposal_id: int,

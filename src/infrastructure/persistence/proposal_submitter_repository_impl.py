@@ -303,6 +303,64 @@ class ProposalSubmitterRepositoryImpl(
                 {"proposal_id": proposal_id, "error": str(e)},
             ) from e
 
+    async def get_by_proposal_ids(
+        self, proposal_ids: list[int]
+    ) -> dict[int, list[ProposalSubmitter]]:
+        """複数議案の提出者を一括取得する.
+
+        Args:
+            proposal_ids: 議案IDのリスト
+
+        Returns:
+            議案IDをキー、提出者リストを値とする辞書
+        """
+        if not proposal_ids:
+            return {}
+
+        try:
+            query = text("""
+                SELECT
+                    id,
+                    proposal_id,
+                    submitter_type,
+                    politician_id,
+                    parliamentary_group_id,
+                    conference_id,
+                    raw_name,
+                    is_representative,
+                    display_order,
+                    created_at,
+                    updated_at
+                FROM proposal_submitters
+                WHERE proposal_id = ANY(:proposal_ids)
+                ORDER BY proposal_id, display_order ASC, id ASC
+            """)
+
+            result = await self.session.execute(query, {"proposal_ids": proposal_ids})
+            rows = result.fetchall()
+
+            submitters_map: dict[int, list[ProposalSubmitter]] = {}
+            for row in rows:
+                if hasattr(row, "_asdict"):
+                    row_dict = row._asdict()  # type: ignore[attr-defined]
+                elif hasattr(row, "_mapping"):
+                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
+                else:
+                    row_dict = dict(row)
+                entity = self._dict_to_entity(row_dict)
+                if entity.proposal_id not in submitters_map:
+                    submitters_map[entity.proposal_id] = []
+                submitters_map[entity.proposal_id].append(entity)
+
+            return submitters_map
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error getting submitters by proposal IDs: {e}")
+            raise DatabaseError(
+                "Failed to get submitters by proposal IDs",
+                {"proposal_ids": proposal_ids, "error": str(e)},
+            ) from e
+
     async def get_all(
         self, limit: int | None = None, offset: int | None = 0
     ) -> list[ProposalSubmitter]:
