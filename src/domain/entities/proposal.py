@@ -3,6 +3,55 @@
 from src.domain.entities.base import BaseEntity
 
 
+PROPOSAL_CATEGORY_MAP: dict[str, str] = {
+    "衆法": "legislation",
+    "閣法": "legislation",
+    "参法": "legislation",
+    "予算": "budget",
+    "条約": "treaty",
+    "承認": "approval",
+    "承諾": "approval",
+    "決算": "audit",
+    "国有財産": "audit",
+    "ＮＨＫ決算": "audit",
+    "決議": "other",
+    "規程": "other",
+    "規則": "other",
+    "議決": "other",
+    "国庫債務": "other",
+    "憲法八条議決案": "other",
+}
+
+DELIBERATION_RESULT_MAP: dict[str, str] = {
+    "成立": "passed",
+    "本院議了": "passed",
+    "両院承認": "passed",
+    "両院承諾": "passed",
+    "本院可決": "passed",
+    "参議院回付案（同意）": "passed",
+    "衆議院議決案（可決）": "passed",
+    "参議院議了": "passed",
+    "両院議決": "passed",
+    # 元データに半角括弧の表記揺れが存在する
+    "衆議院回付案(同意)": "passed",
+    "衆議院回付案（同意）": "passed",
+    "本院修正議決": "passed",
+    "承認": "passed",
+    "修正承諾": "passed",
+    "撤回承諾": "passed",
+    "議決不要": "passed",
+    "未了": "expired",
+    "撤回": "withdrawn",
+    "衆議院で閉会中審査": "pending",
+    "参議院で閉会中審査": "pending",
+    "中間報告": "pending",
+    "両院の意見が一致しない旨報告": "rejected",
+    "参議院回付案（不同意）": "rejected",
+    "承諾なし": "rejected",
+    "衆議院で併合修正": "other",
+}
+
+
 class Proposal(BaseEntity):
     """議案を表すエンティティ."""
 
@@ -55,3 +104,15 @@ class Proposal(BaseEntity):
                 self.proposal_type is not None,
             ]
         )
+
+    @staticmethod
+    def normalize_category(raw_type: str) -> str:
+        """議案種別を正規化カテゴリに変換する."""
+        return PROPOSAL_CATEGORY_MAP.get(raw_type, "other")
+
+    @staticmethod
+    def normalize_result(raw_result: str) -> str | None:
+        """審議結果を正規化する."""
+        if not raw_result:
+            return None
+        return DELIBERATION_RESULT_MAP.get(raw_result.strip(), "other")
