@@ -15,3 +15,4 @@ class ImportSmartNewsSmriOutputDto:
     created: int = 0
     skipped: int = 0
     errors: int = 0
+    judges_created: int = 0

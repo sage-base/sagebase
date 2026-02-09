@@ -15,6 +15,9 @@ from src.application.usecases.import_smartnews_smri_usecase import (
     ImportSmartNewsSmriUseCase,
 )
 from src.domain.entities.proposal import Proposal
+from src.domain.repositories.extracted_proposal_judge_repository import (
+    ExtractedProposalJudgeRepository,
+)
 from src.domain.repositories.proposal_repository import ProposalRepository
 
 
@@ -39,6 +42,20 @@ def _make_record(
         "",
         [["200", result, "経過", url, "", "", proposal_type, *[""] * 16]],
     ]
+
+
+def _make_record_with_judges(
+    sansei: str = "",
+    hantai: str = "",
+    **kwargs: Any,
+) -> list[Any]:
+    record = _make_record(**kwargs)
+    nested_row = record[10][0]
+    while len(nested_row) <= 15:
+        nested_row.append("")
+    nested_row[14] = sansei
+    nested_row[15] = hantai
+    return record
 
 
 def _write_json(records: list[list[Any]]) -> Path:
@@ -217,3 +234,82 @@ class TestImportSmartNewsSmriDtos:
         assert dto.created == 0
         assert dto.skipped == 0
         assert dto.errors == 0
+        assert dto.judges_created == 0
+
+
+class TestImportSmartNewsSmriUseCaseWithJudges:
+    @pytest.fixture
+    def mock_repo(self) -> AsyncMock:
+        repo = AsyncMock(spec=ProposalRepository)
+        repo.find_by_identifier = AsyncMock(return_value=None)
+        repo.find_by_url = AsyncMock(return_value=None)
+        repo.create = AsyncMock(side_effect=lambda p: Proposal(title=p.title, id=42))
+        return repo
+
+    @pytest.fixture
+    def mock_judge_repo(self) -> AsyncMock:
+        repo = AsyncMock(spec=ExtractedProposalJudgeRepository)
+        repo.bulk_create = AsyncMock(return_value=[])
+        return repo
+
+    @pytest.mark.asyncio
+    async def test_creates_judges_with_repo(
+        self,
+        mock_repo: AsyncMock,
+        mock_judge_repo: AsyncMock,
+    ) -> None:
+        use_case = ImportSmartNewsSmriUseCase(
+            proposal_repository=mock_repo,
+            extracted_proposal_judge_repository=mock_judge_repo,
+        )
+        records = [_make_record_with_judges(sansei="自民党;公明党", hantai="立憲")]
+        file_path = _write_json(records)
+        input_dto = ImportSmartNewsSmriInputDto(
+            file_path=file_path, governing_body_id=1
+        )
+        result = await use_case.execute(input_dto)
+
+        assert result.created == 1
+        assert result.judges_created == 3
+        mock_judge_repo.bulk_create.assert_called_once()
+        judges = mock_judge_repo.bulk_create.call_args[0][0]
+        assert len(judges) == 3
+
+    @pytest.mark.asyncio
+    async def test_backward_compat_without_judge_repo(
+        self,
+        mock_repo: AsyncMock,
+    ) -> None:
+        use_case = ImportSmartNewsSmriUseCase(
+            proposal_repository=mock_repo,
+        )
+        records = [_make_record_with_judges(sansei="自民党")]
+        file_path = _write_json(records)
+        input_dto = ImportSmartNewsSmriInputDto(
+            file_path=file_path, governing_body_id=1
+        )
+        result = await use_case.execute(input_dto)
+
+        assert result.created == 1
+        assert result.judges_created == 0
+
+    @pytest.mark.asyncio
+    async def test_judge_error_does_not_block_proposal_import(
+        self,
+        mock_repo: AsyncMock,
+        mock_judge_repo: AsyncMock,
+    ) -> None:
+        mock_judge_repo.bulk_create.side_effect = Exception("DB error")
+        use_case = ImportSmartNewsSmriUseCase(
+            proposal_repository=mock_repo,
+            extracted_proposal_judge_repository=mock_judge_repo,
+        )
+        records = [_make_record_with_judges(sansei="自民党")]
+        file_path = _write_json(records)
+        input_dto = ImportSmartNewsSmriInputDto(
+            file_path=file_path, governing_body_id=1
+        )
+        result = await use_case.execute(input_dto)
+
+        assert result.created == 1
+        assert result.judges_created == 0

@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from src.domain.entities.extracted_proposal_judge import ExtractedProposalJudge
 from src.domain.entities.proposal import Proposal
 
 
@@ -17,6 +18,10 @@ _IDX_TITLE = 3
 _IDX_RESULT = 5
 _IDX_NESTED_DATA = 10
 _IDX_NESTED_URL = 3
+_IDX_NESTED_SANSEI_KAIHA = 14
+_IDX_NESTED_HANTAI_KAIHA = 15
+
+_SOURCE_URL = "smartnews-smri/house-of-representatives"
 
 
 class SmartNewsSmriImporter:
@@ -55,6 +60,42 @@ class SmartNewsSmriImporter:
             # detail_urlにexternal_idを設定し、find_by_urlでの重複チェックに使用
             detail_url=external_id,
         )
+
+    @staticmethod
+    def parse_group_judges(
+        record: list[Any], proposal_id: int
+    ) -> list[ExtractedProposalJudge]:
+        judges: list[ExtractedProposalJudge] = []
+        try:
+            nested = record[_IDX_NESTED_DATA]
+            if not nested or not nested[0]:
+                return judges
+            row = nested[0]
+            for idx, judgment in [
+                (_IDX_NESTED_SANSEI_KAIHA, "賛成"),
+                (_IDX_NESTED_HANTAI_KAIHA, "反対"),
+            ]:
+                if len(row) <= idx:
+                    continue
+                raw = row[idx]
+                if not raw:
+                    continue
+                for name in raw.split(";"):
+                    name = name.strip()
+                    if not name:
+                        continue
+                    judges.append(
+                        ExtractedProposalJudge(
+                            proposal_id=proposal_id,
+                            extracted_parliamentary_group_name=name,
+                            extracted_judgment=judgment,
+                            source_url=_SOURCE_URL,
+                            matching_status="pending",
+                        )
+                    )
+        except (IndexError, TypeError):
+            pass
+        return judges
 
     @staticmethod
     def _extract_external_id(record: list[Any]) -> str | None:

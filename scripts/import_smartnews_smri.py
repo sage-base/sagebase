@@ -17,6 +17,9 @@ from src.application.usecases.import_smartnews_smri_usecase import (
     ImportSmartNewsSmriUseCase,
 )
 from src.infrastructure.config.async_database import get_async_session
+from src.infrastructure.persistence.extracted_proposal_judge_repository_impl import (
+    ExtractedProposalJudgeRepositoryImpl,
+)
 from src.infrastructure.persistence.governing_body_repository_impl import (
     GoverningBodyRepositoryImpl,
 )
@@ -57,8 +60,10 @@ async def main(file_path: Path, batch_size: int) -> None:
         )
 
         proposal_repo = ProposalRepositoryImpl(session)
+        judge_repo = ExtractedProposalJudgeRepositoryImpl(session)
         use_case = ImportSmartNewsSmriUseCase(
             proposal_repository=proposal_repo,
+            extracted_proposal_judge_repository=judge_repo,
         )
 
         input_dto = ImportSmartNewsSmriInputDto(
@@ -73,6 +78,7 @@ async def main(file_path: Path, batch_size: int) -> None:
         logger.info("作成: %d", result.created)
         logger.info("スキップ: %d", result.skipped)
         logger.info("エラー: %d", result.errors)
+        logger.info("賛否データ: %d", result.judges_created)
 
         if result.errors > 0:
             sys.exit(1)
