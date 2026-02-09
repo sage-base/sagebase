@@ -501,6 +501,89 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
                 {"conference_id": conference_id, "error": str(e)},
             ) from e
 
+    async def get_filtered_paginated(
+        self,
+        *,
+        meeting_id: int | None = None,
+        conference_id: int | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[Proposal]:
+        """フィルター条件付きでページネーションされた議案を取得する."""
+        try:
+            where_clauses: list[str] = []
+            params: dict[str, Any] = {"limit": limit, "offset": offset}
+
+            if meeting_id is not None:
+                where_clauses.append("meeting_id = :meeting_id")
+                params["meeting_id"] = meeting_id
+            if conference_id is not None:
+                where_clauses.append("conference_id = :conference_id")
+                params["conference_id"] = conference_id
+
+            where_sql = ""
+            if where_clauses:
+                where_sql = "WHERE " + " AND ".join(where_clauses)
+
+            query = text(f"""
+                SELECT {_SELECT_COLUMNS}
+                FROM proposals
+                {where_sql}
+                ORDER BY id ASC
+                LIMIT :limit OFFSET :offset
+            """)
+
+            result = await self.session.execute(query, params)
+            rows = result.fetchall()
+
+            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error getting paginated proposals: {e}")
+            raise DatabaseError(
+                "Failed to get paginated proposals",
+                {"error": str(e)},
+            ) from e
+
+    async def count_filtered(
+        self,
+        *,
+        meeting_id: int | None = None,
+        conference_id: int | None = None,
+    ) -> int:
+        """フィルター条件付きで議案件数を取得する."""
+        try:
+            where_clauses: list[str] = []
+            params: dict[str, Any] = {}
+
+            if meeting_id is not None:
+                where_clauses.append("meeting_id = :meeting_id")
+                params["meeting_id"] = meeting_id
+            if conference_id is not None:
+                where_clauses.append("conference_id = :conference_id")
+                params["conference_id"] = conference_id
+
+            where_sql = ""
+            if where_clauses:
+                where_sql = "WHERE " + " AND ".join(where_clauses)
+
+            query = text(f"""
+                SELECT COUNT(*)
+                FROM proposals
+                {where_sql}
+            """)
+
+            result = await self.session.execute(query, params)
+            count = result.scalar()
+            return count if count is not None else 0
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error counting filtered proposals: {e}")
+            raise DatabaseError(
+                "Failed to count filtered proposals",
+                {"error": str(e)},
+            ) from e
+
     async def find_by_url(self, url: str) -> Proposal | None:
         """Find proposal by URL (detail_url, status_url, or votes_url).
 

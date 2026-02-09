@@ -34,6 +34,46 @@ class ProposalRepository(BaseRepository[Proposal]):
         pass
 
     @abstractmethod
+    async def get_filtered_paginated(
+        self,
+        *,
+        meeting_id: int | None = None,
+        conference_id: int | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[Proposal]:
+        """フィルター条件付きでページネーションされた議案を取得する.
+
+        Args:
+            meeting_id: 会議IDフィルター（指定時のみ適用）
+            conference_id: 会議体IDフィルター（指定時のみ適用）
+            limit: 取得件数
+            offset: スキップ件数
+
+        Returns:
+            議案リスト
+        """
+        pass
+
+    @abstractmethod
+    async def count_filtered(
+        self,
+        *,
+        meeting_id: int | None = None,
+        conference_id: int | None = None,
+    ) -> int:
+        """フィルター条件付きで議案件数を取得する.
+
+        Args:
+            meeting_id: 会議IDフィルター（指定時のみ適用）
+            conference_id: 会議体IDフィルター（指定時のみ適用）
+
+        Returns:
+            議案件数
+        """
+        pass
+
+    @abstractmethod
     async def find_by_url(self, url: str) -> Proposal | None:
         """Find proposal by URL.
 

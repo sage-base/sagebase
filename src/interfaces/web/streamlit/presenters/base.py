@@ -6,12 +6,11 @@ common presenter functionality.
 """
 
 import asyncio
+import threading
 
 from abc import ABC, abstractmethod
 from collections.abc import Coroutine
 from typing import Any, Generic, TypeVar
-
-import nest_asyncio
 
 from src.common.logging import get_logger
 from src.infrastructure.di.container import Container
@@ -19,6 +18,24 @@ from src.infrastructure.di.container import Container
 
 T = TypeVar("T")
 R = TypeVar("R")
+
+# 専用バックグラウンドスレッドのevent loop
+# Streamlit/TornadoのメインEvent Loopに干渉しないよう、非同期処理は別スレッドで実行する
+_dedicated_loop: asyncio.AbstractEventLoop | None = None
+_dedicated_loop_lock = threading.Lock()
+
+
+def _get_dedicated_loop() -> asyncio.AbstractEventLoop:
+    """非同期処理用の専用event loopを取得する（なければ起動する）."""
+    global _dedicated_loop
+    with _dedicated_loop_lock:
+        if _dedicated_loop is None or _dedicated_loop.is_closed():
+            _dedicated_loop = asyncio.new_event_loop()
+            thread = threading.Thread(
+                target=_dedicated_loop.run_forever, daemon=True, name="presenter-async"
+            )
+            thread.start()
+        return _dedicated_loop
 
 
 class BasePresenter(ABC, Generic[T]):  # noqa: UP046
@@ -43,9 +60,9 @@ class BasePresenter(ABC, Generic[T]):  # noqa: UP046
     def _run_async(self, coro: Coroutine[Any, Any, R]) -> R:
         """Run an async coroutine from sync context.
 
-        This helper method allows presenters to call async use cases from
-        synchronous Streamlit code. It handles event loop management and
-        nested asyncio scenarios.
+        専用バックグラウンドスレッドのevent loopでコルーチンを実行する。
+        Streamlit/TornadoのメインEvent Loopには一切触れないため、
+        WebSocketClosedErrorやevent loop衝突が発生しない。
 
         Args:
             coro: The async coroutine to run
@@ -56,28 +73,10 @@ class BasePresenter(ABC, Generic[T]):  # noqa: UP046
         Raises:
             Exception: If the async operation fails
         """
-        nest_asyncio.apply()
-
         try:
-            # Get or create event loop
-            try:
-                loop = asyncio.get_event_loop()
-                # Check if the loop is closed and create a new one if needed
-                if loop.is_closed():
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            # Run the coroutine in the current loop
-            if loop.is_running():
-                # If loop is already running, create a task and wait for it
-                task = loop.create_task(coro)
-                return loop.run_until_complete(task)
-            else:
-                # If loop is not running, run normally
-                return loop.run_until_complete(coro)
+            loop = _get_dedicated_loop()
+            future = asyncio.run_coroutine_threadsafe(coro, loop)
+            return future.result()
         except Exception as e:
             self.logger.error(f"Failed to run async operation: {e}")
             raise

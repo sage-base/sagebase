@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 
+from dataclasses import dataclass, field
 from typing import Any, cast
 from uuid import UUID
 
@@ -105,6 +106,18 @@ from src.interfaces.web.streamlit.presenters.base import CRUDPresenter
 from src.interfaces.web.streamlit.utils.session_manager import SessionManager
 
 
+@dataclass
+class ProposalsPageData:
+    """議案一覧ページの一括取得データ."""
+
+    result: ProposalListOutputDto
+    related_data_map: dict[int, dict[str, str | None]] = field(default_factory=dict)
+    submitters_map: dict[int, list[ProposalSubmitter]] = field(default_factory=dict)
+    politician_names: dict[int, str] = field(default_factory=dict)
+    conference_names: dict[int, str] = field(default_factory=dict)
+    pg_names: dict[int, str] = field(default_factory=dict)
+
+
 class ProposalPresenter(CRUDPresenter[list[Proposal]]):
     """Presenter for proposal management."""
 
@@ -199,15 +212,31 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         result = self.load_data_filtered("all")
         return result.proposals
 
+    def load_proposal_by_id(self, proposal_id: int) -> Proposal | None:
+        """IDを指定して議案を1件取得する."""
+        return self._run_async(self._load_proposal_by_id_async(proposal_id))
+
+    async def _load_proposal_by_id_async(self, proposal_id: int) -> Proposal | None:
+        """IDを指定して議案を1件取得する（非同期実装）."""
+        try:
+            return await self.proposal_repository.get_by_id(proposal_id)  # type: ignore[attr-defined]
+        except Exception:
+            self.logger.exception(f"議案ID {proposal_id} の読み込みに失敗")
+            return None
+
     def load_data_filtered(
         self,
         filter_type: str = "all",
         meeting_id: int | None = None,
         conference_id: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
     ) -> ProposalListOutputDto:
         """Load proposals with filter."""
         return self._run_async(
-            self._load_data_filtered_async(filter_type, meeting_id, conference_id)
+            self._load_data_filtered_async(
+                filter_type, meeting_id, conference_id, limit, offset
+            )
         )
 
     async def _load_data_filtered_async(
@@ -215,6 +244,8 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         filter_type: str = "all",
         meeting_id: int | None = None,
         conference_id: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
     ) -> ProposalListOutputDto:
         """Load proposals with filter (async implementation)."""
         try:
@@ -222,6 +253,8 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
                 filter_type=filter_type,
                 meeting_id=meeting_id,
                 conference_id=conference_id,
+                limit=limit,
+                offset=offset,
             )
             return await self.manage_usecase.list_proposals(input_dto)
         except Exception as e:
@@ -721,6 +754,73 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         """全アクティブ会派のID→名前マップを取得する（async実装）."""
         groups = await self.parliamentary_group_repository.get_active()  # type: ignore[attr-defined]
         return {g.id: g.name for g in groups if g.id}
+
+    def load_proposals_page_data(
+        self,
+        filter_type: str = "all",
+        meeting_id: int | None = None,
+        conference_id: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> ProposalsPageData:
+        """議案一覧ページのデータを1回のasync呼び出しで一括取得する.
+
+        _run_async呼び出しを1回に統合し、fragment内でのevent loopブロックを最小化。
+        """
+        return self._run_async(
+            self._load_proposals_page_data_async(
+                filter_type, meeting_id, conference_id, limit, offset
+            )
+        )
+
+    async def _load_proposals_page_data_async(
+        self,
+        filter_type: str = "all",
+        meeting_id: int | None = None,
+        conference_id: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> ProposalsPageData:
+        """議案一覧ページのデータを一括取得する（async実装）."""
+        # 1. フィルタ付き議案取得
+        result = await self._load_data_filtered_async(
+            filter_type, meeting_id, conference_id, limit, offset
+        )
+        proposals = result.proposals
+
+        if not proposals:
+            return ProposalsPageData(result=result)
+
+        # 2. 関連データマップ構築
+        related_data_map = await self._build_proposal_related_data_map_async(proposals)
+
+        # 3. 提出者を一括取得
+        page_proposal_ids = [p.id for p in proposals if p.id is not None]
+        submitters_map: dict[int, list[ProposalSubmitter]] = {}
+        if page_proposal_ids:
+            submitters_map = await self._load_submitters_batch_async(page_proposal_ids)
+
+        # 4. 政治家一覧取得
+        politicians = await self._load_politicians_async()
+        politician_names: dict[int, str] = {
+            p.id: p.name for p in politicians if p.id is not None
+        }
+
+        # 5. 会議体一覧取得
+        conferences = await self._load_conferences_async()
+        conference_names: dict[int, str] = {c["id"]: c["name"] for c in conferences}
+
+        # 6. 会派名一覧取得
+        pg_names = await self._load_all_parliamentary_group_names_async()
+
+        return ProposalsPageData(
+            result=result,
+            related_data_map=related_data_map,
+            submitters_map=submitters_map,
+            politician_names=politician_names,
+            conference_names=conference_names,
+            pg_names=pg_names,
+        )
 
     def update_submitters(
         self,

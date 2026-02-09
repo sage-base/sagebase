@@ -28,6 +28,8 @@ class ProposalListInputDto:
     meeting_id: int | None = None  # Filter by meeting (if filter_type='by_meeting')
     conference_id: int | None = None  # Filter by conference
     order_by: str = "id"
+    limit: int | None = None  # ページネーション: 取得件数（Noneで全件）
+    offset: int = 0  # ページネーション: スキップ件数
 
 
 @dataclass
@@ -60,6 +62,7 @@ class ProposalListOutputDto:
 
     proposals: list[Proposal]
     statistics: ProposalStatistics
+    total_count: int = 0  # フィルター条件に合致する全件数（ページネーション用）
 
 
 @dataclass
@@ -153,17 +156,38 @@ class ManageProposalsUseCase:
             Output DTO with proposals and statistics
         """
         try:
-            # Get proposals based on filter
-            if input_dto.filter_type == "by_meeting" and input_dto.meeting_id:
-                proposals = await self.repository.get_by_meeting_id(
-                    input_dto.meeting_id
+            # ページネーション付きの場合はDB側でページネーション
+            if input_dto.limit is not None:
+                # フィルター条件を構築
+                filter_kwargs: dict[str, int | None] = {}
+                if input_dto.filter_type == "by_meeting" and input_dto.meeting_id:
+                    filter_kwargs["meeting_id"] = input_dto.meeting_id
+                elif (
+                    input_dto.filter_type == "by_conference" and input_dto.conference_id
+                ):
+                    filter_kwargs["conference_id"] = input_dto.conference_id
+
+                proposals = await self.repository.get_filtered_paginated(
+                    limit=input_dto.limit,
+                    offset=input_dto.offset,
+                    **filter_kwargs,
                 )
-            elif input_dto.filter_type == "by_conference" and input_dto.conference_id:
-                proposals = await self.repository.get_by_conference_id(
-                    input_dto.conference_id
-                )
+                total_count = await self.repository.count_filtered(**filter_kwargs)
             else:
-                proposals = await self.repository.get_all()
+                # 後方互換: limit未指定時は従来通り全件取得
+                if input_dto.filter_type == "by_meeting" and input_dto.meeting_id:
+                    proposals = await self.repository.get_by_meeting_id(
+                        input_dto.meeting_id
+                    )
+                elif (
+                    input_dto.filter_type == "by_conference" and input_dto.conference_id
+                ):
+                    proposals = await self.repository.get_by_conference_id(
+                        input_dto.conference_id
+                    )
+                else:
+                    proposals = await self.repository.get_all()
+                total_count = len(proposals)
 
             # Sort proposals
             if input_dto.order_by == "id":
@@ -182,7 +206,11 @@ class ManageProposalsUseCase:
                 with_votes_url=with_votes_url,
             )
 
-            return ProposalListOutputDto(proposals=proposals, statistics=statistics)
+            return ProposalListOutputDto(
+                proposals=proposals,
+                statistics=statistics,
+                total_count=total_count,
+            )
 
         except Exception as e:
             self.logger.error(f"Error listing proposals: {e}", exc_info=True)

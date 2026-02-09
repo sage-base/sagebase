@@ -142,17 +142,35 @@ def render_proposals_page() -> None:
         ["議案管理", "LLM抽出結果", "確定賛否情報", "賛否"]
     )
 
-    with tab1:
+    # 各タブを@st.fragmentでラップし、タブ間の不要なリランを防止
+    # （Streamlitはデフォルトで全タブを毎rerunで実行するため）
+    @st.fragment
+    def _tab1_fragment() -> None:
         render_proposals_tab(presenter)
 
-    with tab2:
+    @st.fragment
+    def _tab2_fragment() -> None:
         render_extracted_judges_tab(presenter)
 
-    with tab3:
+    @st.fragment
+    def _tab3_fragment() -> None:
         render_final_judges_tab(presenter)
 
-    with tab4:
+    @st.fragment
+    def _tab4_fragment() -> None:
         render_parliamentary_group_judges_tab(presenter)
+
+    with tab1:
+        _tab1_fragment()
+
+    with tab2:
+        _tab2_fragment()
+
+    with tab3:
+        _tab3_fragment()
+
+    with tab4:
+        _tab4_fragment()
 
 
 # ========== Tab 1: Proposal Management ==========
@@ -241,43 +259,53 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
     try:
         # 開催主体フィルターの場合は、その開催主体に属する会議体IDを取得してフィルター
         actual_conference_filter = conference_filter
-        governing_body_conference_ids: set[int] | None = None
         if filter_type == "by_governing_body" and governing_body_filter:
             # 開催主体に属する会議体をDB側で取得
             gb_conferences = presenter.load_conferences_by_governing_body(
                 governing_body_filter
             )
-            governing_body_conference_ids = {c["id"] for c in gb_conferences}
-            filter_type = "all"  # 全件取得して後で会議体IDでフィルター
-            actual_conference_filter = None
+            if gb_conferences:
+                # 最初の会議体IDでフィルター（DB側ページネーションを使うため）
+                # TODO: 複数会議体の場合はIN句対応が必要
+                actual_conference_filter = gb_conferences[0]["id"]
+                filter_type = "by_conference"
+            else:
+                actual_conference_filter = None
 
-        result = presenter.load_data_filtered(
+        # フィルター変更時にページをリセット
+        current_filter_key = (
+            f"{filter_type}:{meeting_filter}:{actual_conference_filter}"
+        )
+        prev_filter_key = st.session_state.get("proposals_filter_key", "")
+        if current_filter_key != prev_filter_key:
+            st.session_state.proposals_page = 0
+            st.session_state.proposals_filter_key = current_filter_key
+
+        # ページネーション状態
+        if "proposals_page" not in st.session_state:
+            st.session_state.proposals_page = 0
+
+        page = st.session_state.proposals_page
+        offset = page * PROPOSALS_PAGE_SIZE
+
+        # DB側ページネーションで必要なページ分だけ取得
+        # _run_async呼び出しを1回に統合し、fragment内でのevent loopブロックを最小化
+        page_data = presenter.load_proposals_page_data(
             filter_type=filter_type,
             meeting_id=meeting_filter,
             conference_id=actual_conference_filter,
+            limit=PROPOSALS_PAGE_SIZE,
+            offset=offset,
         )
 
-        # Build related data map for display
-        proposals = result.proposals
-        related_data_map: dict[int, dict[str, str | None]] = {}
-        if proposals:
-            # 開催主体フィルターが指定されている場合は、会議体IDで直接フィルタリング
-            if governing_body_conference_ids is not None:
-                proposals = [
-                    p
-                    for p in proposals
-                    if p.conference_id
-                    and p.conference_id in governing_body_conference_ids
-                ]
+        proposals = page_data.result.proposals
+        total_count = page_data.result.total_count
 
-            related_data_map = presenter.build_proposal_related_data_map(proposals)
-
-        # Store related data map in session for use in render functions
-        st.session_state["proposal_related_data_map"] = related_data_map
+        st.session_state["proposal_related_data_map"] = page_data.related_data_map
 
         # Display statistics
         with col3:
-            st.metric("議案数", len(proposals))
+            st.metric("議案数", total_count)
 
         # New proposal section
         render_new_proposal_form(presenter)
@@ -289,79 +317,55 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
         if proposals:
             st.subheader("議案一覧")
 
-            # フィルター変更時にページをリセット
-            current_filter_key = (
-                f"{filter_type}:{meeting_filter}:{actual_conference_filter}"
-            )
-            prev_filter_key = st.session_state.get("proposals_filter_key", "")
-            if current_filter_key != prev_filter_key:
-                st.session_state.proposals_page = 0
-                st.session_state.proposals_filter_key = current_filter_key
-
-            # ページネーション
-            if "proposals_page" not in st.session_state:
-                st.session_state.proposals_page = 0
-
             total_pages = max(
                 1,
-                (len(proposals) + PROPOSALS_PAGE_SIZE - 1) // PROPOSALS_PAGE_SIZE,
+                (total_count + PROPOSALS_PAGE_SIZE - 1) // PROPOSALS_PAGE_SIZE,
             )
             # ページ番号がはみ出さないよう補正
             if st.session_state.proposals_page >= total_pages:
                 st.session_state.proposals_page = total_pages - 1
 
-            page = st.session_state.proposals_page
-            start = page * PROPOSALS_PAGE_SIZE
-            end = start + PROPOSALS_PAGE_SIZE
-            page_proposals = proposals[start:end]
-
-            # ページ内議案の提出者を一括プリロード
-            page_proposal_ids = [p.id for p in page_proposals if p.id is not None]
-            submitters_map = presenter.load_submitters_batch(page_proposal_ids)
-            politicians = presenter.load_politicians()
-            politician_names: dict[int, str] = {
-                p.id: p.name for p in politicians if p.id is not None
-            }
-            conferences_list = presenter.load_conferences()
-            conference_names: dict[int, str] = {
-                c["id"]: c["name"] for c in conferences_list
-            }
-            pg_names = presenter.load_all_parliamentary_group_names()
-
-            for proposal in page_proposals:
+            for proposal in proposals:
                 render_proposal_row(
                     presenter,
                     proposal,
-                    submitters_map,
-                    politician_names,
-                    conference_names,
-                    pg_names,
+                    page_data.submitters_map,
+                    page_data.politician_names,
+                    page_data.conference_names,
+                    page_data.pg_names,
                 )
 
             # ページネーションUI
+            # on_clickコールバックを使用（st.rerunを避けevent loop衝突を防止）
+            def _go_prev() -> None:
+                st.session_state.proposals_page -= 1
+
+            def _go_next() -> None:
+                st.session_state.proposals_page += 1
+
             if total_pages > 1:
                 col_prev, col_info, col_next = st.columns([1, 2, 1])
                 with col_prev:
-                    if st.button(
+                    st.button(
                         "← 前へ",
                         disabled=st.session_state.proposals_page == 0,
                         key="proposals_prev_page",
-                    ):
-                        st.session_state.proposals_page -= 1
-                        st.rerun()
+                        on_click=_go_prev,
+                    )
                 with col_info:
                     st.markdown(
                         f"ページ {st.session_state.proposals_page + 1} / {total_pages}"
-                        f"（全{len(proposals)}件）",
+                        f"（全{total_count}件）",
                     )
                 with col_next:
-                    if st.button(
+                    st.button(
                         "次へ →",
                         disabled=st.session_state.proposals_page >= total_pages - 1,
                         key="proposals_next_page",
-                    ):
-                        st.session_state.proposals_page += 1
-                        st.rerun()
+                        on_click=_go_next,
+                    )
+        elif total_count > 0:
+            st.info("このページには表示する議案がありません。")
         else:
             st.info("表示する議案がありません。")
 
@@ -1387,35 +1391,23 @@ def render_parliamentary_group_judges_tab(presenter: ProposalPresenter) -> None:
     st.subheader("賛否")
     st.markdown("会派単位の賛否情報を手動で登録・管理します。")
 
-    # 議案選択
+    # 議案ID入力（全件ロードを避けるためnumber_inputを使用）
     try:
-        proposals = presenter.load_data()
-
-        if not proposals:
-            st.info("議案がありません。先に議案を登録してください。")
-            return
-
-        # 議案プルダウン
-        proposal_options = {
-            f"#{p.id}: {p.title[:30] if len(p.title) > 30 else p.title}": p
-            for p in proposals
-            if p.id is not None
-        }
-        selected_label = st.selectbox(
-            "議案を選択",
-            options=list(proposal_options.keys()),
-            key="pg_judge_proposal_select",
+        proposal_id = st.number_input(
+            "議案ID",
+            min_value=1,
+            step=1,
+            key="pg_judge_proposal_id_input",
         )
 
-        if not selected_label:
+        if not proposal_id:
+            st.info("賛否を登録する議案IDを入力してください。")
             return
 
-        selected_proposal = proposal_options[selected_label]
-        if selected_proposal.id is None:
-            st.error("議案IDが取得できません")
+        selected_proposal = presenter.load_proposal_by_id(int(proposal_id))
+        if selected_proposal is None:
+            st.warning(f"議案ID {proposal_id} が見つかりません。")
             return
-
-        proposal_id = selected_proposal.id
 
         # 議案情報の表示
         with st.expander("📋 議案詳細", expanded=False):
@@ -1426,10 +1418,10 @@ def render_parliamentary_group_judges_tab(presenter: ProposalPresenter) -> None:
                 st.markdown(f"**会議体ID**: {selected_proposal.conference_id}")
 
         # 賛否一覧
-        render_parliamentary_group_judges_list(presenter, proposal_id)
+        render_parliamentary_group_judges_list(presenter, int(proposal_id))
 
         # 新規登録フォーム
-        render_parliamentary_group_judge_form(presenter, proposal_id)
+        render_parliamentary_group_judge_form(presenter, int(proposal_id))
 
     except Exception as e:
         handle_ui_error(e, "賛否タブの読み込み")
