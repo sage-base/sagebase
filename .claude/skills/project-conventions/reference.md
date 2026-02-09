@@ -438,6 +438,24 @@ strategy:
   run: pytest tests/${{ matrix.test-group }}/
 ```
 
+## Pythonコーディング注意点
+
+### ループ変数のシャドウイング
+
+forループ変数を同名で再代入しないこと。可読性が下がり、バグの原因になる。
+
+```python
+# ❌ 悪い例 - ループ変数をシャドウイング
+for name in names:
+    name = name.strip()  # ループ変数を上書き
+    process(name)
+
+# ✅ 良い例 - 別の変数名を使う
+for name in names:
+    stripped = name.strip()
+    process(stripped)
+```
+
 ## ベストプラクティス
 
 ### コミットメッセージ
