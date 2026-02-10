@@ -12,6 +12,7 @@ class GoverningBody(BaseEntity):
         type: str | None = None,
         organization_code: str | None = None,
         organization_type: str | None = None,
+        prefecture: str | None = None,
         id: int | None = None,
         conference_count: int = 0,
     ) -> None:
@@ -20,6 +21,7 @@ class GoverningBody(BaseEntity):
         self.type = type
         self.organization_code = organization_code
         self.organization_type = organization_type
+        self.prefecture = prefecture
         self.conference_count = conference_count
 
     def __str__(self) -> str:

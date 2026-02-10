@@ -31,7 +31,6 @@ class CreateConferenceInputDto:
 
     name: str
     governing_body_id: int | None = None
-    prefecture: str | None = None
     term: str | None = None
     election_id: int | None = None
 
@@ -52,7 +51,6 @@ class UpdateConferenceInputDto:
     id: int
     name: str
     governing_body_id: int | None = None
-    prefecture: str | None = None
     term: str | None = None
     election_id: int | None = None
 
@@ -154,7 +152,6 @@ class ManageConferencesUseCase:
                 governing_body_id=(
                     input_dto.governing_body_id if input_dto.governing_body_id else 0
                 ),
-                prefecture=input_dto.prefecture,
                 term=input_dto.term,
                 election_id=input_dto.election_id,
             )
@@ -181,7 +178,6 @@ class ManageConferencesUseCase:
             existing.name = input_dto.name
             if input_dto.governing_body_id is not None:
                 existing.governing_body_id = input_dto.governing_body_id
-            existing.prefecture = input_dto.prefecture
             existing.term = input_dto.term
             existing.election_id = input_dto.election_id
             await self.conference_repository.update(existing)
@@ -228,25 +224,19 @@ class ManageConferencesUseCase:
             seed_content = "-- Conferences Seed Data\n"
             seed_content += "-- Generated from current database\n\n"
             seed_content += (
-                "INSERT INTO conferences "
-                "(id, name, governing_body_id, "
-                "prefecture, term) VALUES\n"
+                "INSERT INTO conferences (id, name, governing_body_id, term) VALUES\n"
             )
 
             values: list[str] = []
             for conf in all_conferences:
                 gb_id = conf.governing_body_id if conf.governing_body_id else "NULL"
-                prefecture = f"'{conf.prefecture}'" if conf.prefecture else "NULL"
                 term = f"'{conf.term}'" if conf.term else "NULL"
-                values.append(
-                    f"    ({conf.id}, '{conf.name}', {gb_id}, {prefecture}, {term})"
-                )
+                values.append(f"    ({conf.id}, '{conf.name}', {gb_id}, {term})")
 
             seed_content += ",\n".join(values) + "\n"
             seed_content += "ON CONFLICT (id) DO UPDATE SET\n"
             seed_content += "    name = EXCLUDED.name,\n"
             seed_content += "    governing_body_id = EXCLUDED.governing_body_id,\n"
-            seed_content += "    prefecture = EXCLUDED.prefecture,\n"
             seed_content += "    term = EXCLUDED.term;\n"
 
             # Save to file

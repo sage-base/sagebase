@@ -7,7 +7,6 @@ import asyncio
 
 import streamlit as st
 
-from ..constants import CONFERENCE_PREFECTURES
 from ..widgets import render_governing_body_and_election_selector
 
 from src.domain.repositories import GoverningBodyRepository
@@ -24,7 +23,7 @@ def render_new_conference_form(
     """Render new conference registration form.
 
     会議体の新規登録フォームをレンダリングします。
-    会議体名、開催主体、都道府県、期/会期/年度、選挙の入力フォームを提供します。
+    会議体名、開催主体、期/会期/年度、選挙の入力フォームを提供します。
 
     Args:
         presenter: 会議体プレゼンター
@@ -58,21 +57,6 @@ def render_new_conference_form(
             placeholder="例: 議会",
         )
 
-        # Prefecture selection
-        prefecture_options = [p for p in CONFERENCE_PREFECTURES if p]  # 空文字を除く
-        current_prefecture = form_data.prefecture or prefecture_options[0]
-        prefecture_index = (
-            prefecture_options.index(current_prefecture)
-            if current_prefecture in prefecture_options
-            else 0
-        )
-        prefecture = st.selectbox(
-            "都道府県",
-            options=prefecture_options,
-            index=prefecture_index,
-            help="国会の場合は「全国」を選択してください",
-        )
-
         # Term (期/会期/年度)
         term = st.text_input(
             "期/会期/年度",
@@ -91,7 +75,6 @@ def render_new_conference_form(
                 name,
                 governing_body_id,
                 election_id,
-                prefecture,
                 term,
             )
 
@@ -102,7 +85,6 @@ def _handle_form_submission(
     name: str,
     governing_body_id: int | None,
     election_id: int | None,
-    prefecture: str,
     term: str,
 ) -> None:
     """Handle form submission for conference creation.
@@ -113,7 +95,6 @@ def _handle_form_submission(
         name: 会議体名
         governing_body_id: 開催主体ID
         election_id: 選挙ID
-        prefecture: 都道府県
         term: 期/会期/年度
     """
     # Validation
@@ -126,7 +107,6 @@ def _handle_form_submission(
         form_data.name = name
         form_data.governing_body_id = governing_body_id
         form_data.election_id = election_id
-        form_data.prefecture = prefecture if prefecture else None
         form_data.term = term if term else None
 
         # Create conference

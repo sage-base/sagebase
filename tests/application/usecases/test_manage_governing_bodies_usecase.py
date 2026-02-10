@@ -359,3 +359,57 @@ class TestManageGoverningBodiesUseCase:
         # Assert
         assert result.success is False
         assert "Database error" in result.error_message
+
+    @pytest.mark.asyncio
+    async def test_create_governing_body_with_prefecture(
+        self, use_case, mock_governing_body_repository
+    ):
+        """Test creating a governing body with prefecture."""
+        # Arrange
+        mock_governing_body_repository.get_by_name_and_type.return_value = None
+        created_body = GoverningBody(
+            id=1,
+            name="東京都",
+            type="都道府県",
+            prefecture="東京都",
+        )
+        mock_governing_body_repository.create.return_value = created_body
+
+        input_dto = CreateGoverningBodyInputDto(
+            name="東京都",
+            type="都道府県",
+            prefecture="東京都",
+        )
+
+        # Act
+        result = await use_case.create_governing_body(input_dto)
+
+        # Assert
+        assert result.success is True
+        call_args = mock_governing_body_repository.create.call_args
+        assert call_args[0][0].prefecture == "東京都"
+
+    @pytest.mark.asyncio
+    async def test_update_governing_body_prefecture(
+        self, use_case, mock_governing_body_repository
+    ):
+        """Test updating governing body prefecture."""
+        # Arrange
+        existing_body = GoverningBody(id=1, name="東京都", type="都道府県")
+        mock_governing_body_repository.get_by_id.return_value = existing_body
+        mock_governing_body_repository.get_by_name_and_type.return_value = existing_body
+
+        input_dto = UpdateGoverningBodyInputDto(
+            id=1,
+            name="東京都",
+            type="都道府県",
+            prefecture="東京都",
+        )
+
+        # Act
+        result = await use_case.update_governing_body(input_dto)
+
+        # Assert
+        assert result.success is True
+        call_args = mock_governing_body_repository.update.call_args
+        assert call_args[0][0].prefecture == "東京都"

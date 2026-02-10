@@ -10,6 +10,9 @@ from src.interfaces.web.streamlit.presenters.election_presenter import (
 from src.interfaces.web.streamlit.presenters.governing_body_presenter import (
     GoverningBodyPresenter,
 )
+from src.interfaces.web.streamlit.views.conferences.constants import (
+    CONFERENCE_PREFECTURES,
+)
 
 
 def render_governing_bodies_page() -> None:
@@ -129,6 +132,13 @@ def render_new_governing_body_tab(presenter: GoverningBodyPresenter) -> None:
         name = st.text_input("開催主体名", key="new_gb_name")
         type_options = presenter.get_type_options()
         gb_type = st.selectbox("種別", type_options, key="new_gb_type")
+        prefecture_options = [""] + [p for p in CONFERENCE_PREFECTURES if p]
+        prefecture = st.selectbox(
+            "都道府県（オプション）",
+            prefecture_options,
+            key="new_gb_prefecture",
+            help="都道府県の場合はその都道府県を、市町村の場合は所属する都道府県を選択",
+        )
         organization_code = st.text_input(
             "組織コード（オプション）", key="new_gb_org_code"
         )
@@ -147,6 +157,7 @@ def render_new_governing_body_tab(presenter: GoverningBodyPresenter) -> None:
                     gb_type,
                     organization_code or None,
                     organization_type or None,
+                    prefecture or None,
                 )
                 if success:
                     st.success(f"開催主体「{name}」を登録しました（ID: {id_or_error}）")
@@ -191,6 +202,20 @@ def render_edit_delete_tab(presenter: GoverningBodyPresenter) -> None:
                     else 0,
                     key="edit_gb_type",
                 )
+                prefecture_options = [""] + [p for p in CONFERENCE_PREFECTURES if p]
+                current_prefecture = selected_gb.prefecture or ""
+                prefecture_index = (
+                    prefecture_options.index(current_prefecture)
+                    if current_prefecture in prefecture_options
+                    else 0
+                )
+                edit_prefecture = st.selectbox(
+                    "都道府県",
+                    prefecture_options,
+                    index=prefecture_index,
+                    key="edit_gb_prefecture",
+                    help="都道府県の場合はその都道府県を、市町村の場合は所属する都道府県を選択",
+                )
                 edit_org_code = st.text_input(
                     "組織コード",
                     value=selected_gb.organization_code or "",
@@ -214,6 +239,7 @@ def render_edit_delete_tab(presenter: GoverningBodyPresenter) -> None:
                             edit_type,
                             edit_org_code or None,
                             edit_org_type or None,
+                            edit_prefecture or None,
                         )
                         if success:
                             st.success(f"開催主体「{edit_name}」を更新しました")

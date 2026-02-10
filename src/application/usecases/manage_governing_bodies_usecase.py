@@ -46,6 +46,7 @@ class CreateGoverningBodyInputDto:
     type: str
     organization_code: str | None = None
     organization_type: str | None = None
+    prefecture: str | None = None
 
 
 @dataclass
@@ -66,6 +67,7 @@ class UpdateGoverningBodyInputDto:
     type: str
     organization_code: str | None = None
     organization_type: str | None = None
+    prefecture: str | None = None
 
 
 @dataclass
@@ -193,6 +195,7 @@ class ManageGoverningBodiesUseCase:
                 type=input_dto.type,
                 organization_code=input_dto.organization_code,
                 organization_type=input_dto.organization_type,
+                prefecture=input_dto.prefecture,
             )
 
             created = await self.governing_body_repository.create(governing_body)
@@ -232,6 +235,7 @@ class ManageGoverningBodiesUseCase:
                 existing.organization_code = input_dto.organization_code
             if input_dto.organization_type is not None:
                 existing.organization_type = input_dto.organization_type
+            existing.prefecture = input_dto.prefecture
 
             await self.governing_body_repository.update(existing)
             return UpdateGoverningBodyOutputDto(success=True)
@@ -277,7 +281,9 @@ class ManageGoverningBodiesUseCase:
             seed_content += "-- Generated from current database\n\n"
             seed_content += (
                 "INSERT INTO governing_bodies "
-                "(id, name, type, organization_code, organization_type) VALUES\n"
+                "(id, name, type, organization_code,"
+                " organization_type, prefecture)"
+                " VALUES\n"
             )
 
             values: list[str] = []
@@ -288,8 +294,10 @@ class ManageGoverningBodiesUseCase:
                 org_type = (
                     f"'{gb.organization_type}'" if gb.organization_type else "NULL"
                 )
+                prefecture = f"'{gb.prefecture}'" if gb.prefecture else "NULL"
                 values.append(
-                    f"    ({gb.id}, '{gb.name}', '{gb.type}', {org_code}, {org_type})"
+                    f"    ({gb.id}, '{gb.name}', '{gb.type}',"
+                    f" {org_code}, {org_type}, {prefecture})"
                 )
 
             seed_content += ",\n".join(values) + "\n"
@@ -297,7 +305,8 @@ class ManageGoverningBodiesUseCase:
             seed_content += "    name = EXCLUDED.name,\n"
             seed_content += "    type = EXCLUDED.type,\n"
             seed_content += "    organization_code = EXCLUDED.organization_code,\n"
-            seed_content += "    organization_type = EXCLUDED.organization_type;\n"
+            seed_content += "    organization_type = EXCLUDED.organization_type,\n"
+            seed_content += "    prefecture = EXCLUDED.prefecture;\n"
 
             # Save to file
             file_path = "database/seed_governing_bodies_generated.sql"

@@ -10,7 +10,6 @@ class Conference(BaseEntity):
         self,
         name: str,
         governing_body_id: int,
-        prefecture: str | None = None,
         term: str | None = None,
         election_id: int | None = None,
         id: int | None = None,
@@ -18,7 +17,6 @@ class Conference(BaseEntity):
         super().__init__(id)
         self.name = name
         self.governing_body_id = governing_body_id
-        self.prefecture = prefecture
         self.term = term
         self.election_id = election_id
 

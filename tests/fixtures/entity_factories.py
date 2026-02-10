@@ -30,6 +30,7 @@ def create_governing_body(**kwargs: Any) -> GoverningBody:
         "type": "都道府県",
         "organization_code": "130001",
         "organization_type": "prefecture",
+        "prefecture": "東京都",
     }
     defaults.update(kwargs)
     return GoverningBody(**defaults)
@@ -41,7 +42,6 @@ def create_conference(**kwargs: Any) -> Conference:
         "id": 1,
         "governing_body_id": 1,
         "name": "議会全体",
-        "prefecture": None,
         "term": None,
     }
     defaults.update(kwargs)
