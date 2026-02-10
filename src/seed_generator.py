@@ -193,7 +193,7 @@ class SeedGenerator:
 
             first_group = False
 
-        lines.append("ON CONFLICT (name, governing_body_id) DO NOTHING;")
+        lines.append("ON CONFLICT (name, governing_body_id, term) DO NOTHING;")
 
         result = "\n".join(lines) + "\n"
         if output:
