@@ -18,6 +18,7 @@ Usage Examples:
 
 import asyncio
 import logging
+import threading
 import types
 
 from collections.abc import Coroutine
@@ -32,6 +33,25 @@ from src.infrastructure.config.database import DATABASE_URL
 
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
+
+# 専用バックグラウンドスレッドのevent loop（nest_asyncioの代替）
+_dedicated_loop: asyncio.AbstractEventLoop | None = None
+_dedicated_loop_lock = threading.Lock()
+
+
+def _get_dedicated_loop() -> asyncio.AbstractEventLoop:
+    """非同期処理用の専用event loopを取得する（なければ起動する）."""
+    global _dedicated_loop
+    with _dedicated_loop_lock:
+        if _dedicated_loop is None or _dedicated_loop.is_closed():
+            _dedicated_loop = asyncio.new_event_loop()
+            thread = threading.Thread(
+                target=_dedicated_loop.run_forever,
+                daemon=True,
+                name="repo-adapter-async",
+            )
+            thread.start()
+        return _dedicated_loop
 
 
 class RepositoryAdapter:
@@ -88,31 +108,15 @@ class RepositoryAdapter:
         return self._session_factories[loop_id]
 
     def _run_async(self, coro: Coroutine[Any, Any, T]) -> T:
-        """Run an async coroutine from sync context."""
-        import nest_asyncio
+        """Run an async coroutine from sync context.
 
-        nest_asyncio.apply()
-
+        専用バックグラウンドスレッドのevent loopでコルーチンを実行する。
+        Streamlit/TornadoのメインEvent Loopには一切触れない。
+        """
         try:
-            # Get or create event loop
-            try:
-                loop = asyncio.get_event_loop()
-                # Check if the loop is closed and create a new one if needed
-                if loop.is_closed():
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            # Run the coroutine in the current loop
-            if loop.is_running():
-                # If loop is already running, create a task and wait for it
-                task = loop.create_task(coro)
-                return loop.run_until_complete(task)
-            else:
-                # If loop is not running, run normally
-                return loop.run_until_complete(coro)
+            loop = _get_dedicated_loop()
+            future = asyncio.run_coroutine_threadsafe(coro, loop)
+            return future.result()
         except Exception as e:
             logger.error(f"Failed to run async operation: {e}")
             raise
@@ -239,7 +243,13 @@ class RepositoryAdapter:
     def close(self):
         """Close all async engines."""
         for engine in self._engines.values():
-            asyncio.run(engine.dispose())
+            try:
+                asyncio.get_running_loop()
+                # イベントループ内から呼ばれた場合は専用スレッドで実行
+                self._run_async(engine.dispose())
+            except RuntimeError:
+                # イベントループ外の場合はasyncio.runで実行
+                asyncio.run(engine.dispose())
         self._engines.clear()
         self._session_factories.clear()
 

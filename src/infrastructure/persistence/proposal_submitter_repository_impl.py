@@ -22,6 +22,20 @@ from src.infrastructure.persistence.base_repository_impl import BaseRepositoryIm
 
 logger = logging.getLogger(__name__)
 
+_SELECT_COLUMNS = """
+    id,
+    proposal_id,
+    submitter_type,
+    politician_id,
+    parliamentary_group_id,
+    conference_id,
+    raw_name,
+    is_representative,
+    display_order,
+    created_at,
+    updated_at
+"""
+
 
 class ProposalSubmitterModel(PydanticBaseModel):
     """Pydantic model for proposal submitter."""
@@ -57,6 +71,13 @@ class ProposalSubmitterRepositoryImpl(
             model_class=ProposalSubmitterModel,
         )
 
+    def _row_to_dict(self, row: Any) -> dict[str, Any]:
+        if hasattr(row, "_asdict"):
+            return row._asdict()  # type: ignore[attr-defined]
+        elif hasattr(row, "_mapping"):
+            return dict(row._mapping)  # type: ignore[attr-defined]
+        return dict(row)
+
     async def get_by_proposal(self, proposal_id: int) -> list[ProposalSubmitter]:
         """Get all submitters for a specific proposal.
 
@@ -67,19 +88,8 @@ class ProposalSubmitterRepositoryImpl(
             List of ProposalSubmitter entities ordered by display_order
         """
         try:
-            query = text("""
-                SELECT
-                    id,
-                    proposal_id,
-                    submitter_type,
-                    politician_id,
-                    parliamentary_group_id,
-                    conference_id,
-                    raw_name,
-                    is_representative,
-                    display_order,
-                    created_at,
-                    updated_at
+            query = text(f"""
+                SELECT {_SELECT_COLUMNS}
                 FROM proposal_submitters
                 WHERE proposal_id = :proposal_id
                 ORDER BY display_order ASC, id ASC
@@ -87,17 +97,7 @@ class ProposalSubmitterRepositoryImpl(
 
             result = await self.session.execute(query, {"proposal_id": proposal_id})
             rows = result.fetchall()
-
-            results = []
-            for row in rows:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                results.append(self._dict_to_entity(row_dict))
-            return results
+            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting submitters by proposal: {e}")
@@ -116,19 +116,8 @@ class ProposalSubmitterRepositoryImpl(
             List of ProposalSubmitter entities
         """
         try:
-            query = text("""
-                SELECT
-                    id,
-                    proposal_id,
-                    submitter_type,
-                    politician_id,
-                    parliamentary_group_id,
-                    conference_id,
-                    raw_name,
-                    is_representative,
-                    display_order,
-                    created_at,
-                    updated_at
+            query = text(f"""
+                SELECT {_SELECT_COLUMNS}
                 FROM proposal_submitters
                 WHERE politician_id = :politician_id
                 ORDER BY created_at DESC
@@ -136,17 +125,7 @@ class ProposalSubmitterRepositoryImpl(
 
             result = await self.session.execute(query, {"politician_id": politician_id})
             rows = result.fetchall()
-
-            results = []
-            for row in rows:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                results.append(self._dict_to_entity(row_dict))
-            return results
+            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting submitters by politician: {e}")
@@ -167,19 +146,8 @@ class ProposalSubmitterRepositoryImpl(
             List of ProposalSubmitter entities
         """
         try:
-            query = text("""
-                SELECT
-                    id,
-                    proposal_id,
-                    submitter_type,
-                    politician_id,
-                    parliamentary_group_id,
-                    conference_id,
-                    raw_name,
-                    is_representative,
-                    display_order,
-                    created_at,
-                    updated_at
+            query = text(f"""
+                SELECT {_SELECT_COLUMNS}
                 FROM proposal_submitters
                 WHERE parliamentary_group_id = :parliamentary_group_id
                 ORDER BY created_at DESC
@@ -189,17 +157,7 @@ class ProposalSubmitterRepositoryImpl(
                 query, {"parliamentary_group_id": parliamentary_group_id}
             )
             rows = result.fetchall()
-
-            results = []
-            for row in rows:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                results.append(self._dict_to_entity(row_dict))
-            return results
+            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(
@@ -258,13 +216,9 @@ class ProposalSubmitterRepositoryImpl(
                 )
                 row = result.fetchone()
                 if row:
-                    if hasattr(row, "_asdict"):
-                        row_dict = row._asdict()  # type: ignore[attr-defined]
-                    elif hasattr(row, "_mapping"):
-                        row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                    else:
-                        row_dict = dict(row)
-                    created_submitters.append(self._dict_to_entity(row_dict))
+                    created_submitters.append(
+                        self._dict_to_entity(self._row_to_dict(row))
+                    )
 
             await self.session.commit()
             return created_submitters
@@ -303,6 +257,47 @@ class ProposalSubmitterRepositoryImpl(
                 {"proposal_id": proposal_id, "error": str(e)},
             ) from e
 
+    async def get_by_proposal_ids(
+        self, proposal_ids: list[int]
+    ) -> dict[int, list[ProposalSubmitter]]:
+        """複数議案の提出者を一括取得する.
+
+        Args:
+            proposal_ids: 議案IDのリスト
+
+        Returns:
+            議案IDをキー、提出者リストを値とする辞書
+        """
+        if not proposal_ids:
+            return {}
+
+        try:
+            query = text(f"""
+                SELECT {_SELECT_COLUMNS}
+                FROM proposal_submitters
+                WHERE proposal_id = ANY(:proposal_ids)
+                ORDER BY proposal_id, display_order ASC, id ASC
+            """)
+
+            result = await self.session.execute(query, {"proposal_ids": proposal_ids})
+            rows = result.fetchall()
+
+            submitters_map: dict[int, list[ProposalSubmitter]] = {}
+            for row in rows:
+                entity = self._dict_to_entity(self._row_to_dict(row))
+                if entity.proposal_id not in submitters_map:
+                    submitters_map[entity.proposal_id] = []
+                submitters_map[entity.proposal_id].append(entity)
+
+            return submitters_map
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error getting submitters by proposal IDs: {e}")
+            raise DatabaseError(
+                "Failed to get submitters by proposal IDs",
+                {"proposal_ids": proposal_ids, "error": str(e)},
+            ) from e
+
     async def get_all(
         self, limit: int | None = None, offset: int | None = 0
     ) -> list[ProposalSubmitter]:
@@ -316,19 +311,8 @@ class ProposalSubmitterRepositoryImpl(
             List of ProposalSubmitter entities
         """
         try:
-            query_text = """
-                SELECT
-                    id,
-                    proposal_id,
-                    submitter_type,
-                    politician_id,
-                    parliamentary_group_id,
-                    conference_id,
-                    raw_name,
-                    is_representative,
-                    display_order,
-                    created_at,
-                    updated_at
+            query_text = f"""
+                SELECT {_SELECT_COLUMNS}
                 FROM proposal_submitters
                 ORDER BY created_at DESC
             """
@@ -340,17 +324,7 @@ class ProposalSubmitterRepositoryImpl(
 
             result = await self.session.execute(text(query_text), params)
             rows = result.fetchall()
-
-            results = []
-            for row in rows:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                results.append(self._dict_to_entity(row_dict))
-            return results
+            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting all submitters: {e}")
@@ -368,19 +342,8 @@ class ProposalSubmitterRepositoryImpl(
             ProposalSubmitter entity or None if not found
         """
         try:
-            query = text("""
-                SELECT
-                    id,
-                    proposal_id,
-                    submitter_type,
-                    politician_id,
-                    parliamentary_group_id,
-                    conference_id,
-                    raw_name,
-                    is_representative,
-                    display_order,
-                    created_at,
-                    updated_at
+            query = text(f"""
+                SELECT {_SELECT_COLUMNS}
                 FROM proposal_submitters
                 WHERE id = :id
             """)
@@ -389,13 +352,7 @@ class ProposalSubmitterRepositoryImpl(
             row = result.fetchone()
 
             if row:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._dict_to_entity(self._row_to_dict(row))
             return None
 
         except SQLAlchemyError as e:
@@ -448,13 +405,7 @@ class ProposalSubmitterRepositoryImpl(
             await self.session.commit()
 
             if row:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._dict_to_entity(self._row_to_dict(row))
 
             raise DatabaseError("Failed to create submitter", {"entity": str(entity)})
 
@@ -514,13 +465,7 @@ class ProposalSubmitterRepositoryImpl(
             await self.session.commit()
 
             if row:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._dict_to_entity(self._row_to_dict(row))
 
             raise DatabaseError(
                 f"ProposalSubmitter with ID {entity.id} not found",

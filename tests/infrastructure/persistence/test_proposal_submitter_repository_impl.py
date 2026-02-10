@@ -5,10 +5,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.proposal_submitter import ProposalSubmitter
 from src.domain.value_objects.submitter_type import SubmitterType
+from src.infrastructure.exceptions import DatabaseError
 from src.infrastructure.persistence.proposal_submitter_repository_impl import (
     ProposalSubmitterRepositoryImpl,
 )
@@ -461,3 +463,91 @@ class TestProposalSubmitterRepositoryImpl:
         assert model.proposal_id == 10
         assert model.submitter_type == "politician"
         assert model.politician_id == 100
+
+    @pytest.mark.asyncio
+    async def test_get_by_proposal_ids_returns_grouped_submitters(
+        self,
+        repository: ProposalSubmitterRepositoryImpl,
+        mock_session: MagicMock,
+        sample_submitter_dict: dict[str, Any],
+    ) -> None:
+        """複数議案IDで一括取得し議案IDごとにグループ化されることを確認"""
+        row1 = self._create_mock_row(
+            {**sample_submitter_dict, "proposal_id": 1, "id": 10}
+        )
+        row2 = self._create_mock_row(
+            {**sample_submitter_dict, "proposal_id": 1, "id": 11}
+        )
+        row3 = self._create_mock_row(
+            {**sample_submitter_dict, "proposal_id": 2, "id": 12}
+        )
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[row1, row2, row3])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_proposal_ids([1, 2])
+
+        assert len(result) == 2
+        assert len(result[1]) == 2
+        assert len(result[2]) == 1
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_proposal_ids_empty_list(
+        self,
+        repository: ProposalSubmitterRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """空リストではDBアクセスせず空辞書を返すことを確認"""
+        result = await repository.get_by_proposal_ids([])
+
+        assert result == {}
+        mock_session.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_by_proposal_ids_no_matching_data(
+        self,
+        repository: ProposalSubmitterRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """該当なしの場合に空辞書を返すことを確認"""
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_proposal_ids([999, 1000])
+
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_get_by_proposal_ids_single_id(
+        self,
+        repository: ProposalSubmitterRepositoryImpl,
+        mock_session: MagicMock,
+        sample_submitter_dict: dict[str, Any],
+    ) -> None:
+        """単一IDでも正しく動作することを確認"""
+        row = self._create_mock_row(
+            {**sample_submitter_dict, "proposal_id": 5, "id": 20}
+        )
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[row])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_proposal_ids([5])
+
+        assert len(result) == 1
+        assert 5 in result
+        assert len(result[5]) == 1
+
+    @pytest.mark.asyncio
+    async def test_get_by_proposal_ids_database_error(
+        self,
+        repository: ProposalSubmitterRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """DBエラー時にDatabaseErrorがraiseされることを確認"""
+        mock_session.execute.side_effect = SQLAlchemyError("connection lost")
+
+        with pytest.raises(DatabaseError):
+            await repository.get_by_proposal_ids([1, 2])

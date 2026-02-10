@@ -72,3 +72,17 @@ class ProposalSubmitterRepository(BaseRepository[ProposalSubmitter]):
             Number of deleted records
         """
         pass
+
+    @abstractmethod
+    async def get_by_proposal_ids(
+        self, proposal_ids: list[int]
+    ) -> dict[int, list[ProposalSubmitter]]:
+        """複数議案の提出者を一括取得する.
+
+        Args:
+            proposal_ids: 議案IDのリスト
+
+        Returns:
+            議案IDをキー、提出者リストを値とする辞書
+        """
+        pass

@@ -21,6 +21,11 @@ class BaseRepository[T: BaseEntity](ABC):
         pass
 
     @abstractmethod
+    async def get_by_ids(self, entity_ids: list[int]) -> list[T]:
+        """Get entities by their IDs."""
+        pass
+
+    @abstractmethod
     async def create(self, entity: T) -> T:
         """Create a new entity."""
         pass

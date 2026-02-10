@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 
+from dataclasses import dataclass, field
 from typing import Any, cast
 from uuid import UUID
 
@@ -105,6 +106,63 @@ from src.interfaces.web.streamlit.presenters.base import CRUDPresenter
 from src.interfaces.web.streamlit.utils.session_manager import SessionManager
 
 
+def _build_related_data_map_from_cache(
+    proposals: list[Proposal],
+    meeting_conference_map: dict[int, int | None],
+    conference_detail_map: dict[int, dict[str, Any]],
+    governing_body_name_map: dict[int, str],
+) -> dict[int, dict[str, str | None]]:
+    """キャッシュ済みマスターデータから議案の関連データマップを構築する."""
+    result: dict[int, dict[str, str | None]] = {}
+    for p in proposals:
+        if p.id is None:
+            continue
+
+        conference_id = p.conference_id
+        if not conference_id and p.meeting_id:
+            conference_id = meeting_conference_map.get(p.meeting_id)
+
+        conference_name: str | None = None
+        governing_body_name: str | None = None
+
+        if conference_id and conference_id in conference_detail_map:
+            conf_data = conference_detail_map[conference_id]
+            conference_name = conf_data["name"]
+            gb_id = conf_data["governing_body_id"]
+            if gb_id and gb_id in governing_body_name_map:
+                governing_body_name = governing_body_name_map[gb_id]
+
+        result[p.id] = {
+            "conference_name": conference_name,
+            "governing_body_name": governing_body_name,
+        }
+    return result
+
+
+@dataclass
+class _ProposalsMasterDataCache:
+    """ページ切替間で再利用するマスターデータキャッシュ."""
+
+    politician_names: dict[int, str]
+    conference_names: dict[int, str]
+    pg_names: dict[int, str]
+    meeting_conference_map: dict[int, int | None]
+    conference_detail_map: dict[int, dict[str, Any]]
+    governing_body_name_map: dict[int, str]
+
+
+@dataclass
+class ProposalsPageData:
+    """議案一覧ページの一括取得データ."""
+
+    result: ProposalListOutputDto
+    related_data_map: dict[int, dict[str, str | None]] = field(default_factory=dict)
+    submitters_map: dict[int, list[ProposalSubmitter]] = field(default_factory=dict)
+    politician_names: dict[int, str] = field(default_factory=dict)
+    conference_names: dict[int, str] = field(default_factory=dict)
+    pg_names: dict[int, str] = field(default_factory=dict)
+
+
 class ProposalPresenter(CRUDPresenter[list[Proposal]]):
     """Presenter for proposal management."""
 
@@ -199,15 +257,31 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         result = self.load_data_filtered("all")
         return result.proposals
 
+    def load_proposal_by_id(self, proposal_id: int) -> Proposal | None:
+        """IDを指定して議案を1件取得する."""
+        return self._run_async(self._load_proposal_by_id_async(proposal_id))
+
+    async def _load_proposal_by_id_async(self, proposal_id: int) -> Proposal | None:
+        """IDを指定して議案を1件取得する（非同期実装）."""
+        try:
+            return await self.proposal_repository.get_by_id(proposal_id)  # type: ignore[attr-defined]
+        except Exception:
+            self.logger.exception(f"議案ID {proposal_id} の読み込みに失敗")
+            return None
+
     def load_data_filtered(
         self,
         filter_type: str = "all",
         meeting_id: int | None = None,
         conference_id: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
     ) -> ProposalListOutputDto:
         """Load proposals with filter."""
         return self._run_async(
-            self._load_data_filtered_async(filter_type, meeting_id, conference_id)
+            self._load_data_filtered_async(
+                filter_type, meeting_id, conference_id, limit, offset
+            )
         )
 
     async def _load_data_filtered_async(
@@ -215,6 +289,8 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         filter_type: str = "all",
         meeting_id: int | None = None,
         conference_id: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
     ) -> ProposalListOutputDto:
         """Load proposals with filter (async implementation)."""
         try:
@@ -222,6 +298,8 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
                 filter_type=filter_type,
                 meeting_id=meeting_id,
                 conference_id=conference_id,
+                limit=limit,
+                offset=offset,
             )
             return await self.manage_usecase.list_proposals(input_dto)
         except Exception as e:
@@ -691,6 +769,231 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
     async def _load_submitters_async(self, proposal_id: int) -> list[ProposalSubmitter]:
         """Load submitters for a proposal (async implementation)."""
         return await self.submitter_repository.get_by_proposal(proposal_id)  # type: ignore[attr-defined]
+
+    def load_submitters_batch(
+        self, proposal_ids: list[int]
+    ) -> dict[int, list[ProposalSubmitter]]:
+        """複数議案の提出者を一括取得する.
+
+        Args:
+            proposal_ids: 議案IDのリスト
+
+        Returns:
+            議案IDをキー、提出者リストを値とする辞書
+        """
+        return self._run_async(self._load_submitters_batch_async(proposal_ids))
+
+    async def _load_submitters_batch_async(
+        self, proposal_ids: list[int]
+    ) -> dict[int, list[ProposalSubmitter]]:
+        """複数議案の提出者を一括取得する（async実装）."""
+        return await self.submitter_repository.get_by_proposal_ids(proposal_ids)  # type: ignore[attr-defined]
+
+    def load_all_parliamentary_group_names(self) -> dict[int, str]:
+        """全アクティブ会派のID→名前マップを取得する."""
+        return self._run_async(self._load_all_parliamentary_group_names_async())
+
+    async def _load_all_parliamentary_group_names_async(
+        self,
+    ) -> dict[int, str]:
+        """全アクティブ会派のID→名前マップを取得する（async実装）."""
+        groups = await self.parliamentary_group_repository.get_active()  # type: ignore[attr-defined]
+        return {g.id: g.name for g in groups if g.id}
+
+    def load_proposals_page_data(
+        self,
+        filter_type: str = "all",
+        meeting_id: int | None = None,
+        conference_id: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> ProposalsPageData:
+        """議案一覧ページのデータを1回のasync呼び出しで一括取得する.
+
+        _run_async呼び出しを1回に統合し、fragment内でのevent loopブロックを最小化。
+        マスターデータ（政治家・会議体・会派等）はセッションキャッシュを使用し、
+        ページ切替時の再取得を省略する。
+        """
+        import streamlit as st
+
+        cache_key = "_proposals_master_cache"
+        cache: _ProposalsMasterDataCache | None = st.session_state.get(cache_key)
+
+        page_data, new_cache = self._run_async(
+            self._load_proposals_page_data_async(
+                filter_type,
+                meeting_id,
+                conference_id,
+                limit,
+                offset,
+                master_cache=cache,
+            )
+        )
+
+        # 初回取得後にキャッシュ保存
+        if new_cache is not None:
+            st.session_state[cache_key] = new_cache
+
+        return page_data
+
+    async def _load_proposals_page_data_async(
+        self,
+        filter_type: str = "all",
+        meeting_id: int | None = None,
+        conference_id: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        master_cache: _ProposalsMasterDataCache | None = None,
+    ) -> tuple[ProposalsPageData, _ProposalsMasterDataCache | None]:
+        """議案一覧ページのデータを一括取得する（async実装）.
+
+        master_cache が提供された場合、マスターデータの再取得をスキップし、
+        ページ固有データ（議案・提出者）のみ取得する。
+        初回取得時も get_all() ではなく get_by_ids() で必要なIDのみ取得する。
+        """
+        # 1. フィルタ付き議案取得
+        result = await self._load_data_filtered_async(
+            filter_type, meeting_id, conference_id, limit, offset
+        )
+        proposals = result.proposals
+
+        if not proposals:
+            return ProposalsPageData(result=result), None
+
+        # 2. 提出者を一括取得（ページ固有データ）
+        page_proposal_ids = [p.id for p in proposals if p.id is not None]
+        submitters_map: dict[int, list[ProposalSubmitter]] = {}
+        if page_proposal_ids:
+            submitters_map = await self._load_submitters_batch_async(page_proposal_ids)
+
+        if master_cache is not None:
+            politician_names = master_cache.politician_names
+            conference_names = master_cache.conference_names
+            pg_names = master_cache.pg_names
+            related_data_map = _build_related_data_map_from_cache(
+                proposals,
+                master_cache.meeting_conference_map,
+                master_cache.conference_detail_map,
+                master_cache.governing_body_name_map,
+            )
+            return ProposalsPageData(
+                result=result,
+                related_data_map=related_data_map,
+                submitters_map=submitters_map,
+                politician_names=politician_names,
+                conference_names=conference_names,
+                pg_names=pg_names,
+            ), None
+
+        # 3. ページ内の議案・提出者から必要なIDを収集
+        needed_meeting_ids: set[int] = set()
+        needed_conference_ids: set[int] = set()
+        needed_politician_ids: set[int] = set()
+        needed_pg_ids: set[int] = set()
+
+        for p in proposals:
+            if p.meeting_id:
+                needed_meeting_ids.add(p.meeting_id)
+            if p.conference_id:
+                needed_conference_ids.add(p.conference_id)
+
+        for subs in submitters_map.values():
+            for s in subs:
+                if s.politician_id:
+                    needed_politician_ids.add(s.politician_id)
+                if s.parliamentary_group_id:
+                    needed_pg_ids.add(s.parliamentary_group_id)
+
+        # 4. 第1段階: meetings・politicians・pg を並行取得
+        meetings_coro = (
+            self.meeting_repository.get_by_ids(list(needed_meeting_ids))  # type: ignore[attr-defined]
+            if needed_meeting_ids
+            else asyncio.sleep(0, result=[])
+        )
+        politicians_coro = (
+            self.politician_repository.get_by_ids(list(needed_politician_ids))  # type: ignore[attr-defined]
+            if needed_politician_ids
+            else asyncio.sleep(0, result=[])
+        )
+        pg_groups_coro = (
+            self.parliamentary_group_repository.get_by_ids(list(needed_pg_ids))  # type: ignore[attr-defined]
+            if needed_pg_ids
+            else asyncio.sleep(0, result=[])
+        )
+
+        fetched_meetings, fetched_politicians, fetched_pg_groups = await asyncio.gather(
+            meetings_coro, politicians_coro, pg_groups_coro
+        )
+
+        # meetingから追加のconference_idを収集
+        for m in fetched_meetings:
+            if m.conference_id:
+                needed_conference_ids.add(m.conference_id)
+
+        # 5. 第2段階: conferences取得
+        fetched_conferences = (
+            await self.conference_repository.get_by_ids(list(needed_conference_ids))  # type: ignore[attr-defined]
+            if needed_conference_ids
+            else []
+        )
+
+        # conferenceからgoverning_body_idを収集
+        needed_gb_ids: set[int] = set()
+        for c in fetched_conferences:
+            if c.governing_body_id:
+                needed_gb_ids.add(c.governing_body_id)
+
+        # 6. 第3段階: governing_bodies取得
+        fetched_governing_bodies = (
+            await self.governing_body_repository.get_by_ids(list(needed_gb_ids))  # type: ignore[attr-defined]
+            if needed_gb_ids
+            else []
+        )
+
+        # 7. マップ構築
+        meeting_conference_map: dict[int, int | None] = {
+            m.id: m.conference_id for m in fetched_meetings if m.id is not None
+        }
+        conference_detail_map: dict[int, dict[str, Any]] = {
+            c.id: {"name": c.name, "governing_body_id": c.governing_body_id}
+            for c in fetched_conferences
+            if c.id is not None
+        }
+        governing_body_name_map: dict[int, str] = {
+            g.id: g.name for g in fetched_governing_bodies if g.id is not None
+        }
+        politician_names: dict[int, str] = {
+            p.id: p.name for p in fetched_politicians if p.id is not None
+        }
+        conference_names: dict[int, str] = {
+            c.id: c.name for c in fetched_conferences if c.id is not None
+        }
+        pg_names: dict[int, str] = {g.id: g.name for g in fetched_pg_groups if g.id}
+
+        related_data_map = _build_related_data_map_from_cache(
+            proposals,
+            meeting_conference_map,
+            conference_detail_map,
+            governing_body_name_map,
+        )
+
+        new_cache = _ProposalsMasterDataCache(
+            politician_names=politician_names,
+            conference_names=conference_names,
+            pg_names=pg_names,
+            meeting_conference_map=meeting_conference_map,
+            conference_detail_map=conference_detail_map,
+            governing_body_name_map=governing_body_name_map,
+        )
+
+        return ProposalsPageData(
+            result=result,
+            related_data_map=related_data_map,
+            submitters_map=submitters_map,
+            politician_names=politician_names,
+            conference_names=conference_names,
+            pg_names=pg_names,
+        ), new_cache
 
     def update_submitters(
         self,
