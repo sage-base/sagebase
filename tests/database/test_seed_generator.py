@@ -94,7 +94,7 @@ class TestSeedGenerator:
         assert "('衆議院'," in result
         assert "('参議院'," in result
         assert "('東京都議会'," in result
-        assert "ON CONFLICT (name, governing_body_id) DO NOTHING;" in result
+        assert "ON CONFLICT (name, governing_body_id, term) DO NOTHING;" in result
 
     def test_generate_political_parties_seed(self, seed_generator):
         """political_partiesのSEED生成テスト"""

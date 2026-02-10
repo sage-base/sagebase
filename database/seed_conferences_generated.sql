@@ -152,4 +152,4 @@ INSERT INTO conferences (name, governing_body_id) VALUES
 
 -- 足立区 (市町村)
 ('足立区議会', (SELECT id FROM governing_bodies WHERE name = '足立区' AND type = '市町村'))
-ON CONFLICT (name, governing_body_id) DO NOTHING;
+ON CONFLICT (name, governing_body_id, term) DO NOTHING;
