@@ -670,3 +670,53 @@ class TestMeetingRepositoryImpl:
         assert result is False
         mock_session.execute.assert_called_once()
         mock_session.commit.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_found(
+        self,
+        repository: MeetingRepositoryImpl,
+        mock_session: MagicMock,
+        sample_meeting_dict: dict[str, Any],
+    ) -> None:
+        """Test get_by_ids returns meetings for given IDs."""
+        mock_row1 = MagicMock()
+        mock_row1._mapping = sample_meeting_dict
+        mock_row2_dict = {**sample_meeting_dict, "id": 2, "name": "委員会"}
+        mock_row2 = MagicMock()
+        mock_row2._mapping = mock_row2_dict
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_ids([1, 2])
+
+        assert len(result) == 2
+        assert result[0].id == 1
+        assert result[0].name == "本会議"
+        assert result[1].id == 2
+        assert result[1].name == "委員会"
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_empty_list(
+        self, repository: MeetingRepositoryImpl, mock_session: MagicMock
+    ) -> None:
+        """Test get_by_ids returns empty list for empty input."""
+        result = await repository.get_by_ids([])
+
+        assert result == []
+        mock_session.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_not_found(
+        self, repository: MeetingRepositoryImpl, mock_session: MagicMock
+    ) -> None:
+        """Test get_by_ids returns empty list when no meetings found."""
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_ids([999])
+
+        assert result == []
+        mock_session.execute.assert_called_once()
