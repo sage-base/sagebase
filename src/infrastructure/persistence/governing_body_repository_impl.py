@@ -82,6 +82,23 @@ class GoverningBodyRepositoryImpl(
             return self._row_to_entity(row)
         return None
 
+    async def get_by_ids(self, entity_ids: list[int]) -> list[GoverningBody]:
+        """Get governing bodies by their IDs."""
+        if not entity_ids:
+            return []
+        placeholders = ", ".join(f":id_{i}" for i in range(len(entity_ids)))
+        query = text(f"""
+            SELECT gb.*,
+                   COUNT(c.id) as conference_count
+            FROM governing_bodies gb
+            LEFT JOIN conferences c ON gb.id = c.governing_body_id
+            WHERE gb.id IN ({placeholders})
+            GROUP BY gb.id, gb.name, gb.type, gb.organization_code, gb.organization_type
+        """)
+        params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
+        result = await self.session.execute(query, params)
+        return [self._row_to_entity(row) for row in result.fetchall()]
+
     async def get_by_name_and_type(
         self, name: str, type: str | None = None
     ) -> GoverningBody | None:

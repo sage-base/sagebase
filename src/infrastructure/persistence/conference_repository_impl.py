@@ -279,6 +279,56 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 "Failed to get conference by ID", {"id": entity_id, "error": str(e)}
             ) from e
 
+    async def get_by_ids(self, entity_ids: list[int]) -> list[Conference]:
+        """Get conferences by their IDs.
+
+        Args:
+            entity_ids: List of conference IDs
+
+        Returns:
+            List of Conference entities
+        """
+        if not entity_ids:
+            return []
+        try:
+            # プレースホルダを動的に生成
+            placeholders = ", ".join(f":id_{i}" for i in range(len(entity_ids)))
+            query = text(f"""
+                SELECT
+                    id,
+                    name,
+                    governing_body_id,
+                    prefecture,
+                    term,
+                    election_id,
+                    created_at,
+                    updated_at
+                FROM conferences
+                WHERE id IN ({placeholders})
+            """)
+            params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
+
+            result = await self.session.execute(query, params)
+            rows = result.fetchall()
+
+            conferences = []
+            for row in rows:
+                if hasattr(row, "_asdict"):
+                    row_dict = row._asdict()  # type: ignore[attr-defined]
+                elif hasattr(row, "_mapping"):
+                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
+                else:
+                    row_dict = dict(row)
+                conferences.append(self._dict_to_entity(row_dict))
+            return conferences
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error getting conferences by IDs: {e}")
+            raise DatabaseError(
+                "Failed to get conferences by IDs",
+                {"ids": entity_ids, "error": str(e)},
+            ) from e
+
     async def create(self, entity: Conference) -> Conference:
         """Create a new conference.
 
