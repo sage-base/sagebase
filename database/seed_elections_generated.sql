@@ -24,6 +24,9 @@ INSERT INTO elections (id, governing_body_id, term_number, election_date, electi
 (1, (SELECT id FROM governing_bodies WHERE name = '京都府京都市' AND type = '市町村'), 20, '2023-04-09', '統一地方選挙')
 ON CONFLICT (governing_body_id, term_number) DO UPDATE SET election_date = EXCLUDED.election_date, election_type = EXCLUDED.election_type;
 
+-- 明示的IDの最大値に合わせてシーケンスを更新（CROSS JOINのID自動採番が衝突しないようにする）
+SELECT setval('elections_id_seq', (SELECT COALESCE(MAX(id), 0) + 1 FROM elections), false);
+
 -- 国会・京都府京都市以外の全開催主体に同じ統一地方選挙データを追加
 INSERT INTO elections (governing_body_id, term_number, election_date, election_type)
 SELECT gb.id, v.term_number, v.election_date::date, v.election_type
