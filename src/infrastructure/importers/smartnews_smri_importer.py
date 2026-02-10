@@ -25,8 +25,9 @@ _SOURCE_URL = "smartnews-smri/house-of-representatives"
 
 
 class SmartNewsSmriImporter:
-    def __init__(self, governing_body_id: int) -> None:
+    def __init__(self, governing_body_id: int, conference_id: int) -> None:
         self._governing_body_id = governing_body_id
+        self._conference_id = conference_id
 
     def load_json(self, file_path: Path) -> list[list[Any]]:
         with open(file_path, encoding="utf-8") as f:
@@ -55,6 +56,7 @@ class SmartNewsSmriImporter:
             session_number=session_number,
             proposal_number=proposal_number,
             governing_body_id=self._governing_body_id,
+            conference_id=self._conference_id,
             external_id=external_id,
             deliberation_result=deliberation_result,
             # detail_urlにexternal_idを設定し、find_by_urlでの重複チェックに使用

@@ -89,6 +89,7 @@ class TestImportSmartNewsSmriUseCase:
         input_dto = ImportSmartNewsSmriInputDto(
             file_path=file_path,
             governing_body_id=1,
+            conference_id=10,
             batch_size=10,
         )
         result = await use_case.execute(input_dto)
@@ -112,6 +113,7 @@ class TestImportSmartNewsSmriUseCase:
         input_dto = ImportSmartNewsSmriInputDto(
             file_path=file_path,
             governing_body_id=1,
+            conference_id=10,
         )
         result = await use_case.execute(input_dto)
 
@@ -133,6 +135,7 @@ class TestImportSmartNewsSmriUseCase:
         input_dto = ImportSmartNewsSmriInputDto(
             file_path=file_path,
             governing_body_id=1,
+            conference_id=10,
         )
         result = await use_case.execute(input_dto)
 
@@ -150,6 +153,7 @@ class TestImportSmartNewsSmriUseCase:
         input_dto = ImportSmartNewsSmriInputDto(
             file_path=file_path,
             governing_body_id=1,
+            conference_id=10,
         )
         result = await use_case.execute(input_dto)
 
@@ -168,6 +172,7 @@ class TestImportSmartNewsSmriUseCase:
         input_dto = ImportSmartNewsSmriInputDto(
             file_path=file_path,
             governing_body_id=1,
+            conference_id=10,
         )
         result = await use_case.execute(input_dto)
 
@@ -185,6 +190,7 @@ class TestImportSmartNewsSmriUseCase:
         input_dto = ImportSmartNewsSmriInputDto(
             file_path=file_path,
             governing_body_id=1,
+            conference_id=10,
             batch_size=2,
         )
         result = await use_case.execute(input_dto)
@@ -201,6 +207,7 @@ class TestImportSmartNewsSmriUseCase:
         input_dto = ImportSmartNewsSmriInputDto(
             file_path=file_path,
             governing_body_id=1,
+            conference_id=10,
         )
         result = await use_case.execute(input_dto)
 
@@ -213,6 +220,7 @@ class TestImportSmartNewsSmriDtos:
         dto = ImportSmartNewsSmriInputDto(
             file_path=Path("/tmp/test.json"),
             governing_body_id=1,
+            conference_id=10,
         )
         assert dto.batch_size == 100
 
@@ -253,7 +261,7 @@ class TestImportSmartNewsSmriUseCaseWithJudges:
         records = [make_smri_record_with_judges(sansei="自民党;公明党", hantai="立憲")]
         file_path = _write_json(records)
         input_dto = ImportSmartNewsSmriInputDto(
-            file_path=file_path, governing_body_id=1
+            file_path=file_path, governing_body_id=1, conference_id=10
         )
         result = await use_case.execute(input_dto)
 
@@ -274,7 +282,7 @@ class TestImportSmartNewsSmriUseCaseWithJudges:
         records = [make_smri_record_with_judges(sansei="自民党")]
         file_path = _write_json(records)
         input_dto = ImportSmartNewsSmriInputDto(
-            file_path=file_path, governing_body_id=1
+            file_path=file_path, governing_body_id=1, conference_id=10
         )
         result = await use_case.execute(input_dto)
 
@@ -295,7 +303,7 @@ class TestImportSmartNewsSmriUseCaseWithJudges:
         records = [make_smri_record_with_judges(sansei="自民党")]
         file_path = _write_json(records)
         input_dto = ImportSmartNewsSmriInputDto(
-            file_path=file_path, governing_body_id=1
+            file_path=file_path, governing_body_id=1, conference_id=10
         )
         result = await use_case.execute(input_dto)
 

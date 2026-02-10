@@ -55,7 +55,7 @@ def _make_record(
 class TestSmartNewsSmriImporterParseRecord:
     @pytest.fixture
     def importer(self) -> SmartNewsSmriImporter:
-        return SmartNewsSmriImporter(governing_body_id=1)
+        return SmartNewsSmriImporter(governing_body_id=1, conference_id=10)
 
     def test_parse_basic_record(self, importer: SmartNewsSmriImporter) -> None:
         record = _make_record()
@@ -67,6 +67,7 @@ class TestSmartNewsSmriImporterParseRecord:
         assert proposal.session_number == 200
         assert proposal.proposal_number == 42
         assert proposal.governing_body_id == 1
+        assert proposal.conference_id == 10
         assert proposal.deliberation_result == "passed"
         assert proposal.external_id == (
             "https://www.shugiin.go.jp/internet/itdb_gian.nsf/html/gian/keika/TEST.htm"
@@ -171,7 +172,7 @@ class TestSmartNewsSmriImporterParseRecord:
 
 class TestLoadJson:
     def test_load_json_file(self) -> None:
-        importer = SmartNewsSmriImporter(governing_body_id=1)
+        importer = SmartNewsSmriImporter(governing_body_id=1, conference_id=10)
         data = [_make_record(), _make_record(title="法案2")]
 
         with tempfile.NamedTemporaryFile(
@@ -189,12 +190,12 @@ class TestLoadJson:
         assert result[1][3] == "法案2"
 
     def test_load_json_file_not_found(self) -> None:
-        importer = SmartNewsSmriImporter(governing_body_id=1)
+        importer = SmartNewsSmriImporter(governing_body_id=1, conference_id=10)
         with pytest.raises(FileNotFoundError):
             importer.load_json(Path("/nonexistent/file.json"))
 
     def test_load_json_invalid_json(self) -> None:
-        importer = SmartNewsSmriImporter(governing_body_id=1)
+        importer = SmartNewsSmriImporter(governing_body_id=1, conference_id=10)
         with tempfile.NamedTemporaryFile(
             mode="w",
             suffix=".json",

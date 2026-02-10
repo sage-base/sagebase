@@ -34,7 +34,10 @@ class ImportSmartNewsSmriUseCase:
         self,
         input_dto: ImportSmartNewsSmriInputDto,
     ) -> ImportSmartNewsSmriOutputDto:
-        importer = SmartNewsSmriImporter(governing_body_id=input_dto.governing_body_id)
+        importer = SmartNewsSmriImporter(
+            governing_body_id=input_dto.governing_body_id,
+            conference_id=input_dto.conference_id,
+        )
         records = importer.load_json(input_dto.file_path)
         logger.info("レコード数: %d", len(records))
 

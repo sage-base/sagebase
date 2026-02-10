@@ -235,6 +235,19 @@ class ParliamentaryGroupRepositoryImpl(
             return self._row_to_entity(row)
         return None
 
+    async def get_by_ids(self, entity_ids: list[int]) -> list[ParliamentaryGroup]:
+        """Get parliamentary groups by their IDs."""
+        if not entity_ids:
+            return []
+        placeholders = ", ".join(f":id_{i}" for i in range(len(entity_ids)))
+        query = text(f"""
+            SELECT * FROM parliamentary_groups
+            WHERE id IN ({placeholders})
+        """)
+        params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
+        result = await self.session.execute(query, params)
+        return [self._row_to_entity(row) for row in result.fetchall()]
+
     def _row_to_entity(self, row: Any) -> ParliamentaryGroup:
         """Convert database row to domain entity."""
         return ParliamentaryGroup(
