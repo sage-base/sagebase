@@ -29,7 +29,6 @@ class ConferenceModel(PydanticBaseModel):
     id: int | None = None
     name: str
     governing_body_id: int
-    prefecture: str | None = None
     term: str | None = None
     election_id: int | None = None
     created_at: datetime | None = None
@@ -74,7 +73,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                         id,
                         name,
                         governing_body_id,
-                        prefecture,
                         term,
                         election_id,
                         created_at,
@@ -95,7 +93,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                         id,
                         name,
                         governing_body_id,
-                        prefecture,
                         term,
                         election_id,
                         created_at,
@@ -148,7 +145,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     id,
                     name,
                     governing_body_id,
-                    prefecture,
                     term,
                     election_id,
                     created_at,
@@ -199,7 +195,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     c.id,
                     c.name,
                     c.governing_body_id,
-                    c.prefecture,
                     c.term,
                     c.election_id,
                     c.created_at,
@@ -251,7 +246,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     id,
                     name,
                     governing_body_id,
-                    prefecture,
                     term,
                     election_id,
                     created_at,
@@ -298,7 +292,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     id,
                     name,
                     governing_body_id,
-                    prefecture,
                     term,
                     election_id,
                     created_at,
@@ -344,12 +337,12 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             query = text("""
                 INSERT INTO conferences (
                     name, governing_body_id,
-                    prefecture, term, election_id,
+                    term, election_id,
                     created_at, updated_at
                 )
                 VALUES (
                     :name, :governing_body_id,
-                    :prefecture, :term, :election_id,
+                    :term, :election_id,
                     :created_at, :updated_at
                 )
                 RETURNING *
@@ -358,7 +351,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             params = {
                 "name": entity.name,
                 "governing_body_id": entity.governing_body_id,
-                "prefecture": entity.prefecture,
                 "term": entity.term,
                 "election_id": entity.election_id,
                 "created_at": datetime.now(),
@@ -402,7 +394,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 UPDATE conferences
                 SET name = :name,
                     governing_body_id = :governing_body_id,
-                    prefecture = :prefecture,
                     term = :term,
                     election_id = :election_id,
                     updated_at = :updated_at
@@ -414,7 +405,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                 "id": entity.id,
                 "name": entity.name,
                 "governing_body_id": entity.governing_body_id,
-                "prefecture": entity.prefecture,
                 "term": entity.term,
                 "election_id": entity.election_id,
                 "updated_at": datetime.now(),
@@ -490,7 +480,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             id=model.id,
             name=model.name,
             governing_body_id=model.governing_body_id,
-            prefecture=model.prefecture,
             term=model.term,
             election_id=model.election_id,
         )
@@ -501,7 +490,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             id=entity.id,
             name=entity.name,
             governing_body_id=entity.governing_body_id,
-            prefecture=entity.prefecture,
             term=entity.term,
             election_id=entity.election_id,
         )
@@ -510,7 +498,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
         """Update model from entity."""
         model.name = entity.name
         model.governing_body_id = entity.governing_body_id
-        model.prefecture = entity.prefecture
         model.term = entity.term
         model.election_id = entity.election_id
 
@@ -520,7 +507,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             id=data.get("id"),
             name=data["name"],
             governing_body_id=data["governing_body_id"],
-            prefecture=data.get("prefecture"),
             term=data.get("term"),
             election_id=data.get("election_id"),
         )

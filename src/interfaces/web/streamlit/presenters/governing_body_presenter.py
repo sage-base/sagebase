@@ -97,10 +97,13 @@ class GoverningBodyPresenter(BasePresenter[list[GoverningBody]]):
         type: str,
         organization_code: str | None = None,
         organization_type: str | None = None,
+        prefecture: str | None = None,
     ) -> tuple[bool, str | None]:
         """Create a new governing body."""
         return self._run_async(
-            self._create_async(name, type, organization_code, organization_type)
+            self._create_async(
+                name, type, organization_code, organization_type, prefecture
+            )
         )
 
     async def _create_async(
@@ -109,6 +112,7 @@ class GoverningBodyPresenter(BasePresenter[list[GoverningBody]]):
         type: str,
         organization_code: str | None = None,
         organization_type: str | None = None,
+        prefecture: str | None = None,
     ) -> tuple[bool, str | None]:
         """Create a new governing body (async implementation)."""
         try:
@@ -118,6 +122,7 @@ class GoverningBodyPresenter(BasePresenter[list[GoverningBody]]):
                     type=type,
                     organization_code=organization_code,
                     organization_type=organization_type,
+                    prefecture=prefecture,
                 )
             )
             if result.success:
@@ -136,10 +141,13 @@ class GoverningBodyPresenter(BasePresenter[list[GoverningBody]]):
         type: str,
         organization_code: str | None = None,
         organization_type: str | None = None,
+        prefecture: str | None = None,
     ) -> tuple[bool, str | None]:
         """Update an existing governing body."""
         return self._run_async(
-            self._update_async(id, name, type, organization_code, organization_type)
+            self._update_async(
+                id, name, type, organization_code, organization_type, prefecture
+            )
         )
 
     async def _update_async(
@@ -149,6 +157,7 @@ class GoverningBodyPresenter(BasePresenter[list[GoverningBody]]):
         type: str,
         organization_code: str | None = None,
         organization_type: str | None = None,
+        prefecture: str | None = None,
     ) -> tuple[bool, str | None]:
         """Update an existing governing body (async implementation)."""
         try:
@@ -159,6 +168,7 @@ class GoverningBodyPresenter(BasePresenter[list[GoverningBody]]):
                     type=type,
                     organization_code=organization_code,
                     organization_type=organization_type,
+                    prefecture=prefecture,
                 )
             )
             if result.success:
@@ -220,6 +230,7 @@ class GoverningBodyPresenter(BasePresenter[list[GoverningBody]]):
                     "ID": gb.id,
                     "名称": gb.name,
                     "種別": gb.type,
+                    "都道府県": gb.prefecture or "",
                     "会議体数": getattr(gb, "conference_count", 0),
                     "組織コード": gb.organization_code or "",
                     "組織タイプ": gb.organization_type or "",
@@ -239,6 +250,7 @@ class GoverningBodyPresenter(BasePresenter[list[GoverningBody]]):
                 kwargs.get("type", ""),
                 kwargs.get("organization_code"),
                 kwargs.get("organization_type"),
+                kwargs.get("prefecture"),
             )
         elif action == "update":
             return self.update(
@@ -247,6 +259,7 @@ class GoverningBodyPresenter(BasePresenter[list[GoverningBody]]):
                 kwargs.get("type", ""),
                 kwargs.get("organization_code"),
                 kwargs.get("organization_type"),
+                kwargs.get("prefecture"),
             )
         elif action == "delete":
             return self.delete(kwargs.get("id", 0))

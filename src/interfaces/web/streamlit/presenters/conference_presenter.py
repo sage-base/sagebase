@@ -31,7 +31,6 @@ class ConferenceFormData:
 
     name: str = ""
     governing_body_id: int | None = None
-    prefecture: str | None = None
     term: str | None = None
     election_id: int | None = None
 
@@ -76,7 +75,6 @@ class ConferencePresenter:
                     "ID": conf.id,
                     "会議体名": conf.name,
                     "期/会期/年度": conf.term or "",
-                    "都道府県": conf.prefecture or "",
                     "開催主体ID": conf.governing_body_id or "",
                 }
             )
@@ -109,7 +107,6 @@ class ConferencePresenter:
         input_dto = CreateConferenceInputDto(
             name=form_data.name,
             governing_body_id=form_data.governing_body_id,
-            prefecture=form_data.prefecture,
             term=form_data.term,
             election_id=form_data.election_id,
         )
@@ -124,7 +121,6 @@ class ConferencePresenter:
             id=conference_id,
             name=form_data.name,
             governing_body_id=form_data.governing_body_id,
-            prefecture=form_data.prefecture,
             term=form_data.term,
             election_id=form_data.election_id,
         )
@@ -179,7 +175,6 @@ class ConferencePresenter:
         return ConferenceFormData(
             name=conference.name,
             governing_body_id=conference.governing_body_id,
-            prefecture=conference.prefecture,
             term=conference.term,
             election_id=conference.election_id,
         )

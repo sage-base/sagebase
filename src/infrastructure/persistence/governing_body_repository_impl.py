@@ -21,6 +21,7 @@ class GoverningBodyModel:
     type: str | None
     organization_code: str | None
     organization_type: str | None
+    prefecture: str | None
 
     def __init__(self, **kwargs: Any):
         for key, value in kwargs.items():
@@ -44,7 +45,9 @@ class GoverningBodyRepositoryImpl(
                    COUNT(c.id) as conference_count
             FROM governing_bodies gb
             LEFT JOIN conferences c ON gb.id = c.governing_body_id
-            GROUP BY gb.id, gb.name, gb.type, gb.organization_code, gb.organization_type
+            GROUP BY gb.id, gb.name, gb.type,
+                     gb.organization_code, gb.organization_type,
+                     gb.prefecture
             ORDER BY gb.name
         """)
 
@@ -72,7 +75,9 @@ class GoverningBodyRepositoryImpl(
             FROM governing_bodies gb
             LEFT JOIN conferences c ON gb.id = c.governing_body_id
             WHERE gb.id = :id
-            GROUP BY gb.id, gb.name, gb.type, gb.organization_code, gb.organization_type
+            GROUP BY gb.id, gb.name, gb.type,
+                     gb.organization_code, gb.organization_type,
+                     gb.prefecture
         """)
 
         result = await self.session.execute(query, {"id": entity_id})
@@ -93,7 +98,9 @@ class GoverningBodyRepositoryImpl(
             FROM governing_bodies gb
             LEFT JOIN conferences c ON gb.id = c.governing_body_id
             WHERE gb.id IN ({placeholders})
-            GROUP BY gb.id, gb.name, gb.type, gb.organization_code, gb.organization_type
+            GROUP BY gb.id, gb.name, gb.type,
+                     gb.organization_code, gb.organization_type,
+                     gb.prefecture
         """)
         params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
         result = await self.session.execute(query, params)
@@ -191,6 +198,7 @@ class GoverningBodyRepositoryImpl(
             type=row.type,
             organization_code=getattr(row, "organization_code", None),
             organization_type=getattr(row, "organization_type", None),
+            prefecture=getattr(row, "prefecture", None),
             conference_count=getattr(row, "conference_count", 0),
         )
 
@@ -202,6 +210,7 @@ class GoverningBodyRepositoryImpl(
             type=model.type,
             organization_code=getattr(model, "organization_code", None),
             organization_type=getattr(model, "organization_type", None),
+            prefecture=getattr(model, "prefecture", None),
             conference_count=getattr(model, "conference_count", 0),
         )
 
@@ -216,6 +225,8 @@ class GoverningBodyRepositoryImpl(
             data["organization_code"] = entity.organization_code
         if entity.organization_type is not None:
             data["organization_type"] = entity.organization_type
+        if entity.prefecture is not None:
+            data["prefecture"] = entity.prefecture
         if entity.id is not None:
             data["id"] = entity.id
 
@@ -230,6 +241,8 @@ class GoverningBodyRepositoryImpl(
             model.organization_code = entity.organization_code
         if entity.organization_type is not None:
             model.organization_type = entity.organization_type
+        if entity.prefecture is not None:
+            model.prefecture = entity.prefecture
 
     async def create(self, entity: GoverningBody) -> GoverningBody:
         """Create a new governing body.
@@ -242,10 +255,10 @@ class GoverningBodyRepositoryImpl(
         """
         query = text("""
             INSERT INTO governing_bodies (
-                name, type, organization_code, organization_type
+                name, type, organization_code, organization_type, prefecture
             )
             VALUES (
-                :name, :type, :organization_code, :organization_type
+                :name, :type, :organization_code, :organization_type, :prefecture
             )
             RETURNING *
         """)
@@ -255,6 +268,7 @@ class GoverningBodyRepositoryImpl(
             "type": entity.type,
             "organization_code": entity.organization_code,
             "organization_type": entity.organization_type,
+            "prefecture": entity.prefecture,
         }
 
         result = await self.session.execute(query, params)
@@ -281,7 +295,8 @@ class GoverningBodyRepositoryImpl(
             SET name = :name,
                 type = :type,
                 organization_code = :organization_code,
-                organization_type = :organization_type
+                organization_type = :organization_type,
+                prefecture = :prefecture
             WHERE id = :id
             RETURNING *
         """)
@@ -292,6 +307,7 @@ class GoverningBodyRepositoryImpl(
             "type": entity.type,
             "organization_code": entity.organization_code,
             "organization_type": entity.organization_type,
+            "prefecture": entity.prefecture,
         }
 
         result = await self.session.execute(query, params)

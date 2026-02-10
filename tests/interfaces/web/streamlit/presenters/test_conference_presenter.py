@@ -68,13 +68,11 @@ def sample_conferences():
             id=1,
             name="総務委員会",
             governing_body_id=100,
-            prefecture="東京都",
         ),
         Conference(
             id=2,
             name="本会議",
             governing_body_id=100,
-            prefecture="東京都",
         ),
     ]
 
@@ -157,13 +155,11 @@ class TestConferencesToDataframe:
         assert len(df) == 2
         assert "ID" in df.columns
         assert "会議体名" in df.columns
-        assert "都道府県" in df.columns
         assert "開催主体ID" in df.columns
 
         # 最初の行の値を確認
         assert df.iloc[0]["ID"] == 1
         assert df.iloc[0]["会議体名"] == "総務委員会"
-        assert df.iloc[0]["都道府県"] == "東京都"
 
     def test_conferences_to_dataframe_with_none_values(self, presenter):
         """None値を含む会議体を正しく変換できることを確認"""
@@ -173,7 +169,6 @@ class TestConferencesToDataframe:
                 id=1,
                 name="テスト会議",
                 governing_body_id=None,
-                prefecture=None,
             )
         ]
 
@@ -181,7 +176,6 @@ class TestConferencesToDataframe:
         df = presenter._conferences_to_dataframe(conferences)
 
         # Assert
-        assert df.iloc[0]["都道府県"] == ""
         assert df.iloc[0]["開催主体ID"] == ""
 
 
@@ -282,7 +276,6 @@ class TestCreateConference:
         form_data = ConferenceFormData(
             name="新規会議体",
             governing_body_id=100,
-            prefecture="東京都",
         )
 
         # Act
@@ -424,7 +417,6 @@ class TestLoadConferenceForEdit:
             id=1,
             name="編集対象会議体",
             governing_body_id=100,
-            prefecture="東京都",
         )
 
         # Act
@@ -434,7 +426,6 @@ class TestLoadConferenceForEdit:
         assert isinstance(form_data, ConferenceFormData)
         assert form_data.name == "編集対象会議体"
         assert form_data.governing_body_id == 100
-        assert form_data.prefecture == "東京都"
 
     def test_load_conference_for_edit_with_none_values(self, presenter):
         """None値を含む会議体を正しく変換できることを確認"""
@@ -443,7 +434,6 @@ class TestLoadConferenceForEdit:
             id=1,
             name="会議体",
             governing_body_id=None,
-            prefecture=None,
         )
 
         # Act
@@ -451,7 +441,6 @@ class TestLoadConferenceForEdit:
 
         # Assert
         assert form_data.governing_body_id is None
-        assert form_data.prefecture is None
 
 
 class TestConferenceFormData:
@@ -462,18 +451,15 @@ class TestConferenceFormData:
         form_data = ConferenceFormData()
         assert form_data.name == ""
         assert form_data.governing_body_id is None
-        assert form_data.prefecture is None
 
     def test_custom_values(self):
         """カスタム値を設定できることを確認"""
         form_data = ConferenceFormData(
             name="テスト会議体",
             governing_body_id=100,
-            prefecture="大阪府",
         )
         assert form_data.name == "テスト会議体"
         assert form_data.governing_body_id == 100
-        assert form_data.prefecture == "大阪府"
 
 
 class TestGetElectionsForGoverningBody:

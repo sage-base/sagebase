@@ -16,6 +16,7 @@ class TestGoverningBody:
         assert body.type is None
         assert body.organization_code is None
         assert body.organization_type is None
+        assert body.prefecture is None
         assert body.id is None
 
     def test_initialization_with_all_fields(self) -> None:
@@ -26,6 +27,7 @@ class TestGoverningBody:
             type="都道府県",
             organization_code="130001",
             organization_type="prefecture",
+            prefecture="東京都",
         )
 
         assert body.id == 1
@@ -33,6 +35,7 @@ class TestGoverningBody:
         assert body.type == "都道府県"
         assert body.organization_code == "130001"
         assert body.organization_type == "prefecture"
+        assert body.prefecture == "東京都"
 
     def test_str_representation_with_type(self) -> None:
         """Test string representation when type is provided."""
@@ -55,6 +58,7 @@ class TestGoverningBody:
         assert body.type == "都道府県"
         assert body.organization_code == "130001"
         assert body.organization_type == "prefecture"
+        assert body.prefecture == "東京都"
 
     def test_factory_with_overrides(self) -> None:
         """Test entity factory with custom values."""
@@ -187,3 +191,31 @@ class TestGoverningBody:
         assert village.name == "檜原村"
         assert village.type == "村"
         assert str(village) == "檜原村 (村)"
+
+    def test_prefecture_field(self) -> None:
+        """Test prefecture field assignment."""
+        body = GoverningBody(
+            name="東京都",
+            type="都道府県",
+            prefecture="東京都",
+        )
+        assert body.prefecture == "東京都"
+
+        body_none = GoverningBody(name="日本国", type="国")
+        assert body_none.prefecture is None
+
+    def test_factory_with_prefecture_override(self) -> None:
+        """Test entity factory with prefecture override."""
+        body = create_governing_body(
+            name="大阪府",
+            type="都道府県",
+            prefecture="大阪府",
+        )
+        assert body.prefecture == "大阪府"
+
+        body_null = create_governing_body(
+            name="日本国",
+            type="国",
+            prefecture=None,
+        )
+        assert body_null.prefecture is None

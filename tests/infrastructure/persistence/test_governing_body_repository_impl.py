@@ -38,6 +38,7 @@ class TestGoverningBodyRepositoryImpl:
             name="東京都",
             type="都道府県",
             organization_code="130001",
+            prefecture="東京都",
         )
 
     @pytest.mark.asyncio
@@ -180,6 +181,7 @@ class TestGoverningBodyRepositoryImpl:
             name="東京都",
             type="都道府県",
             organization_code="130001",
+            prefecture="東京都",
         )
 
         entity = repository._to_entity(model)
@@ -187,6 +189,22 @@ class TestGoverningBodyRepositoryImpl:
         assert isinstance(entity, GoverningBody)
         assert entity.id == 1
         assert entity.name == "東京都"
+        assert entity.prefecture == "東京都"
+
+    def test_to_entity_without_prefecture(
+        self, repository: GoverningBodyRepositoryImpl
+    ) -> None:
+        """Test _to_entity with no prefecture returns None."""
+        model = GoverningBodyModel(
+            id=2,
+            name="日本国",
+            type="国",
+            organization_code=None,
+        )
+
+        entity = repository._to_entity(model)
+
+        assert entity.prefecture is None
 
     def test_to_model(
         self,
@@ -199,6 +217,7 @@ class TestGoverningBodyRepositoryImpl:
         assert isinstance(model, GoverningBodyModel)
         assert model.name == "東京都"
         assert model.type == "都道府県"
+        assert model.prefecture == "東京都"
 
     @pytest.mark.asyncio
     async def test_get_all_returns_bodies(
@@ -279,6 +298,7 @@ class TestGoverningBodyRepositoryImpl:
         mock_row.name = "東京都"
         mock_row.type = "都道府県"
         mock_row.organization_code = "130001"
+        mock_row.prefecture = "東京都"
 
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
@@ -289,6 +309,7 @@ class TestGoverningBodyRepositoryImpl:
         assert result is not None
         assert result.id == 1
         assert result.name == "東京都"
+        assert result.prefecture == "東京都"
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
@@ -321,6 +342,7 @@ class TestGoverningBodyRepositoryImpl:
         mock_row.type = "都道府県"
         mock_row.organization_code = "130001"
         mock_row.organization_type = None
+        mock_row.prefecture = "東京都"
 
         mock_result = MagicMock()
         mock_result.first = MagicMock(return_value=mock_row)
@@ -330,6 +352,7 @@ class TestGoverningBodyRepositoryImpl:
 
         assert result.id == 1
         assert result.name == "東京都"
+        assert result.prefecture == "東京都"
         mock_session.execute.assert_called_once()
         mock_session.commit.assert_called_once()
 
@@ -362,6 +385,7 @@ class TestGoverningBodyRepositoryImpl:
         mock_row.type = "都道府県"
         mock_row.organization_code = "130001"
         mock_row.organization_type = None
+        mock_row.prefecture = "東京都"
 
         mock_result = MagicMock()
         mock_result.first = MagicMock(return_value=mock_row)
@@ -371,6 +395,7 @@ class TestGoverningBodyRepositoryImpl:
         result = await repository.update(sample_body_entity)
 
         assert result.name == "東京都（更新）"
+        assert result.prefecture == "東京都"
         mock_session.execute.assert_called_once()
         mock_session.commit.assert_called_once()
 
@@ -461,6 +486,7 @@ class TestGoverningBodyRepositoryImpl:
             type="旧タイプ",
             organization_code="000000",
             organization_type="旧組織タイプ",
+            prefecture="旧都道府県",
         )
 
         repository._update_model(model, sample_body_entity)
@@ -468,6 +494,7 @@ class TestGoverningBodyRepositoryImpl:
         assert model.name == "東京都"
         assert model.type == "都道府県"
         assert model.organization_code == "130001"
+        assert model.prefecture == "東京都"
 
     @pytest.mark.asyncio
     async def test_get_by_ids_found(

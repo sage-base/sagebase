@@ -9,15 +9,15 @@ from typing import cast
 
 import streamlit as st
 
-from ..constants import CONFERENCE_PREFECTURES
 from ..widgets import render_governing_body_and_election_selector
 
-from src.domain.entities import Conference
+from src.domain.entities import Conference, GoverningBody
 from src.domain.repositories import ConferenceRepository, GoverningBodyRepository
 from src.interfaces.web.streamlit.presenters.conference_presenter import (
     ConferenceFormData,
     ConferencePresenter,
 )
+from src.interfaces.web.streamlit.views.constants import PREFECTURES
 
 
 def render_edit_delete_form(
@@ -45,8 +45,11 @@ def render_edit_delete_form(
         st.info("編集可能な会議体がありません。")
         return
 
-    # 都道府県フィルター
-    filtered_conferences = _render_filters(conferences)
+    # 開催主体一覧を取得してフィルターに渡す
+    governing_bodies = cast(list[GoverningBody], governing_body_repo.get_all())
+
+    # 都道府県フィルター（開催主体のprefecture経由）
+    filtered_conferences = _render_filters(conferences, governing_bodies)
 
     if not filtered_conferences:
         st.warning("条件に一致する会議体がありません。")
@@ -71,22 +74,28 @@ def render_edit_delete_form(
         _render_edit_form(presenter, conference, conference_id, governing_body_repo)
 
 
-def _render_filters(conferences: list[Conference]) -> list[Conference]:
+def _render_filters(
+    conferences: list[Conference],
+    governing_bodies: list[GoverningBody],
+) -> list[Conference]:
     """Render filter controls and return filtered conferences.
 
     Args:
         conferences: 全会議体リスト
+        governing_bodies: 全開催主体リスト
 
     Returns:
         フィルタリングされた会議体リスト
     """
     st.markdown("#### フィルター")
+
+    # 開催主体IDから都道府県へのマッピングを構築
+    gb_prefecture_map = {gb.id: gb.prefecture for gb in governing_bodies}
+
     col1, col2 = st.columns([2, 1])
 
     with col1:
-        prefecture_filter_options = ["すべて"] + [
-            p for p in CONFERENCE_PREFECTURES if p
-        ]
+        prefecture_filter_options = ["すべて"] + [p for p in PREFECTURES if p]
         selected_prefecture_filter = st.selectbox(
             "都道府県でフィルター",
             prefecture_filter_options,
@@ -97,7 +106,7 @@ def _render_filters(conferences: list[Conference]) -> list[Conference]:
         filter_no_prefecture = st.checkbox(
             "都道府県が未設定のみ",
             key="filter_no_prefecture",
-            help="都道府県が設定されていない会議体のみ表示",
+            help="開催主体に都道府県が設定されていない会議体のみ表示",
         )
 
     # フィルターを適用
@@ -105,10 +114,16 @@ def _render_filters(conferences: list[Conference]) -> list[Conference]:
 
     # 都道府県未設定フィルター（優先）
     if filter_no_prefecture:
-        filtered_conferences = [c for c in filtered_conferences if not c.prefecture]
+        filtered_conferences = [
+            c
+            for c in filtered_conferences
+            if not gb_prefecture_map.get(c.governing_body_id)
+        ]
     elif selected_prefecture_filter != "すべて":
         filtered_conferences = [
-            c for c in conferences if c.prefecture == selected_prefecture_filter
+            c
+            for c in conferences
+            if gb_prefecture_map.get(c.governing_body_id) == selected_prefecture_filter
         ]
 
     # フィルター結果の表示
@@ -171,21 +186,6 @@ def _render_edit_form(
             value=form_data.name,
         )
 
-        # Prefecture selection
-        prefecture_options = [p for p in CONFERENCE_PREFECTURES if p]
-        current_prefecture = form_data.prefecture or prefecture_options[0]
-        prefecture_index = (
-            prefecture_options.index(current_prefecture)
-            if current_prefecture in prefecture_options
-            else 0
-        )
-        prefecture = st.selectbox(
-            "都道府県",
-            options=prefecture_options,
-            index=prefecture_index,
-            help="国会の場合は「全国」を選択してください",
-        )
-
         # Term (期/会期/年度)
         term = st.text_input(
             "期/会期/年度",
@@ -208,7 +208,6 @@ def _render_edit_form(
                 name,
                 governing_body_id,
                 election_id,
-                prefecture,
                 term,
             )
 
@@ -223,7 +222,6 @@ def _handle_update(
     name: str,
     governing_body_id: int | None,
     election_id: int | None,
-    prefecture: str,
     term: str,
 ) -> None:
     """Handle conference update.
@@ -235,7 +233,6 @@ def _handle_update(
         name: 会議体名
         governing_body_id: 開催主体ID
         election_id: 選挙ID
-        prefecture: 都道府県
         term: 期/会期/年度
     """
     # Validation
@@ -248,7 +245,6 @@ def _handle_update(
         form_data.name = name
         form_data.governing_body_id = governing_body_id
         form_data.election_id = election_id
-        form_data.prefecture = prefecture if prefecture else None
         form_data.term = term if term else None
 
         # Update conference
