@@ -243,7 +243,13 @@ class RepositoryAdapter:
     def close(self):
         """Close all async engines."""
         for engine in self._engines.values():
-            asyncio.run(engine.dispose())
+            try:
+                asyncio.get_running_loop()
+                # イベントループ内から呼ばれた場合は専用スレッドで実行
+                self._run_async(engine.dispose())
+            except RuntimeError:
+                # イベントループ外の場合はasyncio.runで実行
+                asyncio.run(engine.dispose())
         self._engines.clear()
         self._session_factories.clear()
 
