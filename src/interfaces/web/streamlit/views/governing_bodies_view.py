@@ -10,9 +10,7 @@ from src.interfaces.web.streamlit.presenters.election_presenter import (
 from src.interfaces.web.streamlit.presenters.governing_body_presenter import (
     GoverningBodyPresenter,
 )
-from src.interfaces.web.streamlit.views.conferences.constants import (
-    CONFERENCE_PREFECTURES,
-)
+from src.interfaces.web.streamlit.views.constants import PREFECTURES
 
 
 def render_governing_bodies_page() -> None:
@@ -132,7 +130,7 @@ def render_new_governing_body_tab(presenter: GoverningBodyPresenter) -> None:
         name = st.text_input("開催主体名", key="new_gb_name")
         type_options = presenter.get_type_options()
         gb_type = st.selectbox("種別", type_options, key="new_gb_type")
-        prefecture_options = [""] + [p for p in CONFERENCE_PREFECTURES if p]
+        prefecture_options = [""] + [p for p in PREFECTURES if p]
         prefecture = st.selectbox(
             "都道府県（オプション）",
             prefecture_options,
@@ -202,7 +200,7 @@ def render_edit_delete_tab(presenter: GoverningBodyPresenter) -> None:
                     else 0,
                     key="edit_gb_type",
                 )
-                prefecture_options = [""] + [p for p in CONFERENCE_PREFECTURES if p]
+                prefecture_options = [""] + [p for p in PREFECTURES if p]
                 current_prefecture = selected_gb.prefecture or ""
                 prefecture_index = (
                     prefecture_options.index(current_prefecture)

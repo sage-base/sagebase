@@ -390,6 +390,45 @@ class TestManageGoverningBodiesUseCase:
         assert call_args[0][0].prefecture == "東京都"
 
     @pytest.mark.asyncio
+    async def test_generate_seed_file_includes_prefecture(
+        self, use_case, mock_governing_body_repository, monkeypatch
+    ):
+        """Test seed file generation includes prefecture column."""
+        # Arrange
+        from unittest.mock import mock_open
+
+        governing_bodies = [
+            GoverningBody(
+                id=1,
+                name="東京都",
+                type="都道府県",
+                organization_code="130001",
+                prefecture="東京都",
+            ),
+            GoverningBody(
+                id=2,
+                name="国会",
+                type="国",
+                organization_code=None,
+                prefecture=None,
+            ),
+        ]
+        mock_governing_body_repository.get_all.return_value = governing_bodies
+
+        m_open = mock_open()
+        monkeypatch.setattr("builtins.open", m_open)
+
+        # Act
+        result = await use_case.generate_seed_file()
+
+        # Assert
+        assert result.success is True
+        assert "prefecture" in result.seed_content
+        assert "'東京都'" in result.seed_content
+        assert "NULL" in result.seed_content
+        m_open.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_update_governing_body_prefecture(
         self, use_case, mock_governing_body_repository
     ):

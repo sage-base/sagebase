@@ -235,7 +235,8 @@ class ManageGoverningBodiesUseCase:
                 existing.organization_code = input_dto.organization_code
             if input_dto.organization_type is not None:
                 existing.organization_type = input_dto.organization_type
-            existing.prefecture = input_dto.prefecture
+            if input_dto.prefecture is not None:
+                existing.prefecture = input_dto.prefecture
 
             await self.governing_body_repository.update(existing)
             return UpdateGoverningBodyOutputDto(success=True)

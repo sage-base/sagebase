@@ -9,7 +9,6 @@ from typing import cast
 
 import streamlit as st
 
-from ..constants import CONFERENCE_PREFECTURES
 from ..widgets import render_governing_body_and_election_selector
 
 from src.domain.entities import Conference, GoverningBody
@@ -18,6 +17,7 @@ from src.interfaces.web.streamlit.presenters.conference_presenter import (
     ConferenceFormData,
     ConferencePresenter,
 )
+from src.interfaces.web.streamlit.views.constants import PREFECTURES
 
 
 def render_edit_delete_form(
@@ -95,9 +95,7 @@ def _render_filters(
     col1, col2 = st.columns([2, 1])
 
     with col1:
-        prefecture_filter_options = ["すべて"] + [
-            p for p in CONFERENCE_PREFECTURES if p
-        ]
+        prefecture_filter_options = ["すべて"] + [p for p in PREFECTURES if p]
         selected_prefecture_filter = st.selectbox(
             "都道府県でフィルター",
             prefecture_filter_options,
