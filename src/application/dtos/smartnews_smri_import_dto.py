@@ -6,6 +6,7 @@ from pathlib import Path
 class ImportSmartNewsSmriInputDto:
     file_path: Path
     governing_body_id: int
+    conference_id: int
     batch_size: int = 100
 
 

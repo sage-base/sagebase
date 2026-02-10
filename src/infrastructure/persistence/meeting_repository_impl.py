@@ -693,6 +693,33 @@ class MeetingRepositoryImpl(BaseRepositoryImpl[Meeting], MeetingRepository):
                     return self._dict_to_entity(dict(row._mapping))  # type: ignore
             return None
 
+    async def get_by_ids(self, entity_ids: list[int]) -> list[Meeting]:
+        """Get meetings by their IDs."""
+        from sqlalchemy import text
+
+        if not entity_ids:
+            return []
+        async_executor = self._get_async_executor()
+        if async_executor:
+            placeholders = ", ".join(f":id_{i}" for i in range(len(entity_ids)))
+            sql = f"SELECT * FROM meetings WHERE id IN ({placeholders})"
+            params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
+            result = await async_executor.execute(text(sql), params)
+            return [
+                self._dict_to_entity(dict(row._mapping))  # type: ignore
+                for row in result.fetchall()
+            ]
+        elif self.sync_session:
+            placeholders = ", ".join(f":id_{i}" for i in range(len(entity_ids)))
+            sql = f"SELECT * FROM meetings WHERE id IN ({placeholders})"
+            params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
+            result = self.sync_session.execute(text(sql), params)
+            return [
+                self._dict_to_entity(dict(row._mapping))  # type: ignore
+                for row in result.fetchall()
+            ]
+        return []
+
     async def get_all(
         self, limit: int | None = None, offset: int | None = 0
     ) -> list[Meeting]:
