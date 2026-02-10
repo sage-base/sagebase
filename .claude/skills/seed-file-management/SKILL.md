@@ -48,6 +48,33 @@ SELECT setval('table_name_id_seq', COALESCE((SELECT MAX(id) FROM table_name), 0)
 シードファイル修正時：
 - [ ] **既存シーケンス**: 新しいIDを追加した場合、シーケンスリセットを更新
 - [ ] **マイグレーション**: 必要に応じてシーケンスリセット用マイグレーションを追加
+- [ ] **ON CONFLICT句の整合性**: `ON CONFLICT` で指定するカラムが現在のUNIQUE制約と一致しているか確認（[詳細](#-critical-on-conflict句とunique制約の整合性)）
+- [ ] **スキーマ変更の確認**: `alembic/versions/` のマイグレーション履歴で、対象テーブルのカラム追加・削除・UNIQUE制約変更がないか確認
+
+## ⚠️ CRITICAL: ON CONFLICT句とUNIQUE制約の整合性
+
+### 問題の概要（Issue #1119）
+`ON CONFLICT (col1, col2)` で指定するカラムは、テーブルに実在するUNIQUE制約と**完全に一致**しなければならない。マイグレーションでUNIQUE制約が変更された場合、シードファイルの `ON CONFLICT` 句も合わせて更新しないと、PostgreSQLがエラーを出す。
+
+```
+ERROR: there is no unique or exclusion constraint matching the ON CONFLICT specification
+```
+
+**このエラーは `load-seeds.sh` のエラー抑制（`> /dev/null 2>&1`）により、サイレントに失敗する。** シードが投入されないのに成功メッセージが表示されるため、発見が遅れる。
+
+### 確認手順
+シードファイルを修正する際は、以下を必ず確認する：
+
+1. `alembic/versions/` でUNIQUE制約の変更履歴を確認
+2. シードファイルの `ON CONFLICT` カラムが現在の制約と一致しているか確認
+
+```sql
+-- ❌ 悪い例: マイグレーションでUNIQUE制約が変更されたのにON CONFLICTが古いまま
+ON CONFLICT (name, governing_body_id) DO NOTHING;  -- 旧制約
+
+-- ✅ 良い例: 現在のUNIQUE制約に合わせて更新
+ON CONFLICT (name, governing_body_id, term) DO NOTHING;  -- 現行制約
+```
 
 ## ファイル構造と命名規則
 
@@ -257,6 +284,23 @@ ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
 ### Q: 外部キー制約エラーが発生する
 
 **解決策**: ファイル名の番号を調整して実行順序を制御
+
+### Q: シードが投入されていない（テーブルが空）のに成功メッセージが出る
+
+`load-seeds.sh` はシードSQLの実行エラーを `> /dev/null 2>&1` で抑制している。
+ON CONFLICT句の不一致やカラム参照エラーがあっても**サイレントに失敗**し、「✅ Seed data loaded!」と表示される。
+
+**デバッグ方法**:
+```bash
+# エラーを表示させてシードを手動投入
+docker compose -f docker/docker-compose.yml exec -T postgres \
+  psql -U sagebase_user -d sagebase_db < database/seed_conferences_generated.sql
+```
+
+**よくある原因**:
+- `ON CONFLICT` のカラムが現在のUNIQUE制約と一致していない
+- INSERT文のカラムリストに削除済みカラムが含まれている
+- 既存データがある状態で `load-seeds.sh` がスキップ判定している（`just clean` で解消）
 
 ## 関連リンク
 
