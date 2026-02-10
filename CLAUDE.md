@@ -69,6 +69,15 @@ src/
 - **Repository Pattern**: All repositories use async/await with `ISessionAdapter`
 - **DTO Usage**: DTOs for layer boundaries
 
+### Repository Model Types（重要）
+
+リポジトリ実装には2種類のモデルパターンが混在しています。`BaseRepositoryImpl`の一部メソッド（`get_by_ids`等）は`select(model_class)`を使用するため、**Pydantic/動的モデル系のリポジトリでは正しく動作しません**。該当リポジトリでメソッドを新規追加・修正する際は、raw SQLでのオーバーライドが必要です。
+
+| パターン | モデル基盤 | BaseRepositoryImpl互換 | 該当リポジトリ例 |
+|---------|-----------|----------------------|----------------|
+| SQLAlchemy ORM | `registry.mapped` / `DeclarativeBase` | `select()`が動作する | Speaker, Minutes等 |
+| Pydantic/動的モデル | `PydanticBaseModel` / 動的`__init__` | `select()`が**動作しない** | Conference, GoverningBody, Politician, ParliamentaryGroup, Meeting |
+
 **📖 For detailed architecture**: See [.claude/skills/clean-architecture-checker/](.claude/skills/clean-architecture-checker/)
 
 ### Visual Diagrams
