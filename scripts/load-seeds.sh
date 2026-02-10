@@ -18,6 +18,7 @@ if [ "$GOVERNING_BODIES_COUNT" = "0" ]; then
     # Load seeds in order (dependencies matter)
     SEED_FILES=(
         "database/seed_governing_bodies_generated.sql"
+        "database/seed_elections_generated.sql"
         "database/seed_political_parties_generated.sql"
         "database/seed_conferences_generated.sql"
         "database/seed_parliamentary_groups_generated.sql"
