@@ -238,6 +238,21 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             return self._row_to_entity(row)
         return None
 
+    async def get_by_ids(self, entity_ids: list[int]) -> list[Politician]:
+        """Get politicians by their IDs."""
+        if not entity_ids:
+            return []
+        placeholders = ", ".join(f":id_{i}" for i in range(len(entity_ids)))
+        query = text(f"""
+            SELECT p.*, pp.name as party_name
+            FROM politicians p
+            LEFT JOIN political_parties pp ON p.political_party_id = pp.id
+            WHERE p.id IN ({placeholders})
+        """)
+        params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
+        result = await self.session.execute(query, params)
+        return [self._row_to_entity(row) for row in result.fetchall()]
+
     async def create(self, entity: Politician) -> Politician:
         """Create a new politician."""
         query = text("""

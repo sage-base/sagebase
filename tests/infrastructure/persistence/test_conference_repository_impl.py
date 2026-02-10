@@ -628,3 +628,65 @@ class TestConferenceRepositoryImpl:
 
         # Assert
         assert model.term == "第220回"
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_found(
+        self,
+        repository: ConferenceRepositoryImpl,
+        mock_session: MagicMock,
+        sample_conference_dict: dict[str, Any],
+    ) -> None:
+        """Test get_by_ids returns conferences for given IDs."""
+        mock_row1 = MagicMock()
+        mock_row1._asdict = MagicMock(return_value=sample_conference_dict)
+        mock_row2_dict = {**sample_conference_dict, "id": 2, "name": "予算委員会"}
+        mock_row2 = MagicMock()
+        mock_row2._asdict = MagicMock(return_value=mock_row2_dict)
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_ids([1, 2])
+
+        assert len(result) == 2
+        assert result[0].id == 1
+        assert result[0].name == "本会議"
+        assert result[1].id == 2
+        assert result[1].name == "予算委員会"
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_empty_list(
+        self, repository: ConferenceRepositoryImpl, mock_session: MagicMock
+    ) -> None:
+        """Test get_by_ids returns empty list for empty input."""
+        result = await repository.get_by_ids([])
+
+        assert result == []
+        mock_session.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_not_found(
+        self, repository: ConferenceRepositoryImpl, mock_session: MagicMock
+    ) -> None:
+        """Test get_by_ids returns empty list when no conferences found."""
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_ids([999])
+
+        assert result == []
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_database_error(
+        self, repository: ConferenceRepositoryImpl, mock_session: MagicMock
+    ) -> None:
+        """Test get_by_ids raises DatabaseError on database failure."""
+        mock_session.execute.side_effect = SQLAlchemyError("Database error")
+
+        with pytest.raises(DatabaseError) as exc_info:
+            await repository.get_by_ids([1, 2])
+
+        assert "Failed to get conferences by IDs" in str(exc_info.value)

@@ -468,3 +468,67 @@ class TestParliamentaryGroupRepositoryImpl:
         assert model.description == "自由民主党の会派"
         assert model.is_active is True
         assert model.url == "https://example.com/group"
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_found(
+        self,
+        repository: ParliamentaryGroupRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_ids returns parliamentary groups for given IDs."""
+        mock_row1 = MagicMock()
+        mock_row1.id = 1
+        mock_row1.name = "自民党会派"
+        mock_row1.governing_body_id = 10
+        mock_row1.url = "https://example.com/group"
+        mock_row1.description = "自由民主党の会派"
+        mock_row1.is_active = True
+
+        mock_row2 = MagicMock()
+        mock_row2.id = 2
+        mock_row2.name = "民主党会派"
+        mock_row2.governing_body_id = 10
+        mock_row2.url = None
+        mock_row2.description = "民主党の会派"
+        mock_row2.is_active = True
+
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_ids([1, 2])
+
+        assert len(result) == 2
+        assert result[0].id == 1
+        assert result[0].name == "自民党会派"
+        assert result[1].id == 2
+        assert result[1].name == "民主党会派"
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_empty_list(
+        self,
+        repository: ParliamentaryGroupRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_ids returns empty list for empty input."""
+        result = await repository.get_by_ids([])
+
+        assert result == []
+        mock_session.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_not_found(
+        self,
+        repository: ParliamentaryGroupRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_ids returns empty list when no groups found."""
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_ids([999])
+
+        assert result == []
+        mock_session.execute.assert_called_once()

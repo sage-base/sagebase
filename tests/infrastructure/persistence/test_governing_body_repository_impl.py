@@ -468,3 +468,65 @@ class TestGoverningBodyRepositoryImpl:
         assert model.name == "東京都"
         assert model.type == "都道府県"
         assert model.organization_code == "130001"
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_found(
+        self,
+        repository: GoverningBodyRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_ids returns governing bodies for given IDs."""
+        mock_row1 = MagicMock()
+        mock_row1.id = 1
+        mock_row1.name = "東京都"
+        mock_row1.type = "都道府県"
+        mock_row1.organization_code = "130001"
+        mock_row1.conference_count = 5
+
+        mock_row2 = MagicMock()
+        mock_row2.id = 2
+        mock_row2.name = "大阪府"
+        mock_row2.type = "都道府県"
+        mock_row2.organization_code = "270000"
+        mock_row2.conference_count = 3
+
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_ids([1, 2])
+
+        assert len(result) == 2
+        assert result[0].id == 1
+        assert result[0].name == "東京都"
+        assert result[1].id == 2
+        assert result[1].name == "大阪府"
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_empty_list(
+        self,
+        repository: GoverningBodyRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_ids returns empty list for empty input."""
+        result = await repository.get_by_ids([])
+
+        assert result == []
+        mock_session.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_not_found(
+        self,
+        repository: GoverningBodyRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_ids returns empty list when no bodies found."""
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_ids([999])
+
+        assert result == []
+        mock_session.execute.assert_called_once()
