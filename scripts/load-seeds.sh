@@ -9,8 +9,24 @@ set -e
 
 COMPOSE_CMD="${1:--f docker/docker-compose.yml}"
 
+# Helper: execute psql query and return trimmed result
+psql_count() {
+    docker compose $COMPOSE_CMD exec -T postgres psql -U sagebase_user -d sagebase_db -t -c "$1" 2>/dev/null | tr -d ' ' || echo "0"
+}
+
+# Helper: load a seed file
+load_seed() {
+    local seed_file="$1"
+    if [ -f "$seed_file" ]; then
+        echo "  Loading $seed_file..."
+        docker compose $COMPOSE_CMD exec -T postgres psql -U sagebase_user -d sagebase_db < "$seed_file" > /dev/null 2>&1
+    else
+        echo "  ⚠️ Seed file not found: $seed_file"
+    fi
+}
+
 # Check if governing_bodies table is empty (indicates first run)
-GOVERNING_BODIES_COUNT=$(docker compose $COMPOSE_CMD exec -T postgres psql -U sagebase_user -d sagebase_db -t -c "SELECT COUNT(*) FROM governing_bodies;" 2>/dev/null | tr -d ' ' || echo "0")
+GOVERNING_BODIES_COUNT=$(psql_count "SELECT COUNT(*) FROM governing_bodies;")
 
 if [ "$GOVERNING_BODIES_COUNT" = "0" ]; then
     echo "📦 Loading seed data (first run detected)..."
@@ -27,15 +43,18 @@ if [ "$GOVERNING_BODIES_COUNT" = "0" ]; then
     )
 
     for seed_file in "${SEED_FILES[@]}"; do
-        if [ -f "$seed_file" ]; then
-            echo "  Loading $seed_file..."
-            docker compose $COMPOSE_CMD exec -T postgres psql -U sagebase_user -d sagebase_db < "$seed_file" > /dev/null 2>&1
-        else
-            echo "  ⚠️ Seed file not found: $seed_file"
-        fi
+        load_seed "$seed_file"
     done
 
     echo "✅ Seed data loaded!"
 else
-    echo "📦 Seed data already exists (skipping)"
+    echo "📦 Seed data already exists, checking for missing data..."
+
+    # elections は後から追加されたSEEDのため、個別にチェック
+    ELECTIONS_COUNT=$(psql_count "SELECT COUNT(*) FROM elections;")
+    if [ "$ELECTIONS_COUNT" = "0" ]; then
+        echo "  📦 Elections data missing, loading..."
+        load_seed "database/seed_elections_generated.sql"
+        echo "  ✅ Elections data loaded!"
+    fi
 fi
