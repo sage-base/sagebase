@@ -127,6 +127,24 @@ class TestParseDate:
     ) -> None:
         assert converter.parse_date("令和5年3月") == date(2023, 3, 1)
 
+    def test_gannen_reiwa(self, converter: JapaneseEraConverter) -> None:
+        # 「元年」は1年と同じ
+        assert converter.parse_date("令和元年5月1日") == date(2019, 5, 1)
+
+    def test_gannen_heisei(self, converter: JapaneseEraConverter) -> None:
+        assert converter.parse_date("平成元年1月8日") == date(1989, 1, 8)
+
+    def test_gannen_year_only(self, converter: JapaneseEraConverter) -> None:
+        assert converter.parse_date("令和元年") == date(2019, 1, 1)
+
+    def test_gannen_and_numeric_1_are_equivalent(
+        self, converter: JapaneseEraConverter
+    ) -> None:
+        # 「平成元年」と「平成1年」は同じ結果
+        assert converter.parse_date("平成元年1月8日") == converter.parse_date(
+            "平成1年1月8日"
+        )
+
     def test_strips_whitespace(self, converter: JapaneseEraConverter) -> None:
         assert converter.parse_date("  令和5年3月15日  ") == date(2023, 3, 15)
 

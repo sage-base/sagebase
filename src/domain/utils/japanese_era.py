@@ -20,6 +20,9 @@ class EraDefinition:
 
 
 # 元号定義（新しい順）
+# 注意: 元号の重複期間（例: 昭和64年/平成元年）は年単位で区切り、
+# 旧元号の最終年は範囲外として扱う。歴史的には昭和64年（1989/1/1〜1/7）等が
+# 実在するが、本実装では簡易的に対応しない。
 ERA_DEFINITIONS: list[EraDefinition] = [
     EraDefinition(name="令和", start_year=2019, end_year=None),
     EraDefinition(name="平成", start_year=1989, end_year=2019),
@@ -27,10 +30,10 @@ ERA_DEFINITIONS: list[EraDefinition] = [
     EraDefinition(name="大正", start_year=1912, end_year=1926),
 ]
 
-# 和暦文字列のパースパターン（「令和5年3月15日」「令和5年」）
+# 和暦文字列のパースパターン（「令和5年3月15日」「令和元年」等）
 _WAREKI_DATE_PATTERN = re.compile(
     r"(?P<era>" + "|".join(e.name for e in ERA_DEFINITIONS) + r")"
-    r"(?P<year>\d+)年"
+    r"(?P<year>\d+|元)年"
     r"(?:(?P<month>\d+)月(?:(?P<day>\d+)日)?)?"
 )
 
@@ -109,6 +112,7 @@ class JapaneseEraConverter:
         - 「令和5年3月15日」→ date(2023, 3, 15)
         - 「令和5年3月」→ date(2023, 3, 1)
         - 「令和5年」→ date(2023, 1, 1)
+        - 「令和元年5月1日」→ date(2019, 5, 1)（「元年」= 1年）
 
         Args:
             text: 和暦文字列
@@ -124,7 +128,8 @@ class JapaneseEraConverter:
             raise ValueError(f"和暦文字列をパースできません: '{text}'")
 
         era_name = match.group("era")
-        era_year = int(match.group("year"))
+        year_str = match.group("year")
+        era_year = 1 if year_str == "元" else int(year_str)
         month = int(match.group("month")) if match.group("month") else 1
         day = int(match.group("day")) if match.group("day") else 1
 
