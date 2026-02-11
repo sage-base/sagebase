@@ -771,7 +771,7 @@ class MeetingPresenter(CRUDPresenter[list[Meeting]]):
 
     def run_scrape_meeting(
         self, meeting_id: int, force_rescrape: bool = False
-    ) -> "WebResponseDTO[dict[str, Any]]":
+    ) -> WebResponseDTO[dict[str, Any]]:
         """会議のスクレイピングを同期的に実行する.
 
         Args:
@@ -787,7 +787,7 @@ class MeetingPresenter(CRUDPresenter[list[Meeting]]):
 
     def run_extract_minutes(
         self, meeting_id: int, force_reprocess: bool = False
-    ) -> "WebResponseDTO[dict[str, Any]]":
+    ) -> WebResponseDTO[dict[str, Any]]:
         """会議の発言抽出を同期的に実行する.
 
         Args:
@@ -803,7 +803,7 @@ class MeetingPresenter(CRUDPresenter[list[Meeting]]):
 
     def run_extract_speakers(
         self, meeting_id: int, force_reprocess: bool = False
-    ) -> "WebResponseDTO[dict[str, Any]]":
+    ) -> WebResponseDTO[dict[str, Any]]:
         """会議の発言者抽出を同期的に実行する.
 
         Args:
