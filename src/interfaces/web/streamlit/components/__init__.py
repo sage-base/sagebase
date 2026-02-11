@@ -1,5 +1,8 @@
 """Streamlit UI共通コンポーネント。"""
 
+from src.interfaces.web.streamlit.components.japanese_era_date_input import (
+    japanese_era_date_input,
+)
 from src.interfaces.web.streamlit.components.verification_badge import (
     get_verification_badge_html,
     get_verification_badge_text,
@@ -17,6 +20,8 @@ from src.interfaces.web.streamlit.components.verification_filter import (
 
 
 __all__ = [
+    # japanese_era_date_input
+    "japanese_era_date_input",
     # verification_badge
     "render_verification_badge",
     "get_verification_badge_text",
