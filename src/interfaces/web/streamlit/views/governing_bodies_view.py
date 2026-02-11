@@ -4,6 +4,7 @@ from datetime import date
 
 import streamlit as st
 
+from src.interfaces.web.streamlit.components import japanese_era_date_input
 from src.interfaces.web.streamlit.presenters.election_presenter import (
     ElectionPresenter,
 )
@@ -378,8 +379,8 @@ def render_new_election_form(
             help="例: 21 （第21期の場合）",
         )
 
-        election_date_input = st.date_input(
-            "選挙日",
+        election_date_input = japanese_era_date_input(
+            label="選挙日",
             value=date.today(),
             min_value=date(1947, 4, 1),  # 第1回統一地方選挙
             key="new_election_date",
@@ -396,12 +397,7 @@ def render_new_election_form(
         submitted = st.form_submit_button("登録")
 
         if submitted:
-            # Convert date_input result to date object
-            if isinstance(election_date_input, date):
-                election_date = election_date_input
-            else:
-                st.error("選挙日を選択してください")
-                return
+            election_date = election_date_input
 
             success, id_or_error = presenter.create(
                 governing_body_id=governing_body_id,
@@ -459,8 +455,8 @@ def render_edit_delete_election(
                 key="edit_election_term",
             )
 
-            edit_election_date = st.date_input(
-                "選挙日",
+            edit_election_date = japanese_era_date_input(
+                label="選挙日",
                 value=selected_election.election_date,
                 min_value=date(1947, 4, 1),  # 第1回統一地方選挙
                 key="edit_election_date",
@@ -483,23 +479,18 @@ def render_edit_delete_election(
             update_submitted = st.form_submit_button("更新")
 
             if update_submitted:
-                if isinstance(edit_election_date, date):
-                    success, error = presenter.update(
-                        id=selected_election_id,
-                        governing_body_id=governing_body_id,
-                        term_number=int(edit_term_number),
-                        election_date=edit_election_date,
-                        election_type=edit_election_type
-                        if edit_election_type
-                        else None,
-                    )
-                    if success:
-                        st.success(f"選挙（第{edit_term_number}期）を更新しました")
-                        st.rerun()
-                    else:
-                        st.error(f"更新に失敗しました: {error}")
+                success, error = presenter.update(
+                    id=selected_election_id,
+                    governing_body_id=governing_body_id,
+                    term_number=int(edit_term_number),
+                    election_date=edit_election_date,
+                    election_type=edit_election_type if edit_election_type else None,
+                )
+                if success:
+                    st.success(f"選挙（第{edit_term_number}期）を更新しました")
+                    st.rerun()
                 else:
-                    st.error("選挙日を選択してください")
+                    st.error(f"更新に失敗しました: {error}")
 
     with col2:
         st.markdown("#### 削除")
