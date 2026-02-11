@@ -141,7 +141,7 @@ def _get_default_era_values(value: date) -> tuple[str, int]:
     try:
         return _converter.to_japanese_era(value.year)
     except ValueError:
-        return ("令和", 1)
+        return (ERA_DEFINITIONS[0].name, 1)
 
 
 def _get_max_era_year(era_name: str) -> int:

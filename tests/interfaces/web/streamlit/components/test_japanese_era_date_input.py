@@ -8,6 +8,7 @@ from src.interfaces.web.streamlit.components.japanese_era_date_input import (
     _get_max_day,
     _get_max_era_year,
     _render_japanese_era_mode,
+    _render_western_mode,
     japanese_era_date_input,
 )
 
@@ -39,8 +40,8 @@ class TestGetDefaultEraValues:
         assert era == "大正"
         assert year == 9
 
-    def test_out_of_range_date_returns_reiwa_1(self):
-        """範囲外の日付は令和1年をフォールバックとして返すこと"""
+    def test_out_of_range_date_returns_latest_era(self):
+        """範囲外の日付はERA_DEFINITIONSの先頭元号をフォールバックとして返すこと"""
         era, year = _get_default_era_values(date(1900, 1, 1))
         assert era == "令和"
         assert year == 1
@@ -65,9 +66,9 @@ class TestGetMaxEraYear:
         """大正は14を返すこと（1926-1912=14）"""
         assert _get_max_era_year("大正") == 14
 
-    def test_unknown_era_returns_99(self):
-        """不明な元号は99を返すこと"""
-        assert _get_max_era_year("明治") == 99
+    def test_unsupported_era_returns_99(self):
+        """未対応の元号は99を返すこと"""
+        assert _get_max_era_year("不明") == 99
 
 
 class TestGetMaxDay:
@@ -176,17 +177,37 @@ class TestRenderJapaneseEraMode:
             MagicMock(),
         ]
         mock_st.selectbox.return_value = "令和"
-        # 令和7年 = 2025年、2月30日は存在しない
-        # ただし number_input の max_value で制限されるため実際にはこのケースは稀
-        # ここでは内部エラーのフォールバックをテスト
+        # モックがday=30を返すことで date(2025, 2, 30) の生成を試みる
         mock_st.number_input.side_effect = [7, 2, 30]
 
         fallback = date(2025, 2, 10)
         result = _render_japanese_era_mode(fallback, "test")
 
-        # モックではside_effectで30を返すが、
-        # date(2025,2,30)は無効 → エラー表示 + fallback
-        if result == fallback:
-            mock_st.error.assert_called_once()
-        else:
-            assert isinstance(result, date)
+        assert result == fallback
+        mock_st.error.assert_called_once()
+
+
+@patch("src.interfaces.web.streamlit.components.japanese_era_date_input.st")
+class TestRenderWesternMode:
+    """西暦入力モードのレンダリングテスト"""
+
+    def test_returns_date_from_date_input(self, mock_st):
+        """st.date_inputのdate結果をそのまま返すこと"""
+        expected = date(2025, 6, 1)
+        mock_st.date_input.return_value = expected
+
+        result = _render_western_mode(date(2025, 1, 1), "test")
+
+        assert result == expected
+
+    def test_returns_fallback_when_non_date_returned(self, mock_st):
+        """st.date_inputがdate以外を返す場合にフォールバック値を返すこと"""
+        mock_st.date_input.return_value = (
+            date(2025, 1, 1),
+            date(2025, 12, 31),
+        )
+        fallback = date(2025, 3, 1)
+
+        result = _render_western_mode(fallback, "test")
+
+        assert result == fallback
