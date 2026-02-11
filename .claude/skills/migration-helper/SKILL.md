@@ -48,6 +48,7 @@ just migrate-rollback
 - [ ] **テスト**: `just migrate` で適用確認
 - [ ] **ロールバックテスト**: `just migrate-rollback` で戻せることを確認
 - [ ] **シードファイル更新**: カラム追加・削除時は `sagebase generate-seeds` でシードファイルを再生成（既存シードが削除カラムを参照してDBリセットが失敗する原因になる）
+  - ⚠️ **特にUPDATEでデータ移行する場合は要注意**: フレッシュDBではマイグレーションのUPDATEが空テーブルに対して実行される（0行更新）ため、シードファイルのINSERT文にも新カラムの値を含めること（[詳細](#-critical-マイグレーションupdateとシードの実行順序)）
 
 ## コマンドリファレンス
 
@@ -179,6 +180,31 @@ def downgrade() -> None:
 
 - [examples.md](examples.md) - 実践的なマイグレーション例
 - [reference.md](reference.md) - 詳細なパターンとベストプラクティス
+
+## ⚠️ CRITICAL: マイグレーションUPDATEとシードの実行順序
+
+### 問題の概要（PR #1133 → #1135）
+
+フレッシュDBでの初期化順序は「**Alembicマイグレーション → シードデータ投入**」です。
+マイグレーションでカラム追加＋`UPDATE`によるデータ移行を行った場合、フレッシュDBではテーブルが空のため`UPDATE`は**0行**に対して実行されます。その後に投入されるシードデータにそのカラムが含まれていないと、全行NULLになります。
+
+```
+フレッシュDB初期化の流れ:
+1. Alembic migration: ALTER TABLE ADD COLUMN + UPDATE → 空テーブルなので0行更新
+2. load-seeds.sh: INSERT INTO ... (新カラムなし) → 全行NULL
+```
+
+### 対策
+
+マイグレーションでカラム追加＋`UPDATE`（データ移行）を行った場合は、**必ずシードファイルも更新**して新カラムの値を含めること。
+
+```sql
+-- ❌ 悪い例: マイグレーションのUPDATEに頼り、シードにカラムがない
+INSERT INTO governing_bodies (id, name, type, organization_code) VALUES ...
+
+-- ✅ 良い例: シードファイルにも新カラムを含める
+INSERT INTO governing_bodies (id, name, type, organization_code, prefecture) VALUES ...
+```
 
 ## レガシーマイグレーションについて
 

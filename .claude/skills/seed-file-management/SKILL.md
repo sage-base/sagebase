@@ -300,6 +300,7 @@ docker compose -f docker/docker-compose.yml exec -T postgres \
 **よくある原因**:
 - `ON CONFLICT` のカラムが現在のUNIQUE制約と一致していない
 - INSERT文のカラムリストに削除済みカラムが含まれている
+- マイグレーションでカラム追加＋UPDATEでデータ移行したが、シードファイルのINSERT文に新カラムが含まれていない → フレッシュDBではUPDATEが空テーブルに実行され（0行更新）、その後シードがカラムなしで投入されるため全行NULLになる
 - 既存データがある状態で `load-seeds.sh` がスキップ判定している（`just clean` で解消）
 
 ## 関連リンク
