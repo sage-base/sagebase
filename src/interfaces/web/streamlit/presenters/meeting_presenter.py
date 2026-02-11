@@ -757,3 +757,62 @@ class MeetingPresenter(CRUDPresenter[list[Meeting]]):
                 "has_conversations": False,
                 "has_speakers_linked": False,
             }
+
+    def get_meeting_status(self, meeting_id: int) -> dict[str, bool]:
+        """会議の処理ステータスを同期的に取得する.
+
+        Args:
+            meeting_id: 会議ID
+
+        Returns:
+            ステータスフラグの辞書
+        """
+        return self._run_async(self.check_meeting_status(meeting_id))
+
+    def run_scrape_meeting(
+        self, meeting_id: int, force_rescrape: bool = False
+    ) -> "WebResponseDTO[dict[str, Any]]":
+        """会議のスクレイピングを同期的に実行する.
+
+        Args:
+            meeting_id: 会議ID
+            force_rescrape: 再スクレイピングを強制するか
+
+        Returns:
+            スクレイピング結果のレスポンス
+        """
+        return self._run_async(
+            self.scrape_meeting(meeting_id, force_rescrape=force_rescrape)
+        )
+
+    def run_extract_minutes(
+        self, meeting_id: int, force_reprocess: bool = False
+    ) -> "WebResponseDTO[dict[str, Any]]":
+        """会議の発言抽出を同期的に実行する.
+
+        Args:
+            meeting_id: 会議ID
+            force_reprocess: 再処理を強制するか
+
+        Returns:
+            発言抽出結果のレスポンス
+        """
+        return self._run_async(
+            self.extract_minutes(meeting_id, force_reprocess=force_reprocess)
+        )
+
+    def run_extract_speakers(
+        self, meeting_id: int, force_reprocess: bool = False
+    ) -> "WebResponseDTO[dict[str, Any]]":
+        """会議の発言者抽出を同期的に実行する.
+
+        Args:
+            meeting_id: 会議ID
+            force_reprocess: 再処理を強制するか
+
+        Returns:
+            発言者抽出結果のレスポンス
+        """
+        return self._run_async(
+            self.extract_speakers(meeting_id, force_reprocess=force_reprocess)
+        )

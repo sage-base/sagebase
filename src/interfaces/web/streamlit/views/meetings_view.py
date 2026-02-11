@@ -172,11 +172,8 @@ def render_meeting_row(
 
     with col8:
         # Get processing status for action labels
-        import asyncio
-
         meeting_id = display_row["ID"]
-        loop = asyncio.get_event_loop()
-        status = loop.run_until_complete(presenter.check_meeting_status(meeting_id))
+        status = presenter.get_meeting_status(meeting_id)
 
         # Create popover menu for all actions
         with st.popover("⚙️ 操作", use_container_width=True):
@@ -544,13 +541,10 @@ def execute_scrape(
         meeting_id: Meeting ID
         is_already_scraped: Whether the meeting has already been scraped
     """
-    import asyncio
-
     try:
         with st.spinner("スクレイピング中..."):
-            loop = asyncio.get_event_loop()
-            result = loop.run_until_complete(
-                presenter.scrape_meeting(meeting_id, force_rescrape=is_already_scraped)
+            result = presenter.run_scrape_meeting(
+                meeting_id, force_rescrape=is_already_scraped
             )
 
             if result.success:
@@ -580,13 +574,10 @@ def execute_extract_minutes(
         meeting_id: Meeting ID
         has_conversations: Whether conversations have already been extracted
     """
-    import asyncio
-
     try:
         with st.spinner("発言抽出中..."):
-            loop = asyncio.get_event_loop()
-            result = loop.run_until_complete(
-                presenter.extract_minutes(meeting_id, force_reprocess=has_conversations)
+            result = presenter.run_extract_minutes(
+                meeting_id, force_reprocess=has_conversations
             )
 
             if result.success:
@@ -622,15 +613,10 @@ def execute_extract_speakers(
         meeting_id: Meeting ID
         has_speakers_linked: Whether speakers have already been extracted
     """
-    import asyncio
-
     try:
         with st.spinner("発言者抽出中..."):
-            loop = asyncio.get_event_loop()
-            result = loop.run_until_complete(
-                presenter.extract_speakers(
-                    meeting_id, force_reprocess=has_speakers_linked
-                )
+            result = presenter.run_extract_speakers(
+                meeting_id, force_reprocess=has_speakers_linked
             )
 
             if result.success:
