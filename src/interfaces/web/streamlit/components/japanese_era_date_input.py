@@ -20,6 +20,9 @@ def japanese_era_date_input(
     label: str,
     value: date | None = None,
     key: str = "japanese_era_date",
+    min_value: date | None = None,
+    max_value: date | None = None,
+    help: str | None = None,
 ) -> date:
     """和暦/西暦切り替え可能な日付入力コンポーネント
 
@@ -27,6 +30,9 @@ def japanese_era_date_input(
         label: ラベル文字列
         value: デフォルトの日付値（Noneの場合はdate.today()）
         key: Streamlitウィジェットのキープレフィックス
+        min_value: 最小日付（この日付より前は選択不可）
+        max_value: 最大日付（この日付より後は選択不可）
+        help: ヘルプテキスト（ラベル下に表示）
 
     Returns:
         選択された日付（dateオブジェクト、西暦）
@@ -35,6 +41,8 @@ def japanese_era_date_input(
         value = date.today()
 
     st.markdown(f"**{label}**")
+    if help:
+        st.caption(help)
 
     # 入力モード切替
     mode = st.radio(
@@ -46,18 +54,29 @@ def japanese_era_date_input(
     )
 
     if mode == "西暦":
-        return _render_western_mode(value, key)
+        return _render_western_mode(
+            value, key, min_value=min_value, max_value=max_value
+        )
     else:
-        return _render_japanese_era_mode(value, key)
+        return _render_japanese_era_mode(
+            value, key, min_value=min_value, max_value=max_value
+        )
 
 
-def _render_western_mode(value: date, key: str) -> date:
+def _render_western_mode(
+    value: date,
+    key: str,
+    min_value: date | None = None,
+    max_value: date | None = None,
+) -> date:
     """西暦入力モードをレンダリングする"""
     result = st.date_input(
         "日付",
         value=value,
         key=f"{key}_western",
         label_visibility="collapsed",
+        min_value=min_value,
+        max_value=max_value,
     )
     # st.date_input は単一値の場合 date を返す
     if isinstance(result, date):
@@ -65,7 +84,12 @@ def _render_western_mode(value: date, key: str) -> date:
     return value
 
 
-def _render_japanese_era_mode(value: date, key: str) -> date:
+def _render_japanese_era_mode(
+    value: date,
+    key: str,
+    min_value: date | None = None,
+    max_value: date | None = None,
+) -> date:
     """和暦入力モードをレンダリングする"""
     # デフォルト値から和暦情報を取得
     default_era, default_era_year = _get_default_era_values(value)
@@ -130,10 +154,20 @@ def _render_japanese_era_mode(value: date, key: str) -> date:
 
     # date オブジェクトを生成
     try:
-        return date(western_year, month, day)
+        result = date(western_year, month, day)
     except ValueError:
         st.error(f"無効な日付です: {western_year}年{month}月{day}日")
         return value
+
+    # min_value/max_value バリデーション
+    if min_value is not None and result < min_value:
+        st.warning(f"最小日付（{min_value}）より前の日付は指定できません")
+        return min_value
+    if max_value is not None and result > max_value:
+        st.warning(f"最大日付（{max_value}）より後の日付は指定できません")
+        return max_value
+
+    return result
 
 
 def _get_default_era_values(value: date) -> tuple[str, int]:

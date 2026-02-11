@@ -9,6 +9,7 @@ from typing import Any
 
 import streamlit as st
 
+from src.interfaces.web.streamlit.components import japanese_era_date_input
 from src.interfaces.web.streamlit.presenters.meeting_presenter import MeetingPresenter
 from src.interfaces.web.streamlit.utils.error_handler import handle_ui_error
 
@@ -328,9 +329,10 @@ def render_edit_form(presenter: MeetingPresenter, meeting_data: dict[str, Any]) 
         )
 
         # Date input
-        meeting_date = st.date_input(
-            "開催日",
+        meeting_date = japanese_era_date_input(
+            label="開催日",
             value=meeting_data["date"] if meeting_data["date"] else date.today(),
+            key=f"edit_meeting_date_{meeting_data['id']}",
         )
 
         # URL input
@@ -396,7 +398,11 @@ def render_new_meeting_tab(presenter: MeetingPresenter) -> None:
 
     with st.form("new_meeting_form"):
         # Date input
-        meeting_date = st.date_input("開催日", value=date.today())
+        meeting_date = japanese_era_date_input(
+            label="開催日",
+            value=date.today(),
+            key="new_meeting_date",
+        )
 
         # URL input
         url = st.text_input("URL", placeholder="https://example.com/meeting/...")

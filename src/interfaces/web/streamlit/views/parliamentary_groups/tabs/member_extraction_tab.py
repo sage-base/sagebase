@@ -9,6 +9,7 @@ from typing import Any, cast
 import pandas as pd
 import streamlit as st
 
+from src.interfaces.web.streamlit.components import japanese_era_date_input
 from src.interfaces.web.streamlit.presenters.parliamentary_group_presenter import (
     ParliamentaryGroupPresenter,
 )
@@ -164,9 +165,10 @@ def _render_extraction_settings(
         )
 
     with col2:
-        start_date = st.date_input(
-            "所属開始日",
+        start_date = japanese_era_date_input(
+            label="所属開始日",
             value=date.today(),
+            key="extraction_start_date",
             help="作成されるメンバーシップの所属開始日",
         )
 
