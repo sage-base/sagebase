@@ -19,14 +19,14 @@ type_map = {
     "types.AttendeesMapping": types.AttendeesMapping,
     "stream_types.AttendeesMapping": stream_types.AttendeesMapping,
 
-    "types.ExtractedMember": types.ExtractedMember,
-    "stream_types.ExtractedMember": stream_types.ExtractedMember,
-
     "types.MinutesBoundary": types.MinutesBoundary,
     "stream_types.MinutesBoundary": stream_types.MinutesBoundary,
 
     "types.NormalizedSpeaker": types.NormalizedSpeaker,
     "stream_types.NormalizedSpeaker": stream_types.NormalizedSpeaker,
+
+    "types.ParliamentaryGroupJudgeExtraction": types.ParliamentaryGroupJudgeExtraction,
+    "stream_types.ParliamentaryGroupJudgeExtraction": stream_types.ParliamentaryGroupJudgeExtraction,
 
     "types.ParliamentaryGroupMember": types.ParliamentaryGroupMember,
     "stream_types.ParliamentaryGroupMember": stream_types.ParliamentaryGroupMember,
@@ -55,5 +55,7 @@ type_map = {
     "types.SpeakerAndSpeechContent": types.SpeakerAndSpeechContent,
     "stream_types.SpeakerAndSpeechContent": stream_types.SpeakerAndSpeechContent,
 
+
+    "types.JudgmentType": types.JudgmentType,
 
 }

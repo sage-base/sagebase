@@ -20,14 +20,18 @@ from .globals import DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIM
 class TypeBuilder(type_builder.TypeBuilder):
     def __init__(self):
         super().__init__(classes=set(
-          ["AttendeesMapping","ExtractedMember","MinutesBoundary","NormalizedSpeaker","ParliamentaryGroupMember","PoliticianMatch","RedividedSectionInfo","Resume","RoleNameMapping","RoleNameMappingResult","SectionInfo","SectionString","SpeakerAndSpeechContent",]
+          ["AttendeesMapping","MinutesBoundary","NormalizedSpeaker","ParliamentaryGroupJudgeExtraction","ParliamentaryGroupMember","PoliticianMatch","RedividedSectionInfo","Resume","RoleNameMapping","RoleNameMappingResult","SectionInfo","SectionString","SpeakerAndSpeechContent",]
         ), enums=set(
-          []
+          ["JudgmentType",]
         ), runtime=DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME)
 
     # #########################################################################
-    # Generated enums 0
+    # Generated enums 1
     # #########################################################################
+
+    @property
+    def JudgmentType(self) -> "JudgmentTypeViewer":
+        return JudgmentTypeViewer(self)
 
 
     # #########################################################################
@@ -39,16 +43,16 @@ class TypeBuilder(type_builder.TypeBuilder):
         return AttendeesMappingViewer(self)
 
     @property
-    def ExtractedMember(self) -> "ExtractedMemberViewer":
-        return ExtractedMemberViewer(self)
-
-    @property
     def MinutesBoundary(self) -> "MinutesBoundaryViewer":
         return MinutesBoundaryViewer(self)
 
     @property
     def NormalizedSpeaker(self) -> "NormalizedSpeakerViewer":
         return NormalizedSpeakerViewer(self)
+
+    @property
+    def ParliamentaryGroupJudgeExtraction(self) -> "ParliamentaryGroupJudgeExtractionViewer":
+        return ParliamentaryGroupJudgeExtractionViewer(self)
 
     @property
     def ParliamentaryGroupMember(self) -> "ParliamentaryGroupMemberViewer":
@@ -89,8 +93,58 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
 # #########################################################################
-# Generated enums 0
+# Generated enums 1
 # #########################################################################
+
+class JudgmentTypeAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.enum("JudgmentType")
+        self._values: typing.Set[str] = set([  "FOR",  "AGAINST",  "ABSTAIN",  "ABSENT",  ])
+        self._vals = JudgmentTypeValues(self._bldr, self._values)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def values(self) -> "JudgmentTypeValues":
+        return self._vals
+
+
+class JudgmentTypeViewer(JudgmentTypeAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+
+    def list_values(self) -> typing.List[typing.Tuple[str, type_builder.EnumValueViewer]]:
+        return [(name, type_builder.EnumValueViewer(self._bldr.value(name))) for name in self._values]
+
+
+class JudgmentTypeValues:
+    def __init__(self, enum_bldr: baml_py.EnumBuilder, values: typing.Set[str]):
+        self.__bldr = enum_bldr
+        self.__values = values # type: ignore (we know how to use this private attribute) # noqa: F821
+
+
+
+    @property
+    def FOR(self) -> type_builder.EnumValueViewer:
+        return type_builder.EnumValueViewer(self.__bldr.value("FOR"))
+
+    @property
+    def AGAINST(self) -> type_builder.EnumValueViewer:
+        return type_builder.EnumValueViewer(self.__bldr.value("AGAINST"))
+
+    @property
+    def ABSTAIN(self) -> type_builder.EnumValueViewer:
+        return type_builder.EnumValueViewer(self.__bldr.value("ABSTAIN"))
+
+    @property
+    def ABSENT(self) -> type_builder.EnumValueViewer:
+        return type_builder.EnumValueViewer(self.__bldr.value("ABSENT"))
+
+
+
 
 
 # #########################################################################
@@ -140,57 +194,6 @@ class AttendeesMappingProperties:
     @property
     def confidence(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("confidence"))
-
-
-
-
-class ExtractedMemberAst:
-    def __init__(self, tb: type_builder.TypeBuilder):
-        _tb = tb._tb # type: ignore (we know how to use this private attribute)
-        self._bldr = _tb.class_("ExtractedMember")
-        self._properties: typing.Set[str] = set([  "name",  "role",  "party_name",  "additional_info",  ])
-        self._props = ExtractedMemberProperties(self._bldr, self._properties)
-
-    def type(self) -> baml_py.FieldType:
-        return self._bldr.field()
-
-    @property
-    def props(self) -> "ExtractedMemberProperties":
-        return self._props
-
-
-class ExtractedMemberViewer(ExtractedMemberAst):
-    def __init__(self, tb: type_builder.TypeBuilder):
-        super().__init__(tb)
-
-
-    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
-        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
-
-
-
-class ExtractedMemberProperties:
-    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
-        self.__bldr = bldr
-        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
-
-
-
-    @property
-    def name(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("name"))
-
-    @property
-    def role(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("role"))
-
-    @property
-    def party_name(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("party_name"))
-
-    @property
-    def additional_info(self) -> type_builder.ClassPropertyViewer:
-        return type_builder.ClassPropertyViewer(self.__bldr.property("additional_info"))
 
 
 
@@ -297,6 +300,57 @@ class NormalizedSpeakerProperties:
     @property
     def extraction_method(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("extraction_method"))
+
+
+
+
+class ParliamentaryGroupJudgeExtractionAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("ParliamentaryGroupJudgeExtraction")
+        self._properties: typing.Set[str] = set([  "group_name",  "judgment",  "member_count",  "note",  ])
+        self._props = ParliamentaryGroupJudgeExtractionProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "ParliamentaryGroupJudgeExtractionProperties":
+        return self._props
+
+
+class ParliamentaryGroupJudgeExtractionViewer(ParliamentaryGroupJudgeExtractionAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+
+
+
+class ParliamentaryGroupJudgeExtractionProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+
+
+    @property
+    def group_name(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("group_name"))
+
+    @property
+    def judgment(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("judgment"))
+
+    @property
+    def member_count(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("member_count"))
+
+    @property
+    def note(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("note"))
 
 
 

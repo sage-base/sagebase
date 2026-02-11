@@ -37,8 +37,14 @@ def get_checks(checks: typing.Dict[CheckName, Check]) -> typing.List[Check]:
 def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
     return all(check.status == "succeeded" for check in get_checks(checks))
 # #########################################################################
-# Generated enums (0)
+# Generated enums (1)
 # #########################################################################
+
+class JudgmentType(str, Enum):
+    FOR = "FOR"
+    AGAINST = "AGAINST"
+    ABSTAIN = "ABSTAIN"
+    ABSENT = "ABSENT"
 
 # #########################################################################
 # Generated classes (13)
@@ -48,12 +54,6 @@ class AttendeesMapping(BaseModel):
     attendees_mapping: typing.Optional[typing.Dict[str, typing.Optional[str]]] = Field(default=None, description='役職から人名へのマッピング（使用しない場合はnull）')
     regular_attendees: typing.List[str] = Field(description='出席者の人名リスト')
     confidence: float = Field(description='抽出の信頼度（0.0-1.0）')
-
-class ExtractedMember(BaseModel):
-    name: str = Field(description='議員名（フルネーム）')
-    role: typing.Optional[str] = Field(default=None, description='役職（議長、副議長、委員長、委員など）')
-    party_name: typing.Optional[str] = Field(default=None, description='所属政党名')
-    additional_info: typing.Optional[str] = Field(default=None, description='その他の情報')
 
 class MinutesBoundary(BaseModel):
     boundary_found: bool = Field(description='境界が見つかったかどうか')
@@ -67,6 +67,12 @@ class NormalizedSpeaker(BaseModel):
     normalized_name: str = Field(description='正規化された人名（役職を除いた人名）')
     is_valid: bool = Field(description='有効な人名かどうか（役職のみでマッピングもない場合はfalse）')
     extraction_method: str = Field(description='抽出方法: pattern（括弧内から抽出）, mapping（マッピングから取得）, as_is（そのまま使用）, skipped（スキップ）')
+
+class ParliamentaryGroupJudgeExtraction(BaseModel):
+    group_name: str = Field(description='会派名（抽出された生の文字列）')
+    judgment: JudgmentType = Field(description='賛否')
+    member_count: typing.Optional[int] = Field(default=None, description='人数（判明している場合）')
+    note: typing.Optional[str] = Field(default=None, description='備考（特記事項がある場合）')
 
 class ParliamentaryGroupMember(BaseModel):
     name: str = Field(description='議員名（フルネーム）')
