@@ -70,18 +70,14 @@ def _render_western_mode(
     max_value: date | None = None,
 ) -> date:
     """西暦入力モードをレンダリングする"""
-    kwargs: dict[str, object] = {
-        "label": "日付",
-        "value": value,
-        "key": f"{key}_western",
-        "label_visibility": "collapsed",
-    }
-    if min_value is not None:
-        kwargs["min_value"] = min_value
-    if max_value is not None:
-        kwargs["max_value"] = max_value
-
-    result = st.date_input(**kwargs)  # type: ignore[arg-type]
+    result = st.date_input(
+        "日付",
+        value=value,
+        key=f"{key}_western",
+        label_visibility="collapsed",
+        min_value=min_value,
+        max_value=max_value,
+    )
     # st.date_input は単一値の場合 date を返す
     if isinstance(result, date):
         return result

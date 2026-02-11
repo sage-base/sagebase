@@ -91,6 +91,14 @@ class TestGetMaxDay:
     def test_december_has_31_days(self):
         assert _get_max_day(2025, 12) == 31
 
+    def test_invalid_month_zero_returns_31(self):
+        """不正な月（0）の場合は31を返すこと"""
+        assert _get_max_day(2025, 0) == 31
+
+    def test_invalid_month_13_returns_31(self):
+        """不正な月（13）の場合は31を返すこと"""
+        assert _get_max_day(2025, 13) == 31
+
 
 @patch("src.interfaces.web.streamlit.components.japanese_era_date_input.st")
 class TestJapaneseEraDateInput:
@@ -232,15 +240,15 @@ class TestRenderWesternMode:
         call_kwargs = mock_st.date_input.call_args
         assert call_kwargs.kwargs["max_value"] == max_val
 
-    def test_no_min_max_when_not_specified(self, mock_st):
-        """min_value/max_value未指定時はst.date_inputに渡さないこと"""
+    def test_none_min_max_when_not_specified(self, mock_st):
+        """min_value/max_value未指定時はNoneがst.date_inputに渡されること"""
         mock_st.date_input.return_value = date(2025, 1, 1)
 
         _render_western_mode(date(2025, 1, 1), "test")
 
         call_kwargs = mock_st.date_input.call_args
-        assert "min_value" not in call_kwargs.kwargs
-        assert "max_value" not in call_kwargs.kwargs
+        assert call_kwargs.kwargs["min_value"] is None
+        assert call_kwargs.kwargs["max_value"] is None
 
 
 @patch("src.interfaces.web.streamlit.components.japanese_era_date_input.st")
@@ -291,6 +299,30 @@ class TestMinMaxValueValidation:
         )
 
         assert result == date(2025, 6, 15)
+        mock_st.warning.assert_not_called()
+
+    def test_japanese_era_mode_exact_min_value_returns_date(self, mock_st):
+        """和暦モードでちょうどmin_valueと等しい日付はそのまま返すこと"""
+        # 令和2年1月1日 = 2020-01-01
+        self._setup_era_mode_mocks(mock_st, era_year=2, month=1, day=1)
+        min_val = date(2020, 1, 1)
+
+        result = _render_japanese_era_mode(date(2020, 1, 1), "test", min_value=min_val)
+
+        assert result == date(2020, 1, 1)
+        mock_st.warning.assert_not_called()
+
+    def test_japanese_era_mode_exact_max_value_returns_date(self, mock_st):
+        """和暦モードでちょうどmax_valueと等しい日付はそのまま返すこと"""
+        # 令和12年12月31日 = 2030-12-31
+        self._setup_era_mode_mocks(mock_st, era_year=12, month=12, day=31)
+        max_val = date(2030, 12, 31)
+
+        result = _render_japanese_era_mode(
+            date(2030, 12, 31), "test", max_value=max_val
+        )
+
+        assert result == date(2030, 12, 31)
         mock_st.warning.assert_not_called()
 
     def test_help_text_displayed(self, mock_st):
