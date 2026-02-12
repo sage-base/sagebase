@@ -141,6 +141,7 @@ def create_parliamentary_group(**kwargs: Any) -> ParliamentaryGroup:
         "governing_body_id": 1,
         "description": None,
         "is_active": True,
+        "political_party_id": None,
     }
     defaults.update(kwargs)
     return ParliamentaryGroup(**defaults)

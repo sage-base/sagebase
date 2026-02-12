@@ -35,11 +35,19 @@ def render_new_parliamentary_group_tab(presenter: ParliamentaryGroupPresenter) -
     gb_options = [get_gb_display_name(gb) for gb in governing_bodies]
     gb_map = {get_gb_display_name(gb): gb.id for gb in governing_bodies}
 
+    # Get political parties
+    political_parties = presenter.get_all_political_parties()
+    party_options = ["なし"] + [p.name for p in political_parties]
+    party_map: dict[str, int | None] = {"なし": None}
+    for p in political_parties:
+        party_map[p.name] = p.id
+
     with st.form("new_parliamentary_group_form", clear_on_submit=False):
         selected_gb = st.selectbox("所属開催主体", gb_options)
 
         # Input fields
         group_name = st.text_input("議員団名", placeholder="例: 自民党市議団")
+        selected_party = st.selectbox("政党（任意）", party_options)
         group_url = st.text_input(
             "議員団URL（任意）",
             placeholder="https://example.com/parliamentary-group",
@@ -54,6 +62,7 @@ def render_new_parliamentary_group_tab(presenter: ParliamentaryGroupPresenter) -
 
     if submitted:
         gb_id = gb_map[selected_gb]
+        political_party_id = party_map.get(selected_party)
         if not group_name:
             st.error("議員団名を入力してください")
         elif gb_id is None:
@@ -65,6 +74,7 @@ def render_new_parliamentary_group_tab(presenter: ParliamentaryGroupPresenter) -
                 group_url if group_url else None,
                 group_description if group_description else None,
                 is_active,
+                political_party_id=political_party_id,
             )
             if success and group:
                 presenter.add_created_group(group, selected_gb)
