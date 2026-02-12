@@ -715,4 +715,5 @@ class UseCaseContainer(containers.DeclarativeContainer):
         membership_repository=repositories.parliamentary_group_membership_repository,
         proposal_repository=repositories.proposal_repository,
         meeting_repository=repositories.meeting_repository,
+        politician_repository=repositories.politician_repository,
     )

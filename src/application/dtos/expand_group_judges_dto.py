@@ -1,5 +1,7 @@
 """会派賛否から個人投票データへの展開に関するDTO."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 
@@ -40,6 +42,19 @@ class ExpandGroupJudgesResultDTO:
     group_summaries: list[GroupJudgeExpansionSummary] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     skipped_no_meeting_date: int = 0
+
+    def merge(self, other: ExpandGroupJudgesResultDTO) -> None:
+        """他の結果DTOを自身にマージする."""
+        self.total_group_judges_processed += other.total_group_judges_processed
+        self.total_members_found += other.total_members_found
+        self.total_judges_created += other.total_judges_created
+        self.total_judges_skipped += other.total_judges_skipped
+        self.total_judges_overwritten += other.total_judges_overwritten
+        self.group_summaries.extend(other.group_summaries)
+        self.errors.extend(other.errors)
+        self.skipped_no_meeting_date += other.skipped_no_meeting_date
+        if not other.success:
+            self.success = False
 
 
 # ========== プレビュー用DTO ==========

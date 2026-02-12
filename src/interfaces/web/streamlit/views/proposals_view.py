@@ -2060,16 +2060,23 @@ def _render_expansion_execute(
         with col1:
             if st.button("実行する", key="expansion_confirm_yes", type="primary"):
                 st.session_state.pop("expansion_confirm", None)
-                with st.spinner("展開処理を実行中..."):
-                    result = presenter.expand_group_judges_to_individual(
-                        proposal_id=proposal_id,
-                        group_judge_ids=selected_ids,
-                        force_overwrite=force_overwrite,
+                combined_result = ExpandGroupJudgesResultDTO(success=True)
+                progress_bar = st.progress(0, text="展開処理を実行中...")
+                total = len(selected_ids)
+                for i, gj_id in enumerate(selected_ids):
+                    progress_bar.progress(
+                        (i) / total,
+                        text=f"展開処理を実行中... ({i + 1}/{total})",
                     )
-                    st.session_state["expansion_result"] = result
-                    # プレビューをリセット
-                    st.session_state.pop("expansion_preview", None)
-                    st.rerun()
+                    partial = presenter.expand_single_group_judge(
+                        gj_id, force_overwrite
+                    )
+                    combined_result.merge(partial)
+                progress_bar.progress(1.0, text="展開処理が完了しました")
+                st.session_state["expansion_result"] = combined_result
+                # プレビューをリセット
+                st.session_state.pop("expansion_preview", None)
+                st.rerun()
         with col2:
             if st.button("キャンセル", key="expansion_confirm_no"):
                 st.session_state.pop("expansion_confirm", None)
