@@ -39,6 +39,8 @@ class ProposalRepository(BaseRepository[Proposal]):
         *,
         meeting_id: int | None = None,
         conference_id: int | None = None,
+        session_number: int | None = None,
+        deliberation_status: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> list[Proposal]:
@@ -47,6 +49,8 @@ class ProposalRepository(BaseRepository[Proposal]):
         Args:
             meeting_id: 会議IDフィルター（指定時のみ適用）
             conference_id: 会議体IDフィルター（指定時のみ適用）
+            session_number: 提出回次フィルター（指定時のみ適用）
+            deliberation_status: 審議状況フィルター（指定時のみ適用）
             limit: 取得件数
             offset: スキップ件数
 
@@ -61,12 +65,16 @@ class ProposalRepository(BaseRepository[Proposal]):
         *,
         meeting_id: int | None = None,
         conference_id: int | None = None,
+        session_number: int | None = None,
+        deliberation_status: str | None = None,
     ) -> int:
         """フィルター条件付きで議案件数を取得する.
 
         Args:
             meeting_id: 会議IDフィルター（指定時のみ適用）
             conference_id: 会議体IDフィルター（指定時のみ適用）
+            session_number: 提出回次フィルター（指定時のみ適用）
+            deliberation_status: 審議状況フィルター（指定時のみ適用）
 
         Returns:
             議案件数
@@ -115,5 +123,14 @@ class ProposalRepository(BaseRepository[Proposal]):
 
         Returns:
             List of created Proposal entities with IDs
+        """
+        pass
+
+    @abstractmethod
+    async def get_distinct_deliberation_statuses(self) -> list[str]:
+        """審議状況のユニーク値一覧を取得する.
+
+        Returns:
+            審議状況の文字列リスト（NULL除外、ソート済み）
         """
         pass

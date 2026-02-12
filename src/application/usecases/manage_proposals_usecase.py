@@ -30,6 +30,8 @@ class ProposalListInputDto:
     order_by: str = "id"
     limit: int | None = None  # ページネーション: 取得件数（Noneで全件）
     offset: int = 0  # ページネーション: スキップ件数
+    session_number: int | None = None
+    deliberation_status: str | None = None
 
 
 @dataclass
@@ -158,21 +160,29 @@ class ManageProposalsUseCase:
         try:
             # ページネーション付きの場合はDB側でページネーション
             if input_dto.limit is not None:
-                # フィルター条件を構築
-                filter_kwargs: dict[str, int | None] = {}
+                meeting_id: int | None = None
+                conference_id: int | None = None
                 if input_dto.filter_type == "by_meeting" and input_dto.meeting_id:
-                    filter_kwargs["meeting_id"] = input_dto.meeting_id
+                    meeting_id = input_dto.meeting_id
                 elif (
                     input_dto.filter_type == "by_conference" and input_dto.conference_id
                 ):
-                    filter_kwargs["conference_id"] = input_dto.conference_id
+                    conference_id = input_dto.conference_id
 
                 proposals = await self.repository.get_filtered_paginated(
                     limit=input_dto.limit,
                     offset=input_dto.offset,
-                    **filter_kwargs,
+                    meeting_id=meeting_id,
+                    conference_id=conference_id,
+                    session_number=input_dto.session_number,
+                    deliberation_status=input_dto.deliberation_status,
                 )
-                total_count = await self.repository.count_filtered(**filter_kwargs)
+                total_count = await self.repository.count_filtered(
+                    meeting_id=meeting_id,
+                    conference_id=conference_id,
+                    session_number=input_dto.session_number,
+                    deliberation_status=input_dto.deliberation_status,
+                )
             else:
                 # 後方互換: limit未指定時は従来通り全件取得
                 if input_dto.filter_type == "by_meeting" and input_dto.meeting_id:

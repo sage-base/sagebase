@@ -281,11 +281,19 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         conference_id: int | None = None,
         limit: int | None = None,
         offset: int = 0,
+        session_number: int | None = None,
+        deliberation_status: str | None = None,
     ) -> ProposalListOutputDto:
         """Load proposals with filter."""
         return self._run_async(
             self._load_data_filtered_async(
-                filter_type, meeting_id, conference_id, limit, offset
+                filter_type,
+                meeting_id,
+                conference_id,
+                limit,
+                offset,
+                session_number=session_number,
+                deliberation_status=deliberation_status,
             )
         )
 
@@ -296,6 +304,8 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         conference_id: int | None = None,
         limit: int | None = None,
         offset: int = 0,
+        session_number: int | None = None,
+        deliberation_status: str | None = None,
     ) -> ProposalListOutputDto:
         """Load proposals with filter (async implementation)."""
         try:
@@ -305,6 +315,8 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
                 conference_id=conference_id,
                 limit=limit,
                 offset=offset,
+                session_number=session_number,
+                deliberation_status=deliberation_status,
             )
             return await self.manage_usecase.list_proposals(input_dto)
         except Exception as e:
@@ -545,6 +557,14 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         """Load all governing bodies (async implementation)."""
         governing_bodies = await self.governing_body_repository.get_all()  # type: ignore[attr-defined]
         return [{"id": g.id, "name": g.name} for g in governing_bodies]
+
+    def load_distinct_deliberation_statuses(self) -> list[str]:
+        """審議状況のユニーク値一覧を取得する."""
+        return self._run_async(self._load_distinct_deliberation_statuses_async())
+
+    async def _load_distinct_deliberation_statuses_async(self) -> list[str]:
+        """審議状況のユニーク値一覧を取得する（async実装）."""
+        return await self.proposal_repository.get_distinct_deliberation_statuses()  # type: ignore[attr-defined]
 
     def build_proposal_related_data_map(
         self, proposals: list[Proposal]
@@ -812,6 +832,8 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         conference_id: int | None = None,
         limit: int | None = None,
         offset: int = 0,
+        session_number: int | None = None,
+        deliberation_status: str | None = None,
     ) -> ProposalsPageData:
         """議案一覧ページのデータを1回のasync呼び出しで一括取得する.
 
@@ -832,6 +854,8 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
                 limit,
                 offset,
                 master_cache=cache,
+                session_number=session_number,
+                deliberation_status=deliberation_status,
             )
         )
 
@@ -849,6 +873,8 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         limit: int | None = None,
         offset: int = 0,
         master_cache: _ProposalsMasterDataCache | None = None,
+        session_number: int | None = None,
+        deliberation_status: str | None = None,
     ) -> tuple[ProposalsPageData, _ProposalsMasterDataCache | None]:
         """議案一覧ページのデータを一括取得する（async実装）.
 
@@ -858,7 +884,13 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         """
         # 1. フィルタ付き議案取得
         result = await self._load_data_filtered_async(
-            filter_type, meeting_id, conference_id, limit, offset
+            filter_type,
+            meeting_id,
+            conference_id,
+            limit,
+            offset,
+            session_number=session_number,
+            deliberation_status=deliberation_status,
         )
         proposals = result.proposals
 
