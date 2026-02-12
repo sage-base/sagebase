@@ -6,6 +6,7 @@ listing, creating, updating, and deleting proposals.
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from src.common.logging import get_logger
@@ -30,6 +31,8 @@ class ProposalListInputDto:
     order_by: str = "id"
     limit: int | None = None  # ページネーション: 取得件数（Noneで全件）
     offset: int = 0  # ページネーション: スキップ件数
+    session_number: int | None = None
+    deliberation_status: str | None = None  # ページネーション: スキップ件数
 
 
 @dataclass
@@ -159,13 +162,18 @@ class ManageProposalsUseCase:
             # ページネーション付きの場合はDB側でページネーション
             if input_dto.limit is not None:
                 # フィルター条件を構築
-                filter_kwargs: dict[str, int | None] = {}
+                filter_kwargs: dict[str, Any] = {}
                 if input_dto.filter_type == "by_meeting" and input_dto.meeting_id:
                     filter_kwargs["meeting_id"] = input_dto.meeting_id
                 elif (
                     input_dto.filter_type == "by_conference" and input_dto.conference_id
                 ):
                     filter_kwargs["conference_id"] = input_dto.conference_id
+
+                if input_dto.session_number is not None:
+                    filter_kwargs["session_number"] = input_dto.session_number
+                if input_dto.deliberation_status is not None:
+                    filter_kwargs["deliberation_status"] = input_dto.deliberation_status
 
                 proposals = await self.repository.get_filtered_paginated(
                     limit=input_dto.limit,

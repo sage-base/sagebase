@@ -255,6 +255,38 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
                 logger.exception("開催主体一覧の読み込みに失敗")
                 st.warning("開催主体一覧の読み込みに失敗しました")
 
+    # 追加フィルター: 提出回次・審議状況
+    filter_col1, filter_col2 = st.columns(2)
+
+    with filter_col1:
+        session_number_input = st.number_input(
+            "提出回次（0で全て）",
+            min_value=0,
+            value=0,
+            step=1,
+            key="filter_session_number",
+        )
+        session_number_filter: int | None = (
+            session_number_input if session_number_input > 0 else None
+        )
+
+    with filter_col2:
+        try:
+            statuses = presenter.load_distinct_deliberation_statuses()
+            status_options = ["すべて"] + statuses
+        except Exception:
+            logger.exception("審議状況一覧の読み込みに失敗")
+            status_options = ["すべて"]
+        selected_status = st.selectbox(
+            "審議状況",
+            options=status_options,
+            index=0,
+            key="filter_deliberation_status",
+        )
+        deliberation_status_filter: str | None = (
+            selected_status if selected_status != "すべて" else None
+        )
+
     # Load data
     try:
         # 開催主体フィルターの場合は、その開催主体に属する会議体IDを取得してフィルター
@@ -275,6 +307,7 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
         # フィルター変更時にページをリセット
         current_filter_key = (
             f"{filter_type}:{meeting_filter}:{actual_conference_filter}"
+            f":{session_number_filter}:{deliberation_status_filter}"
         )
         prev_filter_key = st.session_state.get("proposals_filter_key", "")
         if current_filter_key != prev_filter_key:
@@ -299,6 +332,8 @@ def render_proposals_tab(presenter: ProposalPresenter) -> None:
                 conference_id=actual_conference_filter,
                 limit=PROPOSALS_PAGE_SIZE,
                 offset=offset,
+                session_number=session_number_filter,
+                deliberation_status=deliberation_status_filter,
             )
         finally:
             st.session_state["_proposals_loading"] = False
@@ -736,6 +771,10 @@ def render_proposal_display(
         meta_parts.append(f"会議体: {conference_name}")
     if governing_body_name:
         meta_parts.append(f"開催主体: {governing_body_name}")
+    if proposal.session_number is not None:
+        meta_parts.append(f"第{proposal.session_number}回")
+    if proposal.deliberation_status:
+        meta_parts.append(f"審議状況: {proposal.deliberation_status}")
     if meta_parts:
         info_lines.append(" | ".join(meta_parts))
 
