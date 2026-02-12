@@ -48,6 +48,7 @@ class SmartNewsSmriImporter:
 
         proposal_category = Proposal.normalize_category(raw_type)
         deliberation_result = Proposal.normalize_result(raw_result)
+        deliberation_status = raw_result.strip() if raw_result else None
 
         return Proposal(
             title=title,
@@ -59,7 +60,7 @@ class SmartNewsSmriImporter:
             conference_id=self._conference_id,
             external_id=external_id,
             deliberation_result=deliberation_result,
-            # detail_urlにexternal_idを設定し、find_by_urlでの重複チェックに使用
+            deliberation_status=deliberation_status,
             detail_url=external_id,
         )
 

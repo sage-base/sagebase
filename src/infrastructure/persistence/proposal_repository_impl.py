@@ -506,6 +506,8 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
         *,
         meeting_id: int | None = None,
         conference_id: int | None = None,
+        session_number: int | None = None,
+        deliberation_status: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> list[Proposal]:
@@ -520,6 +522,12 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             if conference_id is not None:
                 where_clauses.append("conference_id = :conference_id")
                 params["conference_id"] = conference_id
+            if session_number is not None:
+                where_clauses.append("session_number = :session_number")
+                params["session_number"] = session_number
+            if deliberation_status is not None:
+                where_clauses.append("deliberation_status = :deliberation_status")
+                params["deliberation_status"] = deliberation_status
 
             where_sql = ""
             if where_clauses:
@@ -550,6 +558,8 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
         *,
         meeting_id: int | None = None,
         conference_id: int | None = None,
+        session_number: int | None = None,
+        deliberation_status: str | None = None,
     ) -> int:
         """フィルター条件付きで議案件数を取得する."""
         try:
@@ -562,6 +572,12 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             if conference_id is not None:
                 where_clauses.append("conference_id = :conference_id")
                 params["conference_id"] = conference_id
+            if session_number is not None:
+                where_clauses.append("session_number = :session_number")
+                params["session_number"] = session_number
+            if deliberation_status is not None:
+                where_clauses.append("deliberation_status = :deliberation_status")
+                params["deliberation_status"] = deliberation_status
 
             where_sql = ""
             if where_clauses:
@@ -741,4 +757,23 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             raise DatabaseError(
                 "Failed to bulk create proposals",
                 {"count": len(entities), "error": str(e)},
+            ) from e
+
+    async def get_distinct_deliberation_statuses(self) -> list[str]:
+        """審議状況のユニーク値一覧を取得する."""
+        try:
+            query = text("""
+                SELECT DISTINCT deliberation_status
+                FROM proposals
+                WHERE deliberation_status IS NOT NULL
+                ORDER BY deliberation_status
+            """)
+            result = await self.session.execute(query)
+            rows = result.fetchall()
+            return [row[0] for row in rows]
+        except SQLAlchemyError as e:
+            logger.error(f"Database error getting distinct deliberation statuses: {e}")
+            raise DatabaseError(
+                "Failed to get distinct deliberation statuses",
+                {"error": str(e)},
             ) from e

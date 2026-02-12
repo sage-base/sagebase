@@ -69,6 +69,7 @@ class TestSmartNewsSmriImporterParseRecord:
         assert proposal.governing_body_id == 1
         assert proposal.conference_id == 10
         assert proposal.deliberation_result == "passed"
+        assert proposal.deliberation_status == "成立"
         assert proposal.external_id == (
             "https://www.shugiin.go.jp/internet/itdb_gian.nsf/html/gian/keika/TEST.htm"
         )
@@ -96,6 +97,7 @@ class TestSmartNewsSmriImporterParseRecord:
         proposal = importer.parse_record(record)
 
         assert proposal.deliberation_result is None
+        assert proposal.deliberation_status is None
 
     def test_parse_record_no_url(self, importer: SmartNewsSmriImporter) -> None:
         record = _make_record(url="")
