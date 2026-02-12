@@ -29,7 +29,7 @@ Before approving code, verify:
 - [ ] **Tests**: Unit tests for domain services and use cases
 - [ ] **ドメインロジックの配置**: UseCase内で文字列リテラル比較やドメイン定数の直接参照でフィルタリングしていないか → エンティティのプロパティ/メソッドに移す
 - [ ] **リポジトリ実装のDRY**: Raw SQLリポジトリでSELECTカラムリストが重複していないか → 定数に抽出。Row→Dict変換が重複していないか → ヘルパーメソッドに抽出
-- [ ] **BaseRepositoryImplのオーバーライド**: Raw SQLリポジトリで `count()` 等のORMベースメソッドが正しく動作するか確認
+- [ ] **BaseRepositoryImplのオーバーライド**: Raw SQLリポジトリで `count()`, `get_by_ids()` 等のORMベースメソッドが正しく動作するか確認（Pydanticモデル系では必ずraw SQLでオーバーライド）
 
 ## Core Principles
 
@@ -149,8 +149,13 @@ def _row_to_dict(self, row: Any) -> dict[str, Any]:
     return dict(row)
 ```
 
-#### BaseRepositoryImplのcount()オーバーライド
-`BaseRepositoryImpl.count()` はORMモデルに依存している。Raw SQLリポジトリでは `count()` をオーバーライドすること。
+#### BaseRepositoryImplのORMベースメソッドのオーバーライド
+`BaseRepositoryImpl` の以下のメソッドはORMモデル（`select(model_class)`）に依存しているため、Pydantic/動的モデル系のリポジトリではraw SQLでオーバーライドが**必須**。
+
+| メソッド | 内部で使用するAPI | Pydanticモデルでの問題 |
+|---------|-----------------|---------------------|
+| `count()` | `select(func.count()).select_from(model_class)` | model_classにテーブルマッピングがない |
+| `get_by_ids()` | `select(model_class).where(model_class.id.in_(...))` | model_classに`id`カラム属性がない |
 
 ```python
 # ✅ Raw SQLでオーバーライド
@@ -159,6 +164,15 @@ async def count(self) -> int:
     result = await self.session.execute(query)
     count = result.scalar()
     return count if count is not None else 0
+
+async def get_by_ids(self, entity_ids: list[int]) -> list[Entity]:
+    if not entity_ids:
+        return []
+    placeholders = ", ".join(f":id_{i}" for i in range(len(entity_ids)))
+    query = text(f"SELECT {_SELECT_COLUMNS} FROM table_name WHERE id IN ({placeholders})")
+    params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
+    result = await self.session.execute(query, params)
+    return self._rows_to_entities(result.fetchall())
 ```
 
 ## 既知の技術的負債
