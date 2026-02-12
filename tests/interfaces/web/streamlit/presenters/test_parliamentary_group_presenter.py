@@ -239,6 +239,43 @@ class TestGetAllGoverningBodies:
         assert len(result) == 2
 
 
+class TestGetAllPoliticalParties:
+    """get_all_political_partiesメソッドのテスト"""
+
+    async def test_get_all_political_parties_success(self, presenter):
+        """政党リストを取得できることを確認"""
+        from src.domain.entities.political_party import PoliticalParty
+
+        # Arrange
+        parties = [
+            PoliticalParty(id=1, name="自由民主党"),
+            PoliticalParty(id=2, name="立憲民主党"),
+        ]
+        presenter.political_party_repo = MagicMock()
+        presenter.political_party_repo.get_all = AsyncMock(return_value=parties)
+
+        # Act
+        result = await presenter._get_all_political_parties_async()
+
+        # Assert
+        assert len(result) == 2
+        assert result[0].name == "自由民主党"
+
+    async def test_get_all_political_parties_exception(self, presenter):
+        """例外発生時に空リストを返すことを確認"""
+        # Arrange
+        presenter.political_party_repo = MagicMock()
+        presenter.political_party_repo.get_all = AsyncMock(
+            side_effect=Exception("Database error")
+        )
+
+        # Act
+        result = await presenter._get_all_political_parties_async()
+
+        # Assert
+        assert result == []
+
+
 class TestCreate:
     """createメソッドのテスト"""
 
@@ -256,12 +293,15 @@ class TestCreate:
         success, group, error_message = await presenter._create_async(
             name="新規会派",
             governing_body_id=100,
+            political_party_id=3,
         )
 
         # Assert
         assert success is True
         assert group is not None
         assert group.id == 1
+        call_args = mock_use_case.create_parliamentary_group.call_args[0][0]
+        assert call_args.political_party_id == 3
 
     async def test_create_failure(self, presenter, mock_use_case):
         """議員団の作成が失敗した場合のエラーを確認"""
@@ -296,11 +336,13 @@ class TestUpdate:
 
         # Act
         success, error_message = await presenter._update_async(
-            id=1, name="更新された会派"
+            id=1, name="更新された会派", political_party_id=7
         )
 
         # Assert
         assert success is True
+        call_args = mock_use_case.update_parliamentary_group.call_args[0][0]
+        assert call_args.political_party_id == 7
 
     async def test_update_failure(self, presenter, mock_use_case):
         """議員団の更新が失敗した場合のエラーを確認"""
@@ -400,6 +442,10 @@ class TestToDataframe:
         self, presenter, sample_parliamentary_groups, sample_governing_bodies
     ):
         """議員団リストをDataFrameに変換できることを確認"""
+        # Arrange
+        presenter.political_party_repo = MagicMock()
+        presenter.political_party_repo.get_all = AsyncMock(return_value=[])
+
         # Act
         df = presenter.to_dataframe(
             sample_parliamentary_groups, sample_governing_bodies
@@ -410,6 +456,7 @@ class TestToDataframe:
         assert len(df) == 2
         assert "ID" in df.columns
         assert "議員団名" in df.columns
+        assert "政党" in df.columns
 
     def test_to_dataframe_empty(self, presenter, sample_governing_bodies):
         """空のリストを処理できることを確認"""

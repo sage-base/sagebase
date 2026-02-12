@@ -167,6 +167,7 @@ class TestManageParliamentaryGroupsUseCase:
             url="https://example.com",
             description="テスト会派",
             is_active=True,
+            political_party_id=3,
         )
 
         # Act
@@ -178,6 +179,8 @@ class TestManageParliamentaryGroupsUseCase:
         assert result.parliamentary_group is not None
         assert result.parliamentary_group.id == 1
         mock_parliamentary_group_repository.create.assert_called_once()
+        created_entity = mock_parliamentary_group_repository.create.call_args[0][0]
+        assert created_entity.political_party_id == 3
 
     @pytest.mark.asyncio
     async def test_create_parliamentary_group_duplicate_error(
@@ -241,6 +244,7 @@ class TestManageParliamentaryGroupsUseCase:
             url="https://example.com/updated",
             description="更新された説明",
             is_active=True,
+            political_party_id=7,
         )
 
         # Act
@@ -250,6 +254,8 @@ class TestManageParliamentaryGroupsUseCase:
         assert isinstance(result, UpdateParliamentaryGroupOutputDto)
         assert result.success is True
         mock_parliamentary_group_repository.update.assert_called_once()
+        updated_entity = mock_parliamentary_group_repository.update.call_args[0][0]
+        assert updated_entity.political_party_id == 7
 
     @pytest.mark.asyncio
     async def test_update_parliamentary_group_not_found(
