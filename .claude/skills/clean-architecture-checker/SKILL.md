@@ -26,6 +26,7 @@ Before approving code, verify:
 - [ ] **DTO型変更時の全層追跡**: DTOのフィールド型を変更した場合、Presenter層だけでなくView層（`src/interfaces/web/streamlit/views/`）も確認。`WebResponseDTO.data: dict[str, Any]`境界でpyrightの型チェックが効かないため手動確認が必須
 - [ ] **UseCase間依存**: Orchestratorパターンとして許容される場合のみ（抽出ログ統合等）
 - [ ] **Type Safety**: Complete type hints with proper `Optional` handling. `**kwargs`展開ではなく明示的引数渡しを使用
+- [ ] **UseCase内N+1クエリ回避**: UseCaseのメソッド間でIDリストだけ渡して`get_by_id`で再取得していないか → メモリ上で必要な情報を受け渡す
 - [ ] **Tests**: Unit tests for domain services and use cases
 - [ ] **ドメインロジックの配置**: UseCase内で文字列リテラル比較やドメイン定数の直接参照でフィルタリングしていないか → エンティティのプロパティ/メソッドに移す
 - [ ] **リポジトリ実装のDRY**: Raw SQLリポジトリでSELECTカラムリストが重複していないか → 定数に抽出。Row→Dict変換が重複していないか → ヘルパーメソッドに抽出
@@ -100,7 +101,49 @@ elected = [m for m in members if m.is_elected]
 
 **なぜ重要か**: 定数リストに複数の関連値がある場合（「当選」「繰上当選」「無投票当選」等）、文字列リテラル比較では一部の値を見落とすリスクがある。エンティティに判定ロジックを集約することで、漏れを防ぎテストも容易になる。
 
-### 7. Type Safety
+### 7. UseCase内のN+1クエリ回避
+**UseCaseのメソッド間でデータを受け渡す際、DBに再クエリしない**
+
+UseCaseの`execute`メソッドで取得・計算済みのデータを、プライベートメソッドに渡す際はIDリストだけでなく必要な情報をメモリ上で受け渡す。IDだけ渡して`get_by_id`で再取得するN+1クエリパターンは避ける。
+
+❌ IDリストだけ渡して再取得（N+1クエリ）:
+```python
+async def execute(self, input_dto):
+    matched_ids = []
+    for judge in pending:
+        group_id = name_to_id.get(judge.name)
+        if group_id:
+            matched_ids.append(judge.id)  # IDだけ蓄積
+    await self._create_gold(matched_ids)
+
+async def _create_gold(self, ids: list[int]):
+    for id in ids:
+        judge = await self._repo.get_by_id(id)  # N回のDB呼び出し！
+```
+
+✅ 必要な情報をメモリ上で受け渡す:
+```python
+@dataclass
+class _MatchedInfo:
+    judge_id: int
+    proposal_id: int
+    judgment: str
+    group_id: int
+
+async def execute(self, input_dto):
+    matched_infos = []
+    for judge in pending:
+        group_id = name_to_id.get(judge.name)
+        if group_id:
+            matched_infos.append(_MatchedInfo(...))  # 全情報を蓄積
+    await self._create_gold(matched_infos)
+
+async def _create_gold(self, infos: list[_MatchedInfo]):
+    for info in infos:  # DB再取得不要
+        grouped[key].append(info.group_id)
+```
+
+### 8. Type Safety
 **Leverage Python 3.11+ type hints**
 
 ✅ All public methods have type hints
@@ -144,7 +187,7 @@ total = await repo.count_filtered(
 
 **なぜ重要か**: `dict[str, int | str | None]`のような共用体型の辞書を`**`展開すると、pyrightは各パラメータの型を個別に検証できず型エラーになる。`dict[str, Any]`に逃げると型チェックが無効化される。明示的引数渡しならpyrightが各引数の型を正確に検証できる。
 
-### 8. リポジトリ実装のDRY原則
+### 9. リポジトリ実装のDRY原則
 **Raw SQLリポジトリ実装で繰り返しコードを避ける**
 
 #### SELECTカラムリストの定数化

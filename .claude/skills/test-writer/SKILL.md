@@ -261,6 +261,33 @@ from tests.fixtures.smri_record_factories import make_smri_record_with_judges
 
 **判断基準**: ヘルパーが2つ以上のテストファイルで必要になると分かっている場合は、最初から`tests/fixtures/`に作成する。
 
+## bulk操作テストの検証ルール
+
+`bulk_create`や`bulk_update`等のバルク操作を呼ぶUseCaseをテストする場合、**呼ばれたことだけでなく、渡された引数の中身も検証する**こと。
+
+```python
+# ❌ 悪い例 - 呼ばれたかだけ確認
+mock_repo.bulk_create.assert_called_once()
+
+# ✅ 良い例 - 引数の中身まで検証
+mock_repo.bulk_create.assert_called_once()
+entities = mock_repo.bulk_create.call_args[0][0]
+assert len(entities) == 2
+sansei = [e for e in entities if e.judgment == "賛成"][0]
+assert sorted(sansei.parliamentary_group_ids) == [8, 18]
+```
+
+また、bulk操作後の副作用（`mark_processed`等）も漏れなく検証すること。
+
+```python
+# ✅ 副作用の検証
+assert mock_repo.mark_processed.call_count == 3
+processed_ids = sorted(
+    call.args[0] for call in mock_repo.mark_processed.call_args_list
+)
+assert processed_ids == [1, 2, 3]
+```
+
 ## Common Anti-Patterns
 
 1. **❌ Real API Calls**: Most common mistake!
@@ -271,5 +298,6 @@ from tests.fixtures.smri_record_factories import make_smri_record_with_judges
 6. **❌ `return` in `patch` fixture**: `with patch(...)` 内で `return` するとpatchスコープが切れる → `yield` を使う
 7. **❌ 内部メソッドのモック上書き**: `presenter._run_async = MagicMock(...)` はプロダクションコードの検証をバイパスする
 8. **❌ ドメインエンティティのコンストラクタ引数ミス**: テストデータ作成時に存在しないキーワード引数を使用 → 必ず`find_symbol`等でコンストラクタを確認する
+9. **❌ bulk操作の引数未検証**: `bulk_create.assert_called_once()` だけで、渡されたエンティティの中身を検証していない
 
 See [reference.md](reference.md) for detailed explanations and fixes.

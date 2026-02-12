@@ -18,6 +18,7 @@ Docker-first環境であること、外部データへの依存があること�
 ## クイックチェックリスト
 
 - [ ] **docstringにDocker経由の実行コマンド例が記載されている**
+- [ ] **docstringのUsage例とargparse定義が一致している**（存在しないオプションを例に書いていないか）
 - [ ] **外部データに依存する場合、取得方法（URL・コマンド）が記載されている**
 - [ ] **argparseのhelpが充実している**（引数の意味、デフォルト値、具体例）
 - [ ] **実行前提条件が明記されている**（必要なマスターデータ、環境変数など）
@@ -96,7 +97,35 @@ parser = argparse.ArgumentParser()
 parser.add_argument("file_path")
 ```
 
-### 4. 実行前提条件を明記する
+### 4. docstringのUsage例とargparse定義を一致させる
+
+docstringに書いたコマンド例で使っているオプションが、実際の`argparse`定義に存在するか確認してください。
+他のスクリプトからUsage例をコピーして編集する際に、未実装のオプションが残りがちです。
+
+**❌ 悪い例:**
+```python
+"""スクリプトの説明.
+
+Usage:
+    docker compose exec sagebase uv run python scripts/xxx.py --conference-name 参議院
+"""
+# argparseには --conference-name が未定義 → 実行時エラー
+parser = argparse.ArgumentParser()
+parser.add_argument("--dry-run", action="store_true")
+```
+
+**✅ 良い例:**
+```python
+"""スクリプトの説明.
+
+Usage:
+    docker compose exec sagebase uv run python scripts/xxx.py --dry-run
+"""
+parser = argparse.ArgumentParser()
+parser.add_argument("--dry-run", action="store_true")
+```
+
+### 5. 実行前提条件を明記する
 
 マスターデータの存在、環境変数、DB接続など、スクリプト実行に必要な前提条件がある場合は明記してください。
 
