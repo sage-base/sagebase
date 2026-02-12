@@ -25,7 +25,7 @@ Before approving code, verify:
 - [ ] **DTO Placement**: DTOは`src/application/dtos/`に配置（UseCaseファイル内に混在させない）
 - [ ] **DTO型変更時の全層追跡**: DTOのフィールド型を変更した場合、Presenter層だけでなくView層（`src/interfaces/web/streamlit/views/`）も確認。`WebResponseDTO.data: dict[str, Any]`境界でpyrightの型チェックが効かないため手動確認が必須
 - [ ] **UseCase間依存**: Orchestratorパターンとして許容される場合のみ（抽出ログ統合等）
-- [ ] **Type Safety**: Complete type hints with proper `Optional` handling
+- [ ] **Type Safety**: Complete type hints with proper `Optional` handling. `**kwargs`展開ではなく明示的引数渡しを使用
 - [ ] **Tests**: Unit tests for domain services and use cases
 - [ ] **ドメインロジックの配置**: UseCase内で文字列リテラル比較やドメイン定数の直接参照でフィルタリングしていないか → エンティティのプロパティ/メソッドに移す
 - [ ] **リポジトリ実装のDRY**: Raw SQLリポジトリでSELECTカラムリストが重複していないか → 定数に抽出。Row→Dict変換が重複していないか → ヘルパーメソッドに抽出
@@ -106,6 +106,43 @@ elected = [m for m in members if m.is_elected]
 ✅ All public methods have type hints
 ✅ Use `T | None` for nullable types
 ✅ Explicit `None` checks for Optional values
+✅ `**kwargs`展開ではなく明示的引数渡しを使用
+
+#### `**kwargs`展開の禁止
+
+UseCaseからリポジトリメソッドを呼び出す際、辞書にフィルター条件を溜めて`**kwargs`で展開するパターンは型安全性を損なうため避ける。
+
+```python
+# ❌ BAD: dict展開で型情報が失われる（`Any`が必要になる）
+filter_kwargs: dict[str, Any] = {}
+if meeting_id:
+    filter_kwargs["meeting_id"] = meeting_id
+if deliberation_status:
+    filter_kwargs["deliberation_status"] = deliberation_status
+
+proposals = await repo.get_filtered_paginated(**filter_kwargs)
+total = await repo.count_filtered(**filter_kwargs)
+```
+
+```python
+# ✅ GOOD: 明示的引数渡し（pyrightが各引数の型を検証できる）
+meeting_id_filter: int | None = None
+if filter_type == "by_meeting" and input_dto.meeting_id:
+    meeting_id_filter = input_dto.meeting_id
+
+proposals = await repo.get_filtered_paginated(
+    meeting_id=meeting_id_filter,
+    deliberation_status=input_dto.deliberation_status,
+    limit=input_dto.limit,
+    offset=input_dto.offset,
+)
+total = await repo.count_filtered(
+    meeting_id=meeting_id_filter,
+    deliberation_status=input_dto.deliberation_status,
+)
+```
+
+**なぜ重要か**: `dict[str, int | str | None]`のような共用体型の辞書を`**`展開すると、pyrightは各パラメータの型を個別に検証できず型エラーになる。`dict[str, Any]`に逃げると型チェックが無効化される。明示的引数渡しならpyrightが各引数の型を正確に検証できる。
 
 ### 8. リポジトリ実装のDRY原則
 **Raw SQLリポジトリ実装で繰り返しコードを避ける**
