@@ -30,6 +30,7 @@ Before approving code, verify:
 - [ ] **ドメインロジックの配置**: UseCase内で文字列リテラル比較やドメイン定数の直接参照でフィルタリングしていないか → エンティティのプロパティ/メソッドに移す
 - [ ] **リポジトリ実装のDRY**: Raw SQLリポジトリでSELECTカラムリストが重複していないか → 定数に抽出。Row→Dict変換が重複していないか → ヘルパーメソッドに抽出
 - [ ] **BaseRepositoryImplのオーバーライド**: Raw SQLリポジトリで `count()`, `get_by_ids()` 等のORMベースメソッドが正しく動作するか確認（Pydanticモデル系では必ずraw SQLでオーバーライド）
+- [ ] **プレビュー/ドライランのUseCase配置**: execute（書き込み）操作にpreview（読み取り確認）が対になる場合、previewもUseCaseに配置（Presenterにビジネスロジックを置かない）
 
 ## Core Principles
 
@@ -188,6 +189,19 @@ async def get_by_ids(self, entity_ids: list[int]) -> list[Entity]:
 **現状**: 一部のPresenterがUseCaseを経由せずRepositoryを直接利用している（例: `politician_repo.get_all()`）。
 **理想**: Presenterは常にUseCaseを経由すべき。
 **方針**: 単純な読み取り操作（get_all等）についてはPresenterからの直接利用が慣例化している。ビジネスロジックを含む操作は必ずUseCaseを経由すること。
+
+**特に注意: プレビュー/ドライラン操作**
+executeメソッド（書き込み）にpreviewメソッド（読み取り確認）が対になる場合、「previewは表示用データ（名前等）が必要だからPresenterに置く」という判断は誤り。UseCaseにpreview()メソッドを追加し、必要なリポジトリ（PoliticianRepository等）をUseCaseに注入する。
+
+❌ Presenterにプレビューロジックを配置:
+- executeのロジック（会員解決等）とpreviewで重複が発生
+- Presenterにリポジトリ依存が増殖
+- ビジネスルール変更時に2箇所を修正する必要
+
+✅ UseCaseにpreview()メソッドを追加:
+- 共通ヘルパー（例: `_resolve_group_members()`）でロジック共有
+- Presenterは薄い委譲のみ（10行以下）
+- テストもUseCase単体で網羅的に書ける
 
 ## Common Violations
 

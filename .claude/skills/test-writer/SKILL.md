@@ -90,7 +90,7 @@ Before committing tests:
 - [ ] **Deterministic**: Same result every time
 - [ ] **Clear Names**: Test name describes what it tests
 - [ ] **Arrange-Act-Assert**: Clear test structure
-- [ ] **Async Properly**: Uses `@pytest.mark.asyncio` and `AsyncMock`
+- [ ] **Async Properly**: Uses `AsyncMock`（本プロジェクトは`asyncio_mode = "auto"`のため`@pytest.mark.asyncio`不要）
 - [ ] **Mock Verification**: Asserts mock calls when relevant
 - [ ] **Type Hints**: Complete type annotations
 - [ ] **Nullable Fields**: `T | None` フィールドは `None` ケースもテスト
@@ -183,13 +183,16 @@ result = await mock_repo.create(politician)  # Works!
 
 ### 2. Async Tests
 
-**Use pytest-asyncio:**
+**本プロジェクトは `asyncio_mode = "auto"`（`pyproject.toml`で設定済み）のため、`@pytest.mark.asyncio` デコレータは不要です。** `async def` テストメソッドは自動的にasyncioテストとして認識されます。
+
 ```python
-@pytest.mark.asyncio
+# ✅ 本プロジェクトではデコレータ不要（asyncio_mode = "auto"）
 async def test_async_function(mock_repo):
     result = await usecase.execute(input_dto)
     assert result.success
 ```
+
+> **注意**: 他のプロジェクトでは `@pytest.mark.asyncio` が必要な場合があります。本プロジェクト固有の設定です。
 
 ### 3. Test Independence
 
@@ -266,7 +269,7 @@ from tests.fixtures.smri_record_factories import make_smri_record_with_judges
 1. **❌ Real API Calls**: Most common mistake!
 2. **❌ Testing Implementation Details**: Test public interfaces
 3. **❌ Test Dependencies**: Each test must be independent
-4. **❌ Missing Async/Await**: Forget `@pytest.mark.asyncio`
+4. **❌ Missing Async/Await**: `asyncio_mode`設定を確認せずにデコレータを付け忘れる（本プロジェクトは`auto`のため不要）
 5. **❌ No Mock Verification**: Don't check if mocks were called
 6. **❌ `return` in `patch` fixture**: `with patch(...)` 内で `return` するとpatchスコープが切れる → `yield` を使う
 7. **❌ 内部メソッドのモック上書き**: `presenter._run_async = MagicMock(...)` はプロダクションコードの検証をバイパスする

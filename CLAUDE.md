@@ -169,6 +169,7 @@ Clean Architectureの各層の詳細な実装ガイドを保管（責務、実�
 - **Docker-first**: All commands run through Docker containers
 - **Unified CLI**: `sagebase` command provides single entry point
 - **GCS URI Format**: Always use `gs://` format, not HTTPS URLs
+- **Issue実装時の受入基準チェック**: Issue解決時は、実装完了前に受入基準（Acceptance Criteria）の全項目を1つずつ照合すること。UI系の要件（プログレスバー、ダイアログ等）は見落としやすいため特に注意
 
 **📖 For detailed conventions**: See [.claude/skills/project-conventions/](.claude/skills/project-conventions/)
 
