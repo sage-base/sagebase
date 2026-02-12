@@ -26,6 +26,7 @@ class ParliamentaryGroupModel:
     url: str | None
     description: str | None
     is_active: bool
+    political_party_id: int | None
 
     def __init__(self, **kwargs: Any):
         for key, value in kwargs.items():
@@ -45,10 +46,15 @@ class ParliamentaryGroupRepositoryImpl(
         query = text(
             """
             INSERT INTO parliamentary_groups (
-                name, governing_body_id, url, description, is_active
+                name, governing_body_id, url, description,
+                is_active, political_party_id
             )
-            VALUES (:name, :governing_body_id, :url, :description, :is_active)
-            RETURNING id, name, governing_body_id, url, description, is_active
+            VALUES (
+                :name, :governing_body_id, :url, :description,
+                :is_active, :political_party_id
+            )
+            RETURNING id, name, governing_body_id, url,
+                description, is_active, political_party_id
         """
         )
 
@@ -60,6 +66,7 @@ class ParliamentaryGroupRepositoryImpl(
                 "url": entity.url,
                 "description": entity.description,
                 "is_active": entity.is_active,
+                "political_party_id": entity.political_party_id,
             },
         )
         row = result.fetchone()
@@ -79,9 +86,11 @@ class ParliamentaryGroupRepositoryImpl(
                 governing_body_id = :governing_body_id,
                 url = :url,
                 description = :description,
-                is_active = :is_active
+                is_active = :is_active,
+                political_party_id = :political_party_id
             WHERE id = :id
-            RETURNING id, name, governing_body_id, url, description, is_active
+            RETURNING id, name, governing_body_id, url,
+                description, is_active, political_party_id
         """)
 
         result = await self.session.execute(
@@ -93,6 +102,7 @@ class ParliamentaryGroupRepositoryImpl(
                 "url": entity.url,
                 "description": entity.description,
                 "is_active": entity.is_active,
+                "political_party_id": entity.political_party_id,
             },
         )
         row = result.fetchone()
@@ -257,6 +267,7 @@ class ParliamentaryGroupRepositoryImpl(
             url=getattr(row, "url", None),
             description=getattr(row, "description", None),
             is_active=getattr(row, "is_active", True),
+            political_party_id=getattr(row, "political_party_id", None),
         )
 
     def _to_entity(self, model: ParliamentaryGroupModel) -> ParliamentaryGroup:
@@ -268,15 +279,17 @@ class ParliamentaryGroupRepositoryImpl(
             url=getattr(model, "url", None),
             description=model.description,
             is_active=model.is_active,
+            political_party_id=getattr(model, "political_party_id", None),
         )
 
     def _to_model(self, entity: ParliamentaryGroup) -> ParliamentaryGroupModel:
         """Convert domain entity to database model."""
-        data = {
+        data: dict[str, Any] = {
             "name": entity.name,
             "governing_body_id": entity.governing_body_id,
             "description": entity.description,
             "is_active": entity.is_active,
+            "political_party_id": entity.political_party_id,
         }
 
         if entity.url is not None:
@@ -294,6 +307,7 @@ class ParliamentaryGroupRepositoryImpl(
         model.governing_body_id = entity.governing_body_id
         model.description = entity.description
         model.is_active = entity.is_active
+        model.political_party_id = entity.political_party_id
 
         if entity.url is not None:
             model.url = entity.url

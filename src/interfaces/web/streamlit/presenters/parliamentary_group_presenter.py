@@ -19,6 +19,7 @@ from src.application.usecases.update_extracted_parliamentary_group_member_from_e
 from src.common.logging import get_logger
 from src.domain.entities import ParliamentaryGroup
 from src.domain.entities.governing_body import GoverningBody
+from src.domain.entities.political_party import PoliticalParty
 from src.infrastructure.di.container import Container
 from src.infrastructure.external.llm_service import GeminiLLMService
 from src.infrastructure.external.parliamentary_group_member_extractor.factory import (
@@ -40,6 +41,9 @@ from src.infrastructure.persistence.parliamentary_group_membership_repository_im
 from src.infrastructure.persistence.parliamentary_group_repository_impl import (
     ParliamentaryGroupRepositoryImpl,
 )
+from src.infrastructure.persistence.political_party_repository_impl import (
+    PoliticalPartyRepositoryImpl,
+)
 from src.infrastructure.persistence.politician_repository_impl import (
     PoliticianRepositoryImpl,
 )
@@ -60,6 +64,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         )
         self.governing_body_repo = RepositoryAdapter(GoverningBodyRepositoryImpl)
         self.politician_repo = RepositoryAdapter(PoliticianRepositoryImpl)
+        self.political_party_repo = RepositoryAdapter(PoliticalPartyRepositoryImpl)
         self.membership_repo = RepositoryAdapter(
             ParliamentaryGroupMembershipRepositoryImpl
         )
@@ -165,6 +170,18 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
             self.logger.error(f"Failed to get governing bodies: {e}")
             return []
 
+    def get_all_political_parties(self) -> list[PoliticalParty]:
+        """Get all political parties."""
+        return self._run_async(self._get_all_political_parties_async())
+
+    async def _get_all_political_parties_async(self) -> list[PoliticalParty]:
+        """Get all political parties (async implementation)."""
+        try:
+            return await self.political_party_repo.get_all()
+        except Exception as e:
+            self.logger.error(f"Failed to get political parties: {e}")
+            return []
+
     def create(
         self,
         name: str,
@@ -172,10 +189,13 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         url: str | None = None,
         description: str | None = None,
         is_active: bool = True,
+        political_party_id: int | None = None,
     ) -> tuple[bool, ParliamentaryGroup | None, str | None]:
         """Create a new parliamentary group."""
         return self._run_async(
-            self._create_async(name, governing_body_id, url, description, is_active)
+            self._create_async(
+                name, governing_body_id, url, description, is_active, political_party_id
+            )
         )
 
     async def _create_async(
@@ -185,6 +205,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         url: str | None = None,
         description: str | None = None,
         is_active: bool = True,
+        political_party_id: int | None = None,
     ) -> tuple[bool, ParliamentaryGroup | None, str | None]:
         """Create a new parliamentary group (async implementation)."""
         try:
@@ -195,6 +216,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
                     url=url,
                     description=description,
                     is_active=is_active,
+                    political_party_id=political_party_id,
                 )
             )
             if result.success:
@@ -213,10 +235,13 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         url: str | None = None,
         description: str | None = None,
         is_active: bool = True,
+        political_party_id: int | None = None,
     ) -> tuple[bool, str | None]:
         """Update an existing parliamentary group."""
         return self._run_async(
-            self._update_async(id, name, url, description, is_active)
+            self._update_async(
+                id, name, url, description, is_active, political_party_id
+            )
         )
 
     async def _update_async(
@@ -226,6 +251,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         url: str | None = None,
         description: str | None = None,
         is_active: bool = True,
+        political_party_id: int | None = None,
     ) -> tuple[bool, str | None]:
         """Update an existing parliamentary group (async implementation)."""
         try:
@@ -236,6 +262,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
                     url=url,
                     description=description,
                     is_active=is_active,
+                    political_party_id=political_party_id,
                 )
             )
             if result.success:
@@ -382,6 +409,9 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         if not parliamentary_groups:
             return None
 
+        political_parties = self.get_all_political_parties()
+        party_map = {p.id: p.name for p in political_parties}
+
         df_data = []
         for group in parliamentary_groups:
             # Find governing body name
@@ -390,11 +420,18 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
             )
             gb_name = f"{gb.name}" if gb else "不明"
 
+            party_name = (
+                party_map.get(group.political_party_id, "未設定")
+                if group.political_party_id
+                else "未設定"
+            )
+
             df_data.append(
                 {
                     "ID": group.id,
                     "議員団名": group.name,
                     "開催主体": gb_name,
+                    "政党": party_name,
                     "URL": group.url or "未設定",
                     "説明": group.description or "",
                     "状態": "活動中" if group.is_active else "非活動",
@@ -446,6 +483,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
                 kwargs.get("url"),
                 kwargs.get("description"),
                 kwargs.get("is_active", True),
+                kwargs.get("political_party_id"),
             )
         elif action == "update":
             return self.update(
@@ -454,6 +492,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
                 kwargs.get("url"),
                 kwargs.get("description"),
                 kwargs.get("is_active", True),
+                kwargs.get("political_party_id"),
             )
         elif action == "delete":
             return self.delete(kwargs.get("id", 0))

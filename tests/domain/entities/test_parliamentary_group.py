@@ -20,6 +20,7 @@ class TestParliamentaryGroup:
         assert group.url is None
         assert group.description is None
         assert group.is_active is True  # Default value
+        assert group.political_party_id is None
         assert group.id is None
 
     def test_initialization_with_all_fields(self) -> None:
@@ -31,6 +32,7 @@ class TestParliamentaryGroup:
             url="https://example.com/group",
             description="立憲民主党所属の議員で構成される会派",
             is_active=False,
+            political_party_id=42,
         )
 
         assert group.id == 10
@@ -39,6 +41,7 @@ class TestParliamentaryGroup:
         assert group.url == "https://example.com/group"
         assert group.description == "立憲民主党所属の議員で構成される会派"
         assert group.is_active is False
+        assert group.political_party_id == 42
 
     def test_str_representation(self) -> None:
         """Test string representation."""
@@ -55,6 +58,15 @@ class TestParliamentaryGroup:
         )
         assert str(group_with_id) == "日本維新の会"
 
+    def test_initialization_with_political_party_id(self) -> None:
+        """Test entity initialization with political_party_id."""
+        group = ParliamentaryGroup(
+            name="自民党議員団",
+            governing_body_id=1,
+            political_party_id=5,
+        )
+        assert group.political_party_id == 5
+
     def test_entity_factory(self) -> None:
         """Test entity creation using factory."""
         group = create_parliamentary_group()
@@ -64,6 +76,7 @@ class TestParliamentaryGroup:
         assert group.governing_body_id == 1
         assert group.description is None
         assert group.is_active is True
+        assert group.political_party_id is None
 
     def test_factory_with_overrides(self) -> None:
         """Test entity factory with custom values."""

@@ -48,6 +48,21 @@ def render_edit_delete_tab(presenter: ParliamentaryGroupPresenter) -> None:
     selected_group_display = st.selectbox("編集する議員団を選択", group_options)
     selected_group = group_map[selected_group_display]
 
+    # Get political parties
+    political_parties = presenter.get_all_political_parties()
+    party_options = ["なし"] + [p.name for p in political_parties]
+    party_map: dict[str, int | None] = {"なし": None}
+    for p in political_parties:
+        party_map[p.name] = p.id
+
+    # Determine current party selection index
+    current_party_index = 0
+    if selected_group.political_party_id:
+        for i, p in enumerate(political_parties):
+            if p.id == selected_group.political_party_id:
+                current_party_index = i + 1
+                break
+
     # Edit and delete forms
     col1, col2 = st.columns(2)
 
@@ -55,6 +70,9 @@ def render_edit_delete_tab(presenter: ParliamentaryGroupPresenter) -> None:
         st.markdown("#### 編集")
         with st.form("edit_parliamentary_group_form"):
             new_name = st.text_input("議員団名", value=selected_group.name)
+            new_party = st.selectbox(
+                "政党（任意）", party_options, index=current_party_index
+            )
             new_url = st.text_input("議員団URL", value=selected_group.url or "")
             new_description = st.text_area(
                 "説明", value=selected_group.description or ""
@@ -67,12 +85,14 @@ def render_edit_delete_tab(presenter: ParliamentaryGroupPresenter) -> None:
                 if not new_name:
                     st.error("議員団名を入力してください")
                 else:
+                    new_political_party_id = party_map.get(new_party)
                     success, error = presenter.update(
                         selected_group.id,
                         new_name,
                         new_url if new_url else None,
                         new_description if new_description else None,
                         new_is_active,
+                        political_party_id=new_political_party_id,
                     )
                     if success:
                         st.success("議員団を更新しました")
