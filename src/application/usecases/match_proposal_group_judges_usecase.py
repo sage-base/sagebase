@@ -8,6 +8,7 @@ proposal_parliamentary_group_judges（Gold層）に書き込む。
 import logging
 
 from collections import defaultdict
+from dataclasses import dataclass
 
 from src.application.dtos.match_proposal_group_judges_dto import (
     MatchProposalGroupJudgesInputDto,
@@ -29,6 +30,14 @@ from src.domain.value_objects.judge_type import JudgeType
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _MatchedInfo:
+    judge_id: int
+    proposal_id: int
+    judgment: str
+    parliamentary_group_id: int
 
 
 class MatchProposalGroupJudgesUseCase:
@@ -72,12 +81,13 @@ class MatchProposalGroupJudgesUseCase:
             len(group_judges),
         )
 
-        matched_ids: list[int] = []
+        matched_infos: list[_MatchedInfo] = []
         unmatched_set: set[str] = set()
 
         for judge in group_judges:
             name = judge.extracted_parliamentary_group_name
-            assert name is not None
+            if name is None:
+                continue
             stripped = name.strip()
             group_id = name_to_id.get(stripped)
 
@@ -88,7 +98,14 @@ class MatchProposalGroupJudgesUseCase:
                     confidence=1.0,
                     status="matched",
                 )
-                matched_ids.append(judge.id)
+                matched_infos.append(
+                    _MatchedInfo(
+                        judge_id=judge.id,
+                        proposal_id=judge.proposal_id,
+                        judgment=judge.extracted_judgment or "",
+                        parliamentary_group_id=group_id,
+                    )
+                )
                 output.matched += 1
             else:
                 if judge.id is not None:
@@ -111,31 +128,22 @@ class MatchProposalGroupJudgesUseCase:
             logger.info("dry_runモード: Gold層への書き込みをスキップ")
             return output
 
-        judges_created = await self._create_gold_layer_judges(matched_ids, name_to_id)
+        judges_created = await self._create_gold_layer_judges(matched_infos)
         output.judges_created = judges_created
 
         return output
 
     async def _create_gold_layer_judges(
         self,
-        matched_judge_ids: list[int],
-        name_to_id: dict[str, int],
+        matched_infos: list[_MatchedInfo],
     ) -> int:
-        if not matched_judge_ids:
+        if not matched_infos:
             return 0
 
         grouped: dict[tuple[int, str], list[int]] = defaultdict(list)
-
-        for judge_id in matched_judge_ids:
-            judge = await self._extracted_repo.get_by_id(judge_id)
-            if (
-                judge is None
-                or judge.matched_parliamentary_group_id is None
-                or judge.extracted_judgment is None
-            ):
-                continue
-            key = (judge.proposal_id, judge.extracted_judgment)
-            grouped[key].append(judge.matched_parliamentary_group_id)
+        for info in matched_infos:
+            key = (info.proposal_id, info.judgment)
+            grouped[key].append(info.parliamentary_group_id)
 
         entities: list[ProposalParliamentaryGroupJudge] = []
         for (proposal_id, judgment), group_ids in grouped.items():
@@ -152,8 +160,8 @@ class MatchProposalGroupJudgesUseCase:
             created = await self._judge_repo.bulk_create(entities)
             logger.info("Gold層に%d件の賛否レコードを作成", len(created))
 
-            for judge_id in matched_judge_ids:
-                await self._extracted_repo.mark_processed(judge_id)
+            for info in matched_infos:
+                await self._extracted_repo.mark_processed(info.judge_id)
 
             return len(created)
 

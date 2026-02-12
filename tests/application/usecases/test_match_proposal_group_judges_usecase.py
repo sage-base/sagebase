@@ -99,7 +99,7 @@ class TestMatchProposalGroupJudgesUseCase:
         assert result.unmatched == 0
 
     @pytest.mark.asyncio
-    async def test_exact_name_match(
+    async def test_exact_name_match_with_gold_layer_verification(
         self,
         use_case: MatchProposalGroupJudgesUseCase,
         mock_extracted_repo: AsyncMock,
@@ -119,37 +119,6 @@ class TestMatchProposalGroupJudgesUseCase:
             _make_group(9, "立憲民主党・無所属"),
         ]
         mock_group_repo.get_by_governing_body_id.return_value = groups
-
-        def get_by_id_side_effect(judge_id: int) -> ExtractedProposalJudge | None:
-            updated = {
-                1: ExtractedProposalJudge(
-                    id=1,
-                    proposal_id=100,
-                    extracted_parliamentary_group_name="自由民主党・無所属の会",
-                    extracted_judgment="賛成",
-                    matched_parliamentary_group_id=8,
-                    matching_status="matched",
-                ),
-                2: ExtractedProposalJudge(
-                    id=2,
-                    proposal_id=100,
-                    extracted_parliamentary_group_name="公明党",
-                    extracted_judgment="賛成",
-                    matched_parliamentary_group_id=18,
-                    matching_status="matched",
-                ),
-                3: ExtractedProposalJudge(
-                    id=3,
-                    proposal_id=100,
-                    extracted_parliamentary_group_name="立憲民主党・無所属",
-                    extracted_judgment="反対",
-                    matched_parliamentary_group_id=9,
-                    matching_status="matched",
-                ),
-            }
-            return updated.get(judge_id)
-
-        mock_extracted_repo.get_by_id = AsyncMock(side_effect=get_by_id_side_effect)
 
         created_judges = [
             ProposalParliamentaryGroupJudge(
@@ -178,7 +147,25 @@ class TestMatchProposalGroupJudgesUseCase:
         assert result.judges_created == 2
         assert result.unmatched_names == []
         assert mock_extracted_repo.update_matching_result.call_count == 3
+
         mock_judge_repo.bulk_create.assert_called_once()
+        entities = mock_judge_repo.bulk_create.call_args[0][0]
+        assert len(entities) == 2
+
+        sansei = [e for e in entities if e.judgment == "賛成"][0]
+        assert sansei.proposal_id == 100
+        assert sansei.judge_type == JudgeType.PARLIAMENTARY_GROUP
+        assert sorted(sansei.parliamentary_group_ids) == [8, 18]
+
+        hantai = [e for e in entities if e.judgment == "反対"][0]
+        assert hantai.proposal_id == 100
+        assert sorted(hantai.parliamentary_group_ids) == [9]
+
+        assert mock_extracted_repo.mark_processed.call_count == 3
+        processed_ids = sorted(
+            call.args[0] for call in mock_extracted_repo.mark_processed.call_args_list
+        )
+        assert processed_ids == [1, 2, 3]
 
     @pytest.mark.asyncio
     async def test_unmatched_group_names(
@@ -225,6 +212,7 @@ class TestMatchProposalGroupJudgesUseCase:
         assert result.matched == 1
         assert result.judges_created == 0
         mock_judge_repo.bulk_create.assert_not_called()
+        mock_extracted_repo.mark_processed.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_skips_records_without_group_name(
@@ -277,6 +265,25 @@ class TestMatchProposalGroupJudgesUseCase:
         assert result.matched == 1
         assert result.unmatched == 1
         assert result.unmatched_names == ["未知の会派X"]
+
+    @pytest.mark.asyncio
+    async def test_whitespace_in_group_name(
+        self,
+        use_case: MatchProposalGroupJudgesUseCase,
+        mock_extracted_repo: AsyncMock,
+        mock_group_repo: AsyncMock,
+    ) -> None:
+        judges = [_make_extracted_judge(1, 100, " 公明党 ", "賛成")]
+        mock_extracted_repo.get_all_pending.return_value = judges
+        mock_group_repo.get_by_governing_body_id.return_value = [
+            _make_group(18, "公明党"),
+        ]
+
+        input_dto = MatchProposalGroupJudgesInputDto(governing_body_id=1, dry_run=True)
+        result = await use_case.execute(input_dto)
+
+        assert result.matched == 1
+        assert result.unmatched == 0
 
 
 class TestMatchProposalGroupJudgesDtos:

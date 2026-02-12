@@ -12,10 +12,6 @@ Usage (Docker経由で実行):
     docker compose -f docker/docker-compose.yml exec sagebase \
         uv run python scripts/match_proposal_group_judges.py --dry-run
 
-    # 参議院の議員団をマッチングする場合
-    docker compose -f docker/docker-compose.yml exec sagebase \
-        uv run python scripts/match_proposal_group_judges.py --conference-name 参議院
-
 前提条件:
     - Docker環境が起動済み（just up-detached）
     - マスターデータ（開催主体「日本国」）がロード済み
