@@ -19,6 +19,14 @@ from src.infrastructure.persistence.base_repository_impl import BaseRepositoryIm
 
 logger = logging.getLogger(__name__)
 
+_SELECT_COLUMNS = """
+    id, proposal_id, politician_id, approve,
+    source_type, source_group_judge_id,
+    created_at, updated_at
+"""
+
+_RETURNING_COLUMNS = f"RETURNING {_SELECT_COLUMNS}"
+
 
 class ProposalJudgeModel(PydanticBaseModel):
     """ProposalJudge database model."""
@@ -53,6 +61,18 @@ class ProposalJudgeRepositoryImpl(
             model_class=ProposalJudgeModel,
         )
 
+    def _row_to_dict(self, row: Any) -> dict[str, Any]:
+        """Convert a database row to a dictionary."""
+        if hasattr(row, "_asdict"):
+            return row._asdict()  # type: ignore[attr-defined]
+        elif hasattr(row, "_mapping"):
+            return dict(row._mapping)  # type: ignore[attr-defined]
+        return dict(row)
+
+    def _rows_to_entities(self, rows: Any) -> list[ProposalJudge]:
+        """Convert multiple database rows to entities."""
+        return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+
     async def get_by_proposal(self, proposal_id: int) -> list[ProposalJudge]:
         """Get all judges for a proposal.
 
@@ -63,34 +83,15 @@ class ProposalJudgeRepositoryImpl(
             List of proposal judges for the specified proposal
         """
         try:
-            query = text("""
-                SELECT
-                    pj.id,
-                    pj.proposal_id,
-                    pj.politician_id,
-                    pj.approve,
-                    pj.source_type,
-                    pj.source_group_judge_id,
-                    pj.created_at,
-                    pj.updated_at
-                FROM proposal_judges pj
-                WHERE pj.proposal_id = :proposal_id
-                ORDER BY pj.created_at DESC
+            query = text(f"""
+                SELECT {_SELECT_COLUMNS}
+                FROM proposal_judges
+                WHERE proposal_id = :proposal_id
+                ORDER BY created_at DESC
             """)
 
             result = await self.session.execute(query, {"proposal_id": proposal_id})
-            rows = result.fetchall()
-
-            results = []
-            for row in rows:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                results.append(self._dict_to_entity(row_dict))
-            return results
+            return self._rows_to_entities(result.fetchall())
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting judges by proposal: {e}")
@@ -109,34 +110,15 @@ class ProposalJudgeRepositoryImpl(
             List of proposal judges by the specified politician
         """
         try:
-            query = text("""
-                SELECT
-                    pj.id,
-                    pj.proposal_id,
-                    pj.politician_id,
-                    pj.approve,
-                    pj.source_type,
-                    pj.source_group_judge_id,
-                    pj.created_at,
-                    pj.updated_at
-                FROM proposal_judges pj
-                WHERE pj.politician_id = :politician_id
-                ORDER BY pj.created_at DESC
+            query = text(f"""
+                SELECT {_SELECT_COLUMNS}
+                FROM proposal_judges
+                WHERE politician_id = :politician_id
+                ORDER BY created_at DESC
             """)
 
             result = await self.session.execute(query, {"politician_id": politician_id})
-            rows = result.fetchall()
-
-            results = []
-            for row in rows:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                results.append(self._dict_to_entity(row_dict))
-            return results
+            return self._rows_to_entities(result.fetchall())
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting judges by politician: {e}")
@@ -158,16 +140,8 @@ class ProposalJudgeRepositoryImpl(
             The proposal judge if found, None otherwise
         """
         try:
-            query = text("""
-                SELECT
-                    id,
-                    proposal_id,
-                    politician_id,
-                    approve,
-                    source_type,
-                    source_group_judge_id,
-                    created_at,
-                    updated_at
+            query = text(f"""
+                SELECT {_SELECT_COLUMNS}
                 FROM proposal_judges
                 WHERE proposal_id = :proposal_id
                 AND politician_id = :politician_id
@@ -179,13 +153,7 @@ class ProposalJudgeRepositoryImpl(
             row = result.fetchone()
 
             if row:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._dict_to_entity(self._row_to_dict(row))
             return None
 
         except SQLAlchemyError as e:
@@ -226,7 +194,7 @@ class ProposalJudgeRepositoryImpl(
                     }
                 )
 
-            query = text("""
+            query = text(f"""
                 INSERT INTO proposal_judges (
                     proposal_id, politician_id, approve,
                     source_type, source_group_judge_id
@@ -235,9 +203,7 @@ class ProposalJudgeRepositoryImpl(
                     :proposal_id, :politician_id, :approve,
                     :source_type, :source_group_judge_id
                 )
-                RETURNING id, proposal_id, politician_id,
-                          approve, source_type, source_group_judge_id,
-                          created_at, updated_at
+                {_RETURNING_COLUMNS}
             """)
 
             created_judges = []
@@ -245,13 +211,7 @@ class ProposalJudgeRepositoryImpl(
                 result = await self.session.execute(query, value)
                 row = result.fetchone()
                 if row:
-                    if hasattr(row, "_asdict"):
-                        row_dict = row._asdict()  # type: ignore[attr-defined]
-                    elif hasattr(row, "_mapping"):
-                        row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                    else:
-                        row_dict = dict(row)
-                    created_judges.append(self._dict_to_entity(row_dict))
+                    created_judges.append(self._dict_to_entity(self._row_to_dict(row)))
 
             await self.session.commit()
             return created_judges
@@ -276,36 +236,17 @@ class ProposalJudgeRepositoryImpl(
             List of proposal judges created from the specified group judge
         """
         try:
-            query = text("""
-                SELECT
-                    pj.id,
-                    pj.proposal_id,
-                    pj.politician_id,
-                    pj.approve,
-                    pj.source_type,
-                    pj.source_group_judge_id,
-                    pj.created_at,
-                    pj.updated_at
-                FROM proposal_judges pj
-                WHERE pj.source_group_judge_id = :source_group_judge_id
-                ORDER BY pj.created_at DESC
+            query = text(f"""
+                SELECT {_SELECT_COLUMNS}
+                FROM proposal_judges
+                WHERE source_group_judge_id = :source_group_judge_id
+                ORDER BY created_at DESC
             """)
 
             result = await self.session.execute(
                 query, {"source_group_judge_id": source_group_judge_id}
             )
-            rows = result.fetchall()
-
-            results = []
-            for row in rows:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                results.append(self._dict_to_entity(row_dict))
-            return results
+            return self._rows_to_entities(result.fetchall())
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting judges by source group judge ID: {e}")
@@ -327,18 +268,10 @@ class ProposalJudgeRepositoryImpl(
             List of ProposalJudge entities
         """
         try:
-            query_text = """
-                SELECT
-                    pj.id,
-                    pj.proposal_id,
-                    pj.politician_id,
-                    pj.approve,
-                    pj.source_type,
-                    pj.source_group_judge_id,
-                    pj.created_at,
-                    pj.updated_at
-                FROM proposal_judges pj
-                ORDER BY pj.created_at DESC
+            query_text = f"""
+                SELECT {_SELECT_COLUMNS}
+                FROM proposal_judges
+                ORDER BY created_at DESC
             """
 
             params: dict[str, int | None] = {}
@@ -347,18 +280,7 @@ class ProposalJudgeRepositoryImpl(
                 params = {"limit": limit, "offset": offset or 0}
 
             result = await self.session.execute(text(query_text), params)
-            rows = result.fetchall()
-
-            results = []
-            for row in rows:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                results.append(self._dict_to_entity(row_dict))
-            return results
+            return self._rows_to_entities(result.fetchall())
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting all proposal judges: {e}")
@@ -376,16 +298,8 @@ class ProposalJudgeRepositoryImpl(
             ProposalJudge entity or None if not found
         """
         try:
-            query = text("""
-                SELECT
-                    id,
-                    proposal_id,
-                    politician_id,
-                    approve,
-                    source_type,
-                    source_group_judge_id,
-                    created_at,
-                    updated_at
+            query = text(f"""
+                SELECT {_SELECT_COLUMNS}
                 FROM proposal_judges
                 WHERE id = :id
             """)
@@ -394,13 +308,7 @@ class ProposalJudgeRepositoryImpl(
             row = result.fetchone()
 
             if row:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._dict_to_entity(self._row_to_dict(row))
             return None
 
         except SQLAlchemyError as e:
@@ -408,6 +316,51 @@ class ProposalJudgeRepositoryImpl(
             raise DatabaseError(
                 "Failed to get proposal judge by ID",
                 {"id": entity_id, "error": str(e)},
+            ) from e
+
+    async def get_by_ids(self, entity_ids: list[int]) -> list[ProposalJudge]:
+        """Get multiple proposal judges by IDs.
+
+        Args:
+            entity_ids: List of ProposalJudge IDs
+
+        Returns:
+            List of ProposalJudge entities
+        """
+        if not entity_ids:
+            return []
+
+        try:
+            placeholders = ", ".join(f":id_{i}" for i in range(len(entity_ids)))
+            query = text(f"""
+                SELECT {_SELECT_COLUMNS}
+                FROM proposal_judges
+                WHERE id IN ({placeholders})
+            """)
+            params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
+
+            result = await self.session.execute(query, params)
+            return self._rows_to_entities(result.fetchall())
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error getting proposal judges by IDs: {e}")
+            raise DatabaseError(
+                "Failed to get proposal judges by IDs",
+                {"entity_ids": entity_ids, "error": str(e)},
+            ) from e
+
+    async def count(self) -> int:
+        """Count total number of proposal judges."""
+        try:
+            query = text("SELECT COUNT(*) FROM proposal_judges")
+            result = await self.session.execute(query)
+            count = result.scalar()
+            return count if count is not None else 0
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error counting proposal judges: {e}")
+            raise DatabaseError(
+                "Failed to count proposal judges", {"error": str(e)}
             ) from e
 
     async def create(self, entity: ProposalJudge) -> ProposalJudge:
@@ -420,7 +373,7 @@ class ProposalJudgeRepositoryImpl(
             Created ProposalJudge entity with ID
         """
         try:
-            query = text("""
+            query = text(f"""
                 INSERT INTO proposal_judges (
                     proposal_id, politician_id, approve,
                     source_type, source_group_judge_id
@@ -429,9 +382,7 @@ class ProposalJudgeRepositoryImpl(
                     :proposal_id, :politician_id, :approve,
                     :source_type, :source_group_judge_id
                 )
-                RETURNING id, proposal_id, politician_id,
-                          approve, source_type, source_group_judge_id,
-                          created_at, updated_at
+                {_RETURNING_COLUMNS}
             """)
 
             result = await self.session.execute(
@@ -448,13 +399,7 @@ class ProposalJudgeRepositoryImpl(
             await self.session.commit()
 
             if row:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._dict_to_entity(self._row_to_dict(row))
 
             raise DatabaseError("Failed to create proposal judge", {"entity": entity})
 
@@ -478,7 +423,7 @@ class ProposalJudgeRepositoryImpl(
             raise ValueError("Entity must have an ID to update")
 
         try:
-            query = text("""
+            query = text(f"""
                 UPDATE proposal_judges
                 SET proposal_id = :proposal_id,
                     politician_id = :politician_id,
@@ -487,9 +432,7 @@ class ProposalJudgeRepositoryImpl(
                     source_group_judge_id = :source_group_judge_id,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = :id
-                RETURNING id, proposal_id, politician_id,
-                          approve, source_type, source_group_judge_id,
-                          created_at, updated_at
+                {_RETURNING_COLUMNS}
             """)
 
             result = await self.session.execute(
@@ -507,13 +450,7 @@ class ProposalJudgeRepositoryImpl(
             await self.session.commit()
 
             if row:
-                if hasattr(row, "_asdict"):
-                    row_dict = row._asdict()  # type: ignore[attr-defined]
-                elif hasattr(row, "_mapping"):
-                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
-                else:
-                    row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._dict_to_entity(self._row_to_dict(row))
 
             raise DatabaseError(
                 f"ProposalJudge with ID {entity.id} not found", {"entity": entity}

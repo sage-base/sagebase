@@ -2,12 +2,17 @@
 
 import logging
 
+from datetime import date
+
 from src.application.dtos.expand_group_judges_dto import (
     ExpandGroupJudgesRequestDTO,
     ExpandGroupJudgesResultDTO,
     GroupJudgeExpansionSummary,
 )
 from src.domain.entities.proposal_judge import ProposalJudge
+from src.domain.entities.proposal_parliamentary_group_judge import (
+    ProposalParliamentaryGroupJudge,
+)
 from src.domain.repositories.meeting_repository import MeetingRepository
 from src.domain.repositories.parliamentary_group_membership_repository import (
     ParliamentaryGroupMembershipRepository,
@@ -127,7 +132,9 @@ class ExpandGroupJudgesToIndividualUseCase:
 
         return result
 
-    async def _get_target_group_judges(self, request: ExpandGroupJudgesRequestDTO):
+    async def _get_target_group_judges(
+        self, request: ExpandGroupJudgesRequestDTO
+    ) -> list[ProposalParliamentaryGroupJudge]:
         """リクエストに応じて対象の会派賛否を取得する."""
         if request.group_judge_id is not None:
             gj = await self._group_judge_repo.get_by_id(request.group_judge_id)
@@ -137,7 +144,7 @@ class ExpandGroupJudgesToIndividualUseCase:
         else:
             return await self._group_judge_repo.get_all()
 
-    async def _get_meeting_date(self, proposal_id: int):
+    async def _get_meeting_date(self, proposal_id: int) -> date | None:
         """Proposal→Meeting→dateで投票日を特定する."""
         proposal = await self._proposal_repo.get_by_id(proposal_id)
         if proposal is None or proposal.meeting_id is None:

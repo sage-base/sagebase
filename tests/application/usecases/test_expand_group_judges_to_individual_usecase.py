@@ -19,6 +19,15 @@ from src.domain.entities.proposal_judge import ProposalJudge
 from src.domain.entities.proposal_parliamentary_group_judge import (
     ProposalParliamentaryGroupJudge,
 )
+from src.domain.repositories.meeting_repository import MeetingRepository
+from src.domain.repositories.parliamentary_group_membership_repository import (
+    ParliamentaryGroupMembershipRepository,
+)
+from src.domain.repositories.proposal_judge_repository import ProposalJudgeRepository
+from src.domain.repositories.proposal_parliamentary_group_judge_repository import (
+    ProposalParliamentaryGroupJudgeRepository,
+)
+from src.domain.repositories.proposal_repository import ProposalRepository
 from src.domain.value_objects.judge_type import JudgeType
 
 
@@ -27,23 +36,23 @@ class TestExpandGroupJudgesToIndividualUseCase:
 
     @pytest.fixture
     def mock_group_judge_repo(self):
-        return AsyncMock()
+        return AsyncMock(spec=ProposalParliamentaryGroupJudgeRepository)
 
     @pytest.fixture
     def mock_proposal_judge_repo(self):
-        return AsyncMock()
+        return AsyncMock(spec=ProposalJudgeRepository)
 
     @pytest.fixture
     def mock_membership_repo(self):
-        return AsyncMock()
+        return AsyncMock(spec=ParliamentaryGroupMembershipRepository)
 
     @pytest.fixture
     def mock_proposal_repo(self):
-        return AsyncMock()
+        return AsyncMock(spec=ProposalRepository)
 
     @pytest.fixture
     def mock_meeting_repo(self):
-        return AsyncMock()
+        return AsyncMock(spec=MeetingRepository)
 
     @pytest.fixture
     def use_case(
