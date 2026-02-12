@@ -46,6 +46,8 @@ class TestProposalJudgeRepositoryImpl:
             "proposal_id": 10,
             "politician_id": 20,
             "approve": "賛成",
+            "source_type": None,
+            "source_group_judge_id": None,
             "created_at": None,
             "updated_at": None,
         }
@@ -172,6 +174,8 @@ class TestProposalJudgeRepositoryImpl:
                 "proposal_id": 10,
                 "politician_id": 20,
                 "approve": "賛成",
+                "source_type": None,
+                "source_group_judge_id": None,
                 "created_at": None,
                 "updated_at": None,
             },
@@ -180,6 +184,8 @@ class TestProposalJudgeRepositoryImpl:
                 "proposal_id": 10,
                 "politician_id": 21,
                 "approve": "反対",
+                "source_type": None,
+                "source_group_judge_id": None,
                 "created_at": None,
                 "updated_at": None,
             },
@@ -280,6 +286,8 @@ class TestProposalJudgeRepositoryImpl:
             "proposal_id": 10,
             "politician_id": 20,
             "approve": "反対",
+            "source_type": None,
+            "source_group_judge_id": None,
             "created_at": None,
             "updated_at": None,
         }
@@ -418,3 +426,112 @@ class TestProposalJudgeRepositoryImpl:
         assert model.proposal_id == 11
         assert model.politician_id == 21
         assert model.approve == "反対"
+
+    @pytest.mark.asyncio
+    async def test_get_by_source_group_judge_id(
+        self,
+        repository: ProposalJudgeRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_source_group_judge_id returns matching judges."""
+        result_dict = {
+            "id": 1,
+            "proposal_id": 10,
+            "politician_id": 20,
+            "approve": "賛成",
+            "source_type": "GROUP_EXPANSION",
+            "source_group_judge_id": 5,
+            "created_at": None,
+            "updated_at": None,
+        }
+        mock_row = MagicMock()
+        mock_row._mapping = result_dict
+        mock_row._asdict = MagicMock(return_value=result_dict)
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[mock_row])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_source_group_judge_id(5)
+
+        assert len(result) == 1
+        assert result[0].source_type == "GROUP_EXPANSION"
+        assert result[0].source_group_judge_id == 5
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_source_group_judge_id_empty(
+        self,
+        repository: ProposalJudgeRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_source_group_judge_id returns empty list."""
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_source_group_judge_id(999)
+
+        assert result == []
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_source_group_judge_id_error(
+        self,
+        repository: ProposalJudgeRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_source_group_judge_id error handling."""
+        mock_session.execute.side_effect = SQLAlchemyError("Database error")
+
+        with pytest.raises(DatabaseError) as exc_info:
+            await repository.get_by_source_group_judge_id(5)
+        assert "Failed to get judges by source group judge ID" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_count(
+        self,
+        repository: ProposalJudgeRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test count returns total number of judges."""
+        mock_result = MagicMock()
+        mock_result.scalar = MagicMock(return_value=42)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.count()
+
+        assert result == 42
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids(
+        self,
+        repository: ProposalJudgeRepositoryImpl,
+        mock_session: MagicMock,
+        sample_judge_dict: dict[str, Any],
+    ) -> None:
+        """Test get_by_ids returns matching judges."""
+        mock_row = MagicMock()
+        mock_row._mapping = sample_judge_dict
+        mock_row._asdict = MagicMock(return_value=sample_judge_dict)
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[mock_row])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_ids([1])
+
+        assert len(result) == 1
+        assert result[0].id == 1
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_empty(
+        self,
+        repository: ProposalJudgeRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_ids with empty list returns empty."""
+        result = await repository.get_by_ids([])
+
+        assert result == []
+        mock_session.execute.assert_not_called()

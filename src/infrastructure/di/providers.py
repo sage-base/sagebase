@@ -17,6 +17,9 @@ from src.application.usecases.execute_minutes_processing_usecase import (
 from src.application.usecases.execute_speaker_extraction_usecase import (
     ExecuteSpeakerExtractionUseCase,
 )
+from src.application.usecases.expand_group_judges_to_individual_usecase import (
+    ExpandGroupJudgesToIndividualUseCase,
+)
 from src.application.usecases.extract_proposal_judges_usecase import (
     ExtractProposalJudgesUseCase,
 )
@@ -701,4 +704,15 @@ class UseCaseContainer(containers.DeclarativeContainer):
         judge_repository=repositories.proposal_parliamentary_group_judge_repository,
         parliamentary_group_repository=repositories.parliamentary_group_repository,
         politician_repository=repositories.politician_repository,
+    )
+
+    # Expand Group Judges to Individual UseCase (Issue #1009)
+    # 会派賛否から個人投票データへの展開用ユースケース
+    expand_group_judges_usecase = providers.Factory(
+        ExpandGroupJudgesToIndividualUseCase,
+        group_judge_repository=repositories.proposal_parliamentary_group_judge_repository,
+        proposal_judge_repository=repositories.proposal_judge_repository,
+        membership_repository=repositories.parliamentary_group_membership_repository,
+        proposal_repository=repositories.proposal_repository,
+        meeting_repository=repositories.meeting_repository,
     )
