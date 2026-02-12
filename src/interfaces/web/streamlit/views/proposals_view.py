@@ -8,6 +8,10 @@ from typing import Any
 
 import streamlit as st
 
+from src.application.dtos.expand_group_judges_dto import (
+    ExpandGroupJudgesPreviewDTO,
+    ExpandGroupJudgesResultDTO,
+)
 from src.application.dtos.proposal_parliamentary_group_judge_dto import (
     ProposalParliamentaryGroupJudgeDTO,
 )
@@ -138,8 +142,8 @@ def render_proposals_page() -> None:
     presenter = ProposalPresenter()
 
     # Create tabs
-    tab1, tab2, tab3, tab4 = st.tabs(
-        ["議案管理", "LLM抽出結果", "確定賛否情報", "賛否"]
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        ["議案管理", "LLM抽出結果", "確定賛否情報", "賛否", "個人投票展開"]
     )
 
     # 各タブを@st.fragmentでラップし、タブ間の不要なリランを防止
@@ -160,6 +164,10 @@ def render_proposals_page() -> None:
     def _tab4_fragment() -> None:
         render_parliamentary_group_judges_tab(presenter)
 
+    @st.fragment
+    def _tab5_fragment() -> None:
+        render_individual_vote_expansion_tab(presenter)
+
     with tab1:
         _tab1_fragment()
 
@@ -171,6 +179,9 @@ def render_proposals_page() -> None:
 
     with tab4:
         _tab4_fragment()
+
+    with tab5:
+        _tab5_fragment()
 
 
 # ========== Tab 1: Proposal Management ==========
@@ -1841,6 +1852,279 @@ def render_parliamentary_group_judge_form(
 
     except Exception as e:
         handle_ui_error(e, "会派・政治家情報の読み込み")
+
+
+# ========== Tab 5: 個人投票展開 (Issue #1010) ==========
+
+
+def render_individual_vote_expansion_tab(presenter: ProposalPresenter) -> None:
+    """会派賛否から個人投票データへの展開タブ."""
+    st.subheader("個人投票データ展開")
+    st.markdown("会派賛否データから個人議員レベルの投票データに展開します。")
+
+    try:
+        # 議案ID入力
+        proposal_id = st.number_input(
+            "議案ID",
+            min_value=1,
+            step=1,
+            key="expansion_proposal_id_input",
+        )
+
+        if not proposal_id:
+            st.info("展開対象の議案IDを入力してください。")
+            return
+
+        selected_proposal = presenter.load_proposal_by_id(int(proposal_id))
+        if selected_proposal is None:
+            st.warning(f"議案ID {proposal_id} が見つかりません。")
+            return
+
+        # 議案情報の表示
+        st.markdown(f"**議案**: {selected_proposal.title}")
+
+        # 会派賛否一覧の取得・選択UI
+        _render_expansion_selection(presenter, int(proposal_id))
+
+    except Exception as e:
+        handle_ui_error(e, "個人投票展開タブの読み込み")
+
+
+def _render_expansion_selection(presenter: ProposalPresenter, proposal_id: int) -> None:
+    """展開対象の会派賛否を選択するUI."""
+    st.markdown("### 展開対象の会派賛否を選択")
+
+    judges = presenter.load_parliamentary_group_judges(proposal_id)
+
+    # 会派単位の賛否のみ表示（政治家単位は展開不要）
+    pg_judges = [j for j in judges if j.is_parliamentary_group_judge()]
+
+    if not pg_judges:
+        st.info(
+            "この議案に会派単位の賛否が登録されていません。「賛否」タブで先に登録してください。"
+        )
+        return
+
+    # チェックボックスで選択
+    selected_ids: list[int] = []
+
+    # 全選択/全解除ボタン
+    col_all, col_none, col_spacer = st.columns([1, 1, 4])
+    with col_all:
+        if st.button("全選択", key="expansion_select_all"):
+            for j in pg_judges:
+                st.session_state[f"expansion_check_{j.id}"] = True
+    with col_none:
+        if st.button("全解除", key="expansion_deselect_all"):
+            for j in pg_judges:
+                st.session_state[f"expansion_check_{j.id}"] = False
+
+    judgment_emoji = {
+        "賛成": "✅",
+        "反対": "❌",
+        "棄権": "⏸️",
+        "欠席": "🚫",
+    }
+
+    for judge in pg_judges:
+        pg_names = (
+            ", ".join(judge.parliamentary_group_names)
+            if judge.parliamentary_group_names
+            else "（不明）"
+        )
+        emoji = judgment_emoji.get(judge.judgment, "❓")
+        member_info = f"（{judge.member_count}人）" if judge.member_count else ""
+        label = f"{pg_names} | {emoji} {judge.judgment} {member_info}"
+
+        checked = st.checkbox(
+            label,
+            key=f"expansion_check_{judge.id}",
+            value=st.session_state.get(f"expansion_check_{judge.id}", False),
+        )
+        if checked:
+            selected_ids.append(judge.id)
+
+    if not selected_ids:
+        st.info("展開する会派賛否を選択してください。")
+        return
+
+    st.markdown(f"**{len(selected_ids)}件の会派賛否を選択中**")
+
+    # プレビューボタン
+    if st.button("プレビュー", type="primary", key="expansion_preview_btn"):
+        with st.spinner("プレビュー中..."):
+            preview_result = presenter.preview_group_judges_expansion(
+                proposal_id, selected_ids
+            )
+            st.session_state["expansion_preview"] = preview_result
+            # 展開結果はリセット
+            st.session_state.pop("expansion_result", None)
+
+    # プレビュー結果の表示
+    preview: ExpandGroupJudgesPreviewDTO | None = st.session_state.get(
+        "expansion_preview"
+    )
+    if preview is not None:
+        _render_expansion_preview(preview)
+
+        # 展開実行セクション
+        _render_expansion_execute(presenter, proposal_id, selected_ids)
+
+    # 展開結果の表示
+    expansion_result: ExpandGroupJudgesResultDTO | None = st.session_state.get(
+        "expansion_result"
+    )
+    if expansion_result is not None:
+        _render_expansion_result(expansion_result)
+
+
+def _render_expansion_preview(preview: ExpandGroupJudgesPreviewDTO) -> None:
+    """プレビュー結果を表示する."""
+    st.markdown("### プレビュー結果")
+
+    if not preview.success:
+        for error in preview.errors:
+            st.error(error)
+        return
+
+    if preview.errors:
+        for error in preview.errors:
+            st.warning(error)
+
+    for item in preview.items:
+        pg_names = (
+            ", ".join(item.parliamentary_group_names)
+            if item.parliamentary_group_names
+            else "（不明）"
+        )
+        member_count = len(item.members)
+
+        if item.errors:
+            for error in item.errors:
+                st.warning(f"{pg_names}: {error}")
+            continue
+
+        with st.expander(
+            f"{pg_names}（{member_count}名） - {item.judgment}",
+            expanded=False,
+        ):
+            if item.members:
+                # メンバーリストを表示（名前をカンマ区切りで統合してWebSocket負荷削減）
+                new_members = [m for m in item.members if not m.has_existing_vote]
+                existing_members = [m for m in item.members if m.has_existing_vote]
+
+                if new_members:
+                    names = ", ".join(m.politician_name for m in new_members)
+                    st.markdown(f"**新規展開対象**（{len(new_members)}名）: {names}")
+
+                if existing_members:
+                    names = ", ".join(m.politician_name for m in existing_members)
+                    count = len(existing_members)
+                    st.warning(f"既存データあり（{count}名、スキップ予定）: {names}")
+            else:
+                st.info("メンバーが見つかりません")
+
+    # サマリー
+    st.markdown("---")
+    summary_parts = [f"**展開対象**: {preview.total_members}名"]
+    if preview.total_existing_votes > 0:
+        summary_parts.append(
+            f"**既存データあり**: {preview.total_existing_votes}名（スキップ予定）"
+        )
+    new_count = preview.total_members - preview.total_existing_votes
+    summary_parts.append(f"**新規作成予定**: {new_count}名")
+    st.markdown(" | ".join(summary_parts))
+
+
+def _render_expansion_execute(
+    presenter: ProposalPresenter,
+    proposal_id: int,
+    selected_ids: list[int],
+) -> None:
+    """展開実行セクション."""
+    st.markdown("### 展開実行")
+
+    force_overwrite = st.checkbox(
+        "既存データを上書き",
+        value=False,
+        key="expansion_force_overwrite",
+        help="チェックすると、既存の個人投票データを会派賛否の内容で上書きします。",
+    )
+
+    if st.button("展開実行", type="primary", key="expansion_execute_btn"):
+        st.session_state["expansion_confirm"] = True
+
+    if st.session_state.get("expansion_confirm", False):
+        st.warning("会派賛否を個人投票データに展開します。この操作を実行しますか？")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("実行する", key="expansion_confirm_yes", type="primary"):
+                st.session_state.pop("expansion_confirm", None)
+                with st.spinner("展開処理を実行中..."):
+                    result = presenter.expand_group_judges_to_individual(
+                        proposal_id=proposal_id,
+                        group_judge_ids=selected_ids,
+                        force_overwrite=force_overwrite,
+                    )
+                    st.session_state["expansion_result"] = result
+                    # プレビューをリセット
+                    st.session_state.pop("expansion_preview", None)
+                    st.rerun()
+        with col2:
+            if st.button("キャンセル", key="expansion_confirm_no"):
+                st.session_state.pop("expansion_confirm", None)
+                st.rerun()
+
+
+def _render_expansion_result(result: ExpandGroupJudgesResultDTO) -> None:
+    """展開結果を表示する."""
+    st.markdown("### 展開結果")
+
+    if result.success:
+        st.success(f"展開成功: {result.total_judges_created}件作成")
+    else:
+        st.error("展開処理中にエラーが発生しました")
+
+    # 結果サマリー
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("作成", f"{result.total_judges_created}件")
+    with col2:
+        st.metric("スキップ", f"{result.total_judges_skipped}件")
+    with col3:
+        st.metric("上書き", f"{result.total_judges_overwritten}件")
+    with col4:
+        error_count = len(result.errors) + result.skipped_no_meeting_date
+        st.metric("エラー", f"{error_count}件")
+
+    # エラー詳細
+    if result.errors:
+        with st.expander("エラー詳細", expanded=False):
+            for error in result.errors:
+                st.error(error)
+
+    # 会派ごとのサマリー
+    if result.group_summaries:
+        with st.expander("会派ごとの展開詳細", expanded=False):
+            for summary in result.group_summaries:
+                pg_ids_str = ", ".join(
+                    str(pid) for pid in summary.parliamentary_group_ids
+                )
+                st.markdown(
+                    f"**会派ID [{pg_ids_str}]** {summary.judgment}: "
+                    f"メンバー{summary.members_found}名 → "
+                    f"作成{summary.judges_created}件 / "
+                    f"スキップ{summary.judges_skipped}件 / "
+                    f"上書き{summary.judges_overwritten}件"
+                )
+                if summary.errors:
+                    for error in summary.errors:
+                        st.warning(error)
+
+    # 結果クリアボタン
+    if st.button("結果をクリア", key="expansion_clear_result"):
+        st.session_state.pop("expansion_result", None)
+        st.rerun()
 
 
 def main() -> None:

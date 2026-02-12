@@ -40,3 +40,39 @@ class ExpandGroupJudgesResultDTO:
     group_summaries: list[GroupJudgeExpansionSummary] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     skipped_no_meeting_date: int = 0
+
+
+# ========== プレビュー用DTO ==========
+
+
+@dataclass
+class GroupJudgePreviewMember:
+    """プレビュー用メンバー情報."""
+
+    politician_id: int
+    politician_name: str
+    has_existing_vote: bool
+
+
+@dataclass
+class GroupJudgePreviewItem:
+    """プレビュー用会派賛否情報."""
+
+    group_judge_id: int
+    proposal_id: int
+    judgment: str
+    parliamentary_group_names: list[str]
+    members: list[GroupJudgePreviewMember] = field(default_factory=list)
+    existing_vote_count: int = 0
+    errors: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ExpandGroupJudgesPreviewDTO:
+    """展開プレビュー結果DTO."""
+
+    success: bool
+    items: list[GroupJudgePreviewItem] = field(default_factory=list)
+    total_members: int = 0
+    total_existing_votes: int = 0
+    errors: list[str] = field(default_factory=list)
