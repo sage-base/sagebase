@@ -401,7 +401,8 @@ class ManageParliamentaryGroupsUseCase:
             seed_content += "-- Generated from current database\n\n"
             seed_content += (
                 "INSERT INTO parliamentary_groups "
-                "(id, name, governing_body_id, url, description, is_active) VALUES\n"
+                "(id, name, governing_body_id, url, description,"
+                " is_active, political_party_id) VALUES\n"
             )
 
             values: list[str] = []
@@ -409,9 +410,15 @@ class ManageParliamentaryGroupsUseCase:
                 url = f"'{group.url}'" if group.url else "NULL"
                 description = f"'{group.description}'" if group.description else "NULL"
                 is_active = "true" if group.is_active else "false"
+                pp_id = (
+                    str(group.political_party_id)
+                    if group.political_party_id
+                    else "NULL"
+                )
                 values.append(
-                    f"    ({group.id}, '{group.name}', {group.governing_body_id}, "
-                    f"{url}, {description}, {is_active})"
+                    f"    ({group.id}, '{group.name}',"
+                    f" {group.governing_body_id}, "
+                    f"{url}, {description}, {is_active}, {pp_id})"
                 )
 
             seed_content += ",\n".join(values) + "\n"
@@ -420,7 +427,8 @@ class ManageParliamentaryGroupsUseCase:
             seed_content += "    governing_body_id = EXCLUDED.governing_body_id,\n"
             seed_content += "    url = EXCLUDED.url,\n"
             seed_content += "    description = EXCLUDED.description,\n"
-            seed_content += "    is_active = EXCLUDED.is_active;\n\n"
+            seed_content += "    is_active = EXCLUDED.is_active,\n"
+            seed_content += "    political_party_id = EXCLUDED.political_party_id;\n\n"
 
             # Issue #1036: シーケンスリセットを追加（ID衝突防止）
             seed_content += "-- Reset sequence to max id + 1 (Issue #1036)\n"

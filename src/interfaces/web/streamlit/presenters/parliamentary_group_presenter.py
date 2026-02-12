@@ -19,6 +19,7 @@ from src.application.usecases.update_extracted_parliamentary_group_member_from_e
 from src.common.logging import get_logger
 from src.domain.entities import ParliamentaryGroup
 from src.domain.entities.governing_body import GoverningBody
+from src.domain.entities.political_party import PoliticalParty
 from src.infrastructure.di.container import Container
 from src.infrastructure.external.llm_service import GeminiLLMService
 from src.infrastructure.external.parliamentary_group_member_extractor.factory import (
@@ -169,11 +170,11 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
             self.logger.error(f"Failed to get governing bodies: {e}")
             return []
 
-    def get_all_political_parties(self) -> list[Any]:
+    def get_all_political_parties(self) -> list[PoliticalParty]:
         """Get all political parties."""
         return self._run_async(self._get_all_political_parties_async())
 
-    async def _get_all_political_parties_async(self) -> list[Any]:
+    async def _get_all_political_parties_async(self) -> list[PoliticalParty]:
         """Get all political parties (async implementation)."""
         try:
             return await self.political_party_repo.get_all()
