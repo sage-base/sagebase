@@ -64,6 +64,7 @@ class CreateParliamentaryGroupInputDto:
     url: str | None = None
     description: str | None = None
     is_active: bool = True
+    political_party_id: int | None = None
 
 
 @dataclass
@@ -84,6 +85,7 @@ class UpdateParliamentaryGroupInputDto:
     url: str | None = None
     description: str | None = None
     is_active: bool = True
+    political_party_id: int | None = None
 
 
 @dataclass
@@ -217,6 +219,7 @@ class ManageParliamentaryGroupsUseCase:
                 url=input_dto.url,
                 description=input_dto.description,
                 is_active=input_dto.is_active,
+                political_party_id=input_dto.political_party_id,
             )
 
             created = await self.parliamentary_group_repository.create(
@@ -248,6 +251,7 @@ class ManageParliamentaryGroupsUseCase:
             existing.url = input_dto.url
             existing.description = input_dto.description
             existing.is_active = input_dto.is_active
+            existing.political_party_id = input_dto.political_party_id
 
             await self.parliamentary_group_repository.update(existing)
             return UpdateParliamentaryGroupOutputDto(success=True)

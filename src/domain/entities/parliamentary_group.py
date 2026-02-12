@@ -13,6 +13,7 @@ class ParliamentaryGroup(BaseEntity):
         url: str | None = None,
         description: str | None = None,
         is_active: bool = True,
+        political_party_id: int | None = None,
         id: int | None = None,
     ) -> None:
         super().__init__(id)
@@ -21,6 +22,7 @@ class ParliamentaryGroup(BaseEntity):
         self.url = url
         self.description = description
         self.is_active = is_active
+        self.political_party_id = political_party_id
 
     def __str__(self) -> str:
         return self.name
