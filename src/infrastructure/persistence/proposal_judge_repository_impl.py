@@ -27,6 +27,8 @@ class ProposalJudgeModel(PydanticBaseModel):
     proposal_id: int
     politician_id: int
     approve: str | None = None
+    source_type: str | None = None
+    source_group_judge_id: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -67,6 +69,8 @@ class ProposalJudgeRepositoryImpl(
                     pj.proposal_id,
                     pj.politician_id,
                     pj.approve,
+                    pj.source_type,
+                    pj.source_group_judge_id,
                     pj.created_at,
                     pj.updated_at
                 FROM proposal_judges pj
@@ -111,6 +115,8 @@ class ProposalJudgeRepositoryImpl(
                     pj.proposal_id,
                     pj.politician_id,
                     pj.approve,
+                    pj.source_type,
+                    pj.source_group_judge_id,
                     pj.created_at,
                     pj.updated_at
                 FROM proposal_judges pj
@@ -158,6 +164,8 @@ class ProposalJudgeRepositoryImpl(
                     proposal_id,
                     politician_id,
                     approve,
+                    source_type,
+                    source_group_judge_id,
                     created_at,
                     updated_at
                 FROM proposal_judges
@@ -206,7 +214,6 @@ class ProposalJudgeRepositoryImpl(
             return []
 
         try:
-            # Build values for bulk insert
             values = []
             for judge in judges:
                 values.append(
@@ -214,17 +221,23 @@ class ProposalJudgeRepositoryImpl(
                         "proposal_id": judge.proposal_id,
                         "politician_id": judge.politician_id,
                         "approve": judge.approve,
+                        "source_type": judge.source_type,
+                        "source_group_judge_id": judge.source_group_judge_id,
                     }
                 )
 
-            # Create bulk insert query
             query = text("""
                 INSERT INTO proposal_judges (
-                    proposal_id, politician_id, approve
+                    proposal_id, politician_id, approve,
+                    source_type, source_group_judge_id
                 )
-                VALUES (:proposal_id, :politician_id, :approve)
+                VALUES (
+                    :proposal_id, :politician_id, :approve,
+                    :source_type, :source_group_judge_id
+                )
                 RETURNING id, proposal_id, politician_id,
-                          approve, created_at, updated_at
+                          approve, source_type, source_group_judge_id,
+                          created_at, updated_at
             """)
 
             created_judges = []
@@ -251,6 +264,56 @@ class ProposalJudgeRepositoryImpl(
                 {"count": len(judges), "error": str(e)},
             ) from e
 
+    async def get_by_source_group_judge_id(
+        self, source_group_judge_id: int
+    ) -> list[ProposalJudge]:
+        """Get all judges created from a specific group judge.
+
+        Args:
+            source_group_judge_id: ID of the source ProposalParliamentaryGroupJudge
+
+        Returns:
+            List of proposal judges created from the specified group judge
+        """
+        try:
+            query = text("""
+                SELECT
+                    pj.id,
+                    pj.proposal_id,
+                    pj.politician_id,
+                    pj.approve,
+                    pj.source_type,
+                    pj.source_group_judge_id,
+                    pj.created_at,
+                    pj.updated_at
+                FROM proposal_judges pj
+                WHERE pj.source_group_judge_id = :source_group_judge_id
+                ORDER BY pj.created_at DESC
+            """)
+
+            result = await self.session.execute(
+                query, {"source_group_judge_id": source_group_judge_id}
+            )
+            rows = result.fetchall()
+
+            results = []
+            for row in rows:
+                if hasattr(row, "_asdict"):
+                    row_dict = row._asdict()  # type: ignore[attr-defined]
+                elif hasattr(row, "_mapping"):
+                    row_dict = dict(row._mapping)  # type: ignore[attr-defined]
+                else:
+                    row_dict = dict(row)
+                results.append(self._dict_to_entity(row_dict))
+            return results
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error getting judges by source group judge ID: {e}")
+            raise DatabaseError(
+                "Failed to get judges by source group judge ID",
+                {"source_group_judge_id": source_group_judge_id, "error": str(e)},
+            ) from e
+
     async def get_all(
         self, limit: int | None = None, offset: int | None = 0
     ) -> list[ProposalJudge]:
@@ -270,6 +333,8 @@ class ProposalJudgeRepositoryImpl(
                     pj.proposal_id,
                     pj.politician_id,
                     pj.approve,
+                    pj.source_type,
+                    pj.source_group_judge_id,
                     pj.created_at,
                     pj.updated_at
                 FROM proposal_judges pj
@@ -317,6 +382,8 @@ class ProposalJudgeRepositoryImpl(
                     proposal_id,
                     politician_id,
                     approve,
+                    source_type,
+                    source_group_judge_id,
                     created_at,
                     updated_at
                 FROM proposal_judges
@@ -355,11 +422,16 @@ class ProposalJudgeRepositoryImpl(
         try:
             query = text("""
                 INSERT INTO proposal_judges (
-                    proposal_id, politician_id, approve
+                    proposal_id, politician_id, approve,
+                    source_type, source_group_judge_id
                 )
-                VALUES (:proposal_id, :politician_id, :approve)
+                VALUES (
+                    :proposal_id, :politician_id, :approve,
+                    :source_type, :source_group_judge_id
+                )
                 RETURNING id, proposal_id, politician_id,
-                          approve, created_at, updated_at
+                          approve, source_type, source_group_judge_id,
+                          created_at, updated_at
             """)
 
             result = await self.session.execute(
@@ -368,6 +440,8 @@ class ProposalJudgeRepositoryImpl(
                     "proposal_id": entity.proposal_id,
                     "politician_id": entity.politician_id,
                     "approve": entity.approve,
+                    "source_type": entity.source_type,
+                    "source_group_judge_id": entity.source_group_judge_id,
                 },
             )
             row = result.fetchone()
@@ -409,10 +483,13 @@ class ProposalJudgeRepositoryImpl(
                 SET proposal_id = :proposal_id,
                     politician_id = :politician_id,
                     approve = :approve,
+                    source_type = :source_type,
+                    source_group_judge_id = :source_group_judge_id,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = :id
                 RETURNING id, proposal_id, politician_id,
-                          approve, created_at, updated_at
+                          approve, source_type, source_group_judge_id,
+                          created_at, updated_at
             """)
 
             result = await self.session.execute(
@@ -422,6 +499,8 @@ class ProposalJudgeRepositoryImpl(
                     "proposal_id": entity.proposal_id,
                     "politician_id": entity.politician_id,
                     "approve": entity.approve,
+                    "source_type": entity.source_type,
+                    "source_group_judge_id": entity.source_group_judge_id,
                 },
             )
             row = result.fetchone()
@@ -484,6 +563,8 @@ class ProposalJudgeRepositoryImpl(
             proposal_id=model.proposal_id,
             politician_id=model.politician_id,
             approve=model.approve,
+            source_type=model.source_type,
+            source_group_judge_id=model.source_group_judge_id,
         )
 
     def _to_model(self, entity: ProposalJudge) -> ProposalJudgeModel:
@@ -500,6 +581,8 @@ class ProposalJudgeRepositoryImpl(
             proposal_id=entity.proposal_id,
             politician_id=entity.politician_id,
             approve=entity.approve,
+            source_type=entity.source_type,
+            source_group_judge_id=entity.source_group_judge_id,
         )
 
     def _update_model(self, model: ProposalJudgeModel, entity: ProposalJudge) -> None:
@@ -512,6 +595,8 @@ class ProposalJudgeRepositoryImpl(
         model.proposal_id = entity.proposal_id
         model.politician_id = entity.politician_id
         model.approve = entity.approve
+        model.source_type = entity.source_type
+        model.source_group_judge_id = entity.source_group_judge_id
 
     def _dict_to_entity(self, data: dict[str, Any]) -> ProposalJudge:
         """Convert dictionary to entity.
@@ -527,4 +612,6 @@ class ProposalJudgeRepositoryImpl(
             proposal_id=data["proposal_id"],
             politician_id=data["politician_id"],
             approve=data.get("approve"),
+            source_type=data.get("source_type"),
+            source_group_judge_id=data.get("source_group_judge_id"),
         )

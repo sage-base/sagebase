@@ -22,12 +22,16 @@ class ProposalJudge(BaseEntity):
         proposal_id: int,
         politician_id: int,
         approve: str | None = None,
+        source_type: str | None = None,
+        source_group_judge_id: int | None = None,
         id: int | None = None,
     ) -> None:
         super().__init__(id)
         self.proposal_id = proposal_id
         self.politician_id = politician_id
         self.approve = approve
+        self.source_type = source_type
+        self.source_group_judge_id = source_group_judge_id
 
     def is_approve(self) -> bool:
         """賛成票かどうかを判定."""

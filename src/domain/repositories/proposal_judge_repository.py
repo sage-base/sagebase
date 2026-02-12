@@ -59,3 +59,17 @@ class ProposalJudgeRepository(BaseRepository[ProposalJudge]):
             List of created ProposalJudge entities with IDs
         """
         pass
+
+    @abstractmethod
+    async def get_by_source_group_judge_id(
+        self, source_group_judge_id: int
+    ) -> list[ProposalJudge]:
+        """Get all judges created from a specific group judge.
+
+        Args:
+            source_group_judge_id: ID of the source ProposalParliamentaryGroupJudge
+
+        Returns:
+            List of proposal judges created from the specified group judge
+        """
+        pass
