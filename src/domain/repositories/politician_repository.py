@@ -69,6 +69,14 @@ class PoliticianRepository(BaseRepository[Politician]):
         pass
 
     @abstractmethod
+    async def search_by_normalized_name(self, normalized_name: str) -> list[Politician]:
+        """空白除去した名前で政治家を検索する.
+
+        全角・半角スペースを除去した名前で比較する。
+        """
+        pass
+
+    @abstractmethod
     async def get_related_data_counts(self, politician_id: int) -> dict[str, int]:
         """指定された政治家に紐づく関連データの件数を取得する.
 

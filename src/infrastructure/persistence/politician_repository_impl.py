@@ -414,6 +414,16 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         model.profile_url = entity.profile_page_url
         model.furigana = entity.furigana
 
+    async def search_by_normalized_name(self, normalized_name: str) -> list[Politician]:
+        """空白除去した名前で政治家を検索する."""
+        query = text("""
+            SELECT * FROM politicians
+            WHERE REPLACE(REPLACE(name, ' ', ''), '　', '') = :name
+        """)
+        result = await self.session.execute(query, {"name": normalized_name})
+        rows = result.fetchall()
+        return [self._row_to_entity(row) for row in rows]
+
     async def get_all_for_matching(self) -> list[dict[str, Any]]:
         """Get all politicians for matching purposes."""
         query = text("""
