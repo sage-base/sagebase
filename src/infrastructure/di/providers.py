@@ -42,6 +42,9 @@ from src.application.usecases.manage_parliamentary_group_judges_usecase import (
 from src.application.usecases.manage_political_parties_usecase import (
     ManagePoliticalPartiesUseCase,
 )
+from src.application.usecases.manage_proposal_deliberations_usecase import (
+    ManageProposalDeliberationsUseCase,
+)
 from src.application.usecases.match_speakers_usecase import MatchSpeakersUseCase
 from src.application.usecases.process_minutes_usecase import ProcessMinutesUseCase
 from src.application.usecases.update_extracted_parliamentary_group_member_from_extraction_usecase import (  # noqa: E501
@@ -142,6 +145,9 @@ from src.infrastructure.persistence.politician_repository_impl import (
 )
 from src.infrastructure.persistence.prompt_version_repository_impl import (
     PromptVersionRepositoryImpl,
+)
+from src.infrastructure.persistence.proposal_deliberation_repository_impl import (
+    ProposalDeliberationRepositoryImpl,
 )
 from src.infrastructure.persistence.proposal_judge_repository_impl import (
     ProposalJudgeRepositoryImpl,
@@ -452,6 +458,11 @@ class RepositoryContainer(containers.DeclarativeContainer):
         session=database.async_session,
     )
 
+    proposal_deliberation_repository = providers.Factory(
+        ProposalDeliberationRepositoryImpl,
+        session=database.async_session,
+    )
+
     proposal_operation_log_repository = providers.Factory(
         ProposalOperationLogRepositoryImpl,
         session=database.async_session,
@@ -704,6 +715,13 @@ class UseCaseContainer(containers.DeclarativeContainer):
         judge_repository=repositories.proposal_parliamentary_group_judge_repository,
         parliamentary_group_repository=repositories.parliamentary_group_repository,
         politician_repository=repositories.politician_repository,
+    )
+
+    # Manage Proposal Deliberations UseCase (Issue #1141)
+    # 議案審議の多対多紐付け管理用ユースケース
+    manage_proposal_deliberations_usecase = providers.Factory(
+        ManageProposalDeliberationsUseCase,
+        repository=repositories.proposal_deliberation_repository,
     )
 
     # Expand Group Judges to Individual UseCase (Issue #1009)
