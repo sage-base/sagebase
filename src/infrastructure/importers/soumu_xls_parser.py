@@ -16,10 +16,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-from src.application.dtos.national_election_import_dto import (
-    CandidateRecord,
-    ElectionInfo,
-)
+from src.domain.value_objects.election_candidate import CandidateRecord, ElectionInfo
 from src.infrastructure.importers._constants import PREFECTURE_NAMES
 
 

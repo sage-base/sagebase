@@ -1,28 +1,15 @@
 """国政選挙データインポート用DTO."""
 
 from dataclasses import dataclass, field
-from datetime import date
+
+from src.domain.value_objects.election_candidate import (
+    CandidateRecord,
+    ElectionInfo,
+)
 
 
-@dataclass
-class CandidateRecord:
-    """XLSから抽出した候補者データ."""
-
-    name: str
-    party_name: str
-    district_name: str
-    prefecture: str
-    total_votes: int
-    rank: int
-    is_elected: bool
-
-
-@dataclass
-class ElectionInfo:
-    """選挙の基本情報."""
-
-    election_number: int
-    election_date: date
+# ドメイン値オブジェクトを再エクスポート（後方互換性）
+__all__ = ["CandidateRecord", "ElectionInfo"]
 
 
 @dataclass

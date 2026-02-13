@@ -3,15 +3,15 @@
 総務省が公開するXLS/XLSXファイルから衆議院小選挙区の選挙結果をインポートする。
 
 Usage (Docker経由で実行):
-    docker compose -f docker/docker-compose.yml exec sagebase \\
+    docker compose -f docker/docker-compose.yml exec sagebase \
         uv run python scripts/import_soumu_election.py --election 50
 
     # 全選挙（第45回〜第50回）をインポート
-    docker compose -f docker/docker-compose.yml exec sagebase \\
+    docker compose -f docker/docker-compose.yml exec sagebase \
         uv run python scripts/import_soumu_election.py --all
 
     # ドライラン（DB書き込みなし、抽出結果のみ表示）
-    docker compose -f docker/docker-compose.yml exec sagebase \\
+    docker compose -f docker/docker-compose.yml exec sagebase \
         uv run python scripts/import_soumu_election.py --election 50 --dry-run
 
 データソース:
@@ -41,6 +41,9 @@ from src.application.usecases.import_national_election_usecase import (
     ImportNationalElectionUseCase,
 )
 from src.infrastructure.config.async_database import get_async_session
+from src.infrastructure.importers.soumu_election_data_source import (
+    SoumuElectionDataSource,
+)
 from src.infrastructure.importers.soumu_election_scraper import SUPPORTED_ELECTIONS
 from src.infrastructure.persistence.election_member_repository_impl import (
     ElectionMemberRepositoryImpl,
@@ -74,12 +77,14 @@ async def run_import(election_number: int, dry_run: bool) -> bool:
         member_repo = ElectionMemberRepositoryImpl(session)
         politician_repo = PoliticianRepositoryImpl(session)
         party_repo = PoliticalPartyRepositoryImpl(session)
+        data_source = SoumuElectionDataSource()
 
         use_case = ImportNationalElectionUseCase(
             election_repository=election_repo,
             election_member_repository=member_repo,
             politician_repository=politician_repo,
             political_party_repository=party_repo,
+            election_data_source=data_source,
         )
 
         input_dto = ImportNationalElectionInputDto(

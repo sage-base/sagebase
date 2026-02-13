@@ -1,22 +1,19 @@
 """国政選挙データインポートユースケース.
 
-総務省XLSファイルからパースした候補者データをDBにインポートする。
+外部データソースからパースした候補者データをDBにインポートする。
 
 処理フロー:
-    1. XLSファイルURLリストをスクレイパーで取得
-    2. XLSファイルをダウンロード・パース
-    3. Electionレコード作成（冪等性: 既存の場合はメンバーを削除して再作成）
-    4. 各候補者について名寄せ + ElectionMember作成
-    5. レポート出力
+    1. データソースから候補者データ取得
+    2. Electionレコード作成（冪等性: 既存の場合はメンバーを削除して再作成）
+    3. 各候補者について名寄せ + ElectionMember作成
+    4. レポート出力
 """
 
 import logging
 
 from datetime import date
-from pathlib import Path
 
 from src.application.dtos.national_election_import_dto import (
-    CandidateRecord,
     ImportNationalElectionInputDto,
     ImportNationalElectionOutputDto,
 )
@@ -30,11 +27,10 @@ from src.domain.repositories.political_party_repository import (
     PoliticalPartyRepository,
 )
 from src.domain.repositories.politician_repository import PoliticianRepository
-from src.infrastructure.importers.soumu_election_scraper import (
-    download_xls_files,
-    fetch_xls_urls,
+from src.domain.services.interfaces.election_data_source_service import (
+    IElectionDataSourceService,
 )
-from src.infrastructure.importers.soumu_xls_parser import parse_xls_file
+from src.domain.value_objects.election_candidate import CandidateRecord
 
 
 logger = logging.getLogger(__name__)
@@ -42,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 def normalize_name(name: str) -> str:
     """候補者名の空白を全て除去して正規化する."""
-    return name.replace(" ", "").replace("　", "").replace("\u3000", "")
+    return name.replace(" ", "").replace("\u3000", "")
 
 
 class ImportNationalElectionUseCase:
@@ -54,11 +50,13 @@ class ImportNationalElectionUseCase:
         election_member_repository: ElectionMemberRepository,
         politician_repository: PoliticianRepository,
         political_party_repository: PoliticalPartyRepository,
+        election_data_source: IElectionDataSourceService,
     ) -> None:
         self._election_repo = election_repository
         self._member_repo = election_member_repository
         self._politician_repo = politician_repository
         self._party_repo = political_party_repository
+        self._data_source = election_data_source
 
         # 政党名キャッシュ（名前→エンティティ）
         self._party_cache: dict[str, PoliticalParty | None] = {}
@@ -68,67 +66,35 @@ class ImportNationalElectionUseCase:
     async def execute(
         self,
         input_dto: ImportNationalElectionInputDto,
-        download_dir: Path | None = None,
     ) -> ImportNationalElectionOutputDto:
         """インポートを実行する."""
         self._processed_politician_ids.clear()
+        self._party_cache.clear()
         output = ImportNationalElectionOutputDto(
             election_number=input_dto.election_number
         )
 
-        # 1. XLSファイルURLを取得
-        logger.info(
-            "第%d回衆議院選挙のXLSファイルURL取得中...", input_dto.election_number
+        # 1. データソースから候補者データを取得
+        election_info, all_candidates = await self._data_source.fetch_candidates(
+            input_dto.election_number,
         )
-        xls_files = fetch_xls_urls(input_dto.election_number)
-        if not xls_files:
-            logger.error("XLSファイルが見つかりません")
-            output.errors = 1
-            output.error_details.append("XLSファイルURLの取得に失敗")
-            return output
-
-        logger.info("%d個のXLSファイルを検出", len(xls_files))
-
-        # 2. ダウンロード
-        if download_dir is None:
-            download_dir = Path("tmp") / f"soumu_election_{input_dto.election_number}"
-        downloaded = download_xls_files(xls_files, download_dir)
-        if not downloaded:
-            logger.error("XLSファイルのダウンロードに失敗")
-            output.errors = 1
-            output.error_details.append("XLSファイルのダウンロードに失敗")
-            return output
-
-        # 3. パース
-        all_candidates: list[CandidateRecord] = []
-        election_date = None
-
-        for xls_info, file_path in downloaded:
-            election_info, candidates = parse_xls_file(file_path)
-            if election_info and election_date is None:
-                election_date = election_info.election_date
-            all_candidates.extend(candidates)
-            logger.info(
-                "%s: %d候補者を抽出",
-                xls_info.prefecture_name,
-                len(candidates),
-            )
-
-        output.total_candidates = len(all_candidates)
-        logger.info("合計 %d 候補者を抽出", len(all_candidates))
 
         if not all_candidates:
-            logger.error("候補者データが抽出できません")
+            logger.error("候補者データが取得できません")
             output.errors = 1
-            output.error_details.append("候補者データの抽出に失敗")
+            output.error_details.append("候補者データの取得に失敗")
             return output
+
+        election_date = election_info.election_date if election_info else None
+        output.total_candidates = len(all_candidates)
+        logger.info("合計 %d 候補者を取得", len(all_candidates))
 
         if input_dto.dry_run:
             logger.info("ドライラン: DB書き込みをスキップ")
             self._print_dry_run_report(all_candidates)
             return output
 
-        # 4. Electionレコード作成
+        # 2. Electionレコード作成
         election = await self._get_or_create_election(
             input_dto.governing_body_id,
             input_dto.election_number,
@@ -146,7 +112,7 @@ class ImportNationalElectionUseCase:
         if deleted_count > 0:
             logger.info("既存のElectionMember %d件を削除", deleted_count)
 
-        # 5. 各候補者を処理
+        # 3. 各候補者を処理
         for candidate in all_candidates:
             try:
                 await self._process_candidate(candidate, election.id, output)
@@ -204,14 +170,10 @@ class ImportNationalElectionUseCase:
     ) -> None:
         """候補者1名分の処理（政党解決→名寄せ→ElectionMember作成）."""
         # 政党を解決
-        party = await self._resolve_party(candidate.party_name)
+        party, is_new_party = await self._resolve_party(candidate.party_name)
         party_id = party.id if party else None
-        if (
-            party
-            and party.id is not None
-            and candidate.party_name not in self._party_cache
-        ):
-            self._party_cache[candidate.party_name] = party
+        if is_new_party:
+            output.created_parties += 1
 
         # 政治家を名寄せ
         politician, status = await self._match_politician(candidate.name, party_id)
@@ -263,27 +225,33 @@ class ImportNationalElectionUseCase:
         self._processed_politician_ids.add(politician.id)
         output.election_members_created += 1
 
-    async def _resolve_party(self, party_name: str) -> PoliticalParty | None:
-        """政党名からPoliticalPartyエンティティを取得/作成する."""
+    async def _resolve_party(
+        self, party_name: str
+    ) -> tuple[PoliticalParty | None, bool]:
+        """政党名からPoliticalPartyエンティティを取得/作成する.
+
+        Returns:
+            (政党エンティティ, 新規作成フラグ)
+        """
         if not party_name:
-            return None
+            return None, False
 
         # キャッシュチェック
         if party_name in self._party_cache:
-            return self._party_cache[party_name]
+            return self._party_cache[party_name], False
 
         # DB検索
         party = await self._party_repo.get_by_name(party_name)
         if party:
             self._party_cache[party_name] = party
-            return party
+            return party, False
 
         # 新規作成
         logger.info("政党を新規作成: %s", party_name)
         new_party = PoliticalParty(name=party_name)
         created = await self._party_repo.create(new_party)
         self._party_cache[party_name] = created
-        return created
+        return created, True
 
     async def _match_politician(
         self, name: str, party_id: int | None
