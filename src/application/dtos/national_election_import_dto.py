@@ -47,4 +47,4 @@ class ImportNationalElectionOutputDto:
     skipped_ambiguous: int = 0
     election_members_created: int = 0
     errors: int = 0
-    error_details: list[str] = field(default_factory=lambda: list[str]())
+    error_details: list[str] = field(default_factory=list)

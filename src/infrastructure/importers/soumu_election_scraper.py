@@ -17,6 +17,8 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, Tag
 
+from src.infrastructure.importers._constants import PREFECTURE_NAMES
+
 
 logger = logging.getLogger(__name__)
 
@@ -83,58 +85,6 @@ def _download_file(url: str, dest_path: Path) -> Path:
     with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310
         dest_path.write_bytes(response.read())
     return dest_path
-
-
-# 都道府県名リスト（コード順）
-PREFECTURE_NAMES = [
-    "北海道",
-    "青森県",
-    "岩手県",
-    "宮城県",
-    "秋田県",
-    "山形県",
-    "福島県",
-    "茨城県",
-    "栃木県",
-    "群馬県",
-    "埼玉県",
-    "千葉県",
-    "東京都",
-    "神奈川県",
-    "新潟県",
-    "富山県",
-    "石川県",
-    "福井県",
-    "山梨県",
-    "長野県",
-    "岐阜県",
-    "静岡県",
-    "愛知県",
-    "三重県",
-    "滋賀県",
-    "京都府",
-    "大阪府",
-    "兵庫県",
-    "奈良県",
-    "和歌山県",
-    "鳥取県",
-    "島根県",
-    "岡山県",
-    "広島県",
-    "山口県",
-    "徳島県",
-    "香川県",
-    "愛媛県",
-    "高知県",
-    "福岡県",
-    "佐賀県",
-    "長崎県",
-    "熊本県",
-    "大分県",
-    "宮崎県",
-    "鹿児島県",
-    "沖縄県",
-]
 
 
 def fetch_xls_urls(election_number: int) -> list[XlsFileInfo]:

@@ -15,6 +15,12 @@ from src.application.usecases.import_national_election_usecase import (
 from src.domain.entities.election_member import ElectionMember
 from src.domain.entities.political_party import PoliticalParty
 from src.domain.entities.politician import Politician
+from src.domain.repositories.election_member_repository import ElectionMemberRepository
+from src.domain.repositories.election_repository import ElectionRepository
+from src.domain.repositories.political_party_repository import (
+    PoliticalPartyRepository,
+)
+from src.domain.repositories.politician_repository import PoliticianRepository
 
 
 class TestNormalizeName:
@@ -40,10 +46,10 @@ class TestImportNationalElectionUseCase:
     def mock_repos(self) -> dict[str, AsyncMock]:
         """モックリポジトリを生成する."""
         return {
-            "election": AsyncMock(),
-            "election_member": AsyncMock(),
-            "politician": AsyncMock(),
-            "political_party": AsyncMock(),
+            "election": AsyncMock(spec=ElectionRepository),
+            "election_member": AsyncMock(spec=ElectionMemberRepository),
+            "politician": AsyncMock(spec=PoliticianRepository),
+            "political_party": AsyncMock(spec=PoliticalPartyRepository),
         }
 
     @pytest.fixture()

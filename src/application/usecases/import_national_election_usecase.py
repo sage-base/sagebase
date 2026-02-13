@@ -12,6 +12,7 @@
 
 import logging
 
+from datetime import date
 from pathlib import Path
 
 from src.application.dtos.national_election_import_dto import (
@@ -168,11 +169,9 @@ class ImportNationalElectionUseCase:
         self,
         governing_body_id: int,
         term_number: int,
-        election_date: object,
+        election_date: date | None,
     ) -> Election | None:
         """Electionレコードを取得または作成する."""
-        from datetime import date as date_type
-
         existing = await self._election_repo.get_by_governing_body_and_term(
             governing_body_id, term_number
         )
@@ -180,7 +179,7 @@ class ImportNationalElectionUseCase:
             logger.info("既存のElectionを使用: %s (ID=%d)", existing, existing.id)
             return existing
 
-        if not isinstance(election_date, date_type):
+        if election_date is None:
             logger.error("選挙日が不正: %s", election_date)
             return None
 
@@ -234,7 +233,11 @@ class ImportNationalElectionUseCase:
             return
 
         # ElectionMember作成
-        result = "当選" if candidate.is_elected else "落選"
+        result = (
+            ElectionMember.RESULT_ELECTED
+            if candidate.is_elected
+            else ElectionMember.RESULT_LOST
+        )
         member = ElectionMember(
             election_id=election_id,
             politician_id=politician.id,
