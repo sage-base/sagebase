@@ -62,7 +62,7 @@ def _fetch_html(url: str) -> str:
         url,
         headers={"User-Agent": "Mozilla/5.0 (compatible; SagebaseBot/1.0)"},
     )
-    with urllib.request.urlopen(req, timeout=30) as response:  # noqa: S310
+    with urllib.request.urlopen(req, timeout=30) as response:  # noqa: S310  # nosec B310
         content = response.read()
 
     # Shift_JISエンコーディングを試行
@@ -82,7 +82,7 @@ def _download_file(url: str, dest_path: Path) -> Path:
         url,
         headers={"User-Agent": "Mozilla/5.0 (compatible; SagebaseBot/1.0)"},
     )
-    with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310
+    with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310  # nosec B310
         dest_path.write_bytes(response.read())
     return dest_path
 
