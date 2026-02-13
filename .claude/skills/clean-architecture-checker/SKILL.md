@@ -31,6 +31,8 @@ Before approving code, verify:
 - [ ] **ドメインロジックの配置**: UseCase内で文字列リテラル比較やドメイン定数の直接参照でフィルタリングしていないか → エンティティのプロパティ/メソッドに移す
 - [ ] **リポジトリ実装のDRY**: Raw SQLリポジトリでSELECTカラムリストが重複していないか → 定数に抽出。Row→Dict変換が重複していないか → ヘルパーメソッドに抽出
 - [ ] **BaseRepositoryImplのオーバーライド**: Raw SQLリポジトリで `count()`, `get_by_ids()` 等のORMベースメソッドが正しく動作するか確認（Pydanticモデル系では必ずraw SQLでオーバーライド）
+- [ ] **オーバーライドのシグネチャ一致**: BaseRepository IFのデフォルト値（`offset: int | None = None`等）と実装のシグネチャが一致しているか
+- [ ] **`_to_entity`/`_dict_to_entity`の一貫性**: 両メソッドで`created_at`/`updated_at`の設定が一致しているか
 
 ## Core Principles
 
@@ -253,6 +255,37 @@ async def get_by_ids(self, entity_ids: list[int]) -> list[Entity]:
     params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
     result = await self.session.execute(query, params)
     return self._rows_to_entities(result.fetchall())
+```
+
+#### オーバーライド時の注意点
+
+**シグネチャの一致**: BaseRepository IFのメソッドをオーバーライドする際、デフォルト値を含むシグネチャを正確に一致させること。
+
+```python
+# ❌ デフォルト値が不一致（IFは offset: int | None = None）
+async def get_all(
+    self, limit: int | None = None, offset: int | None = 0
+) -> list[Entity]:
+
+# ✅ IFのシグネチャと一致
+async def get_all(
+    self, limit: int | None = None, offset: int | None = None
+) -> list[Entity]:
+```
+
+**`_to_entity`と`_dict_to_entity`の一貫性**: Pydantic系リポジトリでは主に`_dict_to_entity`が使われるが、`_to_entity`も`BaseRepositoryImpl`経由で呼ばれる可能性がある。両メソッドで`created_at`/`updated_at`の設定を一致させること。
+
+```python
+# ❌ _to_entity で timestamps が欠落
+def _to_entity(self, model: XxxModel) -> Xxx:
+    return Xxx(id=model.id, name=model.name)
+
+# ✅ _dict_to_entity と同じく timestamps も設定
+def _to_entity(self, model: XxxModel) -> Xxx:
+    entity = Xxx(id=model.id, name=model.name)
+    entity.created_at = model.created_at
+    entity.updated_at = model.updated_at
+    return entity
 ```
 
 ## 既知の技術的負債

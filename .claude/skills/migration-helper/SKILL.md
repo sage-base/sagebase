@@ -176,6 +176,39 @@ def downgrade() -> None:
     """)
 ```
 
+### ジャンクションテーブル（多対多）
+
+多対多関係のジャンクションテーブルを作成する際は、**DB レベルのUNIQUE制約**を必ず検討すること。アプリケーション層の重複チェックだけでは並行リクエスト時にレースコンディションで重複レコードが発生する。
+
+```python
+def upgrade() -> None:
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS entity_a_entity_b (
+            id SERIAL PRIMARY KEY,
+            entity_a_id INTEGER NOT NULL REFERENCES entity_a(id) ON DELETE CASCADE,
+            entity_b_id INTEGER NOT NULL REFERENCES entity_b(id) ON DELETE RESTRICT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- 個別インデックス
+        CREATE INDEX IF NOT EXISTS idx_entity_a_entity_b_a_id
+            ON entity_a_entity_b(entity_a_id);
+        CREATE INDEX IF NOT EXISTS idx_entity_a_entity_b_b_id
+            ON entity_a_entity_b(entity_b_id);
+
+        -- ❗ UNIQUE制約（レースコンディション防止）
+        -- NULLableカラムがある場合は COALESCE でセンチネル値に変換
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_entity_a_entity_b_composite
+            ON entity_a_entity_b(entity_a_id, entity_b_id);
+    """)
+```
+
+**チェックリスト:**
+- [ ] FK制約のON DELETE方針を決定（CASCADE / RESTRICT / SET NULL）
+- [ ] 複合UNIQUE制約を追加（NULLableカラムがある場合は`COALESCE`で対応）
+- [ ] downgradeでUNIQUEインデックスもDROPすること
+
 ## 詳細リファレンス
 
 - [examples.md](examples.md) - 実践的なマイグレーション例
