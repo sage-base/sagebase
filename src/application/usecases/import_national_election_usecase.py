@@ -62,6 +62,8 @@ class ImportNationalElectionUseCase:
 
         # 政党名キャッシュ（名前→エンティティ）
         self._party_cache: dict[str, PoliticalParty | None] = {}
+        # 同一選挙内で処理済みのpolitician_idを追跡（重複ElectionMember防止）
+        self._processed_politician_ids: set[int] = set()
 
     async def execute(
         self,
@@ -69,6 +71,7 @@ class ImportNationalElectionUseCase:
         download_dir: Path | None = None,
     ) -> ImportNationalElectionOutputDto:
         """インポートを実行する."""
+        self._processed_politician_ids.clear()
         output = ImportNationalElectionOutputDto(
             election_number=input_dto.election_number
         )
@@ -232,6 +235,17 @@ class ImportNationalElectionUseCase:
             output.error_details.append(f"政治家作成失敗: {candidate.name}")
             return
 
+        # 同一選挙内で同じpoliticianのElectionMemberが既に作成済みの場合はスキップ
+        if politician.id in self._processed_politician_ids:
+            output.skipped_ambiguous += 1
+            logger.warning(
+                "同一政治家の重複スキップ: %s (politician_id=%d, %s)",
+                candidate.name,
+                politician.id,
+                candidate.district_name,
+            )
+            return
+
         # ElectionMember作成
         result = (
             ElectionMember.RESULT_ELECTED
@@ -246,6 +260,7 @@ class ImportNationalElectionUseCase:
             rank=candidate.rank if candidate.rank > 0 else None,
         )
         await self._member_repo.create(member)
+        self._processed_politician_ids.add(politician.id)
         output.election_members_created += 1
 
     async def _resolve_party(self, party_name: str) -> PoliticalParty | None:
