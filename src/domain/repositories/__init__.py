@@ -22,6 +22,9 @@ from src.domain.repositories.politician_operation_log_repository import (
 )
 from src.domain.repositories.politician_repository import PoliticianRepository
 from src.domain.repositories.prompt_version_repository import PromptVersionRepository
+from src.domain.repositories.proposal_deliberation_repository import (
+    ProposalDeliberationRepository,
+)
 from src.domain.repositories.proposal_submitter_repository import (
     ProposalSubmitterRepository,
 )
@@ -43,6 +46,7 @@ __all__ = [
     "PoliticianOperationLogRepository",
     "PoliticianRepository",
     "PromptVersionRepository",
+    "ProposalDeliberationRepository",
     "ProposalSubmitterRepository",
     "SpeakerRepository",
 ]
