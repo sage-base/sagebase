@@ -118,6 +118,7 @@ def _fetch_direct_xls_urls(election_number: int) -> list[XlsFileInfo]:
 
     results: list[XlsFileInfo] = []
     seen_urls: set[str] = set()
+    seen_pref_codes: set[int] = set()
 
     # 小選挙区セクションのリンクを取得
     # ページ内で都道府県名をリンクテキストとして持つXLS/XLSXリンクを抽出
@@ -144,12 +145,17 @@ def _fetch_direct_xls_urls(election_number: int) -> list[XlsFileInfo]:
         if matched_pref_idx is None:
             continue
 
+        pref_code = matched_pref_idx + 1
+        if pref_code in seen_pref_codes:
+            continue
+
         ext = ".xlsx" if href.endswith(".xlsx") else ".xls"
         seen_urls.add(full_url)
+        seen_pref_codes.add(pref_code)
         results.append(
             XlsFileInfo(
                 url=full_url,
-                prefecture_code=matched_pref_idx + 1,
+                prefecture_code=pref_code,
                 prefecture_name=PREFECTURE_NAMES[matched_pref_idx],
                 file_extension=ext,
             )

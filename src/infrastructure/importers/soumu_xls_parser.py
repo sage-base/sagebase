@@ -99,6 +99,19 @@ def _parse_votes(value: object) -> int | None:
         return None
 
 
+def _sum_data_rows(rows: list[tuple[object, ...]], col_idx: int, start_row: int) -> int:
+    """データ行の指定列を合算する（合計行がない場合のフォールバック）."""
+    total = 0
+    for row_idx in range(start_row, len(rows)):
+        row = rows[row_idx]
+        if col_idx >= len(row):
+            continue
+        votes = _parse_votes(row[col_idx])
+        if votes is not None:
+            total += votes
+    return total
+
+
 def parse_xls_file(
     file_path: Path,
 ) -> tuple[ElectionInfo | None, list[CandidateRecord]]:
@@ -257,6 +270,9 @@ def _parse_rows(
         total_votes = 0
         if total_row_idx is not None and col_idx < len(rows[total_row_idx]):
             total_votes = _parse_votes(rows[total_row_idx][col_idx]) or 0
+        else:
+            # 合計行がない場合はデータ行を合算
+            total_votes = _sum_data_rows(rows, col_idx, start_row=5)
 
         candidates.append(
             CandidateRecord(

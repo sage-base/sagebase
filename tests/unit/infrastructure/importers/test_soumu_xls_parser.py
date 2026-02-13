@@ -214,6 +214,51 @@ class TestParseXlsxFile:
         assert election_info is None
         assert len(candidates) == 0
 
+    @pytest.fixture()
+    def no_total_row_xlsx(self, tmp_path: Path) -> Path:
+        """合計行がないXLSXファイルを生成する（第50回形式）."""
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        assert ws is not None
+        ws.title = "沖縄県第１区"
+
+        ws.append(["令和６年１０月２７日執行"])
+        ws.append(["衆議院議員総選挙（小選挙区）候補者別得票数"])
+        ws.append(["沖縄県第１区", None, None, None, None, "[単位：票]"])
+        ws.append(["候補者名", "候補A", "候補B", "候補C", "得票数計"])
+        ws.append(
+            ["市区町村名＼政党名", "自由民主党", "立憲民主党", "日本共産党", None]
+        )
+        ws.append(["那覇市", 28000, 40000, 9000, 77000])
+        ws.append(["浦添市", 12000, 18000, 5000, 35000])
+        ws.append(["豊見城市", 8000, 10000, 3000, 21000])
+
+        file_path = tmp_path / "no_total.xlsx"
+        wb.save(file_path)
+        wb.close()
+        return file_path
+
+    def test_parse_no_total_row(self, no_total_row_xlsx: Path) -> None:
+        """合計行がないXLSXファイルでもデータ行合算で得票数が取れることを確認する."""
+        election_info, candidates = parse_xls_file(no_total_row_xlsx)
+
+        assert election_info is not None
+        assert len(candidates) == 3
+
+        # 得票数降順ソート: B(68000) > A(48000) > C(17000)
+        assert candidates[0].name == "候補B"
+        assert candidates[0].total_votes == 68000
+        assert candidates[0].rank == 1
+        assert candidates[0].is_elected is True
+
+        assert candidates[1].name == "候補A"
+        assert candidates[1].total_votes == 48000
+        assert candidates[1].rank == 2
+
+        assert candidates[2].name == "候補C"
+        assert candidates[2].total_votes == 17000
+        assert candidates[2].rank == 3
+
     def test_unsupported_format(self, tmp_path: Path) -> None:
         """未対応の拡張子でNoneが返ることを確認する."""
         file_path = tmp_path / "test.csv"
