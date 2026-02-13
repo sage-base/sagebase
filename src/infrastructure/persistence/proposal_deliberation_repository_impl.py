@@ -80,13 +80,16 @@ class ProposalDeliberationRepositoryImpl(
         return entity
 
     def _to_entity(self, model: ProposalDeliberationModel) -> ProposalDeliberation:
-        return ProposalDeliberation(
+        entity = ProposalDeliberation(
             id=model.id,
             proposal_id=model.proposal_id,
             conference_id=model.conference_id,
             meeting_id=model.meeting_id,
             stage=model.stage,
         )
+        entity.created_at = model.created_at
+        entity.updated_at = model.updated_at
+        return entity
 
     def _to_model(self, entity: ProposalDeliberation) -> ProposalDeliberationModel:
         return ProposalDeliberationModel(
@@ -106,7 +109,7 @@ class ProposalDeliberationRepositoryImpl(
         model.stage = entity.stage
 
     async def get_all(
-        self, limit: int | None = None, offset: int | None = 0
+        self, limit: int | None = None, offset: int | None = None
     ) -> list[ProposalDeliberation]:
         try:
             query_text = f"""

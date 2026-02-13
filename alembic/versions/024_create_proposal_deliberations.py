@@ -43,11 +43,20 @@ def upgrade() -> None:
             ON proposal_deliberations(conference_id);
         CREATE INDEX IF NOT EXISTS idx_proposal_deliberations_meeting_id
             ON proposal_deliberations(meeting_id);
+
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_proposal_deliberations_composite
+            ON proposal_deliberations(
+                proposal_id,
+                conference_id,
+                COALESCE(meeting_id, -1),
+                COALESCE(stage, '')
+            );
     """)
 
 
 def downgrade() -> None:
     """Rollback migration: Drop proposal_deliberations table."""
     op.execute("""
+        DROP INDEX IF EXISTS uq_proposal_deliberations_composite;
         DROP TABLE IF EXISTS proposal_deliberations;
     """)
