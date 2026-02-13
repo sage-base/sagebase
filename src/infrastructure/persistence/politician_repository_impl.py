@@ -126,16 +126,18 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
                 if existing:
                     # Update if needed
                     needs_update = False
-                    for field in [
-                        "prefecture",
-                        "electoral_district",
-                        "profile_url",
-                        "party_position",
-                    ]:
-                        if field in data and data[field] != getattr(
-                            existing, field, None
+                    # 外部データキー→エンティティ属性名のマッピング
+                    field_mapping = {
+                        "prefecture": "prefecture",
+                        "electoral_district": "district",
+                        "profile_url": "profile_page_url",
+                        "party_position": "party_position",
+                    }
+                    for data_key, entity_attr in field_mapping.items():
+                        if data_key in data and data[data_key] != getattr(
+                            existing, entity_attr, None
                         ):
-                            setattr(existing, field, data[field])
+                            setattr(existing, entity_attr, data[data_key])
                             needs_update = True
 
                     if needs_update:
@@ -258,11 +260,11 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         query = text("""
             INSERT INTO politicians (
                 name, political_party_id, prefecture,
-                electoral_district, profile_url, furigana
+                district, profile_page_url, furigana
             )
             VALUES (
                 :name, :political_party_id, :prefecture,
-                :electoral_district, :profile_url, :furigana
+                :district, :profile_page_url, :furigana
             )
             RETURNING *
         """)
@@ -271,10 +273,8 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             "name": entity.name,
             "political_party_id": entity.political_party_id,
             "prefecture": entity.prefecture,
-            # Map district to electoral_district
-            "electoral_district": entity.district,
-            # Map profile_page_url to profile_url
-            "profile_url": entity.profile_page_url,
+            "district": entity.district,
+            "profile_page_url": entity.profile_page_url,
             "furigana": entity.furigana,
         }
 
@@ -295,8 +295,8 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             SET name = :name,
                 political_party_id = :political_party_id,
                 prefecture = :prefecture,
-                electoral_district = :electoral_district,
-                profile_url = :profile_url,
+                district = :district,
+                profile_page_url = :profile_page_url,
                 furigana = :furigana
             WHERE id = :id
             RETURNING *
@@ -307,10 +307,8 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             "name": entity.name,
             "political_party_id": entity.political_party_id,
             "prefecture": entity.prefecture,
-            # Map district to electoral_district
-            "electoral_district": entity.district,
-            # Map profile_page_url to profile_url
-            "profile_url": entity.profile_page_url,
+            "district": entity.district,
+            "profile_page_url": entity.profile_page_url,
             "furigana": entity.furigana,
         }
 
@@ -367,8 +365,8 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
                 "name": getattr(row, "name", None),
                 "political_party_id": getattr(row, "political_party_id", None),
                 "prefecture": getattr(row, "prefecture", None),
-                "electoral_district": getattr(row, "electoral_district", None),
-                "profile_url": getattr(row, "profile_url", None),
+                "district": getattr(row, "district", None),
+                "profile_page_url": getattr(row, "profile_page_url", None),
                 "party_position": getattr(row, "party_position", None),
                 "furigana": getattr(row, "furigana", None),
             }
@@ -376,14 +374,10 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         return Politician(
             name=str(data.get("name") or ""),
             prefecture=str(data.get("prefecture") or ""),
-            district=str(
-                data.get("electoral_district") or ""
-            ),  # Map electoral_district to district
+            district=str(data.get("district") or ""),
             political_party_id=data.get("political_party_id"),
             furigana=data.get("furigana"),
-            profile_page_url=data.get(
-                "profile_url"
-            ),  # Map profile_url to profile_page_url
+            profile_page_url=data.get("profile_page_url"),
             party_position=data.get("party_position"),
             id=data.get("id"),
         )
@@ -398,8 +392,8 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             name=entity.name,
             political_party_id=entity.political_party_id,
             prefecture=entity.prefecture,
-            electoral_district=entity.district,  # Map district to electoral_district
-            profile_url=entity.profile_page_url,  # Map profile_page_url to profile_url
+            district=entity.district,
+            profile_page_url=entity.profile_page_url,
             party_position=entity.party_position,
             furigana=entity.furigana,
             id=entity.id,
@@ -410,9 +404,19 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         model.name = entity.name
         model.political_party_id = entity.political_party_id
         model.prefecture = entity.prefecture
-        model.electoral_district = entity.district
-        model.profile_url = entity.profile_page_url
+        model.district = entity.district
+        model.profile_page_url = entity.profile_page_url
         model.furigana = entity.furigana
+
+    async def search_by_normalized_name(self, normalized_name: str) -> list[Politician]:
+        """空白除去した名前で政治家を検索する."""
+        query = text("""
+            SELECT * FROM politicians
+            WHERE REPLACE(REPLACE(name, ' ', ''), '　', '') = :name
+        """)
+        result = await self.session.execute(query, {"name": normalized_name})
+        rows = result.fetchall()
+        return [self._row_to_entity(row) for row in rows]
 
     async def get_all_for_matching(self) -> list[dict[str, Any]]:
         """Get all politicians for matching purposes."""

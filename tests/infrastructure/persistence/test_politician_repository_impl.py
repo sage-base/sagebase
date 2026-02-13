@@ -42,8 +42,8 @@ class TestPoliticianRepositoryImpl:
             "id": 1,
             "name": "山田太郎",
             "political_party_id": 10,
-            "electoral_district": "東京1区",
-            "profile_url": "https://example.com/yamada",
+            "district": "東京1区",
+            "profile_page_url": "https://example.com/yamada",
             "furigana": "やまだたろう",
             "prefecture": "東京都",
             "party_position": None,
@@ -445,8 +445,8 @@ class TestPoliticianRepositoryImpl:
             id=1,
             name="山田太郎",
             political_party_id=10,
-            electoral_district="東京1区",
-            profile_url="https://example.com/yamada",
+            district="東京1区",
+            profile_page_url="https://example.com/yamada",
             furigana="やまだたろう",
         )
 
@@ -468,8 +468,8 @@ class TestPoliticianRepositoryImpl:
         assert isinstance(model, PoliticianModel)
         assert model.name == "山田太郎"
         assert model.political_party_id == 10
-        assert model.electoral_district == "東京1区"
-        assert model.profile_url == "https://example.com/yamada"
+        assert model.district == "東京1区"
+        assert model.profile_page_url == "https://example.com/yamada"
 
     def test_update_model(
         self, repository: PoliticianRepositoryImpl, sample_politician_entity: Politician
@@ -479,8 +479,8 @@ class TestPoliticianRepositoryImpl:
             id=1,
             name="旧名前",
             political_party_id=5,
-            electoral_district="旧地区",
-            profile_url="https://old.com",
+            district="旧地区",
+            profile_page_url="https://old.com",
             furigana="きゅうなまえ",
         )
 
@@ -488,8 +488,8 @@ class TestPoliticianRepositoryImpl:
 
         assert model.name == "山田太郎"
         assert model.political_party_id == 10
-        assert model.electoral_district == "東京1区"
-        assert model.profile_url == "https://example.com/yamada"
+        assert model.district == "東京1区"
+        assert model.profile_page_url == "https://example.com/yamada"
         assert model.furigana == "やまだたろう"
 
     def test_row_to_entity_with_mapping(
