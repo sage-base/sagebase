@@ -192,6 +192,9 @@ class TestMatchProposalGroupJudgesUseCase:
         assert "存在しない会派" in result.unmatched_names
         assert "もう一つ不明な会派" in result.unmatched_names
 
+        # unmatched のステータス更新が呼ばれること
+        assert mock_extracted_repo.update_matching_result.call_count == 2
+
     @pytest.mark.asyncio
     async def test_dry_run_skips_gold_layer(
         self,
@@ -213,6 +216,7 @@ class TestMatchProposalGroupJudgesUseCase:
         assert result.judges_created == 0
         mock_judge_repo.bulk_create.assert_not_called()
         mock_extracted_repo.mark_processed.assert_not_called()
+        mock_extracted_repo.update_matching_result.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_skips_records_without_group_name(

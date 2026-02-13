@@ -92,12 +92,6 @@ class MatchProposalGroupJudgesUseCase:
             group_id = name_to_id.get(stripped)
 
             if group_id is not None and judge.id is not None:
-                await self._extracted_repo.update_matching_result(
-                    judge_id=judge.id,
-                    parliamentary_group_id=group_id,
-                    confidence=1.0,
-                    status="matched",
-                )
                 matched_infos.append(
                     _MatchedInfo(
                         judge_id=judge.id,
@@ -108,11 +102,6 @@ class MatchProposalGroupJudgesUseCase:
                 )
                 output.matched += 1
             else:
-                if judge.id is not None:
-                    await self._extracted_repo.update_matching_result(
-                        judge_id=judge.id,
-                        status="unmatched",
-                    )
                 unmatched_set.add(stripped)
                 output.unmatched += 1
 
@@ -125,9 +114,29 @@ class MatchProposalGroupJudgesUseCase:
             )
 
         if input_dto.dry_run:
-            logger.info("dry_runモード: Gold層への書き込みをスキップ")
+            logger.info("dry_runモード: DB書き込みをスキップ")
             return output
 
+        # Bronze層のマッチング結果を更新
+        for info in matched_infos:
+            await self._extracted_repo.update_matching_result(
+                judge_id=info.judge_id,
+                parliamentary_group_id=info.parliamentary_group_id,
+                confidence=1.0,
+                status="matched",
+            )
+        for judge in group_judges:
+            name = judge.extracted_parliamentary_group_name
+            if name is None:
+                continue
+            stripped = name.strip()
+            if name_to_id.get(stripped) is None and judge.id is not None:
+                await self._extracted_repo.update_matching_result(
+                    judge_id=judge.id,
+                    status="unmatched",
+                )
+
+        # Gold層に書き込み
         judges_created = await self._create_gold_layer_judges(matched_infos)
         output.judges_created = judges_created
 

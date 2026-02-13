@@ -39,7 +39,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-GOVERNING_BODY_NAME = "日本国"
+GOVERNING_BODY_NAME = "国会"
 GOVERNING_BODY_TYPE = "国"
 CONFERENCE_NAME = "衆議院"
 SMRI_RAW_URL = (
