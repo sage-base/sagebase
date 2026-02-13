@@ -11,6 +11,8 @@ class ElectionMember(BaseEntity):
 
     RESULT_ELECTED: str = "当選"
     RESULT_LOST: str = "落選"
+    RESULT_PROPORTIONAL_ELECTED: str = "比例当選"
+    RESULT_PROPORTIONAL_REVIVAL: str = "比例復活"
 
     VALID_RESULTS: list[str] = [
         RESULT_ELECTED,
@@ -18,8 +20,16 @@ class ElectionMember(BaseEntity):
         "次点",
         "繰上当選",
         "無投票当選",
+        RESULT_PROPORTIONAL_ELECTED,
+        RESULT_PROPORTIONAL_REVIVAL,
     ]
-    ELECTED_RESULTS: list[str] = [RESULT_ELECTED, "繰上当選", "無投票当選"]
+    ELECTED_RESULTS: list[str] = [
+        RESULT_ELECTED,
+        "繰上当選",
+        "無投票当選",
+        RESULT_PROPORTIONAL_ELECTED,
+        RESULT_PROPORTIONAL_REVIVAL,
+    ]
 
     def __init__(
         self,
