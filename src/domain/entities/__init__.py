@@ -24,6 +24,7 @@ from src.domain.entities.politician_operation_log import (
     PoliticianOperationType,
 )
 from src.domain.entities.prompt_version import PromptVersion
+from src.domain.entities.proposal_deliberation import ProposalDeliberation
 from src.domain.entities.proposal_submitter import ProposalSubmitter
 from src.domain.entities.speaker import Speaker
 from src.domain.entities.verifiable_entity import VerifiableEntity
@@ -48,6 +49,7 @@ __all__ = [
     "ProcessingStatus",
     "ProcessingType",
     "PromptVersion",
+    "ProposalDeliberation",
     "ProposalSubmitter",
     "Speaker",
     "VerifiableEntity",
