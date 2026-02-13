@@ -62,8 +62,8 @@ def sample_politician_row():
         "political_party_id": 2,
         "furigana": "てすとたろう",
         "prefecture": None,
-        "electoral_district": "東京1区",
-        "profile_url": "https://example.com/politician/1",
+        "district": "東京1区",
+        "profile_page_url": "https://example.com/politician/1",
         "party_position": None,
     }
 
@@ -131,7 +131,7 @@ class TestPoliticianRepositoryImplConversions:
             "id": 1,
             "name": "最小太郎",
             "prefecture": "東京都",
-            "electoral_district": "東京1区",
+            "district": "東京1区",
             "political_party_id": 3,
         }
 
@@ -155,8 +155,8 @@ class TestPoliticianRepositoryImplConversions:
             "id": 2,
             "name": "辞書太郎",
             "political_party_id": 4,
-            "electoral_district": "大阪1区",
-            "profile_url": "https://example.com/dict",
+            "district": "大阪1区",
+            "profile_page_url": "https://example.com/dict",
         }
 
         # Create mock with _mapping for dict-like rows
@@ -196,12 +196,8 @@ class TestPoliticianRepositoryImplConversions:
         assert model.name == "テスト太郎"
         assert model.political_party_id == 2
         assert model.furigana == "てすとたろう"
-        assert (
-            model.electoral_district == "東京1区"
-        )  # district → electoral_district mapping
-        assert (
-            model.profile_url == "https://example.com/politician/1"
-        )  # profile_page_url → profile_url mapping
+        assert model.district == "東京1区"
+        assert model.profile_page_url == "https://example.com/politician/1"
         assert model.prefecture == "東京都"  # prefecture mapping
         assert model.party_position is None  # Not in entity
 
@@ -218,8 +214,8 @@ class TestPoliticianRepositoryImplConversions:
 
         assert model.name == "最小太郎"
         assert model.political_party_id == 3
-        assert model.electoral_district == "東京1区"
-        assert model.profile_url is None
+        assert model.district == "東京1区"
+        assert model.profile_page_url is None
 
     def test_update_model_all_fields(self, async_repository, sample_politician):
         """Test updating all model fields from entity"""
@@ -230,8 +226,8 @@ class TestPoliticianRepositoryImplConversions:
         assert mock_model.name == "テスト太郎"
         assert mock_model.political_party_id == 2
         assert mock_model.furigana == "てすとたろう"
-        assert mock_model.electoral_district == "東京1区"
-        assert mock_model.profile_url == "https://example.com/politician/1"
+        assert mock_model.district == "東京1区"
+        assert mock_model.profile_page_url == "https://example.com/politician/1"
 
     def test_update_model_partial_fields(self, async_repository):
         """Test updating model with partial entity data"""
@@ -343,8 +339,8 @@ class TestPoliticianRepositoryImplCRUD:
             "id": 100,
             "name": sample_politician.name,
             "political_party_id": sample_politician.political_party_id,
-            "electoral_district": sample_politician.district,
-            "profile_url": sample_politician.profile_page_url,
+            "district": sample_politician.district,
+            "profile_page_url": sample_politician.profile_page_url,
             "furigana": sample_politician.furigana,
         }
         for key, value in mock_row._mapping.items():
@@ -390,8 +386,8 @@ class TestPoliticianRepositoryImplCRUD:
             "name": "更新太郎",
             "political_party_id": 3,
             "furigana": "こうしんたろう",
-            "electoral_district": None,
-            "profile_url": None,
+            "district": None,
+            "profile_page_url": None,
         }
         for key, value in mock_row._mapping.items():
             setattr(mock_row, key, value)
@@ -504,7 +500,7 @@ class TestPoliticianRepositoryImplQueryMethods:
             "name": "マッチ太郎",
             "position": "議員",
             "prefecture": "東京都",
-            "electoral_district": "東京1区",
+            "district": "東京1区",
             "party_name": "テスト党",
         }
         row2_data = {
@@ -512,7 +508,7 @@ class TestPoliticianRepositoryImplQueryMethods:
             "name": "マッチ次郎",
             "position": "参議院",
             "prefecture": "大阪府",
-            "electoral_district": "大阪1区",
+            "district": "大阪1区",
             "party_name": "サンプル党",
         }
 
@@ -594,13 +590,13 @@ class TestPoliticianRepositoryImplQueryMethods:
             "id": 1,
             "name": "テスト太郎",
             "political_party_id": 2,
-            "electoral_district": "東京1区",
+            "district": "東京1区",
         }
         row2 = {
             "id": 2,
             "name": "テスト次郎",
             "political_party_id": 3,
-            "electoral_district": "東京2区",
+            "district": "東京2区",
         }
 
         mock_rows = []

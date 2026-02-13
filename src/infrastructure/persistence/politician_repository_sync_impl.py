@@ -131,8 +131,8 @@ class PoliticianRepositorySyncImpl:
                         update_values = {"id": existing["id"]}
                         for field in [
                             "prefecture",
-                            "electoral_district",
-                            "profile_url",
+                            "district",
+                            "profile_page_url",
                             "party_position",
                         ]:
                             if field in data and data[field] != existing.get(field):
