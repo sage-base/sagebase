@@ -266,7 +266,9 @@ class TestManageElectionMembersUseCase:
         assert "次点" in options
         assert "繰上当選" in options
         assert "無投票当選" in options
-        assert len(options) == 5
+        assert "比例当選" in options
+        assert "比例復活" in options
+        assert len(options) == 7
 
     @pytest.mark.asyncio
     async def test_list_by_politician_error(
@@ -459,5 +461,13 @@ class TestElectionMemberValidResults:
 
     def test_valid_results_contains_expected_values(self) -> None:
         """VALID_RESULTSが期待される全値を含むことを確認."""
-        expected = ["当選", "落選", "次点", "繰上当選", "無投票当選"]
+        expected = [
+            "当選",
+            "落選",
+            "次点",
+            "繰上当選",
+            "無投票当選",
+            "比例当選",
+            "比例復活",
+        ]
         assert ElectionMember.VALID_RESULTS == expected

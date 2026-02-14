@@ -9,9 +9,9 @@ from src.application.dtos.national_election_import_dto import (
     ImportNationalElectionInputDto,
     ImportNationalElectionOutputDto,
 )
+from src.application.services.election_import_service import normalize_name
 from src.application.usecases.import_national_election_usecase import (
     ImportNationalElectionUseCase,
-    normalize_name,
 )
 from src.domain.entities.election import Election
 from src.domain.entities.election_member import ElectionMember
@@ -108,7 +108,9 @@ class TestImportNationalElectionUseCase:
         existing = Politician(name="田中太郎", prefecture="北海道", district="", id=1)
         mock_repos["politician"].search_by_normalized_name.return_value = [existing]
 
-        result, status = await use_case._match_politician("田中 太郎", None)
+        result, status = await use_case._import_service.match_politician(
+            "田中 太郎", None
+        )
         assert status == "matched"
         assert result is not None
         assert result.id == 1
@@ -121,7 +123,9 @@ class TestImportNationalElectionUseCase:
         """マッチなしの場合、not_foundを返す."""
         mock_repos["politician"].search_by_normalized_name.return_value = []
 
-        result, status = await use_case._match_politician("新人 候補", None)
+        result, status = await use_case._import_service.match_politician(
+            "新人 候補", None
+        )
         assert status == "not_found"
         assert result is None
 
@@ -147,7 +151,7 @@ class TestImportNationalElectionUseCase:
         )
         mock_repos["politician"].search_by_normalized_name.return_value = [p1, p2]
 
-        result, status = await use_case._match_politician("田中太郎", 1)
+        result, status = await use_case._import_service.match_politician("田中太郎", 1)
         assert status == "matched"
         assert result is not None
         assert result.id == 10
@@ -174,7 +178,7 @@ class TestImportNationalElectionUseCase:
         )
         mock_repos["politician"].search_by_normalized_name.return_value = [p1, p2]
 
-        result, status = await use_case._match_politician("田中太郎", 1)
+        result, status = await use_case._import_service.match_politician("田中太郎", 1)
         assert status == "ambiguous"
         assert result is None
 
@@ -189,7 +193,7 @@ class TestImportNationalElectionUseCase:
         party = PoliticalParty(name="自由民主党", id=1)
         mock_repos["political_party"].get_by_name.return_value = party
 
-        result, is_new = await use_case._resolve_party("自由民主党")
+        result, is_new = await use_case._import_service.resolve_party("自由民主党")
         assert result is not None
         assert result.id == 1
         assert is_new is False
@@ -204,7 +208,7 @@ class TestImportNationalElectionUseCase:
         new_party = PoliticalParty(name="新しい党", id=99)
         mock_repos["political_party"].create.return_value = new_party
 
-        result, is_new = await use_case._resolve_party("新しい党")
+        result, is_new = await use_case._import_service.resolve_party("新しい党")
         assert result is not None
         assert result.id == 99
         assert is_new is True
@@ -215,7 +219,7 @@ class TestImportNationalElectionUseCase:
         use_case: ImportNationalElectionUseCase,
     ) -> None:
         """空の政党名でNoneを返す."""
-        result, is_new = await use_case._resolve_party("")
+        result, is_new = await use_case._import_service.resolve_party("")
         assert result is None
         assert is_new is False
 
@@ -229,9 +233,9 @@ class TestImportNationalElectionUseCase:
         mock_repos["political_party"].get_by_name.return_value = party
 
         # 1回目
-        await use_case._resolve_party("自由民主党")
+        await use_case._import_service.resolve_party("自由民主党")
         # 2回目（キャッシュから）
-        result, is_new = await use_case._resolve_party("自由民主党")
+        result, is_new = await use_case._import_service.resolve_party("自由民主党")
 
         assert result is not None
         assert result.id == 1
@@ -362,7 +366,7 @@ class TestImportNationalElectionUseCase:
         await use_case._process_candidate(
             sample_candidates[0], election_id=1, output=result_output
         )
-        assert result_output.skipped_ambiguous == 1
+        assert result_output.skipped_duplicate == 1
         assert result_output.election_members_created == 1  # 増加しない
 
     async def test_process_candidate_new_party_increments_counter(
@@ -566,7 +570,9 @@ class TestImportNationalElectionUseCase:
     ) -> None:
         """execute()開始時にキャッシュがクリアされることを確認."""
         # キャッシュに事前にデータを入れる
-        use_case._party_cache["test"] = PoliticalParty(name="test", id=1)
+        use_case._import_service._party_cache["test"] = PoliticalParty(
+            name="test", id=1
+        )
         use_case._processed_politician_ids.add(999)
 
         mock_data_source.fetch_candidates.return_value = (None, [])
@@ -578,5 +584,5 @@ class TestImportNationalElectionUseCase:
         await use_case.execute(input_dto)
 
         # キャッシュがクリアされている
-        assert len(use_case._party_cache) == 0
+        assert len(use_case._import_service._party_cache) == 0
         assert len(use_case._processed_politician_ids) == 0
