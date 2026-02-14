@@ -692,6 +692,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
     manage_election_members_usecase = providers.Factory(
         ManageElectionMembersUseCase,
         election_member_repository=repositories.election_member_repository,
+        seed_generator_service=services.seed_generator_service,
     )
 
     # Manage Governing Bodies UseCase (Issue #1075)

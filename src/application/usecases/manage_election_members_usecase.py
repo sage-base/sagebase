@@ -1,5 +1,8 @@
 """選挙結果メンバー管理のユースケース."""
 
+from __future__ import annotations
+
+from src.application.dtos.election_dto import GenerateSeedFileOutputDto
 from src.application.dtos.election_member_dto import (
     CreateElectionMemberInputDto,
     CreateElectionMemberOutputDto,
@@ -15,6 +18,9 @@ from src.application.dtos.election_member_dto import (
 from src.common.logging import get_logger
 from src.domain.entities import ElectionMember
 from src.domain.repositories.election_member_repository import ElectionMemberRepository
+from src.domain.services.interfaces.seed_generator_service import (
+    ISeedGeneratorService,
+)
 
 
 logger = get_logger(__name__)
@@ -23,13 +29,19 @@ logger = get_logger(__name__)
 class ManageElectionMembersUseCase:
     """選挙結果メンバー管理のユースケース."""
 
-    def __init__(self, election_member_repository: ElectionMemberRepository) -> None:
+    def __init__(
+        self,
+        election_member_repository: ElectionMemberRepository,
+        seed_generator_service: ISeedGeneratorService | None = None,
+    ) -> None:
         """ユースケースを初期化する.
 
         Args:
             election_member_repository: 選挙結果メンバーリポジトリインスタンス
+            seed_generator_service: シードファイル生成サービスインスタンス
         """
         self.election_member_repository = election_member_repository
+        self.seed_generator_service = seed_generator_service
 
     async def list_by_election(
         self, input_dto: ListElectionMembersByElectionInputDto
@@ -159,3 +171,24 @@ class ManageElectionMembersUseCase:
     def get_result_options(self) -> list[str]:
         """選挙結果の選択肢を取得する."""
         return list(ElectionMember.VALID_RESULTS)
+
+    async def generate_seed_file(self) -> GenerateSeedFileOutputDto:
+        """選挙結果メンバーのSEEDファイルを生成する."""
+        if self.seed_generator_service is None:
+            return GenerateSeedFileOutputDto(
+                success=False,
+                error_message="シードファイル生成サービスが設定されていません",
+            )
+
+        try:
+            result = (
+                self.seed_generator_service.generate_and_save_election_members_seed()
+            )
+            return GenerateSeedFileOutputDto(
+                success=True,
+                seed_content=result.content,
+                file_path=result.file_path,
+            )
+        except Exception as e:
+            logger.error(f"Failed to generate election members seed file: {e}")
+            return GenerateSeedFileOutputDto(success=False, error_message=str(e))

@@ -4,6 +4,7 @@ from typing import Any
 
 import pandas as pd
 
+from src.application.dtos.election_dto import GenerateSeedFileOutputDto
 from src.application.dtos.election_member_dto import (
     CreateElectionMemberInputDto,
     DeleteElectionMemberInputDto,
@@ -198,6 +199,22 @@ class ElectionMemberPresenter(BasePresenter[list[ElectionMemberOutputItem]]):
                 }
             )
         return pd.DataFrame(df_data)
+
+    def generate_seed_file(self) -> tuple[bool, str | None, str | None]:
+        """選挙結果メンバーのSEEDファイルを生成する."""
+        return self._run_async(self._generate_seed_file_async())
+
+    async def _generate_seed_file_async(self) -> tuple[bool, str | None, str | None]:
+        """選挙結果メンバーのSEEDファイルを生成する（非同期実装）."""
+        try:
+            result: GenerateSeedFileOutputDto = await self.use_case.generate_seed_file()
+            if result.success:
+                return True, result.seed_content, result.file_path
+            return False, None, result.error_message
+        except Exception as e:
+            error_msg = f"Failed to generate seed file: {e}"
+            self.logger.exception(error_msg)
+            return False, None, error_msg
 
     def handle_action(self, action: str, **kwargs: Any) -> Any:
         """ユーザーアクションを処理する."""

@@ -242,6 +242,116 @@ class TestSeedGenerator:
         )
         assert ";" in result
 
+    def test_generate_election_members_seed(self, seed_generator):
+        """election_membersのSEED生成テスト"""
+        # モックデータの準備
+        mock_rows = [
+            (1, 10, "当選", 85000, 1, 50, "国会", "国", "山田太郎"),
+            (1, 11, "落選", 42000, 2, 50, "国会", "国", "佐藤花子"),
+            (2, 12, "当選", None, None, 10, "東京都議会", "都道府県", "鈴木一郎"),
+        ]
+
+        mock_result = MagicMock()
+        mock_result.__iter__ = MagicMock(return_value=iter(mock_rows))
+        mock_result.keys.return_value = [
+            "election_id",
+            "politician_id",
+            "result",
+            "votes",
+            "rank",
+            "term_number",
+            "governing_body_name",
+            "governing_body_type",
+            "politician_name",
+        ]
+
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = mock_result
+        seed_generator.engine = MagicMock()
+        seed_generator.engine.connect.return_value.__enter__.return_value = mock_conn
+
+        # 実行
+        result = seed_generator.generate_election_members_seed()
+
+        # 検証
+        assert "-- election_members seed data" in result
+        assert "INSERT INTO election_members" in result
+        assert "(election_id, politician_id, result, votes, rank) VALUES" in result
+        assert "-- 国会 (国) 第50回" in result
+        assert "-- 東京都議会 (都道府県) 第10回" in result
+        assert "'当選', 85000, 1)" in result
+        assert "'落選', 42000, 2)" in result
+        assert "'当選', NULL, NULL)" in result
+        assert (
+            "ON CONFLICT (election_id, politician_id) DO UPDATE SET "
+            "result = EXCLUDED.result, "
+            "votes = EXCLUDED.votes, "
+            "rank = EXCLUDED.rank;"
+        ) in result
+        # サブクエリの検証
+        assert "SELECT id FROM elections WHERE governing_body_id" in result
+        assert "SELECT id FROM governing_bodies WHERE name" in result
+        assert "SELECT id FROM politicians WHERE name" in result
+
+    def test_generate_election_members_seed_sql_injection(self, seed_generator):
+        """election_membersのSQLインジェクション対策テスト"""
+        mock_rows = [
+            (
+                1,
+                10,
+                "当選",
+                1000,
+                1,
+                50,
+                "国会",
+                "国",
+                "O'Brien太郎",
+            ),
+        ]
+
+        mock_result = MagicMock()
+        mock_result.__iter__ = MagicMock(return_value=iter(mock_rows))
+        mock_result.keys.return_value = [
+            "election_id",
+            "politician_id",
+            "result",
+            "votes",
+            "rank",
+            "term_number",
+            "governing_body_name",
+            "governing_body_type",
+            "politician_name",
+        ]
+
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = mock_result
+        seed_generator.engine = MagicMock()
+        seed_generator.engine.connect.return_value.__enter__.return_value = mock_conn
+
+        # 実行
+        result = seed_generator.generate_election_members_seed()
+
+        # 検証 - シングルクォートがエスケープされていること
+        assert "O''Brien太郎" in result
+
+    def test_generate_election_members_seed_empty(self, seed_generator):
+        """election_membersの空データテスト"""
+        mock_result = MagicMock()
+        mock_result.__iter__ = MagicMock(return_value=iter([]))
+        mock_result.keys.return_value = []
+
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = mock_result
+        seed_generator.engine = MagicMock()
+        seed_generator.engine.connect.return_value.__enter__.return_value = mock_conn
+
+        # 実行
+        result = seed_generator.generate_election_members_seed()
+
+        # 検証 - ヘッダーとフッターのみが含まれること
+        assert "INSERT INTO election_members" in result
+        assert "ON CONFLICT (election_id, politician_id) DO UPDATE SET" in result
+
     def test_sql_injection_protection(self, seed_generator):
         """SQLインジェクション対策のテスト"""
         # 悪意のあるデータ
@@ -317,7 +427,7 @@ class TestSeedGenerator:
         generate_all_seeds()
 
         # 検証 - 各ファイルが作成されること
-        assert mock_open.call_count == 7  # 7つのSEEDファイル
+        assert mock_open.call_count == 8  # 8つのSEEDファイル
         expected_files = [
             "database/seed_governing_bodies_generated.sql",
             "database/seed_elections_generated.sql",
@@ -326,6 +436,7 @@ class TestSeedGenerator:
             "database/seed_parliamentary_groups_generated.sql",
             "database/seed_meetings_generated.sql",
             "database/seed_politicians_generated.sql",
+            "database/seed_election_members_generated.sql",
         ]
         for call, expected_file in zip(
             mock_open.call_args_list, expected_files, strict=False

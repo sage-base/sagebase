@@ -22,7 +22,7 @@ def render_election_members_page() -> None:
     election_presenter = ElectionPresenter()
     gb_presenter = GoverningBodyPresenter()
 
-    tab1, tab2, tab3 = st.tabs(["一覧", "新規登録", "編集・削除"])
+    tab1, tab2, tab3, tab4 = st.tabs(["一覧", "新規登録", "編集・削除", "SEED生成"])
 
     with tab1:
         render_list_tab(presenter, election_presenter, gb_presenter)
@@ -32,6 +32,9 @@ def render_election_members_page() -> None:
 
     with tab3:
         render_edit_delete_tab(presenter, election_presenter, gb_presenter)
+
+    with tab4:
+        render_seed_generator_tab(presenter)
 
 
 def _select_election(
@@ -350,6 +353,38 @@ def render_edit_delete_tab(
                 if st.button("キャンセル", key="cancel_delete_member"):
                     st.session_state["confirm_delete_election_member"] = False
                     st.rerun()
+
+
+def render_seed_generator_tab(
+    presenter: ElectionMemberPresenter,
+) -> None:
+    """SEED生成タブを描画する."""
+    st.subheader("SEEDファイル生成")
+    st.markdown(
+        "選挙結果メンバーのデータをSEEDファイルとして出力します。"
+        "生成されたファイルは `database/` ディレクトリに保存されます。"
+    )
+
+    if st.button(
+        "SEEDファイル生成", key="generate_election_member_seed", type="primary"
+    ):
+        with st.spinner("SEEDファイルを生成中..."):
+            success, seed_content, file_path_or_error = presenter.generate_seed_file()
+            if success:
+                st.success(f"SEEDファイルを生成しました: {file_path_or_error}")
+                if seed_content:
+                    with st.expander("生成されたSEEDファイル", expanded=False):
+                        st.code(seed_content, language="sql")
+                    st.download_button(
+                        label="SQLファイルをダウンロード",
+                        data=seed_content,
+                        file_name="seed_election_members_generated.sql",
+                        mime="text/plain",
+                    )
+            else:
+                st.error(
+                    f"SEEDファイル生成中にエラーが発生しました: {file_path_or_error}"
+                )
 
 
 def main():
