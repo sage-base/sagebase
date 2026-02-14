@@ -1,13 +1,7 @@
 """総務省比例代表XLSファイルパーサー.
 
-第48回（2017年）のXLSファイル（1423行×28列）をパースする。
-シート内にブロック単位でセクションが分割されている構造に対応。
-
-構造概要:
-    - 1シートに全11ブロック分のデータが格納
-    - ブロック名（「北海道ブロック」等）がセクション見出し
-    - 各ブロック内で政党ごとに候補者一覧
-    - 候補者行: 名簿順位、候補者名、小選挙区結果、惜敗率 等
+XLSファイルのセル値変換・ブロック名検出・当選者フィルタリング等の
+ユーティリティ関数、およびxlrdによる直接パース機能を提供する。
 """
 
 import logging
@@ -21,50 +15,22 @@ from src.domain.value_objects.proportional_candidate import (
     ProportionalElectionInfo,
 )
 from src.infrastructure.importers._constants import PROPORTIONAL_BLOCKS
-
-
-# 和暦→西暦変換
-_WAREKI_MAP = {
-    "令和": 2018,
-    "平成": 1988,
-    "昭和": 1925,
-}
+from src.infrastructure.importers._utils import zen_to_han
 
 
 logger = logging.getLogger(__name__)
 
-# ブロック名の検出パターン
+# ブロック名の検出パターン（「ブロック」「選挙区」両方に対応）
 _BLOCK_PATTERN = re.compile(
-    r"(北海道|東北|北関東|南関東|東京|北陸信越|東海|近畿|中国|四国|九州)\s*ブロック"
+    r"(北海道|東北|北関東|南関東|東京|北陸信越|東海|近畿|中国|四国|九州)"
+    r"\s*(?:ブロック|都?選挙区)"
 )
 
-# 当選人数を示すパターン
-_WINNERS_PATTERN = re.compile(r"当選人?\s*(\d+)")
+_PARTY_GROUP_OFFSETS = [0, 7, 14, 21]
 
-
-def _zen_to_han(text: str) -> str:
-    """全角数字・記号を半角に変換する."""
-    zen = "０１２３４５６７８９．"
-    han = "0123456789."
-    table = str.maketrans(zen, han)
-    return text.translate(table)
-
-
-def _parse_wareki_date(text: str) -> date | None:
-    """和暦の日付文字列を西暦dateに変換する."""
-    if not text:
-        return None
-    text = _zen_to_han(str(text))
-    pattern = r"(令和|平成|昭和)(\d+)年(\d+)月(\d+)日"
-    match = re.search(pattern, text)
-    if not match:
-        return None
-    era, year_str, month_str, day_str = match.groups()
-    base_year = _WAREKI_MAP.get(era)
-    if base_year is None:
-        return None
-    year = base_year + int(year_str)
-    return date(year, int(month_str), int(day_str))
+_ELECTION_DATES: dict[int, date] = {
+    48: date(2017, 10, 22),
+}
 
 
 def _clean_cell(value: object) -> str:
@@ -74,7 +40,7 @@ def _clean_cell(value: object) -> str:
     s = str(value).strip()
     if s == "":
         return ""
-    return _zen_to_han(s)
+    return zen_to_han(s)
 
 
 def _parse_float(value: object) -> float | None:
@@ -83,7 +49,7 @@ def _parse_float(value: object) -> float | None:
         return None
     if isinstance(value, (int, float)):
         return float(value) if value != 0 else None
-    s = _zen_to_han(str(value).strip().replace(",", "").replace("，", ""))
+    s = zen_to_han(str(value).strip().replace(",", "").replace("，", ""))
     s = s.replace("%", "").replace("％", "")
     if not s:
         return None
@@ -99,7 +65,7 @@ def _parse_int(value: object) -> int | None:
         return None
     if isinstance(value, (int, float)):
         return int(value) if value != 0 else None
-    s = _zen_to_han(str(value).strip().replace(",", "").replace("，", ""))
+    s = zen_to_han(str(value).strip().replace(",", "").replace("，", ""))
     if not s:
         return None
     try:
@@ -124,296 +90,186 @@ def _detect_block_name(row: tuple[object, ...]) -> str | None:
     return None
 
 
-def parse_proportional_xls(
-    file_path: Path,
-) -> tuple[ProportionalElectionInfo | None, list[ProportionalCandidateRecord]]:
-    """比例代表XLSファイルをパースする.
-
-    Args:
-        file_path: XLSファイルのパス
-
-    Returns:
-        (選挙情報, 比例代表候補者レコードのリスト)
-    """
-    suffix = file_path.suffix.lower()
-    if suffix == ".xlsx":
-        return _parse_xlsx_proportional(file_path)
-    elif suffix == ".xls":
-        return _parse_xls_proportional(file_path)
-    else:
-        logger.error("未対応のファイル形式: %s", suffix)
-        return None, []
-
-
-def _parse_xlsx_proportional(
-    file_path: Path,
-) -> tuple[ProportionalElectionInfo | None, list[ProportionalCandidateRecord]]:
-    """openpyxlを使用して.xlsxファイルをパースする."""
-    import openpyxl
-
-    wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
-    all_candidates: list[ProportionalCandidateRecord] = []
-    election_info: ProportionalElectionInfo | None = None
-
-    for sheet_name in wb.sheetnames:
-        ws = wb[sheet_name]
-        rows: list[tuple[object, ...]] = [
-            tuple(cell for cell in row) for row in ws.iter_rows(values_only=True)
-        ]
-        info, candidates = _parse_proportional_rows(rows)
-        if info and election_info is None:
-            election_info = info
-        all_candidates.extend(candidates)
-
-    wb.close()
-    return election_info, all_candidates
-
-
-def _parse_xls_proportional(
-    file_path: Path,
-) -> tuple[ProportionalElectionInfo | None, list[ProportionalCandidateRecord]]:
-    """xlrdを使用して.xlsファイルをパースする."""
-    import xlrd
-
-    wb = xlrd.open_workbook(str(file_path))
-    all_candidates: list[ProportionalCandidateRecord] = []
-    election_info: ProportionalElectionInfo | None = None
-
-    for sheet_idx in range(wb.nsheets):
-        ws = wb.sheet_by_index(sheet_idx)
-        if ws.nrows < 3:
-            continue
-
-        rows: list[tuple[object, ...]] = []
-        for row_idx in range(ws.nrows):
-            row: tuple[object, ...] = tuple(
-                ws.cell_value(row_idx, col_idx) for col_idx in range(ws.ncols)
-            )
-            rows.append(row)
-
-        info, candidates = _parse_proportional_rows(rows)
-        if info and election_info is None:
-            election_info = info
-        all_candidates.extend(candidates)
-
-    return election_info, all_candidates
-
-
-def _find_column_layout(
-    rows: list[tuple[object, ...]], start_idx: int
-) -> dict[str, int] | None:
-    """ヘッダー行からカラムレイアウトを検出する.
-
-    Returns:
-        カラム名→列番号のdict、またはNone
-    """
-    for i in range(start_idx, min(start_idx + 10, len(rows))):
-        row = rows[i]
-        layout: dict[str, int] = {}
-        for col_idx, cell in enumerate(row):
-            s = _clean_cell(cell)
-            if not s:
-                continue
-            if "順位" in s or "名簿" in s:
-                layout["list_order"] = col_idx
-            elif "氏名" in s or "候補者" in s or "名前" in s:
-                layout["name"] = col_idx
-            elif "小選挙区" in s or "選挙区" in s:
-                layout["smd_result"] = col_idx
-            elif "惜敗" in s or "率" in s:
-                layout["loss_ratio"] = col_idx
-            elif "当" in s and "落" in s:
-                layout["smd_result"] = col_idx
-
-        if "name" in layout:
-            return layout
-    return None
-
-
-def _parse_proportional_rows(
-    rows: list[tuple[object, ...]],
-) -> tuple[ProportionalElectionInfo | None, list[ProportionalCandidateRecord]]:
-    """行データから比例代表候補者レコードを抽出する.
-
-    比例代表XLSは以下の構造:
-    - ブロック見出し行（「北海道ブロック」等）
-    - 政党名見出し行
-    - カラムヘッダー行（順位、候補者名、小選挙区結果等）
-    - 候補者データ行
-    """
-    if len(rows) < 3:
-        return None, []
-
-    all_candidates: list[ProportionalCandidateRecord] = []
-    election_info: ProportionalElectionInfo | None = None
-
-    # 選挙日を最初の数行から抽出
-    for row in rows[:5]:
-        for cell in row:
-            s = _clean_cell(cell)
-            if s:
-                d = _parse_wareki_date(s)
-                if d:
-                    election_info = ProportionalElectionInfo(
-                        election_number=0,
-                        election_date=d,
-                    )
-                    break
-        if election_info:
-            break
-
-    current_block: str | None = None
-    current_party: str | None = None
-    current_layout: dict[str, int] | None = None
-    current_winners_count: int = 0
-    party_candidate_count: int = 0
-
-    i = 0
-    while i < len(rows):
-        row = rows[i]
-
-        # ブロック検出
-        block = _detect_block_name(row)
-        if block:
-            current_block = block
-            current_party = None
-            current_layout = None
-            logger.debug("ブロック検出: %s (行 %d)", block, i + 1)
-            i += 1
-            continue
-
-        if current_block is None:
-            i += 1
-            continue
-
-        # 行のテキスト内容を分析
-        row_text = " ".join(_clean_cell(c) for c in row).strip()
-
-        # 空行はスキップ
-        if not row_text:
-            i += 1
-            continue
-
-        # 政党名行の検出:
-        # 政党名は通常、非数値テキストで始まり、候補者データ行ではない
-        # 最初の非空セルが政党名候補
-        first_non_empty = ""
-        for cell in row:
-            s = _clean_cell(cell)
-            if s:
-                first_non_empty = s
-                break
-
-        # 当選人数を含む行は政党ヘッダーの一部
-        winners_match = _WINNERS_PATTERN.search(row_text)
-
-        # レイアウト検出の試行
-        if current_party and current_layout is None:
-            layout = _find_column_layout(rows, i)
-            if layout:
-                current_layout = layout
-                i += 1
-                continue
-
-        # 候補者データ行の判定
-        if current_party and current_layout:
-            name_col = current_layout.get("name", 1)
-            if name_col < len(row):
-                name = _clean_cell(row[name_col])
-                if name and not any(
-                    kw in name
-                    for kw in [
-                        "候補者",
-                        "氏名",
-                        "名簿",
-                        "順位",
-                        "合計",
-                        "計",
-                        "政党",
-                        "ブロック",
-                    ]
-                ):
-                    # 候補者データ行
-                    list_order_col = current_layout.get("list_order", 0)
-                    smd_col = current_layout.get("smd_result", -1)
-                    loss_col = current_layout.get("loss_ratio", -1)
-
-                    list_order = (
-                        _parse_int(row[list_order_col])
-                        if list_order_col < len(row)
-                        else None
-                    )
-                    smd_result = ""
-                    if 0 <= smd_col < len(row):
-                        smd_result = _clean_cell(row[smd_col])
-
-                    loss_ratio = None
-                    if 0 <= loss_col < len(row):
-                        loss_ratio = _parse_float(row[loss_col])
-
-                    party_candidate_count += 1
-                    is_elected = party_candidate_count <= current_winners_count
-
-                    # 比例復活 vs 比例当選の判定
-                    # smd_result: "当"=小選挙区当選, "落"=小選挙区落選, ""=比例単独
-                    candidate = ProportionalCandidateRecord(
-                        name=name,
-                        party_name=current_party,
-                        block_name=current_block,
-                        list_order=list_order or party_candidate_count,
-                        smd_result=smd_result,
-                        loss_ratio=loss_ratio,
-                        is_elected=is_elected,
-                    )
-                    all_candidates.append(candidate)
-                    i += 1
-                    continue
-
-        # 政党名行の検出（非数値、非ヘッダー、2文字以上）
-        if (
-            first_non_empty
-            and len(first_non_empty) >= 2
-            and not first_non_empty[0].isdigit()
-            and not any(
-                kw in first_non_empty
-                for kw in ["順位", "氏名", "候補者", "合計", "計", "当選"]
-            )
-        ):
-            # 新しい政党セクション
-            potential_party = first_non_empty
-            # 当選人数を同じ行から抽出
-            winners = 0
-            if winners_match:
-                winners = int(winners_match.group(1))
-
-            current_party = potential_party
-            current_winners_count = winners
-            current_layout = None
-            party_candidate_count = 0
-            logger.debug(
-                "政党検出: %s (当選%d名, ブロック=%s, 行 %d)",
-                current_party,
-                current_winners_count,
-                current_block,
-                i + 1,
-            )
-
-            # 次の行でレイアウトを検出
-            if i + 1 < len(rows):
-                layout = _find_column_layout(rows, i + 1)
-                if layout:
-                    current_layout = layout
-                    i += 2  # 政党行 + ヘッダー行をスキップ
-                    continue
-
-        i += 1
-
-    logger.info("比例代表XLSパース完了: %d候補者", len(all_candidates))
-    return election_info, all_candidates
-
-
 def get_elected_candidates(
     candidates: list[ProportionalCandidateRecord],
 ) -> list[ProportionalCandidateRecord]:
     """当選者のみを抽出する."""
     return [c for c in candidates if c.is_elected]
+
+
+def _clean_name(raw: str) -> str:
+    """XLSの氏名セルをクリーンアップする.
+
+    全角スペースによるパディングを除去し、姓と名の間に半角スペースを入れる。
+    例: '佐\u3000藤\u3000\u3000英\u3000道' → '佐藤 英道'
+    """
+    if not raw or not raw.strip():
+        return ""
+    parts = re.split(r"\u3000{2,}", raw.strip())
+    sei = parts[0].replace("\u3000", "") if parts else ""
+    mei = parts[1].replace("\u3000", "") if len(parts) > 1 else ""
+    return f"{sei} {mei}".strip()
+
+
+def _parse_winners_count(value: object) -> int:
+    """当選人数セルから数値を抽出する.
+
+    例: '3 人　　' → 3
+    """
+    s = _clean_cell(value)
+    m = re.search(r"(\d+)", s)
+    return int(m.group(1)) if m else 0
+
+
+def _parse_proportional_rows(
+    rows: list[tuple[object, ...]],
+    election_number: int,
+) -> list[ProportionalCandidateRecord]:
+    """XLSの行データから比例代表候補者レコードを抽出する.
+
+    XLSの構造:
+    - セクション開始行: ブロック名（例: '北海道選挙区'）
+    - +2行: 政党名（col2, col9, col16, col23 に最大4政党）
+    - +4行: 得票数
+    - +5行: 当選人数
+    - +7行: ヘッダー（名簿, 氏名, 順位, 小選挙区, 惜敗率）
+    - +8行〜: 候補者データ
+    - 各政党グループの列オフセット: 0, 7, 14, 21
+    """
+    candidates: list[ProportionalCandidateRecord] = []
+
+    section_starts: list[int] = []
+    for i, row in enumerate(rows):
+        s = _clean_cell(row[0]) if row else ""
+        if "選挙区" in s:
+            section_starts.append(i)
+
+    for sec_idx, start in enumerate(section_starts):
+        next_start = (
+            section_starts[sec_idx + 1]
+            if sec_idx + 1 < len(section_starts)
+            else len(rows)
+        )
+
+        block_text = _clean_cell(rows[start][0])
+        m = _BLOCK_PATTERN.search(block_text)
+        if not m:
+            continue
+        block_name = m.group(1)
+
+        if block_name not in PROPORTIONAL_BLOCKS:
+            logger.warning("未知のブロック名: %s", block_name)
+            continue
+
+        party_row_idx = start + 2
+        if party_row_idx >= len(rows):
+            continue
+        party_row = rows[party_row_idx]
+
+        winners_row_idx = start + 5
+        winners_row = rows[winners_row_idx] if winners_row_idx < len(rows) else ()
+
+        data_start = start + 8
+
+        for offset in _PARTY_GROUP_OFFSETS:
+            party_col = offset + 2
+            if party_col >= len(party_row):
+                continue
+            party_name = _clean_cell(party_row[party_col])
+            if not party_name or party_name == "政党等名":
+                continue
+
+            winners_count = _parse_winners_count(
+                winners_row[party_col] if party_col < len(winners_row) else None
+            )
+
+            name_col = offset + 1
+            order_col = offset + 0
+            smd_col = offset + 5
+            loss_col = offset + 6
+
+            party_candidates: list[ProportionalCandidateRecord] = []
+            for r in range(data_start, next_start):
+                if r >= len(rows):
+                    break
+                row = rows[r]
+                if name_col >= len(row):
+                    continue
+                raw_name = str(row[name_col]) if row[name_col] else ""
+                name = _clean_name(raw_name)
+                if not name:
+                    continue
+
+                list_order = (
+                    _parse_int(row[order_col] if order_col < len(row) else None) or 0
+                )
+
+                smd_val = _clean_cell(row[smd_col] if smd_col < len(row) else None)
+                smd_result = smd_val if smd_val in ("当", "落") else ""
+
+                loss_ratio = _parse_float(
+                    row[loss_col] if loss_col < len(row) else None
+                )
+
+                party_candidates.append(
+                    ProportionalCandidateRecord(
+                        name=name,
+                        party_name=party_name,
+                        block_name=block_name,
+                        list_order=list_order,
+                        smd_result=smd_result,
+                        loss_ratio=loss_ratio,
+                        is_elected=False,
+                    )
+                )
+
+            for i, c in enumerate(party_candidates):
+                if i < winners_count:
+                    party_candidates[i] = ProportionalCandidateRecord(
+                        name=c.name,
+                        party_name=c.party_name,
+                        block_name=c.block_name,
+                        list_order=c.list_order,
+                        smd_result=c.smd_result,
+                        loss_ratio=c.loss_ratio,
+                        is_elected=True,
+                    )
+
+            candidates.extend(party_candidates)
+
+    return candidates
+
+
+def parse_proportional_xls(
+    file_path: Path,
+    election_number: int,
+) -> tuple[ProportionalElectionInfo | None, list[ProportionalCandidateRecord]]:
+    """xlrdを使用して比例代表XLSファイルをパースする."""
+    import xlrd
+
+    wb = xlrd.open_workbook(str(file_path))
+    ws = wb.sheet_by_index(0)
+
+    rows: list[tuple[object, ...]] = []
+    for row_idx in range(ws.nrows):
+        row: tuple[object, ...] = tuple(
+            ws.cell_value(row_idx, col_idx) for col_idx in range(ws.ncols)
+        )
+        rows.append(row)
+
+    candidates = _parse_proportional_rows(rows, election_number)
+
+    election_date = _ELECTION_DATES.get(election_number)
+    election_info: ProportionalElectionInfo | None = None
+    if election_date:
+        election_info = ProportionalElectionInfo(
+            election_number=election_number,
+            election_date=election_date,
+        )
+
+    logger.info(
+        "XLSパース完了: %d候補者 (第%d回)",
+        len(candidates),
+        election_number,
+    )
+    return election_info, candidates

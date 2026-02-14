@@ -84,7 +84,7 @@ class SoumuProportionalDataSource:
         ProportionalElectionInfo | None,
         list[ProportionalCandidateRecord],
     ]:
-        """XLSファイルから候補者データを取得する."""
+        """XLSファイルをxlrdで直接パースして候補者データを抽出する."""
         from src.infrastructure.importers.soumu_proportional_xls_parser import (
             parse_proportional_xls,
         )
@@ -98,7 +98,11 @@ class SoumuProportionalDataSource:
             await asyncio.to_thread(_download_to, url, file_path)
 
         logger.info("XLSパース中: %s", file_path)
-        return await asyncio.to_thread(parse_proportional_xls, file_path)
+        return await asyncio.to_thread(
+            parse_proportional_xls,
+            file_path,
+            election_number,
+        )
 
     async def _fetch_from_pdf(
         self,

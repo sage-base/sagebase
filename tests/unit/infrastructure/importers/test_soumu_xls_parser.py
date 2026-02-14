@@ -6,11 +6,10 @@ from pathlib import Path
 import openpyxl
 import pytest
 
+from src.infrastructure.importers._utils import parse_wareki_date, zen_to_han
 from src.infrastructure.importers.soumu_xls_parser import (
     _extract_prefecture,
     _parse_votes,
-    _parse_wareki_date,
-    _zen_to_han,
     parse_xls_file,
 )
 
@@ -19,35 +18,35 @@ class TestZenToHan:
     """全角→半角変換のテスト."""
 
     def test_full_width_numbers(self) -> None:
-        assert _zen_to_han("１２３") == "123"
+        assert zen_to_han("１２３") == "123"
 
     def test_mixed(self) -> None:
-        assert _zen_to_han("第１区") == "第1区"
+        assert zen_to_han("第１区") == "第1区"
 
     def test_no_conversion_needed(self) -> None:
-        assert _zen_to_han("abc123") == "abc123"
+        assert zen_to_han("abc123") == "abc123"
 
 
 class TestParseWarekiDate:
     """和暦日付パースのテスト."""
 
     def test_reiwa(self) -> None:
-        result = _parse_wareki_date("令和６年１０月２７日執行")
+        result = parse_wareki_date("令和６年１０月２７日執行")
         assert result == date(2024, 10, 27)
 
     def test_reiwa_han(self) -> None:
-        result = _parse_wareki_date("令和3年10月31日執行")
+        result = parse_wareki_date("令和3年10月31日執行")
         assert result == date(2021, 10, 31)
 
     def test_heisei(self) -> None:
-        result = _parse_wareki_date("平成29年10月22日執行")
+        result = parse_wareki_date("平成29年10月22日執行")
         assert result == date(2017, 10, 22)
 
     def test_invalid(self) -> None:
-        assert _parse_wareki_date("invalid") is None
+        assert parse_wareki_date("invalid") is None
 
     def test_empty(self) -> None:
-        assert _parse_wareki_date("") is None
+        assert parse_wareki_date("") is None
 
 
 class TestExtractPrefecture:

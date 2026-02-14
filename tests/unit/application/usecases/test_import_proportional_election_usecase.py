@@ -468,7 +468,7 @@ class TestImportProportionalElectionUseCase:
 
         # 2回目: 同じpolitician_idでスキップ
         await use_case._process_candidate(candidate, election_id=1, output=output)
-        assert output.skipped_ambiguous == 1
+        assert output.skipped_duplicate == 1
         assert output.election_members_created == 1  # 増加しない
 
     async def test_process_candidate_creates_new_politician(

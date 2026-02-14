@@ -13,6 +13,8 @@ class Election(BaseEntity):
     「いつ行われた選挙で決まった期か」が明確になる。
     """
 
+    ELECTION_TYPE_GENERAL = "衆議院議員総選挙"
+
     def __init__(
         self,
         governing_body_id: int,

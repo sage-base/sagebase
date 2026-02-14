@@ -21,7 +21,7 @@ from src.infrastructure.importers._constants import PROPORTIONAL_BLOCKS
 
 logger = logging.getLogger(__name__)
 
-# Gemini に送るプロンプト
+# Gemini に送るプロンプト（PDF用）
 EXTRACTION_PROMPT = """\
 以下のPDFは日本の衆議院議員総選挙の比例代表「党派別当選人数」です。
 
@@ -92,7 +92,9 @@ def extract_from_pdf(
                 {"type": "text", "text": EXTRACTION_PROMPT},
                 {
                     "type": "image_url",
-                    "image_url": {"url": f"data:application/pdf;base64,{pdf_b64}"},
+                    "image_url": {
+                        "url": f"data:application/pdf;base64,{pdf_b64}",
+                    },
                 },
             ]
         )
@@ -192,7 +194,7 @@ def _parse_gemini_response(
                 all_candidates.append(candidate)
 
     logger.info(
-        "PDF抽出完了: %dブロック, %d候補者",
+        "抽出完了: %dブロック, %d候補者",
         len(blocks),
         len(all_candidates),
     )

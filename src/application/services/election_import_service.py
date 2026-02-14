@@ -9,13 +9,20 @@
 
 import logging
 
+from datetime import date
+from typing import Literal
+
+from src.domain.entities.election import Election
 from src.domain.entities.political_party import PoliticalParty
 from src.domain.entities.politician import Politician
+from src.domain.repositories.election_repository import ElectionRepository
 from src.domain.repositories.political_party_repository import PoliticalPartyRepository
 from src.domain.repositories.politician_repository import PoliticianRepository
 
 
 logger = logging.getLogger(__name__)
+
+MatchStatus = Literal["matched", "not_found", "ambiguous"]
 
 
 def normalize_name(name: str) -> str:
@@ -30,9 +37,11 @@ class ElectionImportService:
         self,
         politician_repository: PoliticianRepository,
         political_party_repository: PoliticalPartyRepository,
+        election_repository: ElectionRepository | None = None,
     ) -> None:
         self._politician_repo = politician_repository
         self._party_repo = political_party_repository
+        self._election_repo = election_repository
         self._party_cache: dict[str, PoliticalParty | None] = {}
 
     def clear_cache(self) -> None:
@@ -69,7 +78,7 @@ class ElectionImportService:
 
     async def match_politician(
         self, name: str, party_id: int | None
-    ) -> tuple[Politician | None, str]:
+    ) -> tuple[Politician | None, MatchStatus]:
         """候補者名で既存政治家を検索する.
 
         Returns:
@@ -119,3 +128,35 @@ class ElectionImportService:
         except Exception:
             logger.exception("政治家作成失敗: %s", name)
             return None
+
+    async def get_or_create_election(
+        self,
+        governing_body_id: int,
+        term_number: int,
+        election_date: date | None,
+        election_type: str = Election.ELECTION_TYPE_GENERAL,
+    ) -> Election | None:
+        """Electionレコードを取得または作成する."""
+        if self._election_repo is None:
+            raise RuntimeError("election_repository is not set")
+
+        existing = await self._election_repo.get_by_governing_body_and_term(
+            governing_body_id, term_number
+        )
+        if existing:
+            logger.info("既存のElectionを使用: %s (ID=%d)", existing, existing.id)
+            return existing
+
+        if election_date is None:
+            logger.error("選挙日が不正: %s", election_date)
+            return None
+
+        election = Election(
+            governing_body_id=governing_body_id,
+            term_number=term_number,
+            election_date=election_date,
+            election_type=election_type,
+        )
+        created = await self._election_repo.create(election)
+        logger.info("Electionを作成: %s (ID=%d)", created, created.id)
+        return created

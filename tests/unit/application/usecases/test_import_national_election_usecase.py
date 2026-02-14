@@ -366,7 +366,7 @@ class TestImportNationalElectionUseCase:
         await use_case._process_candidate(
             sample_candidates[0], election_id=1, output=result_output
         )
-        assert result_output.skipped_ambiguous == 1
+        assert result_output.skipped_duplicate == 1
         assert result_output.election_members_created == 1  # 増加しない
 
     async def test_process_candidate_new_party_increments_counter(

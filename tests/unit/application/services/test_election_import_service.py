@@ -1,5 +1,6 @@
 """選挙インポート共通サービスのテスト."""
 
+from datetime import date
 from unittest.mock import AsyncMock
 
 import pytest
@@ -8,8 +9,10 @@ from src.application.services.election_import_service import (
     ElectionImportService,
     normalize_name,
 )
+from src.domain.entities.election import Election
 from src.domain.entities.political_party import PoliticalParty
 from src.domain.entities.politician import Politician
+from src.domain.repositories.election_repository import ElectionRepository
 from src.domain.repositories.political_party_repository import (
     PoliticalPartyRepository,
 )
@@ -191,3 +194,72 @@ class TestElectionImportService:
 
         service.clear_cache()
         assert len(service._party_cache) == 0
+
+
+class TestGetOrCreateElection:
+    """get_or_create_electionのテスト."""
+
+    @pytest.fixture()
+    def mock_election_repo(self) -> AsyncMock:
+        return AsyncMock(spec=ElectionRepository)
+
+    @pytest.fixture()
+    def service(self, mock_election_repo: AsyncMock) -> ElectionImportService:
+        return ElectionImportService(
+            politician_repository=AsyncMock(spec=PoliticianRepository),
+            political_party_repository=AsyncMock(spec=PoliticalPartyRepository),
+            election_repository=mock_election_repo,
+        )
+
+    async def test_returns_existing_election(
+        self, service: ElectionImportService, mock_election_repo: AsyncMock
+    ) -> None:
+        """既存Electionが存在する場合はそれを返す."""
+        existing = Election(
+            governing_body_id=1,
+            term_number=50,
+            election_date=date(2024, 10, 27),
+            id=1,
+        )
+        mock_election_repo.get_by_governing_body_and_term.return_value = existing
+
+        result = await service.get_or_create_election(1, 50, date(2024, 10, 27))
+        assert result == existing
+        mock_election_repo.create.assert_not_called()
+
+    async def test_creates_new_election(
+        self, service: ElectionImportService, mock_election_repo: AsyncMock
+    ) -> None:
+        """既存Electionがない場合は新規作成する."""
+        mock_election_repo.get_by_governing_body_and_term.return_value = None
+        created = Election(
+            governing_body_id=1,
+            term_number=50,
+            election_date=date(2024, 10, 27),
+            election_type=Election.ELECTION_TYPE_GENERAL,
+            id=1,
+        )
+        mock_election_repo.create.return_value = created
+
+        result = await service.get_or_create_election(1, 50, date(2024, 10, 27))
+        assert result == created
+        mock_election_repo.create.assert_called_once()
+
+    async def test_returns_none_when_no_date(
+        self, service: ElectionImportService, mock_election_repo: AsyncMock
+    ) -> None:
+        """election_dateがNoneで既存Electionもない場合はNoneを返す."""
+        mock_election_repo.get_by_governing_body_and_term.return_value = None
+
+        result = await service.get_or_create_election(1, 50, None)
+        assert result is None
+        mock_election_repo.create.assert_not_called()
+
+    async def test_raises_when_no_election_repo(self) -> None:
+        """election_repositoryが未設定の場合はRuntimeErrorを送出する."""
+        service = ElectionImportService(
+            politician_repository=AsyncMock(spec=PoliticianRepository),
+            political_party_repository=AsyncMock(spec=PoliticalPartyRepository),
+        )
+        with pytest.raises(RuntimeError, match="election_repository is not set"):
+            await service.get_or_create_election(1, 50, date(2024, 10, 27))

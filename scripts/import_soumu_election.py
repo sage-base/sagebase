@@ -101,6 +101,7 @@ async def run_import(election_number: int, dry_run: bool) -> bool:
         logger.info("新規政治家: %d", result.created_politicians)
         logger.info("新規政党: %d", result.created_parties)
         logger.info("同姓同名スキップ: %d", result.skipped_ambiguous)
+        logger.info("重複スキップ: %d", result.skipped_duplicate)
         logger.info("ElectionMember作成: %d", result.election_members_created)
         logger.info("エラー: %d", result.errors)
 

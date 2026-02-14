@@ -11,14 +11,11 @@
 
 import logging
 
-from datetime import date
-
 from src.application.dtos.national_election_import_dto import (
     ImportNationalElectionInputDto,
     ImportNationalElectionOutputDto,
 )
 from src.application.services.election_import_service import ElectionImportService
-from src.domain.entities.election import Election
 from src.domain.entities.election_member import ElectionMember
 from src.domain.repositories.election_member_repository import ElectionMemberRepository
 from src.domain.repositories.election_repository import ElectionRepository
@@ -54,6 +51,7 @@ class ImportNationalElectionUseCase:
         self._import_service = import_service or ElectionImportService(
             politician_repository=politician_repository,
             political_party_repository=political_party_repository,
+            election_repository=election_repository,
         )
 
         # 同一選挙内で処理済みのpolitician_idを追跡（重複ElectionMember防止）
@@ -91,7 +89,7 @@ class ImportNationalElectionUseCase:
             return output
 
         # 2. Electionレコード作成
-        election = await self._get_or_create_election(
+        election = await self._import_service.get_or_create_election(
             input_dto.governing_body_id,
             input_dto.election_number,
             election_date,
@@ -119,44 +117,17 @@ class ImportNationalElectionUseCase:
 
         logger.info(
             "インポート完了: 候補者=%d, マッチ=%d, 新規政治家=%d, 新規政党=%d, "
-            "曖昧スキップ=%d, ElectionMember=%d, エラー=%d",
+            "曖昧スキップ=%d, 重複スキップ=%d, ElectionMember=%d, エラー=%d",
             output.total_candidates,
             output.matched_politicians,
             output.created_politicians,
             output.created_parties,
             output.skipped_ambiguous,
+            output.skipped_duplicate,
             output.election_members_created,
             output.errors,
         )
         return output
-
-    async def _get_or_create_election(
-        self,
-        governing_body_id: int,
-        term_number: int,
-        election_date: date | None,
-    ) -> Election | None:
-        """Electionレコードを取得または作成する."""
-        existing = await self._election_repo.get_by_governing_body_and_term(
-            governing_body_id, term_number
-        )
-        if existing:
-            logger.info("既存のElectionを使用: %s (ID=%d)", existing, existing.id)
-            return existing
-
-        if election_date is None:
-            logger.error("選挙日が不正: %s", election_date)
-            return None
-
-        election = Election(
-            governing_body_id=governing_body_id,
-            term_number=term_number,
-            election_date=election_date,
-            election_type="衆議院議員総選挙",
-        )
-        created = await self._election_repo.create(election)
-        logger.info("Electionを作成: %s (ID=%d)", created, created.id)
-        return created
 
     async def _process_candidate(
         self,
@@ -201,7 +172,7 @@ class ImportNationalElectionUseCase:
 
         # 同一選挙内で同じpoliticianのElectionMemberが既に作成済みの場合はスキップ
         if politician.id in self._processed_politician_ids:
-            output.skipped_ambiguous += 1
+            output.skipped_duplicate += 1
             logger.warning(
                 "同一政治家の重複スキップ: %s (politician_id=%d, %s)",
                 candidate.name,
