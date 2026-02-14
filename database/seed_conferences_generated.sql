@@ -1,6 +1,5 @@
--- Generated from database on 2025-09-13 01:38:32
+-- Generated from database on 2026-02-14 09:59:39
 -- conferences seed data
--- Updated: members_introduction_url カラム削除に対応 (Issue #1119)
 
 INSERT INTO conferences (name, governing_body_id) VALUES
 -- 開催主体未設定
