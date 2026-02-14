@@ -7,7 +7,6 @@ import pytest
 
 from src.application.dtos.expand_group_judges_dto import ExpandGroupJudgesRequestDTO
 from src.application.usecases.expand_group_judges_to_individual_usecase import (
-    SOURCE_TYPE_GROUP_EXPANSION,
     ExpandGroupJudgesToIndividualUseCase,
 )
 from src.domain.entities.meeting import Meeting
@@ -22,6 +21,13 @@ from src.domain.entities.proposal_parliamentary_group_judge import (
 from src.domain.repositories.meeting_repository import MeetingRepository
 from src.domain.repositories.parliamentary_group_membership_repository import (
     ParliamentaryGroupMembershipRepository,
+)
+from src.domain.repositories.parliamentary_group_repository import (
+    ParliamentaryGroupRepository,
+)
+from src.domain.repositories.politician_repository import PoliticianRepository
+from src.domain.repositories.proposal_deliberation_repository import (
+    ProposalDeliberationRepository,
 )
 from src.domain.repositories.proposal_judge_repository import ProposalJudgeRepository
 from src.domain.repositories.proposal_parliamentary_group_judge_repository import (
@@ -55,6 +61,20 @@ class TestExpandGroupJudgesToIndividualUseCase:
         return AsyncMock(spec=MeetingRepository)
 
     @pytest.fixture
+    def mock_politician_repo(self):
+        return AsyncMock(spec=PoliticianRepository)
+
+    @pytest.fixture
+    def mock_deliberation_repo(self):
+        mock = AsyncMock(spec=ProposalDeliberationRepository)
+        mock.get_by_proposal_id.return_value = []
+        return mock
+
+    @pytest.fixture
+    def mock_pg_repo(self):
+        return AsyncMock(spec=ParliamentaryGroupRepository)
+
+    @pytest.fixture
     def use_case(
         self,
         mock_group_judge_repo,
@@ -62,6 +82,9 @@ class TestExpandGroupJudgesToIndividualUseCase:
         mock_membership_repo,
         mock_proposal_repo,
         mock_meeting_repo,
+        mock_politician_repo,
+        mock_deliberation_repo,
+        mock_pg_repo,
     ):
         return ExpandGroupJudgesToIndividualUseCase(
             group_judge_repository=mock_group_judge_repo,
@@ -69,6 +92,9 @@ class TestExpandGroupJudgesToIndividualUseCase:
             membership_repository=mock_membership_repo,
             proposal_repository=mock_proposal_repo,
             meeting_repository=mock_meeting_repo,
+            politician_repository=mock_politician_repo,
+            deliberation_repository=mock_deliberation_repo,
+            parliamentary_group_repository=mock_pg_repo,
         )
 
     @pytest.fixture
@@ -300,7 +326,7 @@ class TestExpandGroupJudgesToIndividualUseCase:
         mock_proposal_judge_repo.update.assert_called_once()
         updated = mock_proposal_judge_repo.update.call_args[0][0]
         assert updated.approve == "賛成"
-        assert updated.source_type == SOURCE_TYPE_GROUP_EXPANSION
+        assert updated.source_type == ProposalJudge.SOURCE_TYPE_GROUP_EXPANSION
         assert updated.source_group_judge_id == 1
 
     @pytest.mark.asyncio
@@ -488,7 +514,7 @@ class TestExpandGroupJudgesToIndividualUseCase:
         created_judges = mock_proposal_judge_repo.bulk_create.call_args[0][0]
         assert len(created_judges) == 1
         judge = created_judges[0]
-        assert judge.source_type == SOURCE_TYPE_GROUP_EXPANSION
+        assert judge.source_type == ProposalJudge.SOURCE_TYPE_GROUP_EXPANSION
         assert judge.source_group_judge_id == 1
         assert judge.approve == "賛成"
         assert judge.proposal_id == 100
