@@ -11,51 +11,15 @@ XLSファイルの構造（小選挙区、1シート=1選挙区）:
 """
 
 import logging
-import re
 
-from datetime import date
 from pathlib import Path
 
 from src.domain.value_objects.election_candidate import CandidateRecord, ElectionInfo
 from src.infrastructure.importers._constants import PREFECTURE_NAMES
+from src.infrastructure.importers._utils import parse_wareki_date, zen_to_han
 
 
 logger = logging.getLogger(__name__)
-
-# 和暦→西暦変換
-WAREKI_MAP = {
-    "令和": 2018,
-    "平成": 1988,
-    "昭和": 1925,
-}
-
-
-def _zen_to_han(text: str) -> str:
-    """全角数字を半角数字に変換する."""
-    zen = "０１２３４５６７８９"
-    han = "0123456789"
-    table = str.maketrans(zen, han)
-    return text.translate(table)
-
-
-def _parse_wareki_date(text: str) -> date | None:
-    """和暦の日付文字列を西暦dateに変換する.
-
-    例: "令和６年１０月２７日執行" → date(2024, 10, 27)
-    """
-    if not text:
-        return None
-    text = _zen_to_han(str(text))
-    pattern = r"(令和|平成|昭和)(\d+)年(\d+)月(\d+)日"
-    match = re.search(pattern, text)
-    if not match:
-        return None
-    era, year_str, month_str, day_str = match.groups()
-    base_year = WAREKI_MAP.get(era)
-    if base_year is None:
-        return None
-    year = base_year + int(year_str)
-    return date(year, int(month_str), int(day_str))
 
 
 def _extract_prefecture(district_name: str) -> str:
@@ -86,7 +50,7 @@ def _parse_votes(value: object) -> int | None:
         return None
     if isinstance(value, (int, float)):
         return int(value)
-    s = _zen_to_han(str(value).strip().replace(",", "").replace("，", ""))
+    s = zen_to_han(str(value).strip().replace(",", "").replace("，", ""))
     s = s.replace(".", "").replace(" ", "").replace("　", "")
     if not s:
         return None
@@ -218,14 +182,14 @@ def _parse_rows(
 
     # Row 1: 選挙日
     election_date_str = _clean_cell_value(rows[0][0]) if rows[0] else None
-    election_date = _parse_wareki_date(election_date_str or "")
+    election_date = parse_wareki_date(election_date_str or "")
 
     # Row 3: 選挙区名（0-indexed: rows[2]）
     district_name = ""
     for cell in rows[2]:
         val = _clean_cell_value(cell)
         if val:
-            district_name = _zen_to_han(val)
+            district_name = zen_to_han(val)
             break
 
     if not district_name:

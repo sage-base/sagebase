@@ -1,20 +1,11 @@
-"""国政選挙データインポート用DTO."""
+"""比例代表選挙データインポート用DTO."""
 
 from dataclasses import dataclass, field
 
-from src.domain.value_objects.election_candidate import (
-    CandidateRecord,
-    ElectionInfo,
-)
-
-
-# ドメイン値オブジェクトを再エクスポート（後方互換性）
-__all__ = ["CandidateRecord", "ElectionInfo"]
-
 
 @dataclass
-class ImportNationalElectionInputDto:
-    """国政選挙インポートの入力DTO."""
+class ImportProportionalElectionInputDto:
+    """比例代表選挙インポートの入力DTO."""
 
     election_number: int
     governing_body_id: int
@@ -22,15 +13,19 @@ class ImportNationalElectionInputDto:
 
 
 @dataclass
-class ImportNationalElectionOutputDto:
-    """国政選挙インポートの出力DTO."""
+class ImportProportionalElectionOutputDto:
+    """比例代表選挙インポートの出力DTO."""
 
     election_number: int
     election_id: int | None = None
     total_candidates: int = 0
+    elected_candidates: int = 0
+    proportional_elected: int = 0
+    proportional_revival: int = 0
     matched_politicians: int = 0
     created_politicians: int = 0
     created_parties: int = 0
+    skipped_smd_winner: int = 0
     skipped_ambiguous: int = 0
     skipped_duplicate: int = 0
     election_members_created: int = 0

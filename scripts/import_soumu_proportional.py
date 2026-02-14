@@ -1,27 +1,28 @@
-"""総務省衆議院選挙データインポートスクリプト.
+"""総務省衆議院比例代表選挙データインポートスクリプト.
 
-総務省が公開するXLS/XLSXファイルから衆議院小選挙区の選挙結果をインポートする。
+総務省が公開するXLS/PDFファイルから衆議院比例代表の当選者データをインポートする。
 
 Usage (Docker経由で実行):
     docker compose -f docker/docker-compose.yml exec sagebase \
-        uv run python scripts/import_soumu_election.py --election 50
+        uv run python scripts/import_soumu_proportional.py --election 50
 
     # 全選挙（第45回〜第50回）をインポート
     docker compose -f docker/docker-compose.yml exec sagebase \
-        uv run python scripts/import_soumu_election.py --all
+        uv run python scripts/import_soumu_proportional.py --all
 
     # ドライラン（DB書き込みなし、抽出結果のみ表示）
     docker compose -f docker/docker-compose.yml exec sagebase \
-        uv run python scripts/import_soumu_election.py --election 50 --dry-run
+        uv run python scripts/import_soumu_proportional.py --election 50 --dry-run
 
 データソース:
-    総務省 衆議院選挙 市区町村別得票数
-    https://www.soumu.go.jp/senkyo/senkyo_s/data/shugiin50/shikuchouson.html
+    - 第48回 (2017): XLS（直接パース）
+    - 第45-47, 49-50回: PDF（Gemini APIで構造化抽出）
 
 前提条件:
     - Docker環境が起動済み（just up-detached）
     - マスターデータ（開催主体「国会」ID=1）がロード済み
     - Alembicマイグレーション適用済み
+    - PDF抽出にはGOOGLE_API_KEYが必要
 """
 
 import argparse
@@ -34,17 +35,17 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.application.dtos.national_election_import_dto import (
-    ImportNationalElectionInputDto,
+from src.application.dtos.proportional_election_import_dto import (
+    ImportProportionalElectionInputDto,
 )
-from src.application.usecases.import_national_election_usecase import (
-    ImportNationalElectionUseCase,
+from src.application.usecases.import_proportional_election_usecase import (
+    ImportProportionalElectionUseCase,
 )
 from src.infrastructure.config.async_database import get_async_session
-from src.infrastructure.importers.soumu_election_data_source import (
-    SoumuElectionDataSource,
+from src.infrastructure.importers._constants import PROPORTIONAL_SUPPORTED_ELECTIONS
+from src.infrastructure.importers.soumu_proportional_data_source import (
+    SoumuProportionalDataSource,
 )
-from src.infrastructure.importers.soumu_election_scraper import SUPPORTED_ELECTIONS
 from src.infrastructure.persistence.election_member_repository_impl import (
     ElectionMemberRepositoryImpl,
 )
@@ -69,25 +70,25 @@ GOVERNING_BODY_ID = 1  # 国会
 
 
 async def run_import(election_number: int, dry_run: bool) -> bool:
-    """1回分の選挙データをインポートする."""
-    logger.info("=== 第%d回衆議院選挙データインポート開始 ===", election_number)
+    """1回分の比例代表選挙データをインポートする."""
+    logger.info("=== 第%d回衆議院比例代表選挙データインポート開始 ===", election_number)
 
     async with get_async_session() as session:
         election_repo = ElectionRepositoryImpl(session)
         member_repo = ElectionMemberRepositoryImpl(session)
         politician_repo = PoliticianRepositoryImpl(session)
         party_repo = PoliticalPartyRepositoryImpl(session)
-        data_source = SoumuElectionDataSource()
+        data_source = SoumuProportionalDataSource()
 
-        use_case = ImportNationalElectionUseCase(
+        use_case = ImportProportionalElectionUseCase(
             election_repository=election_repo,
             election_member_repository=member_repo,
             politician_repository=politician_repo,
             political_party_repository=party_repo,
-            election_data_source=data_source,
+            proportional_data_source=data_source,
         )
 
-        input_dto = ImportNationalElectionInputDto(
+        input_dto = ImportProportionalElectionInputDto(
             election_number=election_number,
             governing_body_id=GOVERNING_BODY_ID,
             dry_run=dry_run,
@@ -95,11 +96,15 @@ async def run_import(election_number: int, dry_run: bool) -> bool:
 
         result = await use_case.execute(input_dto)
 
-        logger.info("--- インポート結果 (第%d回) ---", election_number)
-        logger.info("候補者数: %d", result.total_candidates)
+        logger.info("--- インポート結果 (第%d回 比例代表) ---", election_number)
+        logger.info("総候補者数: %d", result.total_candidates)
+        logger.info("当選者数: %d", result.elected_candidates)
+        logger.info("  比例単独当選: %d", result.proportional_elected)
+        logger.info("  比例復活当選: %d", result.proportional_revival)
         logger.info("マッチ政治家: %d", result.matched_politicians)
         logger.info("新規政治家: %d", result.created_politicians)
         logger.info("新規政党: %d", result.created_parties)
+        logger.info("小選挙区当選スキップ: %d", result.skipped_smd_winner)
         logger.info("同姓同名スキップ: %d", result.skipped_ambiguous)
         logger.info("重複スキップ: %d", result.skipped_duplicate)
         logger.info("ElectionMember作成: %d", result.election_members_created)
@@ -138,23 +143,29 @@ async def main(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="総務省衆議院選挙データをインポート",
+        description="総務省衆議院比例代表選挙データをインポート",
         epilog=(
             "例: docker compose -f docker/docker-compose.yml exec sagebase "
-            "uv run python scripts/import_soumu_election.py --election 50"
+            "uv run python scripts/import_soumu_proportional.py --election 50"
         ),
     )
     parser.add_argument(
         "--election",
         type=int,
-        choices=SUPPORTED_ELECTIONS,
-        help=f"選挙回次（{min(SUPPORTED_ELECTIONS)}-{max(SUPPORTED_ELECTIONS)}）",
+        choices=PROPORTIONAL_SUPPORTED_ELECTIONS,
+        help=(
+            f"選挙回次（{min(PROPORTIONAL_SUPPORTED_ELECTIONS)}"
+            f"-{max(PROPORTIONAL_SUPPORTED_ELECTIONS)}）"
+        ),
     )
     parser.add_argument(
         "--all",
         action="store_true",
         dest="import_all",
-        help=f"全選挙（第{min(SUPPORTED_ELECTIONS)}回〜第{max(SUPPORTED_ELECTIONS)}回）をインポート",
+        help=(
+            f"全選挙（第{min(PROPORTIONAL_SUPPORTED_ELECTIONS)}回"
+            f"〜第{max(PROPORTIONAL_SUPPORTED_ELECTIONS)}回）をインポート"
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -167,7 +178,7 @@ if __name__ == "__main__":
         parser.error("--election または --all を指定してください")
 
     if args.import_all:
-        election_numbers = SUPPORTED_ELECTIONS
+        election_numbers = PROPORTIONAL_SUPPORTED_ELECTIONS
     else:
         election_numbers = [args.election]
 

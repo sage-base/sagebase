@@ -58,6 +58,18 @@ class ElectionMemberRepositoryImpl(
         await self.session.flush()
         return result.rowcount
 
+    async def delete_by_election_id_and_results(
+        self, election_id: int, results: list[str]
+    ) -> int:
+        """選挙IDおよび結果値に一致するメンバーを削除."""
+        query = delete(self.model_class).where(
+            self.model_class.election_id == election_id,
+            self.model_class.result.in_(results),
+        )
+        result = await self.session.execute(query)
+        await self.session.flush()
+        return result.rowcount
+
     def _to_entity(self, model: ElectionMemberModel) -> ElectionMember:
         return ElectionMember(
             id=model.id,

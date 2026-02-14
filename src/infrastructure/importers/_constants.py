@@ -1,5 +1,37 @@
 """インポーターモジュール共通の定数."""
 
+# 比例代表11ブロック名
+PROPORTIONAL_BLOCKS: list[str] = [
+    "北海道",
+    "東北",
+    "北関東",
+    "南関東",
+    "東京",
+    "北陸信越",
+    "東海",
+    "近畿",
+    "中国",
+    "四国",
+    "九州",
+]
+
+# 比例代表PDFファイルURL（総務省main_content）
+PROPORTIONAL_PDF_URLS: dict[int, str] = {
+    45: "https://www.soumu.go.jp/main_content/000037486.pdf",
+    46: "https://www.soumu.go.jp/main_content/000194203.pdf",
+    47: "https://www.soumu.go.jp/main_content/000328953.pdf",
+    49: "https://www.soumu.go.jp/main_content/000776977.pdf",
+    50: "https://www.soumu.go.jp/main_content/000979132.pdf",
+}
+
+# 比例代表XLSファイルURL（第48回のみ）
+PROPORTIONAL_XLS_URLS: dict[int, str] = {
+    48: "https://www.soumu.go.jp/main_content/000516729.xls",
+}
+
+# 比例代表対応選挙回次
+PROPORTIONAL_SUPPORTED_ELECTIONS: list[int] = [45, 46, 47, 48, 49, 50]
+
 # 都道府県名リスト（コード順、1:北海道〜47:沖縄県）
 PREFECTURE_NAMES: list[str] = [
     "北海道",

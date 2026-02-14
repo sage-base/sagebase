@@ -44,6 +44,8 @@ class TestIsElected:
             ("当選", True),
             ("繰上当選", True),
             ("無投票当選", True),
+            ("比例当選", True),
+            ("比例復活", True),
             ("落選", False),
             ("次点", False),
         ],
