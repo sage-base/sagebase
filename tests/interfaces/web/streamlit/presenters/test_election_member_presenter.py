@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pandas as pd
 import pytest
 
+from src.application.dtos.election_dto import GenerateSeedFileOutputDto
 from src.application.dtos.election_member_dto import (
     CreateElectionMemberOutputDto,
     DeleteElectionMemberOutputDto,
@@ -584,3 +585,57 @@ class TestGetResultOptions:
         assert len(options) == 5
         assert "当選" in options
         assert "繰上当選" in options
+
+
+class TestGenerateSeedFile:
+    """generate_seed_fileメソッドのテスト."""
+
+    def test_generate_seed_file_success(
+        self,
+        presenter,
+        mock_use_case: AsyncMock,
+    ) -> None:
+        """SEEDファイル生成が成功することを確認."""
+        mock_use_case.generate_seed_file.return_value = GenerateSeedFileOutputDto(
+            success=True,
+            seed_content="INSERT INTO election_members ...",
+            file_path="database/seed_election_members_generated.sql",
+        )
+
+        success, seed_content, file_path = presenter.generate_seed_file()
+
+        assert success is True
+        assert seed_content == "INSERT INTO election_members ..."
+        assert file_path == "database/seed_election_members_generated.sql"
+        mock_use_case.generate_seed_file.assert_called_once()
+
+    def test_generate_seed_file_failure(
+        self,
+        presenter,
+        mock_use_case: AsyncMock,
+    ) -> None:
+        """SEEDファイル生成が失敗した場合にエラーを返すことを確認."""
+        mock_use_case.generate_seed_file.return_value = GenerateSeedFileOutputDto(
+            success=False,
+            error_message="シードファイル生成サービスが設定されていません",
+        )
+
+        success, seed_content, error_msg = presenter.generate_seed_file()
+
+        assert success is False
+        assert seed_content is None
+        assert "設定されていません" in (error_msg or "")
+
+    def test_generate_seed_file_exception(
+        self,
+        presenter,
+        mock_use_case: AsyncMock,
+    ) -> None:
+        """例外発生時にエラーメッセージを返すことを確認."""
+        mock_use_case.generate_seed_file.side_effect = Exception("Unexpected error")
+
+        success, seed_content, error_msg = presenter.generate_seed_file()
+
+        assert success is False
+        assert seed_content is None
+        assert error_msg is not None
