@@ -298,18 +298,10 @@ class TestLinkParliamentaryGroupUseCase:
             ParliamentaryGroupMembership(
                 politician_id=1,
                 parliamentary_group_id=100,
-                start_date=date(2024, 1, 1),
+                start_date=ELECTION_DATE,
                 id=99,
             ),
         ]
-        mock_repos[
-            "membership"
-        ].create_membership.return_value = ParliamentaryGroupMembership(
-            politician_id=1,
-            parliamentary_group_id=100,
-            start_date=ELECTION_DATE,
-            id=99,
-        )
 
         input_dto = LinkParliamentaryGroupInputDto(term_number=50)
         result = await use_case.execute(input_dto)
@@ -317,6 +309,7 @@ class TestLinkParliamentaryGroupUseCase:
         assert result.already_existed_count == 1
         assert result.linked_count == 0
         assert result.linked_members[0].was_existing is True
+        mock_repos["membership"].create_membership.assert_not_called()
 
     async def test_dry_run_no_writes(
         self,

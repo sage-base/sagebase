@@ -14,6 +14,7 @@
 import logging
 
 from collections import defaultdict
+from datetime import date
 
 from src.application.dtos.parliamentary_group_linkage_dto import (
     LinkedMember,
@@ -97,7 +98,7 @@ class LinkParliamentaryGroupUseCase:
                 party_to_groups[group.political_party_id].append(group)
 
         # 5. 既存メンバーシップを一括取得して重複チェック用セットを構築
-        existing_keys: set[tuple[int, int]] = set()
+        existing_keys: set[tuple[int, int, date]] = set()
         for group in groups:
             if group.id is None:
                 continue
@@ -105,7 +106,13 @@ class LinkParliamentaryGroupUseCase:
                 group.id, as_of_date=election.election_date
             )
             for ms in active_memberships:
-                existing_keys.add((ms.politician_id, ms.parliamentary_group_id))
+                existing_keys.add(
+                    (
+                        ms.politician_id,
+                        ms.parliamentary_group_id,
+                        ms.start_date,
+                    )
+                )
 
         # 6. 各当選者を処理
         for member in elected_members:
@@ -160,23 +167,26 @@ class LinkParliamentaryGroupUseCase:
 
             # 1:1 マッチ
             target_group = matching_groups[0]
-            assert target_group.id is not None
+            if target_group.id is None:
+                output.errors += 1
+                output.error_details.append(f"会派'{target_group.name}'のIDがNullです")
+                continue
 
             was_existing = (
                 member.politician_id,
                 target_group.id,
+                election.election_date,
             ) in existing_keys
-
-            if not input_dto.dry_run:
-                await self._membership_repo.create_membership(
-                    politician_id=member.politician_id,
-                    group_id=target_group.id,
-                    start_date=election.election_date,
-                )
 
             if was_existing:
                 output.already_existed_count += 1
             else:
+                if not input_dto.dry_run:
+                    await self._membership_repo.create_membership(
+                        politician_id=member.politician_id,
+                        group_id=target_group.id,
+                        start_date=election.election_date,
+                    )
                 output.linked_count += 1
 
             output.linked_members.append(
