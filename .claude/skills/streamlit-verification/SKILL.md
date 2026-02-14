@@ -1,6 +1,6 @@
 ---
 name: streamlit-verification
-description: Streamlit UIの動作確認手順を提供します。Google認証スキップでの起動方法、ブラウザでの確認手順、Playwrightによる自動確認をカバー。UIの変更・修正後に動作確認する時にアクティベートします。
+description: Streamlit UIの動作確認手順を提供します。Google認証スキップでの起動方法、ブラウザでの確認手順、Playwright CLIによる自動確認をカバー。UIの変更・修正後に動作確認する時にアクティベートします。
 ---
 
 # Streamlit Verification（Streamlit動作確認）
@@ -26,6 +26,7 @@ Streamlit UIの変更後に動作確認を行うための手順を提供しま�
 
 ### 終了
 - [ ] 確認後、必要に応じて `just down` でコンテナを停止
+- [ ] `playwright-cli close` でブラウザを閉じる
 
 ## 起動コマンド
 
@@ -57,25 +58,52 @@ just ports
 cat docker/docker-compose.override.yml
 ```
 
-## Playwright MCP による自動確認
+## Playwright CLI による自動確認
 
-Claude Codeがブラウザ経由で動作確認する場合は、Playwright MCPツールを使用します。
+Claude Codeがブラウザ経由で動作確認する場合は、`playwright-cli` コマンドを使用します。
 
 ### 基本的な確認手順
 
-1. **ページを開く**: `browser_navigate` でStreamlit URLにアクセス
-2. **スナップショット取得**: `browser_snapshot` でページのアクセシビリティツリーを確認
-3. **スクリーンショット**: `browser_take_screenshot` で視覚的な確認
-4. **要素の操作**: `browser_click`, `browser_type` でUI操作をテスト
+```bash
+# 1. ブラウザを開いてページにアクセス
+playwright-cli open http://localhost:{PORT}
 
-### 確認例
+# 2. ページ状態をYAMLスナップショットで確認
+playwright-cli snapshot
 
+# 3. スクリーンショットで視覚的に確認
+playwright-cli screenshot
+
+# 4. 要素を操作（refはsnapshotの結果から取得）
+playwright-cli click e21
+playwright-cli fill e5 "テスト入力"
+
+# 5. 操作後の状態を再確認
+playwright-cli snapshot
+
+# 6. ブラウザを閉じる
+playwright-cli close
 ```
-1. browser_navigate → http://localhost:{PORT}
-2. browser_snapshot → ページ構造を確認
-3. browser_click → サイドバーのメニュー項目をクリック
-4. browser_snapshot → 遷移先ページを確認
-5. browser_take_screenshot → 視覚的にキャプチャ
+
+### 確認例（サイドバーナビゲーション）
+
+```bash
+playwright-cli open http://localhost:8501
+playwright-cli snapshot
+playwright-cli click e10          # サイドバーのメニュー項目をクリック
+playwright-cli snapshot           # 遷移先ページの状態を確認
+playwright-cli screenshot         # 視覚的にキャプチャ
+playwright-cli close
+```
+
+### コンソール・ネットワーク確認
+
+```bash
+# コンソールエラーの確認
+playwright-cli console
+
+# ネットワークリクエストの確認
+playwright-cli network
 ```
 
 ## 注意事項
