@@ -17,6 +17,8 @@ class JudgmentType(Enum):
 class ProposalJudge(BaseEntity):
     """議案への賛否情報を表すエンティティ."""
 
+    SOURCE_TYPE_GROUP_EXPANSION = "GROUP_EXPANSION"
+
     def __init__(
         self,
         proposal_id: int,

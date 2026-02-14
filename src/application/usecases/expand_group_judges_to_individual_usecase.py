@@ -38,8 +38,6 @@ from src.domain.repositories.proposal_repository import ProposalRepository
 
 logger = logging.getLogger(__name__)
 
-SOURCE_TYPE_GROUP_EXPANSION = "GROUP_EXPANSION"
-
 
 class ExpandGroupJudgesToIndividualUseCase:
     """会派賛否データから個人投票データを展開するUseCase."""
@@ -115,7 +113,7 @@ class ExpandGroupJudgesToIndividualUseCase:
                 if existing is not None:
                     if request.force_overwrite:
                         existing.approve = gj.judgment
-                        existing.source_type = SOURCE_TYPE_GROUP_EXPANSION
+                        existing.source_type = ProposalJudge.SOURCE_TYPE_GROUP_EXPANSION
                         existing.source_group_judge_id = gj.id
                         await self._proposal_judge_repo.update(existing)
                         summary.judges_overwritten += 1
@@ -128,7 +126,7 @@ class ExpandGroupJudgesToIndividualUseCase:
                         proposal_id=gj.proposal_id,
                         politician_id=politician_id,
                         approve=gj.judgment,
-                        source_type=SOURCE_TYPE_GROUP_EXPANSION,
+                        source_type=ProposalJudge.SOURCE_TYPE_GROUP_EXPANSION,
                         source_group_judge_id=gj.id,
                     )
                 )
@@ -179,13 +177,9 @@ class ExpandGroupJudgesToIndividualUseCase:
                 result.items.append(item)
                 continue
 
-            all_politician_ids: set[int] = set()
-            for group_id in gj.parliamentary_group_ids:
-                members = await self._membership_repo.get_active_by_group(
-                    group_id, as_of_date=meeting_date
-                )
-                for m in members:
-                    all_politician_ids.add(m.politician_id)
+            all_politician_ids = await self._resolve_group_members(
+                gj.parliamentary_group_ids, as_of_date=meeting_date
+            )
 
             for politician_id in sorted(all_politician_ids):
                 politician = await self._politician_repo.get_by_id(politician_id)

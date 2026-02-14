@@ -7,7 +7,6 @@ import pytest
 
 from src.application.dtos.expand_group_judges_dto import ExpandGroupJudgesRequestDTO
 from src.application.usecases.expand_group_judges_to_individual_usecase import (
-    SOURCE_TYPE_GROUP_EXPANSION,
     ExpandGroupJudgesToIndividualUseCase,
 )
 from src.domain.entities.meeting import Meeting
@@ -327,7 +326,7 @@ class TestExpandGroupJudgesToIndividualUseCase:
         mock_proposal_judge_repo.update.assert_called_once()
         updated = mock_proposal_judge_repo.update.call_args[0][0]
         assert updated.approve == "賛成"
-        assert updated.source_type == SOURCE_TYPE_GROUP_EXPANSION
+        assert updated.source_type == ProposalJudge.SOURCE_TYPE_GROUP_EXPANSION
         assert updated.source_group_judge_id == 1
 
     @pytest.mark.asyncio
@@ -515,7 +514,7 @@ class TestExpandGroupJudgesToIndividualUseCase:
         created_judges = mock_proposal_judge_repo.bulk_create.call_args[0][0]
         assert len(created_judges) == 1
         judge = created_judges[0]
-        assert judge.source_type == SOURCE_TYPE_GROUP_EXPANSION
+        assert judge.source_type == ProposalJudge.SOURCE_TYPE_GROUP_EXPANSION
         assert judge.source_group_judge_id == 1
         assert judge.approve == "賛成"
         assert judge.proposal_id == 100

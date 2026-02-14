@@ -15,6 +15,7 @@ from src.domain.entities.parliamentary_group_membership import (
 )
 from src.domain.entities.politician import Politician
 from src.domain.entities.proposal import Proposal
+from src.domain.entities.proposal_deliberation import ProposalDeliberation
 from src.domain.entities.proposal_judge import ProposalJudge
 from src.domain.entities.proposal_parliamentary_group_judge import (
     ProposalParliamentaryGroupJudge,
@@ -274,3 +275,97 @@ class TestExpandGroupJudgesPreview:
         assert result.success is True
         assert len(result.items) == 0
         assert result.total_members == 0
+
+    @pytest.mark.asyncio
+    async def test_preview_meeting_date_via_deliberation(
+        self,
+        use_case,
+        mock_group_judge_repo,
+        mock_proposal_judge_repo,
+        mock_membership_repo,
+        mock_meeting_repo,
+        mock_politician_repo,
+        mock_deliberation_repo,
+        mock_pg_repo,
+    ):
+        """deliberation経由: ProposalDeliberation経由で投票日が特定される."""
+        gj = ProposalParliamentaryGroupJudge(
+            id=1,
+            proposal_id=100,
+            judgment="賛成",
+            judge_type=JudgeType.PARLIAMENTARY_GROUP,
+            parliamentary_group_ids=[10],
+        )
+        mock_group_judge_repo.get_by_id.return_value = gj
+        mock_deliberation_repo.get_by_proposal_id.return_value = [
+            ProposalDeliberation(
+                id=1, proposal_id=100, conference_id=300, meeting_id=200
+            ),
+        ]
+        mock_meeting_repo.get_by_id.return_value = Meeting(
+            id=200, conference_id=300, date=date(2025, 6, 15)
+        )
+        mock_pg_repo.get_by_id.return_value = ParliamentaryGroup(
+            id=10, name="テスト会派", governing_body_id=1
+        )
+        mock_membership_repo.get_active_by_group.return_value = [
+            ParliamentaryGroupMembership(
+                id=1,
+                politician_id=501,
+                parliamentary_group_id=10,
+                start_date=date(2024, 1, 1),
+            ),
+        ]
+        mock_politician_repo.get_by_id.return_value = Politician(
+            id=501, name="議員A", prefecture="東京都", district="地区A"
+        )
+        mock_proposal_judge_repo.get_by_proposal_and_politician.return_value = None
+
+        result = await use_case.preview([1])
+
+        assert result.success is True
+        assert result.total_members == 1
+        assert result.items[0].members[0].politician_name == "議員A"
+        # proposal_repo.get_by_idはフォールバックなので呼ばれない
+
+    @pytest.mark.asyncio
+    async def test_preview_deliberation_without_date_falls_back(
+        self,
+        use_case,
+        mock_group_judge_repo,
+        mock_proposal_repo,
+        mock_meeting_repo,
+        mock_deliberation_repo,
+        mock_pg_repo,
+    ):
+        """deliberation日付なし: meetingにdateがない場合フォールバック."""
+        gj = ProposalParliamentaryGroupJudge(
+            id=1,
+            proposal_id=100,
+            judgment="賛成",
+            judge_type=JudgeType.PARLIAMENTARY_GROUP,
+            parliamentary_group_ids=[10],
+        )
+        mock_group_judge_repo.get_by_id.return_value = gj
+        # deliberation経由のmeetingにdateがない
+        mock_deliberation_repo.get_by_proposal_id.return_value = [
+            ProposalDeliberation(
+                id=1, proposal_id=100, conference_id=300, meeting_id=200
+            ),
+        ]
+        mock_meeting_repo.get_by_id.return_value = Meeting(
+            id=200, conference_id=300, date=None
+        )
+        # フォールバックもmeeting_idなし
+        mock_proposal_repo.get_by_id.return_value = Proposal(
+            id=100, title="テスト議案", meeting_id=None
+        )
+        mock_pg_repo.get_by_id.return_value = ParliamentaryGroup(
+            id=10, name="テスト会派", governing_body_id=1
+        )
+
+        result = await use_case.preview([1])
+
+        assert result.success is True
+        assert len(result.items[0].errors) == 1
+        assert "投票日" in result.items[0].errors[0]
