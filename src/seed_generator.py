@@ -251,13 +251,14 @@ class SeedGenerator:
                         pg.url,
                         pg.description,
                         pg.is_active,
-                        c.name as conference_name,
+                        pg.political_party_id,
                         gb.name as governing_body_name,
-                        gb.type as governing_body_type
+                        gb.type as governing_body_type,
+                        pp.name as party_name
                     FROM parliamentary_groups pg
-                    JOIN conferences c ON pg.conference_id = c.id
-                    JOIN governing_bodies gb ON c.governing_body_id = gb.id
-                    ORDER BY gb.name, c.name, pg.name
+                    JOIN governing_bodies gb ON pg.governing_body_id = gb.id
+                    LEFT JOIN political_parties pp ON pg.political_party_id = pp.id
+                    ORDER BY gb.name, pg.name
                 """)
             )
             columns = result.keys()
@@ -272,17 +273,17 @@ class SeedGenerator:
             "",
             (
                 "INSERT INTO parliamentary_groups "
-                "(name, conference_id, url, description, is_active) VALUES"
+                "(name, governing_body_id, url, description, is_active, "
+                "political_party_id) VALUES"
             ),
         ]
 
-        # 会議体ごとにグループ化
+        # 開催主体ごとにグループ化
         grouped_data: dict[str, dict[str, Any]] = {}
         for group in groups:
-            key = f"{group['governing_body_name']} - {group['conference_name']}"
+            key = f"{group['governing_body_name']} ({group['governing_body_type']})"
             if key not in grouped_data:
                 grouped_data[key] = {
-                    "conference_name": group["conference_name"],
                     "governing_body_name": group["governing_body_name"],
                     "governing_body_type": group["governing_body_type"],
                     "groups": [],  # type: list[dict[str, Any]]
@@ -292,7 +293,6 @@ class SeedGenerator:
         first_group = True
         group_keys: list[str] = list(grouped_data.keys())
         for group_idx, (key, data) in enumerate(grouped_data.items()):
-            conf_name: str = data["conference_name"]
             body_name: str = data["governing_body_name"]
             body_type: str = data["governing_body_type"]
             groups_list: list[dict[str, Any]] = data["groups"]
@@ -304,7 +304,6 @@ class SeedGenerator:
             for i, group in enumerate(groups_list):
                 # SQLインジェクション対策のため、シングルクォートをエスケープ
                 name: str = group["name"].replace("'", "''")
-                conf_name_escaped: str = conf_name.replace("'", "''")
                 body_name_escaped: str = body_name.replace("'", "''")
                 body_type_escaped: str = body_type.replace("'", "''")
 
@@ -325,19 +324,38 @@ class SeedGenerator:
                 )
                 is_active = "true" if group.get("is_active", True) else "false"
 
+                # governing_body_idのサブクエリ
+                governing_body_part = (
+                    f"(SELECT id FROM governing_bodies "
+                    f"WHERE name = '{body_name_escaped}' "
+                    f"AND type = '{body_type_escaped}')"
+                )
+
+                # political_party_idの処理
+                if group.get("party_name"):
+                    party_name_escaped = group["party_name"].replace("'", "''")
+                    party_id_part = (
+                        f"(SELECT id FROM political_parties "
+                        f"WHERE name = '{party_name_escaped}')"
+                    )
+                else:
+                    party_id_part = "NULL"
+
                 lines.append(
-                    f"('{name}', "
-                    f"(SELECT c.id FROM conferences c "
-                    f"JOIN governing_bodies gb ON c.governing_body_id = gb.id "
-                    f"WHERE c.name = '{conf_name_escaped}' "
-                    f"AND gb.name = '{body_name_escaped}' "
-                    f"AND gb.type = '{body_type_escaped}'), "
-                    f"{url}, {description}, {is_active}){comma}"
+                    f"('{name}', {governing_body_part}, "
+                    f"{url}, {description}, {is_active}, "
+                    f"{party_id_part}){comma}"
                 )
 
             first_group = False
 
-        lines.append("ON CONFLICT (name, conference_id) DO NOTHING;")
+        lines.append(
+            "ON CONFLICT (name, governing_body_id) DO UPDATE SET "
+            "url = EXCLUDED.url, "
+            "description = EXCLUDED.description, "
+            "is_active = EXCLUDED.is_active, "
+            "political_party_id = EXCLUDED.political_party_id;"
+        )
 
         result = "\n".join(lines) + "\n"
         if output:
@@ -430,8 +448,9 @@ class SeedGenerator:
                     SELECT
                         p.name,
                         p.prefecture,
-                        p.electoral_district,
-                        p.profile_url,
+                        p.furigana,
+                        p.district,
+                        p.profile_page_url,
                         pp.name as party_name
                     FROM politicians p
                     LEFT JOIN political_parties pp ON p.political_party_id = pp.id
@@ -450,8 +469,8 @@ class SeedGenerator:
             "",
             (
                 "INSERT INTO politicians "
-                "(name, political_party_id, position, prefecture, "
-                "electoral_district, profile_url) VALUES"
+                "(name, political_party_id, prefecture, furigana, "
+                "district, profile_page_url) VALUES"
             ),
         ]
 
@@ -486,24 +505,24 @@ class SeedGenerator:
                 comma = "" if is_last else ","
 
                 # NULL値の処理
-                position = (
-                    f"'{politician['position'].replace(chr(39), chr(39) * 2)}'"
-                    if politician.get("position")
-                    else "NULL"
-                )
                 prefecture = (
                     f"'{politician['prefecture'].replace(chr(39), chr(39) * 2)}'"
                     if politician.get("prefecture")
                     else "NULL"
                 )
-                if politician.get("electoral_district"):
-                    ed = politician["electoral_district"].replace("'", "''")
-                    electoral_district = f"'{ed}'"
+                furigana = (
+                    f"'{politician['furigana'].replace(chr(39), chr(39) * 2)}'"
+                    if politician.get("furigana")
+                    else "NULL"
+                )
+                if politician.get("district"):
+                    d = politician["district"].replace("'", "''")
+                    district = f"'{d}'"
                 else:
-                    electoral_district = "NULL"
-                profile_url = (
-                    f"'{politician['profile_url'].replace(chr(39), chr(39) * 2)}'"
-                    if politician.get("profile_url")
+                    district = "NULL"
+                profile_page_url = (
+                    f"'{politician['profile_page_url'].replace(chr(39), chr(39) * 2)}'"
+                    if politician.get("profile_page_url")
                     else "NULL"
                 )
 
@@ -518,13 +537,138 @@ class SeedGenerator:
                     party_id_part = "NULL"
 
                 lines.append(
-                    f"('{name}', {party_id_part}, {position}, {prefecture}, "
-                    f"{electoral_district}, {profile_url}){comma}"
+                    f"('{name}', {party_id_part}, {prefecture}, {furigana}, "
+                    f"{district}, {profile_page_url}){comma}"
                 )
 
             first_group = False
 
         lines.append(";")
+
+        result = "\n".join(lines) + "\n"
+        if output:
+            output.write(result)
+        return result
+
+    def generate_election_members_seed(self, output: TextIO | None = None) -> str:
+        """election_membersテーブルのSEEDファイルを生成する"""
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    SELECT
+                        em.election_id,
+                        em.politician_id,
+                        em.result,
+                        em.votes,
+                        em.rank,
+                        e.term_number,
+                        gb.name AS governing_body_name,
+                        gb.type AS governing_body_type,
+                        p.name AS politician_name
+                    FROM election_members em
+                    JOIN elections e ON em.election_id = e.id
+                    JOIN governing_bodies gb ON e.governing_body_id = gb.id
+                    JOIN politicians p ON em.politician_id = p.id
+                    ORDER BY
+                        CASE gb.type
+                            WHEN '国' THEN 1
+                            WHEN '都道府県' THEN 2
+                            WHEN '市町村' THEN 3
+                            ELSE 4
+                        END,
+                        gb.name,
+                        e.term_number,
+                        em.rank ASC NULLS LAST,
+                        p.name
+                """)
+            )
+            columns = result.keys()
+            members = [dict(zip(columns, row, strict=False)) for row in result]
+
+        lines = [
+            (
+                f"-- Generated from database on "
+                f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            ),
+            "-- election_members seed data",
+            "",
+            (
+                "INSERT INTO election_members "
+                "(election_id, politician_id, result, votes, rank) VALUES"
+            ),
+        ]
+
+        # 開催主体+回次ごとにグループ化
+        grouped_data: dict[str, dict[str, Any]] = {}
+        for member in members:
+            key = (
+                f"{member['governing_body_type']}_{member['governing_body_name']}"
+                f"_{member['term_number']}"
+            )
+            if key not in grouped_data:
+                grouped_data[key] = {
+                    "body_name": member["governing_body_name"],
+                    "body_type": member["governing_body_type"],
+                    "term_number": member["term_number"],
+                    "members": [],
+                }
+            grouped_data[key]["members"].append(member)
+
+        first_group = True
+        group_keys: list[str] = list(grouped_data.keys())
+        for group_idx, (_key, data) in enumerate(grouped_data.items()):
+            body_name: str = data["body_name"]
+            body_type: str = data["body_type"]
+            term_number: int = data["term_number"]
+            members_list: list[dict[str, Any]] = data["members"]
+
+            if not first_group:
+                lines.append("")
+            lines.append(f"-- {body_name} ({body_type}) 第{term_number}回")
+
+            for i, member in enumerate(members_list):
+                # SQLインジェクション対策のため、シングルクォートをエスケープ
+                politician_name = member["politician_name"].replace("'", "''")
+                result_val = member["result"].replace("'", "''")
+
+                # 開催主体IDはサブクエリで取得（ネスト）
+                body_name_escaped = body_name.replace("'", "''")
+                body_type_escaped = body_type.replace("'", "''")
+                election_id_part = (
+                    f"(SELECT id FROM elections WHERE governing_body_id = "
+                    f"(SELECT id FROM governing_bodies WHERE name = "
+                    f"'{body_name_escaped}' AND type = '{body_type_escaped}') "
+                    f"AND term_number = {term_number})"
+                )
+
+                # politician_idはサブクエリで取得
+                politician_id_part = (
+                    f"(SELECT id FROM politicians WHERE name = '{politician_name}')"
+                )
+
+                # NULL値の処理
+                votes = str(member["votes"]) if member["votes"] is not None else "NULL"
+                rank = str(member["rank"]) if member["rank"] is not None else "NULL"
+
+                # 最後の要素かどうかチェック
+                is_last = (
+                    group_idx == len(group_keys) - 1 and i == len(members_list) - 1
+                )
+                comma = "" if is_last else ","
+
+                lines.append(
+                    f"({election_id_part}, {politician_id_part}, "
+                    f"'{result_val}', {votes}, {rank}){comma}"
+                )
+
+            first_group = False
+
+        lines.append(
+            "ON CONFLICT (election_id, politician_id) DO UPDATE SET "
+            "result = EXCLUDED.result, "
+            "votes = EXCLUDED.votes, "
+            "rank = EXCLUDED.rank;"
+        )
 
         result = "\n".join(lines) + "\n"
         if output:
@@ -703,6 +847,12 @@ def generate_all_seeds(output_dir: str = "database") -> None:
     path = os.path.join(output_dir, "seed_politicians_generated.sql")
     with open(path, "w") as f:
         generator.generate_politicians_seed(f)
+        print(f"Generated: {path}")
+
+    # election_members
+    path = os.path.join(output_dir, "seed_election_members_generated.sql")
+    with open(path, "w") as f:
+        generator.generate_election_members_seed(f)
         print(f"Generated: {path}")
 
 

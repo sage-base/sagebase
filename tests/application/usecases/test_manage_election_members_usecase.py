@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from src.application.dtos.election_dto import GenerateSeedFileOutputDto
 from src.application.dtos.election_member_dto import (
     CreateElectionMemberInputDto,
     DeleteElectionMemberInputDto,
@@ -16,6 +17,7 @@ from src.application.usecases.manage_election_members_usecase import (
 )
 from src.domain.entities.election_member import ElectionMember
 from src.domain.repositories.election_member_repository import ElectionMemberRepository
+from src.domain.services.interfaces.seed_generator_service import SeedFileResult
 
 
 class TestManageElectionMembersUseCase:
@@ -407,6 +409,92 @@ class TestManageElectionMembersUseCase:
 
         assert result.success is False
         assert result.error_message == "DB error"
+
+
+class TestGenerateSeedFile:
+    """generate_seed_fileメソッドのテスト."""
+
+    @pytest.fixture
+    def mock_election_member_repository(self):
+        return AsyncMock()
+
+    @pytest.fixture
+    def mock_seed_generator_service(self):
+        service = MagicMock()
+        service.generate_and_save_election_members_seed.return_value = SeedFileResult(
+            content="INSERT INTO election_members (election_id) VALUES (1);",
+            file_path="database/seed_election_members_generated.sql",
+        )
+        return service
+
+    @pytest.fixture
+    def use_case(self, mock_election_member_repository, mock_seed_generator_service):
+        return ManageElectionMembersUseCase(
+            election_member_repository=mock_election_member_repository,
+            seed_generator_service=mock_seed_generator_service,
+        )
+
+    @pytest.mark.asyncio
+    async def test_generate_seed_file_success(
+        self, use_case, mock_seed_generator_service
+    ):
+        """SEEDファイル生成が成功することを確認."""
+        result = await use_case.generate_seed_file()
+
+        assert isinstance(result, GenerateSeedFileOutputDto)
+        assert result.success is True
+        assert (
+            result.seed_content
+            == "INSERT INTO election_members (election_id) VALUES (1);"
+        )
+        assert result.file_path == "database/seed_election_members_generated.sql"
+        mock_seed_generator_service.generate_and_save_election_members_seed.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_generate_seed_file_error(
+        self, use_case, mock_seed_generator_service
+    ):
+        """サービスがエラーを返した場合に失敗を返すことを確認."""
+        mock = mock_seed_generator_service
+        mock.generate_and_save_election_members_seed.side_effect = RuntimeError(
+            "DB connection failed"
+        )
+
+        result = await use_case.generate_seed_file()
+
+        assert isinstance(result, GenerateSeedFileOutputDto)
+        assert result.success is False
+        assert "DB connection failed" in (result.error_message or "")
+
+    @pytest.mark.asyncio
+    async def test_generate_seed_file_without_service(
+        self, mock_election_member_repository
+    ):
+        """seed_generator_serviceがNoneの場合に失敗を返すことを確認."""
+        use_case = ManageElectionMembersUseCase(
+            election_member_repository=mock_election_member_repository,
+        )
+
+        result = await use_case.generate_seed_file()
+
+        assert result.success is False
+        assert "設定されていません" in (result.error_message or "")
+
+    @pytest.mark.asyncio
+    async def test_generate_seed_file_write_error(
+        self, use_case, mock_seed_generator_service
+    ):
+        """ファイル書き込みエラー時に失敗を返すことを確認."""
+        mock = mock_seed_generator_service
+        mock.generate_and_save_election_members_seed.side_effect = OSError(
+            "Permission denied"
+        )
+
+        result = await use_case.generate_seed_file()
+
+        assert isinstance(result, GenerateSeedFileOutputDto)
+        assert result.success is False
+        assert "Permission denied" in (result.error_message or "")
 
 
 class TestElectionMemberOutputItem:

@@ -1,4 +1,4 @@
--- Generated from database on 2025-09-13 01:38:26
+-- Generated from database on 2026-02-14 09:59:39
 -- meetings seed data
 
 INSERT INTO meetings (conference_id, date, url, gcs_pdf_uri, gcs_text_uri) VALUES
