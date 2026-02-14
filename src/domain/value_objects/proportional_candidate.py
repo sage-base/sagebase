@@ -18,17 +18,6 @@ class ProportionalCandidateRecord:
 
 
 @dataclass
-class ProportionalBlockResult:
-    """比例ブロック単位の結果."""
-
-    block_name: str
-    party_name: str
-    votes: int
-    winners_count: int
-    candidates: list[ProportionalCandidateRecord]
-
-
-@dataclass
 class ProportionalElectionInfo:
     """比例代表選挙の基本情報."""
 

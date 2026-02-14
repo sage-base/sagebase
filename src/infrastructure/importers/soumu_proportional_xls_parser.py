@@ -124,39 +124,6 @@ def _detect_block_name(row: tuple[object, ...]) -> str | None:
     return None
 
 
-def _is_party_header_row(row: tuple[object, ...]) -> str | None:
-    """行が政党ヘッダー行かどうかを判定し、政党名を返す."""
-    for cell in row:
-        s = _clean_cell(cell)
-        if not s:
-            continue
-        # 政党名は通常、行の先頭にある
-        # 数字のみの行は政党名ではない
-        if s and not s.isdigit() and len(s) >= 2:
-            # 候補者データ行でないことを確認
-            # 候補者行は通常、最初のセルが数字（名簿順位）
-            first_non_empty = s
-            try:
-                int(float(first_non_empty))
-                return None  # 数字は政党名ではない
-            except (ValueError, TypeError):
-                pass
-            return s
-    return None
-
-
-def _is_candidate_row(row: tuple[object, ...], name_col: int) -> bool:
-    """行が候補者データ行かどうかを判定する."""
-    if len(row) <= name_col:
-        return False
-    name = _clean_cell(row[name_col])
-    if not name:
-        return False
-    # 候補者名: 漢字を含み、ヘッダーキーワードでない
-    header_keywords = ["候補者", "氏名", "名簿", "順位", "当選", "政党", "合計", "計"]
-    return not any(kw in name for kw in header_keywords)
-
-
 def parse_proportional_xls(
     file_path: Path,
 ) -> tuple[ProportionalElectionInfo | None, list[ProportionalCandidateRecord]]:

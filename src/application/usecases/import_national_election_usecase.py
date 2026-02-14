@@ -17,10 +17,9 @@ from src.application.dtos.national_election_import_dto import (
     ImportNationalElectionInputDto,
     ImportNationalElectionOutputDto,
 )
+from src.application.services.election_import_service import ElectionImportService
 from src.domain.entities.election import Election
 from src.domain.entities.election_member import ElectionMember
-from src.domain.entities.political_party import PoliticalParty
-from src.domain.entities.politician import Politician
 from src.domain.repositories.election_member_repository import ElectionMemberRepository
 from src.domain.repositories.election_repository import ElectionRepository
 from src.domain.repositories.political_party_repository import (
@@ -36,11 +35,6 @@ from src.domain.value_objects.election_candidate import CandidateRecord
 logger = logging.getLogger(__name__)
 
 
-def normalize_name(name: str) -> str:
-    """候補者名の空白を全て除去して正規化する."""
-    return name.replace(" ", "").replace("\u3000", "")
-
-
 class ImportNationalElectionUseCase:
     """国政選挙データインポートのユースケース."""
 
@@ -51,15 +45,17 @@ class ImportNationalElectionUseCase:
         politician_repository: PoliticianRepository,
         political_party_repository: PoliticalPartyRepository,
         election_data_source: IElectionDataSourceService,
+        import_service: ElectionImportService | None = None,
     ) -> None:
         self._election_repo = election_repository
         self._member_repo = election_member_repository
         self._politician_repo = politician_repository
-        self._party_repo = political_party_repository
         self._data_source = election_data_source
+        self._import_service = import_service or ElectionImportService(
+            politician_repository=politician_repository,
+            political_party_repository=political_party_repository,
+        )
 
-        # 政党名キャッシュ（名前→エンティティ）
-        self._party_cache: dict[str, PoliticalParty | None] = {}
         # 同一選挙内で処理済みのpolitician_idを追跡（重複ElectionMember防止）
         self._processed_politician_ids: set[int] = set()
 
@@ -69,7 +65,7 @@ class ImportNationalElectionUseCase:
     ) -> ImportNationalElectionOutputDto:
         """インポートを実行する."""
         self._processed_politician_ids.clear()
-        self._party_cache.clear()
+        self._import_service.clear_cache()
         output = ImportNationalElectionOutputDto(
             election_number=input_dto.election_number
         )
@@ -170,13 +166,17 @@ class ImportNationalElectionUseCase:
     ) -> None:
         """候補者1名分の処理（政党解決→名寄せ→ElectionMember作成）."""
         # 政党を解決
-        party, is_new_party = await self._resolve_party(candidate.party_name)
+        party, is_new_party = await self._import_service.resolve_party(
+            candidate.party_name
+        )
         party_id = party.id if party else None
         if is_new_party:
             output.created_parties += 1
 
         # 政治家を名寄せ
-        politician, status = await self._match_politician(candidate.name, party_id)
+        politician, status = await self._import_service.match_politician(
+            candidate.name, party_id
+        )
 
         if status == "ambiguous":
             output.skipped_ambiguous += 1
@@ -187,7 +187,9 @@ class ImportNationalElectionUseCase:
 
         if politician is None:
             # 新規作成
-            politician = await self._create_politician(candidate, party_id)
+            politician = await self._import_service.create_politician(
+                candidate.name, candidate.prefecture, candidate.district_name, party_id
+            )
             output.created_politicians += 1
         else:
             output.matched_politicians += 1
@@ -224,83 +226,6 @@ class ImportNationalElectionUseCase:
         await self._member_repo.create(member)
         self._processed_politician_ids.add(politician.id)
         output.election_members_created += 1
-
-    async def _resolve_party(
-        self, party_name: str
-    ) -> tuple[PoliticalParty | None, bool]:
-        """政党名からPoliticalPartyエンティティを取得/作成する.
-
-        Returns:
-            (政党エンティティ, 新規作成フラグ)
-        """
-        if not party_name:
-            return None, False
-
-        # キャッシュチェック
-        if party_name in self._party_cache:
-            return self._party_cache[party_name], False
-
-        # DB検索
-        party = await self._party_repo.get_by_name(party_name)
-        if party:
-            self._party_cache[party_name] = party
-            return party, False
-
-        # 新規作成
-        logger.info("政党を新規作成: %s", party_name)
-        new_party = PoliticalParty(name=party_name)
-        created = await self._party_repo.create(new_party)
-        self._party_cache[party_name] = created
-        return created, True
-
-    async def _match_politician(
-        self, name: str, party_id: int | None
-    ) -> tuple[Politician | None, str]:
-        """候補者名で既存政治家を検索する.
-
-        Returns:
-            (politician, status): statusは "matched", "not_found", "ambiguous"
-        """
-        normalized = normalize_name(name)
-        candidates = await self._politician_repo.search_by_normalized_name(normalized)
-
-        if len(candidates) == 0:
-            return None, "not_found"
-        elif len(candidates) == 1:
-            return candidates[0], "matched"
-        else:
-            # 同姓同名: 政党で絞り込み
-            if party_id is not None:
-                party_filtered = [
-                    c for c in candidates if c.political_party_id == party_id
-                ]
-                if len(party_filtered) == 1:
-                    return party_filtered[0], "matched"
-            logger.warning(
-                "同姓同名の政治家が%d名: %s（party_id=%s）",
-                len(candidates),
-                name,
-                party_id,
-            )
-            return None, "ambiguous"
-
-    async def _create_politician(
-        self, candidate: CandidateRecord, party_id: int | None
-    ) -> Politician | None:
-        """新規政治家を作成する."""
-        politician = Politician(
-            name=candidate.name,
-            prefecture=candidate.prefecture,
-            district=candidate.district_name,
-            political_party_id=party_id,
-        )
-        try:
-            created = await self._politician_repo.create(politician)
-            logger.debug("政治家を作成: %s (ID=%d)", created.name, created.id)
-            return created
-        except Exception:
-            logger.exception("政治家作成失敗: %s", candidate.name)
-            return None
 
     def _print_dry_run_report(self, candidates: list[CandidateRecord]) -> None:
         """ドライラン時のレポートを出力する."""

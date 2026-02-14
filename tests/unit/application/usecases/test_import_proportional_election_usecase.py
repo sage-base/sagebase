@@ -195,7 +195,9 @@ class TestImportProportionalElectionUseCase:
         existing = Politician(name="渡辺孝一", prefecture="北海道", district="", id=1)
         mock_repos["politician"].search_by_normalized_name.return_value = [existing]
 
-        result, status = await use_case._match_politician("渡辺 孝一", None)
+        result, status = await use_case._import_service.match_politician(
+            "渡辺 孝一", None
+        )
         assert status == "matched"
         assert result is not None
         assert result.id == 1
@@ -208,7 +210,9 @@ class TestImportProportionalElectionUseCase:
         """マッチなしの場合、not_foundを返す."""
         mock_repos["politician"].search_by_normalized_name.return_value = []
 
-        result, status = await use_case._match_politician("新人 候補", None)
+        result, status = await use_case._import_service.match_politician(
+            "新人 候補", None
+        )
         assert status == "not_found"
         assert result is None
 
@@ -234,7 +238,7 @@ class TestImportProportionalElectionUseCase:
         )
         mock_repos["politician"].search_by_normalized_name.return_value = [p1, p2]
 
-        result, status = await use_case._match_politician("田中太郎", 1)
+        result, status = await use_case._import_service.match_politician("田中太郎", 1)
         assert status == "matched"
         assert result is not None
         assert result.id == 10
@@ -299,6 +303,7 @@ class TestImportProportionalElectionUseCase:
             id=1,
         )
         mock_repos["election"].get_by_governing_body_and_term.return_value = election
+        mock_repos["election_member"].delete_by_election_id_and_results.return_value = 0
 
         # 政党モック
         ldp = PoliticalParty(name="自由民主党", id=10)
@@ -329,6 +334,66 @@ class TestImportProportionalElectionUseCase:
         assert result.election_members_created == 2
         assert result.errors == 0
 
+    async def test_execute_deletes_existing_proportional_members(
+        self,
+        use_case: ImportProportionalElectionUseCase,
+        mock_repos: dict[str, AsyncMock],
+        mock_data_source: AsyncMock,
+        sample_candidates: list[ProportionalCandidateRecord],
+    ) -> None:
+        """再実行時に既存の比例メンバーのみ削除されることを確認."""
+        input_dto = ImportProportionalElectionInputDto(
+            election_number=50,
+            governing_body_id=1,
+            dry_run=False,
+        )
+
+        mock_data_source.fetch_proportional_candidates.return_value = (
+            ProportionalElectionInfo(
+                election_number=50, election_date=date(2024, 10, 27)
+            ),
+            sample_candidates,
+        )
+
+        election = Election(
+            governing_body_id=1,
+            term_number=50,
+            election_date=date(2024, 10, 27),
+            election_type="衆議院議員総選挙",
+            id=1,
+        )
+        mock_repos["election"].get_by_governing_body_and_term.return_value = election
+        mock_repos["election_member"].delete_by_election_id_and_results.return_value = 5
+
+        ldp = PoliticalParty(name="自由民主党", id=10)
+        mock_repos["political_party"].get_by_name.return_value = ldp
+
+        pol1 = Politician(name="渡辺孝一", prefecture="北海道", district="", id=100)
+        pol2 = Politician(name="佐藤花子", prefecture="", district="北海道", id=200)
+        mock_repos["politician"].search_by_normalized_name.side_effect = [
+            [pol1],
+            [pol2],
+        ]
+        mock_repos["election_member"].create.side_effect = [
+            ElectionMember(election_id=1, politician_id=100, result="比例復活", id=1),
+            ElectionMember(election_id=1, politician_id=200, result="比例当選", id=2),
+        ]
+
+        await use_case.execute(input_dto)
+
+        # 比例代表の結果値のみで削除が呼ばれることを確認
+        mock_repos[
+            "election_member"
+        ].delete_by_election_id_and_results.assert_called_once_with(
+            1,
+            [
+                ElectionMember.RESULT_PROPORTIONAL_ELECTED,
+                ElectionMember.RESULT_PROPORTIONAL_REVIVAL,
+            ],
+        )
+        # delete_by_election_id（全削除）は呼ばれないことを確認
+        mock_repos["election_member"].delete_by_election_id.assert_not_called()
+
     async def test_execute_no_candidates_returns_error(
         self,
         use_case: ImportProportionalElectionUseCase,
@@ -352,7 +417,9 @@ class TestImportProportionalElectionUseCase:
         mock_data_source: AsyncMock,
     ) -> None:
         """execute()開始時にキャッシュがクリアされることを確認."""
-        use_case._party_cache["test"] = PoliticalParty(name="test", id=1)
+        use_case._import_service._party_cache["test"] = PoliticalParty(
+            name="test", id=1
+        )
         use_case._processed_politician_ids.add(999)
 
         mock_data_source.fetch_proportional_candidates.return_value = (None, [])
@@ -363,7 +430,7 @@ class TestImportProportionalElectionUseCase:
         )
         await use_case.execute(input_dto)
 
-        assert len(use_case._party_cache) == 0
+        assert len(use_case._import_service._party_cache) == 0
         assert len(use_case._processed_politician_ids) == 0
 
     async def test_process_candidate_duplicate_politician_skips(

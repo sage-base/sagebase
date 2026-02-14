@@ -44,3 +44,18 @@ class ElectionMemberRepository(BaseRepository[ElectionMember]):
             削除件数
         """
         pass
+
+    @abstractmethod
+    async def delete_by_election_id_and_results(
+        self, election_id: int, results: list[str]
+    ) -> int:
+        """選挙IDおよび結果値に一致するメンバーを削除.
+
+        Args:
+            election_id: 選挙ID
+            results: 削除対象の結果値リスト（例: ["比例当選", "比例復活"]）
+
+        Returns:
+            削除件数
+        """
+        pass
