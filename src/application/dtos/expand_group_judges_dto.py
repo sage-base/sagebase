@@ -43,51 +43,19 @@ class ExpandGroupJudgesResultDTO:
     errors: list[str] = field(default_factory=list)
     skipped_no_meeting_date: int = 0
 
-    def merge(self, other: ExpandGroupJudgesResultDTO) -> None:
-        """他の結果DTOを自身にマージする."""
-        self.total_group_judges_processed += other.total_group_judges_processed
-        self.total_members_found += other.total_members_found
-        self.total_judges_created += other.total_judges_created
-        self.total_judges_skipped += other.total_judges_skipped
-        self.total_judges_overwritten += other.total_judges_overwritten
-        self.group_summaries.extend(other.group_summaries)
-        self.errors.extend(other.errors)
-        self.skipped_no_meeting_date += other.skipped_no_meeting_date
-        if not other.success:
-            self.success = False
-
-
-# ========== プレビュー用DTO ==========
-
-
-@dataclass
-class GroupJudgePreviewMember:
-    """プレビュー用メンバー情報."""
-
-    politician_id: int
-    politician_name: str
-    has_existing_vote: bool
-
-
-@dataclass
-class GroupJudgePreviewItem:
-    """プレビュー用会派賛否情報."""
-
-    group_judge_id: int
-    proposal_id: int
-    judgment: str
-    parliamentary_group_names: list[str]
-    members: list[GroupJudgePreviewMember] = field(default_factory=list)
-    existing_vote_count: int = 0
-    errors: list[str] = field(default_factory=list)
-
-
-@dataclass
-class ExpandGroupJudgesPreviewDTO:
-    """展開プレビュー結果DTO."""
-
-    success: bool
-    items: list[GroupJudgePreviewItem] = field(default_factory=list)
-    total_members: int = 0
-    total_existing_votes: int = 0
-    errors: list[str] = field(default_factory=list)
+    @classmethod
+    def merge(
+        cls, results: list[ExpandGroupJudgesResultDTO]
+    ) -> ExpandGroupJudgesResultDTO:
+        """複数の結果DTOを1つに統合する."""
+        merged = cls(success=all(r.success for r in results))
+        for r in results:
+            merged.total_group_judges_processed += r.total_group_judges_processed
+            merged.total_members_found += r.total_members_found
+            merged.total_judges_created += r.total_judges_created
+            merged.total_judges_skipped += r.total_judges_skipped
+            merged.total_judges_overwritten += r.total_judges_overwritten
+            merged.skipped_no_meeting_date += r.skipped_no_meeting_date
+            merged.group_summaries.extend(r.group_summaries)
+            merged.errors.extend(r.errors)
+        return merged

@@ -15,15 +15,20 @@ from uuid import UUID
 import pandas as pd
 
 from src.application.dtos.expand_group_judges_dto import (
-    ExpandGroupJudgesPreviewDTO,
     ExpandGroupJudgesRequestDTO,
     ExpandGroupJudgesResultDTO,
+)
+from src.application.dtos.expand_group_judges_preview_dto import (
+    ExpandGroupJudgesPreviewDTO,
 )
 from src.application.dtos.proposal_parliamentary_group_judge_dto import (
     ProposalParliamentaryGroupJudgeDTO,
 )
 from src.application.dtos.submitter_candidates_dto import SubmitterCandidatesDTO
 from src.application.usecases.authenticate_user_usecase import AuthenticateUserUseCase
+from src.application.usecases.expand_group_judges_to_individual_usecase import (
+    ExpandGroupJudgesToIndividualUseCase,
+)
 from src.application.usecases.extract_proposal_judges_usecase import (
     CreateProposalJudgesInputDTO,
     CreateProposalJudgesOutputDTO,
@@ -83,11 +88,17 @@ from src.infrastructure.persistence.governing_body_repository_impl import (
 from src.infrastructure.persistence.meeting_repository_impl import (
     MeetingRepositoryImpl,
 )
+from src.infrastructure.persistence.parliamentary_group_membership_repository_impl import (  # noqa: E501
+    ParliamentaryGroupMembershipRepositoryImpl,
+)
 from src.infrastructure.persistence.parliamentary_group_repository_impl import (
     ParliamentaryGroupRepositoryImpl,
 )
 from src.infrastructure.persistence.politician_repository_impl import (
     PoliticianRepositoryImpl,
+)
+from src.infrastructure.persistence.proposal_deliberation_repository_impl import (
+    ProposalDeliberationRepositoryImpl,
 )
 from src.infrastructure.persistence.proposal_judge_repository_impl import (
     ProposalJudgeRepositoryImpl,
@@ -200,6 +211,12 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
         self.conference_member_repository = RepositoryAdapter(
             ConferenceMemberRepositoryImpl
         )
+        self.membership_repository = RepositoryAdapter(
+            ParliamentaryGroupMembershipRepositoryImpl
+        )
+        self.deliberation_repository = RepositoryAdapter(
+            ProposalDeliberationRepositoryImpl
+        )
 
         # Initialize use cases
         self.manage_usecase = ManageProposalsUseCase(
@@ -221,6 +238,16 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
             parliamentary_group_repository=self.parliamentary_group_repository,  # type: ignore[arg-type]
             politician_repository=self.politician_repository,  # type: ignore[arg-type]
             conference_repository=self.conference_repository,  # type: ignore[arg-type]
+        )
+        self.expand_group_judges_usecase = ExpandGroupJudgesToIndividualUseCase(
+            group_judge_repository=self.parliamentary_group_judge_repository,  # type: ignore[arg-type]
+            proposal_judge_repository=self.judge_repository,  # type: ignore[arg-type]
+            membership_repository=self.membership_repository,  # type: ignore[arg-type]
+            proposal_repository=self.proposal_repository,  # type: ignore[arg-type]
+            meeting_repository=self.meeting_repository,  # type: ignore[arg-type]
+            politician_repository=self.politician_repository,  # type: ignore[arg-type]
+            deliberation_repository=self.deliberation_repository,  # type: ignore[arg-type]
+            parliamentary_group_repository=self.parliamentary_group_repository,  # type: ignore[arg-type]
         )
 
         # Session management
@@ -1490,121 +1517,48 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
 
         return None
 
-    # ========== 個人投票展開メソッド (Issue #1010) ==========
+    # ========== 個人投票展開 (Issue #1010) ==========
 
     def preview_group_judges_expansion(
-        self,
-        proposal_id: int,
-        group_judge_ids: list[int],
+        self, group_judge_ids: list[int]
     ) -> ExpandGroupJudgesPreviewDTO:
-        """会派賛否の個人投票展開をプレビューする.
-
-        Args:
-            proposal_id: 議案ID
-            group_judge_ids: プレビュー対象の会派賛否IDリスト
-
-        Returns:
-            プレビュー結果DTO
-        """
+        """会派賛否展開のプレビューを取得する."""
         return self._run_async(
-            self._preview_group_judges_expansion_async(proposal_id, group_judge_ids)
+            self.expand_group_judges_usecase.preview(group_judge_ids)
         )
-
-    async def _preview_group_judges_expansion_async(
-        self,
-        proposal_id: int,
-        group_judge_ids: list[int],
-    ) -> ExpandGroupJudgesPreviewDTO:
-        """会派賛否の個人投票展開をプレビューする（非同期実装）."""
-        if self.container is None:
-            raise ValueError("DI container is not initialized")
-
-        expand_usecase = self.container.use_cases.expand_group_judges_usecase()
-        return await expand_usecase.preview(proposal_id, group_judge_ids)
 
     def expand_group_judges_to_individual(
         self,
-        proposal_id: int | None = None,
         group_judge_ids: list[int] | None = None,
+        proposal_id: int | None = None,
         force_overwrite: bool = False,
     ) -> ExpandGroupJudgesResultDTO:
-        """会派賛否を個人投票データに展開する.
-
-        Args:
-            proposal_id: 議案ID（全会派賛否を展開する場合）
-            group_judge_ids: 展開対象の会派賛否IDリスト（個別指定の場合）
-            force_overwrite: 既存データを上書きするかどうか
-
-        Returns:
-            展開結果DTO
-        """
-        return self._run_async(
-            self._expand_group_judges_to_individual_async(
-                proposal_id, group_judge_ids, force_overwrite
-            )
-        )
-
-    async def _expand_group_judges_to_individual_async(
-        self,
-        proposal_id: int | None = None,
-        group_judge_ids: list[int] | None = None,
-        force_overwrite: bool = False,
-    ) -> ExpandGroupJudgesResultDTO:
-        """会派賛否を個人投票データに展開する（非同期実装）."""
-        if self.container is None:
-            raise ValueError("DI container is not initialized")
-
-        expand_usecase = self.container.use_cases.expand_group_judges_usecase()
-
-        # group_judge_idsが指定されている場合、各IDについて個別に実行
+        """会派賛否を個人投票データに展開する."""
         if group_judge_ids:
-            combined_result = ExpandGroupJudgesResultDTO(success=True)
+            results: list[ExpandGroupJudgesResultDTO] = []
             for gj_id in group_judge_ids:
                 request = ExpandGroupJudgesRequestDTO(
                     group_judge_id=gj_id,
                     force_overwrite=force_overwrite,
                 )
-                partial = await expand_usecase.execute(request)
-                combined_result.merge(partial)
-            return combined_result
-
-        # proposal_idが指定されている場合
-        request = ExpandGroupJudgesRequestDTO(
-            proposal_id=proposal_id,
-            force_overwrite=force_overwrite,
-        )
-        return await expand_usecase.execute(request)
+                result = self._run_async(
+                    self.expand_group_judges_usecase.execute(request)
+                )
+                results.append(result)
+            return ExpandGroupJudgesResultDTO.merge(results)
+        else:
+            request = ExpandGroupJudgesRequestDTO(
+                proposal_id=proposal_id,
+                force_overwrite=force_overwrite,
+            )
+            return self._run_async(self.expand_group_judges_usecase.execute(request))
 
     def expand_single_group_judge(
-        self,
-        group_judge_id: int,
-        force_overwrite: bool = False,
+        self, group_judge_id: int, force_overwrite: bool = False
     ) -> ExpandGroupJudgesResultDTO:
-        """単一の会派賛否を個人投票データに展開する.
-
-        Args:
-            group_judge_id: 展開対象の会派賛否ID
-            force_overwrite: 既存データを上書きするかどうか
-
-        Returns:
-            展開結果DTO
-        """
-        return self._run_async(
-            self._expand_single_group_judge_async(group_judge_id, force_overwrite)
-        )
-
-    async def _expand_single_group_judge_async(
-        self,
-        group_judge_id: int,
-        force_overwrite: bool = False,
-    ) -> ExpandGroupJudgesResultDTO:
-        """単一の会派賛否を個人投票データに展開する（非同期実装）."""
-        if self.container is None:
-            raise ValueError("DI container is not initialized")
-
-        expand_usecase = self.container.use_cases.expand_group_judges_usecase()
+        """単一会派賛否の展開を実行する."""
         request = ExpandGroupJudgesRequestDTO(
             group_judge_id=group_judge_id,
             force_overwrite=force_overwrite,
         )
-        return await expand_usecase.execute(request)
+        return self._run_async(self.expand_group_judges_usecase.execute(request))

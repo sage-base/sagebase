@@ -5,10 +5,12 @@ import logging
 from datetime import date
 
 from src.application.dtos.expand_group_judges_dto import (
-    ExpandGroupJudgesPreviewDTO,
     ExpandGroupJudgesRequestDTO,
     ExpandGroupJudgesResultDTO,
     GroupJudgeExpansionSummary,
+)
+from src.application.dtos.expand_group_judges_preview_dto import (
+    ExpandGroupJudgesPreviewDTO,
     GroupJudgePreviewItem,
     GroupJudgePreviewMember,
 )
@@ -20,7 +22,13 @@ from src.domain.repositories.meeting_repository import MeetingRepository
 from src.domain.repositories.parliamentary_group_membership_repository import (
     ParliamentaryGroupMembershipRepository,
 )
+from src.domain.repositories.parliamentary_group_repository import (
+    ParliamentaryGroupRepository,
+)
 from src.domain.repositories.politician_repository import PoliticianRepository
+from src.domain.repositories.proposal_deliberation_repository import (
+    ProposalDeliberationRepository,
+)
 from src.domain.repositories.proposal_judge_repository import ProposalJudgeRepository
 from src.domain.repositories.proposal_parliamentary_group_judge_repository import (
     ProposalParliamentaryGroupJudgeRepository,
@@ -43,7 +51,9 @@ class ExpandGroupJudgesToIndividualUseCase:
         membership_repository: ParliamentaryGroupMembershipRepository,
         proposal_repository: ProposalRepository,
         meeting_repository: MeetingRepository,
-        politician_repository: PoliticianRepository | None = None,
+        politician_repository: PoliticianRepository,
+        deliberation_repository: ProposalDeliberationRepository,
+        parliamentary_group_repository: ParliamentaryGroupRepository,
     ) -> None:
         self._group_judge_repo = group_judge_repository
         self._proposal_judge_repo = proposal_judge_repository
@@ -51,6 +61,8 @@ class ExpandGroupJudgesToIndividualUseCase:
         self._proposal_repo = proposal_repository
         self._meeting_repo = meeting_repository
         self._politician_repo = politician_repository
+        self._deliberation_repo = deliberation_repository
+        self._parliamentary_group_repo = parliamentary_group_repository
 
     async def execute(
         self, request: ExpandGroupJudgesRequestDTO
@@ -134,62 +146,32 @@ class ExpandGroupJudgesToIndividualUseCase:
 
         return result
 
-    async def preview(
-        self,
-        proposal_id: int,
-        group_judge_ids: list[int],
-    ) -> ExpandGroupJudgesPreviewDTO:
-        """会派賛否の個人投票展開をプレビューする.
-
-        Args:
-            proposal_id: 議案ID
-            group_judge_ids: プレビュー対象の会派賛否IDリスト
-
-        Returns:
-            プレビュー結果DTO
-        """
-        if self._politician_repo is None:
-            raise ValueError("politician_repository is required for preview")
-
+    async def preview(self, group_judge_ids: list[int]) -> ExpandGroupJudgesPreviewDTO:
+        """指定した会派賛否IDリストに対しプレビューを生成する."""
         result = ExpandGroupJudgesPreviewDTO(success=True)
 
-        # 議案の存在確認
-        proposal = await self._proposal_repo.get_by_id(proposal_id)
-        if not proposal:
-            result.success = False
-            result.errors.append(f"議案ID {proposal_id} が見つかりません")
-            return result
+        for gj_id in group_judge_ids:
+            gj = await self._group_judge_repo.get_by_id(gj_id)
+            if gj is None:
+                result.errors.append(f"会派賛否ID {gj_id} が見つかりません")
+                continue
 
-        # 投票日を特定
-        meeting_date = await self._get_meeting_date(proposal_id)
-
-        # 対象の会派賛否を取得・フィルタ
-        all_group_judges = await self._group_judge_repo.get_by_proposal(proposal_id)
-        target_judges = [gj for gj in all_group_judges if gj.id in group_judge_ids]
-
-        if not target_judges:
-            result.success = False
-            result.errors.append("選択された会派賛否が見つかりません")
-            return result
-
-        # 既存の個人投票データを一括取得
-        existing_judges = await self._proposal_judge_repo.get_by_proposal(proposal_id)
-        existing_politician_ids = {j.politician_id for j in existing_judges}
-
-        for gj in target_judges:
             if not gj.is_parliamentary_group_judge():
                 continue
 
-            # 会派名はエンティティに持たないためIDリストで表示
-            pg_names = [f"会派ID:{gid}" for gid in gj.parliamentary_group_ids]
+            pg_names: list[str] = []
+            for pg_id in gj.parliamentary_group_ids:
+                pg = await self._parliamentary_group_repo.get_by_id(pg_id)
+                pg_names.append(pg.name if pg else f"ID:{pg_id}")
 
             item = GroupJudgePreviewItem(
                 group_judge_id=gj.id or 0,
-                proposal_id=proposal_id,
                 judgment=gj.judgment,
                 parliamentary_group_names=pg_names,
+                members=[],
             )
 
+            meeting_date = await self._get_meeting_date(gj.proposal_id)
             if meeting_date is None:
                 item.errors.append(
                     "投票日が特定できません（meeting_idまたはdateがnull）"
@@ -197,37 +179,39 @@ class ExpandGroupJudgesToIndividualUseCase:
                 result.items.append(item)
                 continue
 
-            # 会派メンバーを解決（共通ヘルパー使用）
-            all_politician_ids = await self._resolve_group_members(
-                gj.parliamentary_group_ids, meeting_date
-            )
-
-            # 政治家名を一括取得
-            politician_name_map: dict[int, str] = {}
-            if all_politician_ids:
-                politicians = await self._politician_repo.get_by_ids(
-                    list(all_politician_ids)
+            all_politician_ids: set[int] = set()
+            for group_id in gj.parliamentary_group_ids:
+                members = await self._membership_repo.get_active_by_group(
+                    group_id, as_of_date=meeting_date
                 )
-                politician_name_map = {
-                    p.id: p.name for p in politicians if p.id is not None
-                }
+                for m in members:
+                    all_politician_ids.add(m.politician_id)
 
-            # メンバーリストを構築
-            for pid in sorted(all_politician_ids):
-                has_existing = pid in existing_politician_ids
+            for politician_id in sorted(all_politician_ids):
+                politician = await self._politician_repo.get_by_id(politician_id)
+                politician_name = (
+                    politician.name if politician else f"ID:{politician_id}"
+                )
+
+                existing = (
+                    await self._proposal_judge_repo.get_by_proposal_and_politician(
+                        gj.proposal_id, politician_id
+                    )
+                )
+                has_existing = existing is not None
+
                 item.members.append(
                     GroupJudgePreviewMember(
-                        politician_id=pid,
-                        politician_name=politician_name_map.get(pid, f"ID:{pid}"),
+                        politician_id=politician_id,
+                        politician_name=politician_name,
                         has_existing_vote=has_existing,
                     )
                 )
+                result.total_members += 1
                 if has_existing:
-                    item.existing_vote_count += 1
+                    result.total_existing_votes += 1
 
             result.items.append(item)
-            result.total_members += len(item.members)
-            result.total_existing_votes += item.existing_vote_count
 
         return result
 
@@ -258,6 +242,13 @@ class ExpandGroupJudgesToIndividualUseCase:
 
     async def _get_meeting_date(self, proposal_id: int) -> date | None:
         """Proposal→Meeting→dateで投票日を特定する."""
+        deliberations = await self._deliberation_repo.get_by_proposal_id(proposal_id)
+        for d in deliberations:
+            if d.meeting_id is not None:
+                meeting = await self._meeting_repo.get_by_id(d.meeting_id)
+                if meeting and meeting.date:
+                    return meeting.date
+
         proposal = await self._proposal_repo.get_by_id(proposal_id)
         if proposal is None or proposal.meeting_id is None:
             return None

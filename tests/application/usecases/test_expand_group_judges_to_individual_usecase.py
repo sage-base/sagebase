@@ -24,7 +24,13 @@ from src.domain.repositories.meeting_repository import MeetingRepository
 from src.domain.repositories.parliamentary_group_membership_repository import (
     ParliamentaryGroupMembershipRepository,
 )
+from src.domain.repositories.parliamentary_group_repository import (
+    ParliamentaryGroupRepository,
+)
 from src.domain.repositories.politician_repository import PoliticianRepository
+from src.domain.repositories.proposal_deliberation_repository import (
+    ProposalDeliberationRepository,
+)
 from src.domain.repositories.proposal_judge_repository import ProposalJudgeRepository
 from src.domain.repositories.proposal_parliamentary_group_judge_repository import (
     ProposalParliamentaryGroupJudgeRepository,
@@ -57,6 +63,20 @@ class TestExpandGroupJudgesToIndividualUseCase:
         return AsyncMock(spec=MeetingRepository)
 
     @pytest.fixture
+    def mock_politician_repo(self):
+        return AsyncMock(spec=PoliticianRepository)
+
+    @pytest.fixture
+    def mock_deliberation_repo(self):
+        mock = AsyncMock(spec=ProposalDeliberationRepository)
+        mock.get_by_proposal_id.return_value = []
+        return mock
+
+    @pytest.fixture
+    def mock_pg_repo(self):
+        return AsyncMock(spec=ParliamentaryGroupRepository)
+
+    @pytest.fixture
     def use_case(
         self,
         mock_group_judge_repo,
@@ -64,6 +84,9 @@ class TestExpandGroupJudgesToIndividualUseCase:
         mock_membership_repo,
         mock_proposal_repo,
         mock_meeting_repo,
+        mock_politician_repo,
+        mock_deliberation_repo,
+        mock_pg_repo,
     ):
         return ExpandGroupJudgesToIndividualUseCase(
             group_judge_repository=mock_group_judge_repo,
@@ -71,6 +94,9 @@ class TestExpandGroupJudgesToIndividualUseCase:
             membership_repository=mock_membership_repo,
             proposal_repository=mock_proposal_repo,
             meeting_repository=mock_meeting_repo,
+            politician_repository=mock_politician_repo,
+            deliberation_repository=mock_deliberation_repo,
+            parliamentary_group_repository=mock_pg_repo,
         )
 
     @pytest.fixture
