@@ -27,12 +27,12 @@ def parse_wareki_date(text: str) -> date | None:
     """和暦の日付文字列を西暦dateに変換する.
 
     例: "令和６年１０月２７日執行" → date(2024, 10, 27)
-    「元年」は1年として扱う。
+    「元年」は1年として扱う。元号と数字の間のスペースも許容する。
     """
     if not text:
         return None
     text = zen_to_han(str(text))
-    pattern = r"(令和|平成|昭和|大正|明治)(元|\d+)年\s*(\d+)月\s*(\d+)日"
+    pattern = r"(令和|平成|昭和|大正|明治)\s*(元|\d+)年\s*(\d+)月\s*(\d+)日"
     match = re.search(pattern, text)
     if not match:
         return None
