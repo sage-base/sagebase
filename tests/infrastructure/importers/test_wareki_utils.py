@@ -46,8 +46,21 @@ class TestParseWarekiDate:
     def test_empty_string(self) -> None:
         assert parse_wareki_date("") is None
 
-    def test_none_like(self) -> None:
-        assert parse_wareki_date("") is None
+    def test_gannen(self) -> None:
+        """「元年」を1年として扱う."""
+        assert parse_wareki_date("令和元年5月1日") == date(2019, 5, 1)
+
+    def test_gannen_heisei(self) -> None:
+        """平成元年のパース."""
+        assert parse_wareki_date("平成元年1月8日") == date(1989, 1, 8)
+
+    def test_invalid_month_day(self) -> None:
+        """不正な月日でNoneを返す."""
+        assert parse_wareki_date("令和6年13月40日") is None
+
+    def test_invalid_day(self) -> None:
+        """不正な日でNoneを返す."""
+        assert parse_wareki_date("令和6年2月30日") is None
 
     def test_no_match(self) -> None:
         assert parse_wareki_date("2024年10月27日") is None
@@ -63,8 +76,10 @@ class TestParseWarekiDate:
         ],
     )
     def test_with_spaces_and_suffix(self, text: str, expected: date) -> None:
-        """スペースやスラッシュ付きの入力でも日付部分を正しくパースする."""
-        # parse_wareki_dateは「／」前切り出しは呼び出し側の責務
-        # ただし日付パターン自体はスペースがあっても動く
+        """スペースやスラッシュ付きの入力でも日付部分を正しくパースする.
+
+        re.searchで日付部分のみ抽出するため、後続テキストがあっても動作する。
+        インポーター側でも安全のため「／」前で切り出している。
+        """
         result = parse_wareki_date(text)
         assert result == expected

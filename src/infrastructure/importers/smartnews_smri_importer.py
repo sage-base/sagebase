@@ -124,7 +124,10 @@ class SmartNewsSmriImporter:
             if not raw:
                 return None
             text = str(raw).split("／")[0]
-            return parse_wareki_date(text)
+            parsed = parse_wareki_date(text)
+            if parsed is None and text.strip():
+                logger.debug("和暦日付のパースに失敗: %s", raw)
+            return parsed
         except (IndexError, TypeError):
             return None
 
