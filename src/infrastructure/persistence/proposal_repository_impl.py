@@ -2,7 +2,7 @@
 
 import logging
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel as PydanticBaseModel
@@ -38,6 +38,8 @@ class ProposalModel(PydanticBaseModel):
     external_id: str | None = None
     deliberation_status: str | None = None
     deliberation_result: str | None = None
+    submitted_date: date | None = None
+    voted_date: date | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -61,6 +63,8 @@ _SELECT_COLUMNS = """
     external_id,
     deliberation_status,
     deliberation_result,
+    submitted_date,
+    voted_date,
     created_at,
     updated_at
 """
@@ -175,14 +179,16 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
                     meeting_id, conference_id,
                     proposal_category, proposal_type, governing_body_id,
                     session_number, proposal_number, external_id,
-                    deliberation_status, deliberation_result
+                    deliberation_status, deliberation_result,
+                    submitted_date, voted_date
                 )
                 VALUES (
                     :title, :detail_url, :status_url, :votes_url,
                     :meeting_id, :conference_id,
                     :proposal_category, :proposal_type, :governing_body_id,
                     :session_number, :proposal_number, :external_id,
-                    :deliberation_status, :deliberation_result
+                    :deliberation_status, :deliberation_result,
+                    :submitted_date, :voted_date
                 )
                 RETURNING {_SELECT_COLUMNS}
             """)
@@ -204,6 +210,8 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
                     "external_id": entity.external_id,
                     "deliberation_status": entity.deliberation_status,
                     "deliberation_result": entity.deliberation_result,
+                    "submitted_date": entity.submitted_date,
+                    "voted_date": entity.voted_date,
                 },
             )
             row = result.fetchone()
@@ -250,6 +258,8 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
                     external_id = :external_id,
                     deliberation_status = :deliberation_status,
                     deliberation_result = :deliberation_result,
+                    submitted_date = :submitted_date,
+                    voted_date = :voted_date,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = :id
                 RETURNING {_SELECT_COLUMNS}
@@ -273,6 +283,8 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
                     "external_id": entity.external_id,
                     "deliberation_status": entity.deliberation_status,
                     "deliberation_result": entity.deliberation_result,
+                    "submitted_date": entity.submitted_date,
+                    "voted_date": entity.voted_date,
                 },
             )
             row = result.fetchone()
@@ -365,6 +377,8 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             external_id=model.external_id,
             deliberation_status=model.deliberation_status,
             deliberation_result=model.deliberation_result,
+            submitted_date=model.submitted_date,
+            voted_date=model.voted_date,
         )
 
     def _to_model(self, entity: Proposal) -> ProposalModel:
@@ -392,6 +406,8 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             external_id=entity.external_id,
             deliberation_status=entity.deliberation_status,
             deliberation_result=entity.deliberation_result,
+            submitted_date=entity.submitted_date,
+            voted_date=entity.voted_date,
         )
 
     def _update_model(self, model: ProposalModel, entity: Proposal) -> None:
@@ -415,6 +431,8 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
         model.external_id = entity.external_id
         model.deliberation_status = entity.deliberation_status
         model.deliberation_result = entity.deliberation_result
+        model.submitted_date = entity.submitted_date
+        model.voted_date = entity.voted_date
 
     def _dict_to_entity(self, data: dict[str, Any]) -> Proposal:
         """Convert dictionary to entity.
@@ -441,6 +459,8 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             external_id=data.get("external_id"),
             deliberation_status=data.get("deliberation_status"),
             deliberation_result=data.get("deliberation_result"),
+            submitted_date=data.get("submitted_date"),
+            voted_date=data.get("voted_date"),
         )
 
     async def get_by_meeting_id(self, meeting_id: int) -> list[Proposal]:
@@ -709,14 +729,16 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
                     meeting_id, conference_id,
                     proposal_category, proposal_type, governing_body_id,
                     session_number, proposal_number, external_id,
-                    deliberation_status, deliberation_result
+                    deliberation_status, deliberation_result,
+                    submitted_date, voted_date
                 )
                 VALUES (
                     :title, :detail_url, :status_url, :votes_url,
                     :meeting_id, :conference_id,
                     :proposal_category, :proposal_type, :governing_body_id,
                     :session_number, :proposal_number, :external_id,
-                    :deliberation_status, :deliberation_result
+                    :deliberation_status, :deliberation_result,
+                    :submitted_date, :voted_date
                 )
                 RETURNING {_SELECT_COLUMNS}
             """)
@@ -740,6 +762,8 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
                         "external_id": entity.external_id,
                         "deliberation_status": entity.deliberation_status,
                         "deliberation_result": entity.deliberation_result,
+                        "submitted_date": entity.submitted_date,
+                        "voted_date": entity.voted_date,
                     },
                 )
                 row = result.fetchone()

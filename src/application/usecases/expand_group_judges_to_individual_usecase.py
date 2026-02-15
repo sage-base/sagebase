@@ -235,7 +235,13 @@ class ExpandGroupJudgesToIndividualUseCase:
             return await self._group_judge_repo.get_all()
 
     async def _get_meeting_date(self, proposal_id: int) -> date | None:
-        """Proposal→Meeting→dateで投票日を特定する."""
+        """Proposal→Meeting→dateで投票日を特定する.
+
+        フォールバック順序:
+        1. proposal_deliberations経由でmeeting.dateを取得
+        2. proposal.meeting_id経由でmeeting.dateを取得
+        3. proposal.voted_dateを使用
+        """
         deliberations = await self._deliberation_repo.get_by_proposal_id(proposal_id)
         for d in deliberations:
             if d.meeting_id is not None:
@@ -244,11 +250,15 @@ class ExpandGroupJudgesToIndividualUseCase:
                     return meeting.date
 
         proposal = await self._proposal_repo.get_by_id(proposal_id)
-        if proposal is None or proposal.meeting_id is None:
+        if proposal is None:
             return None
 
-        meeting = await self._meeting_repo.get_by_id(proposal.meeting_id)
-        if meeting is None or meeting.date is None:
-            return None
+        if proposal.meeting_id is not None:
+            meeting = await self._meeting_repo.get_by_id(proposal.meeting_id)
+            if meeting is not None and meeting.date is not None:
+                return meeting.date
 
-        return meeting.date
+        if proposal.voted_date is not None:
+            return proposal.voted_date
+
+        return None

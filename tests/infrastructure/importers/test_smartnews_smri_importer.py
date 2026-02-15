@@ -1,6 +1,7 @@
 import json
 import tempfile
 
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +26,25 @@ def _make_record(
     supporter: str = "",
     opponent: str = "",
     url: str = "https://www.shugiin.go.jp/internet/itdb_gian.nsf/html/gian/keika/TEST.htm",
+    submitted_date: str = "",
+    voted_date: str = "",
 ) -> list[Any]:
+    nested_row = [
+        current_session,  # 0
+        result,  # 1
+        "経過",  # 2
+        url,  # 3
+        "",  # 4
+        "",  # 5
+        proposal_type,  # 6
+        "",  # 7
+        "",  # 8
+        submitted_date,  # 9 (_IDX_NESTED_SUBMITTED_DATE)
+        "",  # 10
+        "",  # 11
+        voted_date,  # 12 (_IDX_NESTED_VOTED_DATE)
+        *[""] * 10,  # 13-22
+    ]
     return [
         proposal_type,
         session_number,
@@ -37,18 +56,7 @@ def _make_record(
         parties,
         supporter,
         opponent,
-        [
-            [
-                current_session,
-                result,
-                "経過",
-                url,
-                "",
-                "",
-                proposal_type,
-                *[""] * 16,
-            ]
-        ],
+        [nested_row],
     ]
 
 
@@ -170,6 +178,36 @@ class TestSmartNewsSmriImporterParseRecord:
         record = _make_record(result="衆議院回付案(同意) ")
         proposal = importer.parse_record(record)
         assert proposal.deliberation_result == "passed"
+
+    def test_parse_record_with_dates(self, importer: SmartNewsSmriImporter) -> None:
+        """日付付きレコードのパース."""
+        record = _make_record(
+            submitted_date="平成10年 1月12日",
+            voted_date="平成10年 3月19日",
+        )
+        proposal = importer.parse_record(record)
+
+        assert proposal.submitted_date == date(1998, 1, 12)
+        assert proposal.voted_date == date(1998, 3, 19)
+
+    def test_parse_record_voted_date_with_slash_suffix(
+        self, importer: SmartNewsSmriImporter
+    ) -> None:
+        """voted_dateの「／可決」形式をパース."""
+        record = _make_record(
+            voted_date="平成10年 3月19日／可決",
+        )
+        proposal = importer.parse_record(record)
+
+        assert proposal.voted_date == date(1998, 3, 19)
+
+    def test_parse_record_without_dates(self, importer: SmartNewsSmriImporter) -> None:
+        """日付なしレコードでNone."""
+        record = _make_record()
+        proposal = importer.parse_record(record)
+
+        assert proposal.submitted_date is None
+        assert proposal.voted_date is None
 
 
 class TestLoadJson:

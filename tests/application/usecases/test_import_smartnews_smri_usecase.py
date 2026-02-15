@@ -1,6 +1,7 @@
 import json
 import tempfile
 
+from datetime import date
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock
@@ -30,7 +31,25 @@ def _make_record(
     title: str = "テスト法案",
     result: str = "成立",
     url: str = "https://www.shugiin.go.jp/keika/TEST.htm",
+    submitted_date: str = "",
+    voted_date: str = "",
 ) -> list[Any]:
+    nested_row = [
+        "200",  # 0
+        result,  # 1
+        "経過",  # 2
+        url,  # 3
+        "",  # 4
+        "",  # 5
+        proposal_type,  # 6
+        "",  # 7
+        "",  # 8
+        submitted_date,  # 9 (_IDX_NESTED_SUBMITTED_DATE)
+        "",  # 10
+        "",  # 11
+        voted_date,  # 12 (_IDX_NESTED_VOTED_DATE)
+        *[""] * 10,  # 13-22
+    ]
     return [
         proposal_type,
         session_number,
@@ -42,7 +61,7 @@ def _make_record(
         "",
         "",
         "",
-        [["200", result, "経過", url, "", "", proposal_type, *[""] * 16]],
+        [nested_row],
     ]
 
 
@@ -215,6 +234,125 @@ class TestImportSmartNewsSmriUseCase:
         assert result.created == 0
 
 
+class TestImportSmartNewsSmriBackfill:
+    """日付バックフィルのテストケース."""
+
+    @pytest.fixture
+    def mock_repo(self) -> AsyncMock:
+        repo = AsyncMock(spec=ProposalRepository)
+        repo.find_by_identifier = AsyncMock(return_value=None)
+        repo.find_by_url = AsyncMock(return_value=None)
+        repo.create = AsyncMock(side_effect=lambda p: Proposal(title=p.title, id=1))
+        repo.update = AsyncMock(side_effect=lambda p: p)
+        return repo
+
+    @pytest.mark.asyncio
+    async def test_backfill_dates_on_duplicate(
+        self,
+        mock_repo: AsyncMock,
+    ) -> None:
+        """既存レコードの日付がNULL→新データの日付で更新."""
+        existing = Proposal(
+            title="既存",
+            id=99,
+            governing_body_id=1,
+            session_number=200,
+            proposal_number=42,
+            proposal_type="衆法",
+            submitted_date=None,
+            voted_date=None,
+        )
+        mock_repo.find_by_identifier.return_value = existing
+
+        record = _make_record(
+            submitted_date="平成10年 1月12日",
+            voted_date="平成10年 3月19日",
+        )
+        file_path = _write_json([record])
+        use_case = ImportSmartNewsSmriUseCase(proposal_repository=mock_repo)
+        input_dto = ImportSmartNewsSmriInputDto(
+            file_path=file_path,
+            governing_body_id=1,
+            conference_id=10,
+        )
+        result = await use_case.execute(input_dto)
+
+        assert result.skipped == 1
+        assert result.updated == 1
+        assert result.created == 0
+        mock_repo.update.assert_called_once()
+        updated_proposal = mock_repo.update.call_args[0][0]
+        assert updated_proposal.submitted_date == date(1998, 1, 12)
+        assert updated_proposal.voted_date == date(1998, 3, 19)
+
+    @pytest.mark.asyncio
+    async def test_no_backfill_when_existing_has_dates(
+        self,
+        mock_repo: AsyncMock,
+    ) -> None:
+        """既存レコードに日付あり→更新しない."""
+        existing = Proposal(
+            title="既存",
+            id=99,
+            governing_body_id=1,
+            session_number=200,
+            proposal_number=42,
+            proposal_type="衆法",
+            submitted_date=date(1998, 1, 1),
+            voted_date=date(1998, 3, 1),
+        )
+        mock_repo.find_by_identifier.return_value = existing
+
+        record = _make_record(
+            submitted_date="平成10年 1月12日",
+            voted_date="平成10年 3月19日",
+        )
+        file_path = _write_json([record])
+        use_case = ImportSmartNewsSmriUseCase(proposal_repository=mock_repo)
+        input_dto = ImportSmartNewsSmriInputDto(
+            file_path=file_path,
+            governing_body_id=1,
+            conference_id=10,
+        )
+        result = await use_case.execute(input_dto)
+
+        assert result.skipped == 1
+        assert result.updated == 0
+        mock_repo.update.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_no_backfill_when_new_data_has_no_dates(
+        self,
+        mock_repo: AsyncMock,
+    ) -> None:
+        """新データに日付なし→更新しない."""
+        existing = Proposal(
+            title="既存",
+            id=99,
+            governing_body_id=1,
+            session_number=200,
+            proposal_number=42,
+            proposal_type="衆法",
+            submitted_date=None,
+            voted_date=None,
+        )
+        mock_repo.find_by_identifier.return_value = existing
+
+        record = _make_record()
+        file_path = _write_json([record])
+        use_case = ImportSmartNewsSmriUseCase(proposal_repository=mock_repo)
+        input_dto = ImportSmartNewsSmriInputDto(
+            file_path=file_path,
+            governing_body_id=1,
+            conference_id=10,
+        )
+        result = await use_case.execute(input_dto)
+
+        assert result.skipped == 1
+        assert result.updated == 0
+        mock_repo.update.assert_not_called()
+
+
 class TestImportSmartNewsSmriDtos:
     def test_input_dto_defaults(self) -> None:
         dto = ImportSmartNewsSmriInputDto(
@@ -229,6 +367,7 @@ class TestImportSmartNewsSmriDtos:
         assert dto.total == 0
         assert dto.created == 0
         assert dto.skipped == 0
+        assert dto.updated == 0
         assert dto.errors == 0
         assert dto.judges_created == 0
 

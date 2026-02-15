@@ -1,5 +1,7 @@
 """Tests for Proposal entity."""
 
+from datetime import date
+
 from src.domain.entities.proposal import (
     DELIBERATION_RESULT_MAP,
     PROPOSAL_CATEGORY_MAP,
@@ -29,6 +31,8 @@ class TestProposal:
         assert proposal.external_id is None
         assert proposal.deliberation_status is None
         assert proposal.deliberation_result is None
+        assert proposal.submitted_date is None
+        assert proposal.voted_date is None
 
     def test_initialization_with_all_fields(self) -> None:
         """Test entity initialization with all fields."""
@@ -48,6 +52,8 @@ class TestProposal:
             external_id="https://smartnews-smri.example.com/gian/001",
             deliberation_status="成立",
             deliberation_result="passed",
+            submitted_date=date(2024, 1, 26),
+            voted_date=date(2024, 3, 28),
         )
 
         assert proposal.id == 1
@@ -65,6 +71,8 @@ class TestProposal:
         assert proposal.external_id == "https://smartnews-smri.example.com/gian/001"
         assert proposal.deliberation_status == "成立"
         assert proposal.deliberation_result == "passed"
+        assert proposal.submitted_date == date(2024, 1, 26)
+        assert proposal.voted_date == date(2024, 3, 28)
 
     def test_str_representation_with_id(self) -> None:
         """Test string representation with ID."""
