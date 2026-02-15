@@ -41,6 +41,7 @@ if [ "$GOVERNING_BODIES_COUNT" = "0" ]; then
         "database/seed_meetings_generated.sql"
         "database/seed_politicians_generated.sql"
         "database/seed_election_members_generated.sql"
+        "database/seed_parliamentary_group_memberships_generated.sql"
     )
 
     for seed_file in "${SEED_FILES[@]}"; do
@@ -65,5 +66,13 @@ else
         echo "  📦 Election members data missing, loading..."
         load_seed "database/seed_election_members_generated.sql"
         echo "  ✅ Election members data loaded!"
+    fi
+
+    # parliamentary_group_memberships は後から追加されたSEEDのため、個別にチェック
+    PGM_COUNT=$(psql_count "SELECT COUNT(*) FROM parliamentary_group_memberships;")
+    if [ "$PGM_COUNT" = "0" ]; then
+        echo "  📦 Parliamentary group memberships data missing, loading..."
+        load_seed "database/seed_parliamentary_group_memberships_generated.sql"
+        echo "  ✅ Parliamentary group memberships data loaded!"
     fi
 fi

@@ -1,4 +1,4 @@
--- Generated from database on 2026-02-14 09:59:39
+-- Generated from database on 2026-02-15 01:55:09
 -- parliamentary_groups seed data
 
 INSERT INTO parliamentary_groups (name, governing_body_id, url, description, is_active, political_party_id) VALUES
