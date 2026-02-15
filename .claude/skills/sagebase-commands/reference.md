@@ -182,26 +182,6 @@ just exec uv run sagebase create-affiliations --start-date 2024-01-01
 just exec uv run sagebase member-status --conference-id 185
 ```
 
-#### Parliamentary Group Member Extraction (3-step process)
-
-```bash
-# Step 1: Extract members
-just exec uv run sagebase extract-parliamentary-group-members --parliamentary-group-id 1
-just exec uv run sagebase extract-parliamentary-group-members --force
-
-# Step 2: Match with politicians
-just exec uv run sagebase match-parliamentary-group-members --parliamentary-group-id 1
-just exec uv run sagebase match-parliamentary-group-members  # Process all pending
-
-# Step 3: Create memberships
-just exec uv run sagebase create-parliamentary-group-affiliations --parliamentary-group-id 1
-just exec uv run sagebase create-parliamentary-group-affiliations --start-date 2024-01-01
-just exec uv run sagebase create-parliamentary-group-affiliations --min-confidence 0.8
-
-# Check status
-just exec uv run sagebase parliamentary-group-member-status --parliamentary-group-id 1
-```
-
 #### User Interfaces
 
 ```bash
