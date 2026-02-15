@@ -312,13 +312,14 @@ class NewEntityModel(Base):
 class NewEntityRepositoryImpl(
     BaseRepositoryImpl[NewEntity], INewEntityRepository
 ):
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession | ISessionAdapter):
         super().__init__(session, NewEntity, NewEntityModel)
 
     # _to_entity() のみを使用（_dict_to_entity, _row_to_entity は使わない）
     def _to_entity(self, model: NewEntityModel) -> NewEntity:
         entity = NewEntity(id=model.id, name=model.name)
         entity.created_at = model.created_at
+        entity.updated_at = model.updated_at
         return entity
 
     def _to_model(self, entity: NewEntity) -> NewEntityModel:
