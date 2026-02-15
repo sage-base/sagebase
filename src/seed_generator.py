@@ -797,6 +797,139 @@ class SeedGenerator:
             output.write(result)
         return result
 
+    def generate_parliamentary_group_memberships_seed(
+        self, output: TextIO | None = None
+    ) -> str:
+        """parliamentary_group_membershipsテーブルのSEEDファイルを生成する.
+
+        ユニーク制約がないため、個別INSERT + WHERE NOT EXISTS
+        パターンで冪等性を確保する。
+        """
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    SELECT
+                        pgm.politician_id,
+                        pgm.parliamentary_group_id,
+                        pgm.start_date,
+                        pgm.end_date,
+                        pgm.role,
+                        p.name AS politician_name,
+                        pg.name AS group_name,
+                        gb.name AS governing_body_name,
+                        gb.type AS governing_body_type,
+                        e.term_number
+                    FROM parliamentary_group_memberships pgm
+                    JOIN politicians p ON pgm.politician_id = p.id
+                    JOIN parliamentary_groups pg
+                        ON pgm.parliamentary_group_id = pg.id
+                    JOIN governing_bodies gb ON pg.governing_body_id = gb.id
+                    LEFT JOIN elections e
+                        ON e.governing_body_id = gb.id
+                        AND e.election_date = pgm.start_date
+                    ORDER BY
+                        pgm.start_date,
+                        gb.name,
+                        pg.name,
+                        p.name
+                """)
+            )
+            columns = result.keys()
+            memberships = [dict(zip(columns, row, strict=False)) for row in result]
+
+        lines = [
+            (
+                f"-- Generated from database on "
+                f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            ),
+            "-- parliamentary_group_memberships seed data",
+            ("-- ユニーク制約がないため、個別INSERT + WHERE NOT EXISTSで冪等性を確保"),
+            "",
+        ]
+
+        # start_date（選挙回次）ごとにグループ化
+        grouped_data: dict[str, dict[str, Any]] = {}
+        for membership in memberships:
+            start_date_str = membership["start_date"].strftime("%Y-%m-%d")
+            term = membership.get("term_number")
+            key = f"{start_date_str}_{term}"
+            if key not in grouped_data:
+                grouped_data[key] = {
+                    "start_date": start_date_str,
+                    "term_number": term,
+                    "memberships": [],
+                }
+            grouped_data[key]["memberships"].append(membership)
+
+        for _key, data in grouped_data.items():
+            start_date_str = data["start_date"]
+            term_number = data["term_number"]
+            members_list: list[dict[str, Any]] = data["memberships"]
+
+            if term_number:
+                lines.append(f"-- 第{term_number}回 ({start_date_str})")
+            else:
+                lines.append(f"-- {start_date_str}")
+
+            for membership in members_list:
+                politician_name = membership["politician_name"].replace("'", "''")
+                group_name = membership["group_name"].replace("'", "''")
+                body_name = membership["governing_body_name"].replace("'", "''")
+                body_type = membership["governing_body_type"].replace("'", "''")
+
+                # end_dateの処理
+                end_date_val = (
+                    f"'{membership['end_date'].strftime('%Y-%m-%d')}'"
+                    if membership.get("end_date")
+                    else "NULL"
+                )
+
+                # roleの処理
+                role_val = (
+                    f"'{membership['role'].replace(chr(39), chr(39) * 2)}'"
+                    if membership.get("role")
+                    else "NULL"
+                )
+
+                # サブクエリ部品
+                politician_sub = (
+                    f"(SELECT id FROM politicians WHERE name = '{politician_name}')"
+                )
+                group_sub = (
+                    f"(SELECT id FROM parliamentary_groups "
+                    f"WHERE name = '{group_name}' "
+                    f"AND governing_body_id = "
+                    f"(SELECT id FROM governing_bodies "
+                    f"WHERE name = '{body_name}' "
+                    f"AND type = '{body_type}'))"
+                )
+
+                insert_stmt = (
+                    "INSERT INTO parliamentary_group_memberships "
+                    "(politician_id, parliamentary_group_id, "
+                    "start_date, end_date, role)"
+                )
+                lines.append(insert_stmt)
+                lines.append(
+                    f"SELECT {politician_sub}, {group_sub}, "
+                    f"'{start_date_str}', {end_date_val}, {role_val}"
+                )
+                lines.append(
+                    f"WHERE NOT EXISTS ("
+                    f"SELECT 1 FROM parliamentary_group_memberships "
+                    f"WHERE politician_id = {politician_sub} "
+                    f"AND parliamentary_group_id = {group_sub} "
+                    f"AND start_date = '{start_date_str}'"
+                    f");"
+                )
+
+            lines.append("")
+
+        result_str = "\n".join(lines) + "\n"
+        if output:
+            output.write(result_str)
+        return result_str
+
 
 def generate_all_seeds(output_dir: str = "database") -> None:
     """すべてのSEEDファイルを生成する"""
@@ -853,6 +986,14 @@ def generate_all_seeds(output_dir: str = "database") -> None:
     path = os.path.join(output_dir, "seed_election_members_generated.sql")
     with open(path, "w") as f:
         generator.generate_election_members_seed(f)
+        print(f"Generated: {path}")
+
+    # parliamentary_group_memberships
+    path = os.path.join(
+        output_dir, "seed_parliamentary_group_memberships_generated.sql"
+    )
+    with open(path, "w") as f:
+        generator.generate_parliamentary_group_memberships_seed(f)
         print(f"Generated: {path}")
 
 

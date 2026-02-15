@@ -62,6 +62,7 @@ class ImportProportionalElectionUseCase:
         )
 
         self._processed_politician_ids: set[int] = set()
+        self._existing_members_by_politician: dict[int, ElectionMember] = {}
 
     async def execute(
         self,
@@ -69,6 +70,7 @@ class ImportProportionalElectionUseCase:
     ) -> ImportProportionalElectionOutputDto:
         """インポートを実行する."""
         self._processed_politician_ids.clear()
+        self._existing_members_by_politician.clear()
         self._import_service.clear_cache()
         output = ImportProportionalElectionOutputDto(
             election_number=input_dto.election_number
@@ -129,6 +131,12 @@ class ImportProportionalElectionUseCase:
         )
         if deleted_count > 0:
             logger.info("既存の比例代表ElectionMember %d件を削除", deleted_count)
+
+        # 既存メンバーをキャッシュ（小選挙区メンバーとの重複チェック用）
+        existing_members = await self._member_repo.get_by_election_id(election.id)
+        self._existing_members_by_politician = {
+            m.politician_id: m for m in existing_members if m.politician_id
+        }
 
         # 3. 当選者を処理
         for candidate in elected:
@@ -227,13 +235,23 @@ class ImportProportionalElectionUseCase:
             result = ElectionMember.RESULT_PROPORTIONAL_ELECTED
             output.proportional_elected += 1
 
-        member = ElectionMember(
-            election_id=election_id,
-            politician_id=politician.id,
-            result=result,
-            rank=candidate.list_order if candidate.list_order > 0 else None,
-        )
-        await self._member_repo.create(member)
+        # 小選挙区インポートで既にElectionMemberが存在する場合はresultを更新
+        existing_member = self._existing_members_by_politician.get(politician.id)
+        if existing_member is not None:
+            existing_member.result = result
+            existing_member.rank = (
+                candidate.list_order if candidate.list_order > 0 else None
+            )
+            await self._member_repo.update(existing_member)
+            logger.debug("既存ElectionMemberを更新: %s → %s", candidate.name, result)
+        else:
+            member = ElectionMember(
+                election_id=election_id,
+                politician_id=politician.id,
+                result=result,
+                rank=candidate.list_order if candidate.list_order > 0 else None,
+            )
+            await self._member_repo.create(member)
         self._processed_politician_ids.add(politician.id)
         output.election_members_created += 1
 

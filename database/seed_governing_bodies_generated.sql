@@ -1,4 +1,4 @@
--- Generated from database on 2026-02-14 09:59:39
+-- Generated from database on 2026-02-15 01:55:08
 -- governing_bodies seed data
 
 INSERT INTO governing_bodies (name, type, organization_code, organization_type) VALUES

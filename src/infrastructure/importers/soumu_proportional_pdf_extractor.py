@@ -8,6 +8,7 @@ import base64
 import json
 import logging
 import os
+import re
 
 from datetime import date
 from pathlib import Path
@@ -82,19 +83,20 @@ def extract_from_pdf(
         from langchain_google_genai import ChatGoogleGenerativeAI
 
         model = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             temperature=0.0,
             google_api_key=resolved_key,
+            max_output_tokens=65536,
+            thinking_budget=1024,
         )
 
         message = HumanMessage(
             content=[
                 {"type": "text", "text": EXTRACTION_PROMPT},
                 {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:application/pdf;base64,{pdf_b64}",
-                    },
+                    "type": "media",
+                    "mime_type": "application/pdf",
+                    "data": pdf_b64,
                 },
             ]
         )
@@ -135,6 +137,9 @@ def _parse_gemini_response(
         if lines[-1].strip() == "```":
             end = len(lines) - 1
         json_text = "\n".join(lines[start:end])
+
+    # Geminiが返すJSON非準拠値（NaN, Infinity等）をnullに置換
+    json_text = re.sub(r"\bNaN\b|-?\bInfinity\b", "null", json_text)
 
     try:
         data = json.loads(json_text)
