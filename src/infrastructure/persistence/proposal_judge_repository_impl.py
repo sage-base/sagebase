@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 _SELECT_COLUMNS = """
     id, proposal_id, politician_id, approve,
-    source_type, source_group_judge_id,
+    source_type, source_group_judge_id, is_defection,
     created_at, updated_at
 """
 
@@ -37,6 +37,7 @@ class ProposalJudgeModel(PydanticBaseModel):
     approve: str | None = None
     source_type: str | None = None
     source_group_judge_id: int | None = None
+    is_defection: bool | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -191,17 +192,18 @@ class ProposalJudgeRepositoryImpl(
                         "approve": judge.approve,
                         "source_type": judge.source_type,
                         "source_group_judge_id": judge.source_group_judge_id,
+                        "is_defection": judge.is_defection,
                     }
                 )
 
             query = text(f"""
                 INSERT INTO proposal_judges (
                     proposal_id, politician_id, approve,
-                    source_type, source_group_judge_id
+                    source_type, source_group_judge_id, is_defection
                 )
                 VALUES (
                     :proposal_id, :politician_id, :approve,
-                    :source_type, :source_group_judge_id
+                    :source_type, :source_group_judge_id, :is_defection
                 )
                 {_RETURNING_COLUMNS}
             """)
@@ -256,7 +258,7 @@ class ProposalJudgeRepositoryImpl(
             ) from e
 
     async def get_all(
-        self, limit: int | None = None, offset: int | None = 0
+        self, limit: int | None = None, offset: int | None = None
     ) -> list[ProposalJudge]:
         """Get all proposal judges.
 
@@ -376,11 +378,11 @@ class ProposalJudgeRepositoryImpl(
             query = text(f"""
                 INSERT INTO proposal_judges (
                     proposal_id, politician_id, approve,
-                    source_type, source_group_judge_id
+                    source_type, source_group_judge_id, is_defection
                 )
                 VALUES (
                     :proposal_id, :politician_id, :approve,
-                    :source_type, :source_group_judge_id
+                    :source_type, :source_group_judge_id, :is_defection
                 )
                 {_RETURNING_COLUMNS}
             """)
@@ -393,6 +395,7 @@ class ProposalJudgeRepositoryImpl(
                     "approve": entity.approve,
                     "source_type": entity.source_type,
                     "source_group_judge_id": entity.source_group_judge_id,
+                    "is_defection": entity.is_defection,
                 },
             )
             row = result.fetchone()
@@ -430,6 +433,7 @@ class ProposalJudgeRepositoryImpl(
                     approve = :approve,
                     source_type = :source_type,
                     source_group_judge_id = :source_group_judge_id,
+                    is_defection = :is_defection,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = :id
                 {_RETURNING_COLUMNS}
@@ -444,6 +448,7 @@ class ProposalJudgeRepositoryImpl(
                     "approve": entity.approve,
                     "source_type": entity.source_type,
                     "source_group_judge_id": entity.source_group_judge_id,
+                    "is_defection": entity.is_defection,
                 },
             )
             row = result.fetchone()
@@ -486,6 +491,63 @@ class ProposalJudgeRepositoryImpl(
                 "Failed to delete proposal judge", {"id": entity_id, "error": str(e)}
             ) from e
 
+    async def bulk_update(self, judges: list[ProposalJudge]) -> list[ProposalJudge]:
+        """Update multiple proposal judges at once.
+
+        Args:
+            judges: List of ProposalJudge entities to update
+
+        Returns:
+            List of updated ProposalJudge entities
+        """
+        if not judges:
+            return []
+
+        try:
+            query = text(f"""
+                UPDATE proposal_judges
+                SET proposal_id = :proposal_id,
+                    politician_id = :politician_id,
+                    approve = :approve,
+                    source_type = :source_type,
+                    source_group_judge_id = :source_group_judge_id,
+                    is_defection = :is_defection,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = :id
+                {_RETURNING_COLUMNS}
+            """)
+
+            updated: list[ProposalJudge] = []
+            for judge in judges:
+                if not judge.id:
+                    raise ValueError("Entity must have an ID to update")
+                result = await self.session.execute(
+                    query,
+                    {
+                        "id": judge.id,
+                        "proposal_id": judge.proposal_id,
+                        "politician_id": judge.politician_id,
+                        "approve": judge.approve,
+                        "source_type": judge.source_type,
+                        "source_group_judge_id": judge.source_group_judge_id,
+                        "is_defection": judge.is_defection,
+                    },
+                )
+                row = result.fetchone()
+                if row:
+                    updated.append(self._dict_to_entity(self._row_to_dict(row)))
+
+            await self.session.commit()
+            return updated
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error bulk updating proposal judges: {e}")
+            await self.session.rollback()
+            raise DatabaseError(
+                "Failed to bulk update proposal judges",
+                {"count": len(judges), "error": str(e)},
+            ) from e
+
     def _to_entity(self, model: ProposalJudgeModel) -> ProposalJudge:
         """Convert database model to domain entity.
 
@@ -495,14 +557,18 @@ class ProposalJudgeRepositoryImpl(
         Returns:
             Domain entity
         """
-        return ProposalJudge(
+        entity = ProposalJudge(
             id=model.id,
             proposal_id=model.proposal_id,
             politician_id=model.politician_id,
             approve=model.approve,
             source_type=model.source_type,
             source_group_judge_id=model.source_group_judge_id,
+            is_defection=model.is_defection,
         )
+        entity.created_at = model.created_at
+        entity.updated_at = model.updated_at
+        return entity
 
     def _to_model(self, entity: ProposalJudge) -> ProposalJudgeModel:
         """Convert domain entity to database model.
@@ -520,6 +586,7 @@ class ProposalJudgeRepositoryImpl(
             approve=entity.approve,
             source_type=entity.source_type,
             source_group_judge_id=entity.source_group_judge_id,
+            is_defection=entity.is_defection,
         )
 
     def _update_model(self, model: ProposalJudgeModel, entity: ProposalJudge) -> None:
@@ -534,6 +601,7 @@ class ProposalJudgeRepositoryImpl(
         model.approve = entity.approve
         model.source_type = entity.source_type
         model.source_group_judge_id = entity.source_group_judge_id
+        model.is_defection = entity.is_defection
 
     def _dict_to_entity(self, data: dict[str, Any]) -> ProposalJudge:
         """Convert dictionary to entity.
@@ -544,11 +612,15 @@ class ProposalJudgeRepositoryImpl(
         Returns:
             ProposalJudge entity
         """
-        return ProposalJudge(
+        entity = ProposalJudge(
             id=data.get("id"),
             proposal_id=data["proposal_id"],
             politician_id=data["politician_id"],
             approve=data.get("approve"),
             source_type=data.get("source_type"),
             source_group_judge_id=data.get("source_group_judge_id"),
+            is_defection=data.get("is_defection"),
         )
+        entity.created_at = data.get("created_at")
+        entity.updated_at = data.get("updated_at")
+        return entity

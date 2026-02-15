@@ -73,3 +73,15 @@ class ProposalJudgeRepository(BaseRepository[ProposalJudge]):
             List of proposal judges created from the specified group judge
         """
         pass
+
+    @abstractmethod
+    async def bulk_update(self, judges: list[ProposalJudge]) -> list[ProposalJudge]:
+        """Update multiple proposal judges at once.
+
+        Args:
+            judges: List of ProposalJudge entities to update
+
+        Returns:
+            List of updated ProposalJudge entities
+        """
+        pass
