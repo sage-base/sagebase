@@ -71,14 +71,26 @@ src/
 
 ### Repository Model Types（重要）
 
-リポジトリ実装には2種類のモデルパターンが混在しています。`BaseRepositoryImpl`の一部メソッド（`get_by_ids`, `count`等）は`select(model_class)`を使用するため、**Pydantic/動的モデル系のリポジトリでは正しく動作しません**。該当リポジトリでは、これらのメソッドをraw SQLで**必ずオーバーライド**してください。
+リポジトリ実装には3種類のモデルパターンが混在しています（[ADR 0007](docs/ADR/0007-repository-model-pattern-standardization.md)）。`BaseRepositoryImpl`の一部メソッド（`get_by_ids`, `count`等）は`select(model_class)`を使用するため、**Pydantic/動的モデル系のリポジトリでは正しく動作しません**。該当リポジトリでは、これらのメソッドをraw SQLで**必ずオーバーライド**してください。
 
 **オーバーライド必須メソッド**: `count()`, `get_by_ids()`
 
 | パターン | モデル基盤 | BaseRepositoryImpl互換 | 該当リポジトリ例 |
 |---------|-----------|----------------------|----------------|
 | SQLAlchemy ORM | `registry.mapped` / `DeclarativeBase` | `select()`が動作する | Speaker, Minutes等 |
-| Pydantic/動的モデル | `PydanticBaseModel` / 動的`__init__` | `select()`が**動作しない** | Conference, GoverningBody, Politician, ParliamentaryGroup, Meeting |
+| Pydantic | `PydanticBaseModel` | `select()`が**動作しない** | Conference, GoverningBody等 |
+| 動的モデル | 動的`__init__` / ランタイム属性 | `select()`が**動作しない** | Politician, ParliamentaryGroup, Meeting等 |
+
+#### 新規リポジトリ作成ルール（ADR 0007）
+
+- **第1選択**: SQLAlchemy ORM（`BaseRepositoryImpl`と完全互換）
+- **条件付き許容**: Pydantic（既存Pydanticモデルの拡張時のみ）
+- **新規禁止**: 動的モデル（バグの温床、IDE補完が効かない）
+
+#### 変換メソッド方針（ADR 0007）
+
+- 新規リポジトリでは `_to_entity()` のみを使用（`_dict_to_entity()`, `_row_to_entity()` は使用しない）
+- 既存リポジトリは段階的に `_to_entity()` に統一予定
 
 **📖 For detailed architecture**: See [.claude/skills/clean-architecture-checker/](.claude/skills/clean-architecture-checker/)
 
@@ -124,6 +136,7 @@ src/
   - [0004-langgraph-adapter-pattern.md](docs/ADR/0004-langgraph-adapter-pattern.md): LangGraph Adapter Pattern
   - [0005-extraction-layer-gold-layer-separation.md](docs/ADR/0005-extraction-layer-gold-layer-separation.md): 抽出層とGold Layer分離
   - [0006-alembic-migration-unification.md](docs/ADR/0006-alembic-migration-unification.md): Alembic統一マイグレーション
+  - [0007-repository-model-pattern-standardization.md](docs/ADR/0007-repository-model-pattern-standardization.md): リポジトリモデルパターン標準化
 
 **📁 Layer Guides** - `docs/architecture/`:
 Clean Architectureの各層の詳細な実装ガイドを保管（責務、実装例、落とし穴、チェックリスト）
