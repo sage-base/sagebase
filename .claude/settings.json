@@ -89,7 +89,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/okodoon/project/sagebase/.claude/hooks/pre-exit-plan-mode",
+            "command": ".claude/hooks/pre-exit-plan-mode",
             "timeout": 300
           }
         ]
@@ -101,7 +101,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/okodoon/project/sagebase/.claude/hooks/post-file-edit",
+            "command": ".claude/hooks/post-file-edit",
             "timeout": 120
           }
         ]
