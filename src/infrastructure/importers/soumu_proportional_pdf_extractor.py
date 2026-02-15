@@ -139,9 +139,7 @@ def _parse_gemini_response(
         json_text = "\n".join(lines[start:end])
 
     # Geminiが返すJSON非準拠値（NaN, Infinity等）をnullに置換
-    json_text = re.sub(r"\bNaN\b", "null", json_text)
-    json_text = re.sub(r"\bInfinity\b", "null", json_text)
-    json_text = re.sub(r"\b-Infinity\b", "null", json_text)
+    json_text = re.sub(r"\bNaN\b|-?\bInfinity\b", "null", json_text)
 
     try:
         data = json.loads(json_text)

@@ -70,6 +70,7 @@ class ImportProportionalElectionUseCase:
     ) -> ImportProportionalElectionOutputDto:
         """インポートを実行する."""
         self._processed_politician_ids.clear()
+        self._existing_members_by_politician.clear()
         self._import_service.clear_cache()
         output = ImportProportionalElectionOutputDto(
             election_number=input_dto.election_number
