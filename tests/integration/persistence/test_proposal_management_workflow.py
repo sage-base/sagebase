@@ -124,8 +124,8 @@ def setup_master_data(db_engine):
         conn.execute(
             text(
                 """
-                INSERT INTO conferences (id, name, type, governing_body_id)
-                VALUES (9001, '第213回国会本会議', '本会議', 9001)
+                INSERT INTO conferences (id, name, governing_body_id)
+                VALUES (9001, '第213回国会本会議', 9001)
                 ON CONFLICT (id) DO NOTHING
                 """
             )
