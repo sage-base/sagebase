@@ -285,6 +285,61 @@ Clean Architectureに従って新機能を追加する際の推奨手順：
 - ✅ No business logic (delegate to use cases)
 - ❌ No imports between different Interface modules
 
+## 新規リポジトリ作成ポリシー（ADR 0007）
+
+新しいリポジトリを作成する際は、以下のルールに従ってください。
+
+### モデルパターン選択ルール
+
+| 優先度 | パターン | 条件 | 理由 |
+|-------|---------|------|------|
+| **第1選択** | SQLAlchemy ORM | デフォルト | `BaseRepositoryImpl`と完全互換 |
+| **条件付き許容** | Pydantic | 既存Pydanticモデルの拡張時のみ | 既存パターンとの一貫性 |
+| **新規禁止** | 動的モデル | 新規作成不可 | バグの温床（#1127, #1143, #1147, #1149） |
+
+### 新規リポジトリのコード例（SQLAlchemy ORM）
+
+```python
+# 1. Infrastructure層: SQLAlchemyモデル定義
+# src/infrastructure/persistence/sqlalchemy_models.py に追加
+class NewEntityModel(Base):
+    __tablename__ = "new_entities"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+# 2. Infrastructure層: リポジトリ実装
+class NewEntityRepositoryImpl(
+    BaseRepositoryImpl[NewEntity], INewEntityRepository
+):
+    def __init__(self, session: AsyncSession | ISessionAdapter):
+        super().__init__(session, NewEntity, NewEntityModel)
+
+    # _to_entity() のみを使用（_dict_to_entity, _row_to_entity は使わない）
+    def _to_entity(self, model: NewEntityModel) -> NewEntity:
+        entity = NewEntity(id=model.id, name=model.name)
+        entity.created_at = model.created_at
+        entity.updated_at = model.updated_at
+        return entity
+
+    def _to_model(self, entity: NewEntity) -> NewEntityModel:
+        return NewEntityModel(id=entity.id, name=entity.name)
+
+    def _update_model(self, model: NewEntityModel, entity: NewEntity) -> None:
+        model.name = entity.name
+```
+
+### 変換メソッド方針
+
+- **新規リポジトリ**: `_to_entity()` のみを実装する
+- **既存リポジトリ**: `_dict_to_entity()`, `_row_to_entity()` が残っている場合、段階的に `_to_entity()` に統合する
+- **注意**: `_to_entity()` と `_dict_to_entity()` の両方が存在する場合、`created_at`/`updated_at` の設定が一致しているか必ず確認する
+
+### 参考
+
+- [ADR 0007: リポジトリモデルパターンの標準化](../../../docs/ADR/0007-repository-model-pattern-standardization.md)
+- [ADR 0003: リポジトリパターン + ISessionAdapter の採用](../../../docs/ADR/0003-repository-pattern.md)
+
 ## Repository Pattern Details
 
 ### Interface Definition (Domain)

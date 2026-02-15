@@ -31,6 +31,7 @@ Before approving code, verify:
 - [ ] **ドメインロジックの配置**: UseCase内で文字列リテラル比較やドメイン定数の直接参照でフィルタリングしていないか → エンティティのプロパティ/メソッドに移す
 - [ ] **リポジトリ実装のDRY**: Raw SQLリポジトリでSELECTカラムリストが重複していないか → 定数に抽出。Row→Dict変換が重複していないか → ヘルパーメソッドに抽出
 - [ ] **BaseRepositoryImplのオーバーライド**: Raw SQLリポジトリで `count()`, `get_by_ids()` 等のORMベースメソッドが正しく動作するか確認（Pydanticモデル系では必ずraw SQLでオーバーライド）
+- [ ] **新規リポジトリ作成方針（ADR 0007）**: 新規リポジトリはSQLAlchemy ORM第一選択、Pydanticは既存拡張時のみ許容、動的モデルは新規禁止。変換メソッドは`_to_entity()`のみ使用
 - [ ] **オーバーライドのシグネチャ一致**: BaseRepository IFのデフォルト値（`offset: int | None = None`等）と実装のシグネチャが一致しているか
 - [ ] **`_to_entity`/`_dict_to_entity`の一貫性**: 両メソッドで`created_at`/`updated_at`の設定が一致しているか
 
