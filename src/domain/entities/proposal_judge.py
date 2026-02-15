@@ -18,6 +18,7 @@ class ProposalJudge(BaseEntity):
     """議案への賛否情報を表すエンティティ."""
 
     SOURCE_TYPE_GROUP_EXPANSION = "GROUP_EXPANSION"
+    SOURCE_TYPE_ROLL_CALL = "ROLL_CALL"
 
     def __init__(
         self,
@@ -26,6 +27,7 @@ class ProposalJudge(BaseEntity):
         approve: str | None = None,
         source_type: str | None = None,
         source_group_judge_id: int | None = None,
+        is_defection: bool | None = None,
         id: int | None = None,
     ) -> None:
         super().__init__(id)
@@ -34,6 +36,13 @@ class ProposalJudge(BaseEntity):
         self.approve = approve
         self.source_type = source_type
         self.source_group_judge_id = source_group_judge_id
+        self.is_defection = is_defection
+
+    def compute_defection(self, group_judgment: str | None) -> bool | None:
+        """会派賛否と個人投票を比較して造反かどうかを判定する."""
+        if group_judgment is None or self.approve is None:
+            return None
+        return self.approve != group_judgment
 
     def is_approve(self) -> bool:
         """賛成票かどうかを判定."""

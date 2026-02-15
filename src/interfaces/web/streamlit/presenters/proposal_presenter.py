@@ -21,6 +21,12 @@ from src.application.dtos.expand_group_judges_dto import (
 from src.application.dtos.expand_group_judges_preview_dto import (
     ExpandGroupJudgesPreviewDTO,
 )
+from src.application.dtos.override_individual_judge_dto import (
+    DefectionItem,
+    IndividualVoteInputItem,
+    OverrideIndividualJudgeRequestDTO,
+    OverrideIndividualJudgeResultDTO,
+)
 from src.application.dtos.proposal_parliamentary_group_judge_dto import (
     ProposalParliamentaryGroupJudgeDTO,
 )
@@ -60,6 +66,9 @@ from src.application.usecases.manage_proposals_usecase import (
     ProposalListOutputDto,
     UpdateProposalInputDto,
     UpdateProposalOutputDto,
+)
+from src.application.usecases.override_individual_judge_usecase import (
+    OverrideIndividualJudgeUseCase,
 )
 from src.application.usecases.scrape_proposal_usecase import (
     ScrapeProposalInputDTO,
@@ -248,6 +257,16 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
             politician_repository=self.politician_repository,  # type: ignore[arg-type]
             deliberation_repository=self.deliberation_repository,  # type: ignore[arg-type]
             parliamentary_group_repository=self.parliamentary_group_repository,  # type: ignore[arg-type]
+        )
+        self.override_individual_judge_usecase = OverrideIndividualJudgeUseCase(
+            proposal_judge_repository=self.judge_repository,  # type: ignore[arg-type]
+            group_judge_repository=self.parliamentary_group_judge_repository,  # type: ignore[arg-type]
+            politician_repository=self.politician_repository,  # type: ignore[arg-type]
+            membership_repository=self.membership_repository,  # type: ignore[arg-type]
+            parliamentary_group_repository=self.parliamentary_group_repository,  # type: ignore[arg-type]
+            proposal_repository=self.proposal_repository,  # type: ignore[arg-type]
+            meeting_repository=self.meeting_repository,  # type: ignore[arg-type]
+            deliberation_repository=self.deliberation_repository,  # type: ignore[arg-type]
         )
 
         # Session management
@@ -1562,3 +1581,25 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
             force_overwrite=force_overwrite,
         )
         return self._run_async(self.expand_group_judges_usecase.execute(request))
+
+    def override_individual_judges(
+        self,
+        proposal_id: int,
+        votes: list[IndividualVoteInputItem],
+    ) -> OverrideIndividualJudgeResultDTO:
+        """記名投票データで個人投票を上書きする."""
+        request = OverrideIndividualJudgeRequestDTO(
+            proposal_id=proposal_id,
+            votes=votes,
+        )
+        return self._run_async(self.override_individual_judge_usecase.execute(request))
+
+    def detect_defections(self, proposal_id: int) -> list[DefectionItem]:
+        """既存の個人投票データから造反を検出する."""
+        return self._run_async(
+            self.override_individual_judge_usecase.detect_defections(proposal_id)
+        )
+
+    def parse_roll_call_csv(self, csv_content: str) -> list[IndividualVoteInputItem]:
+        """記名投票CSVをパースする."""
+        return OverrideIndividualJudgeUseCase.parse_csv(csv_content)

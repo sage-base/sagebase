@@ -46,6 +46,9 @@ from src.application.usecases.manage_proposal_deliberations_usecase import (
     ManageProposalDeliberationsUseCase,
 )
 from src.application.usecases.match_speakers_usecase import MatchSpeakersUseCase
+from src.application.usecases.override_individual_judge_usecase import (
+    OverrideIndividualJudgeUseCase,
+)
 from src.application.usecases.process_minutes_usecase import ProcessMinutesUseCase
 from src.application.usecases.update_extracted_parliamentary_group_member_from_extraction_usecase import (  # noqa: E501
     UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase,
@@ -737,4 +740,18 @@ class UseCaseContainer(containers.DeclarativeContainer):
         politician_repository=repositories.politician_repository,
         deliberation_repository=repositories.proposal_deliberation_repository,
         parliamentary_group_repository=repositories.parliamentary_group_repository,
+    )
+
+    # Override Individual Judge UseCase (Issue #1011)
+    # 記名投票による個人データ上書き用ユースケース
+    override_individual_judge_usecase = providers.Factory(
+        OverrideIndividualJudgeUseCase,
+        proposal_judge_repository=repositories.proposal_judge_repository,
+        group_judge_repository=repositories.proposal_parliamentary_group_judge_repository,
+        politician_repository=repositories.politician_repository,
+        membership_repository=repositories.parliamentary_group_membership_repository,
+        parliamentary_group_repository=repositories.parliamentary_group_repository,
+        proposal_repository=repositories.proposal_repository,
+        meeting_repository=repositories.meeting_repository,
+        deliberation_repository=repositories.proposal_deliberation_repository,
     )
