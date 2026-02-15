@@ -589,14 +589,14 @@ class MonitoringRepositoryImpl:
         """Get coverage by committee type."""
         query = text("""
             SELECT
-                c.type as committee_type,
+                gb.type as committee_type,
                 COUNT(DISTINCT c.id) as conference_count,
                 COUNT(DISTINCT m.id) as meeting_count,
                 COUNT(DISTINCT gb.id) as governing_body_count
             FROM conferences c
             LEFT JOIN meetings m ON c.id = m.conference_id
             LEFT JOIN governing_bodies gb ON c.governing_body_id = gb.id
-            GROUP BY c.type
+            GROUP BY gb.type
             ORDER BY conference_count DESC
         """)
 
