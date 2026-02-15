@@ -29,7 +29,7 @@ from src.interfaces.web.streamlit.views import (
     render_political_parties_page,
     render_politicians_page,
 )
-from src.interfaces.web.streamlit.views.proposals_view import render_proposals_page
+from src.interfaces.web.streamlit.views.proposals import render_proposals_page
 from src.interfaces.web.streamlit.views.user_statistics_view import (
     render_user_statistics_page,
 )
