@@ -18,12 +18,7 @@ from src.interfaces.cli.commands.migration_commands import get_migration_command
 from src.interfaces.cli.commands.parliamentary_group_commands import (
     get_parliamentary_group_commands,
 )
-from src.interfaces.cli.commands.parliamentary_group_member_commands import (
-    get_parliamentary_group_member_commands,
-)
 from src.interfaces.cli.commands.prompt_commands import get_prompt_commands
-from src.interfaces.cli.commands.proposal_commands import get_proposal_commands
-from src.interfaces.cli.commands.seed_commands import get_seed_commands
 
 
 # Initialize settings
@@ -93,9 +88,6 @@ def register_legacy_commands(cli_group: click.Group) -> None:
     # Commands still using the old structure
     command_getters: list[Callable[[], list[click.Command]]] = [
         get_parliamentary_group_commands,
-        get_parliamentary_group_member_commands,
-        get_proposal_commands,
-        get_seed_commands,
         get_coverage_commands,
         get_evaluation_commands,
         get_prompt_commands,
