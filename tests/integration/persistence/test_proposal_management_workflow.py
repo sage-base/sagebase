@@ -433,6 +433,11 @@ class TestScenario1FullWorkflow:
         )
         assert override_result.success
         assert override_result.judges_updated == 1
+        assert len(override_result.defections) == 1
+        defection = override_result.defections[0]
+        assert defection.politician_id == 9003
+        assert defection.individual_vote == "賛成"
+        assert defection.group_judgment == "反対"
 
         # 7. 上書き結果の検証
         judges_after = await proposal_judge_repo.get_by_proposal(proposal_id)
@@ -506,7 +511,7 @@ class TestScenario2NoMeetingDate:
 
         # 検証: 投票日なしでスキップ
         assert expand_result.success
-        assert expand_result.skipped_no_meeting_date >= 1
+        assert expand_result.skipped_no_meeting_date == 1
         assert expand_result.total_judges_created == 0
 
 
@@ -782,3 +787,11 @@ class TestScenario6ForceOverwrite:
         c_after = judge_map[9003]
         assert c_after.approve == "反対"  # 立憲の会派賛否に戻る
         assert c_after.source_type == ProposalJudge.SOURCE_TYPE_GROUP_EXPANSION
+        # NOTE: force_overwriteはis_defectionをリセットしない（現在のUseCase実装の挙動）
+        # 将来修正された場合はこのアサーションを更新すること
+        assert c_after.is_defection is True
+
+        # 他の3名も正しく上書きされている
+        assert judge_map[9001].approve == "賛成"
+        assert judge_map[9002].approve == "賛成"
+        assert judge_map[9004].approve == "反対"
