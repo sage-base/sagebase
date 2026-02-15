@@ -3,13 +3,10 @@
 提出者表示など、複数のタブモジュールで共通使用するユーティリティ関数を提供します。
 """
 
-import streamlit as st
-
 from .constants import SUBMITTER_TYPE_ICONS, SUBMITTER_TYPE_LABELS
 
 from src.domain.entities.proposal import Proposal
 from src.domain.entities.proposal_submitter import ProposalSubmitter
-from src.interfaces.web.streamlit.presenters.proposal_presenter import ProposalPresenter
 
 
 def get_submitter_type_icon(submitter_type: str) -> str:
@@ -60,18 +57,3 @@ def build_submitters_text(
         parts.append(f"{icon} {name}")
 
     return ", ".join(parts) if parts else "未設定"
-
-
-def render_submitters_display(
-    presenter: ProposalPresenter,
-    proposal: Proposal,
-    submitters_map: dict[int, list[ProposalSubmitter]] | None = None,
-    politician_names: dict[int, str] | None = None,
-    conference_names: dict[int, str] | None = None,
-    pg_names: dict[int, str] | None = None,
-) -> None:
-    """提出者情報を種別アイコン付きで表示する."""
-    text = build_submitters_text(
-        proposal, submitters_map, politician_names, conference_names, pg_names
-    )
-    st.markdown(f"**提出者**: {text}")

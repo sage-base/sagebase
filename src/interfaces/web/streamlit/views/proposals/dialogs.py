@@ -8,7 +8,7 @@ import streamlit as st
 from src.interfaces.web.streamlit.presenters.politician_presenter import (
     PoliticianPresenter,
 )
-from src.interfaces.web.streamlit.views.politicians_view import PREFECTURES
+from src.interfaces.web.streamlit.views.constants import PREFECTURES
 
 
 @st.dialog("政治家を新規作成")
