@@ -258,7 +258,7 @@ class ProposalJudgeRepositoryImpl(
             ) from e
 
     async def get_all(
-        self, limit: int | None = None, offset: int | None = 0
+        self, limit: int | None = None, offset: int | None = None
     ) -> list[ProposalJudge]:
         """Get all proposal judges.
 
@@ -503,11 +503,50 @@ class ProposalJudgeRepositoryImpl(
         if not judges:
             return []
 
-        updated: list[ProposalJudge] = []
-        for judge in judges:
-            result = await self.update(judge)
-            updated.append(result)
-        return updated
+        try:
+            query = text(f"""
+                UPDATE proposal_judges
+                SET proposal_id = :proposal_id,
+                    politician_id = :politician_id,
+                    approve = :approve,
+                    source_type = :source_type,
+                    source_group_judge_id = :source_group_judge_id,
+                    is_defection = :is_defection,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = :id
+                {_RETURNING_COLUMNS}
+            """)
+
+            updated: list[ProposalJudge] = []
+            for judge in judges:
+                if not judge.id:
+                    raise ValueError("Entity must have an ID to update")
+                result = await self.session.execute(
+                    query,
+                    {
+                        "id": judge.id,
+                        "proposal_id": judge.proposal_id,
+                        "politician_id": judge.politician_id,
+                        "approve": judge.approve,
+                        "source_type": judge.source_type,
+                        "source_group_judge_id": judge.source_group_judge_id,
+                        "is_defection": judge.is_defection,
+                    },
+                )
+                row = result.fetchone()
+                if row:
+                    updated.append(self._dict_to_entity(self._row_to_dict(row)))
+
+            await self.session.commit()
+            return updated
+
+        except SQLAlchemyError as e:
+            logger.error(f"Database error bulk updating proposal judges: {e}")
+            await self.session.rollback()
+            raise DatabaseError(
+                "Failed to bulk update proposal judges",
+                {"count": len(judges), "error": str(e)},
+            ) from e
 
     def _to_entity(self, model: ProposalJudgeModel) -> ProposalJudge:
         """Convert database model to domain entity.
@@ -518,7 +557,7 @@ class ProposalJudgeRepositoryImpl(
         Returns:
             Domain entity
         """
-        return ProposalJudge(
+        entity = ProposalJudge(
             id=model.id,
             proposal_id=model.proposal_id,
             politician_id=model.politician_id,
@@ -527,6 +566,9 @@ class ProposalJudgeRepositoryImpl(
             source_group_judge_id=model.source_group_judge_id,
             is_defection=model.is_defection,
         )
+        entity.created_at = model.created_at
+        entity.updated_at = model.updated_at
+        return entity
 
     def _to_model(self, entity: ProposalJudge) -> ProposalJudgeModel:
         """Convert domain entity to database model.
@@ -570,7 +612,7 @@ class ProposalJudgeRepositoryImpl(
         Returns:
             ProposalJudge entity
         """
-        return ProposalJudge(
+        entity = ProposalJudge(
             id=data.get("id"),
             proposal_id=data["proposal_id"],
             politician_id=data["politician_id"],
@@ -579,3 +621,6 @@ class ProposalJudgeRepositoryImpl(
             source_group_judge_id=data.get("source_group_judge_id"),
             is_defection=data.get("is_defection"),
         )
+        entity.created_at = data.get("created_at")
+        entity.updated_at = data.get("updated_at")
+        return entity

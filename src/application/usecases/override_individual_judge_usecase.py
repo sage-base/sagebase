@@ -4,6 +4,7 @@ import csv
 import io
 import logging
 
+from dataclasses import dataclass
 from datetime import date
 
 from src.application.dtos.override_individual_judge_dto import (
@@ -13,6 +14,9 @@ from src.application.dtos.override_individual_judge_dto import (
     OverrideIndividualJudgeResultDTO,
 )
 from src.domain.entities.proposal_judge import JudgmentType, ProposalJudge
+from src.domain.entities.proposal_parliamentary_group_judge import (
+    ProposalParliamentaryGroupJudge,
+)
 from src.domain.repositories.meeting_repository import MeetingRepository
 from src.domain.repositories.parliamentary_group_membership_repository import (
     ParliamentaryGroupMembershipRepository,
@@ -34,6 +38,15 @@ from src.domain.repositories.proposal_repository import ProposalRepository
 logger = logging.getLogger(__name__)
 
 _VALID_JUDGMENTS = {jt.value for jt in JudgmentType}
+
+
+@dataclass
+class _GroupContext:
+    """会派賛否コンテキスト（内部用）."""
+
+    pg_judgment_map: dict[int, str]
+    politician_to_pg: dict[int, int]
+    pg_name_map: dict[int, str]
 
 
 class OverrideIndividualJudgeUseCase:
@@ -65,49 +78,48 @@ class OverrideIndividualJudgeUseCase:
         """記名投票データで個人投票を上書きする."""
         result = OverrideIndividualJudgeResultDTO(success=True)
 
+        # 重複politician_idのバリデーション
+        seen_ids: set[int] = set()
+        for vote in request.votes:
+            if vote.politician_id in seen_ids:
+                result.success = False
+                result.errors.append(
+                    f"重複したpolitician_idがあります: {vote.politician_id}"
+                )
+                return result
+            seen_ids.add(vote.politician_id)
+
         try:
             group_judges = await self._group_judge_repo.get_by_proposal(
                 request.proposal_id
             )
         except Exception as e:
-            logger.error(f"会派賛否の取得に失敗: {e}")
+            logger.error("会派賛否の取得に失敗: %s", e)
             result.success = False
             result.errors.append(f"会派賛否の取得に失敗: {e}")
             return result
 
         meeting_date = await self._get_meeting_date(request.proposal_id)
+        ctx = await self._build_group_context(group_judges, meeting_date)
 
-        pg_judgment_map: dict[int, str] = {}
-        politician_to_pg: dict[int, int] = {}
-        pg_name_map: dict[int, str] = {}
-
-        for gj in group_judges:
-            if not gj.is_parliamentary_group_judge():
-                continue
-            for pg_id in gj.parliamentary_group_ids:
-                pg_judgment_map[pg_id] = gj.judgment
-
-                pg = await self._pg_repo.get_by_id(pg_id)
-                if pg:
-                    pg_name_map[pg_id] = pg.name
-
-                if meeting_date:
-                    members = await self._membership_repo.get_active_by_group(
-                        pg_id, as_of_date=meeting_date
-                    )
-                    for m in members:
-                        politician_to_pg[m.politician_id] = pg_id
+        # 既存の個人投票を一括取得してdict化 (N+1回避)
+        existing_judges = await self._proposal_judge_repo.get_by_proposal(
+            request.proposal_id
+        )
+        existing_by_politician: dict[int, ProposalJudge] = {
+            j.politician_id: j for j in existing_judges
+        }
 
         judges_to_create: list[ProposalJudge] = []
         judges_to_update: list[ProposalJudge] = []
 
-        for vote in request.votes:
-            existing = await self._proposal_judge_repo.get_by_proposal_and_politician(
-                request.proposal_id, vote.politician_id
-            )
+        # 造反検出用に政治家名が必要なIDを収集
+        defection_politician_ids: list[int] = []
 
-            pg_id = politician_to_pg.get(vote.politician_id)
-            group_judgment = pg_judgment_map.get(pg_id) if pg_id else None
+        for vote in request.votes:
+            existing = existing_by_politician.get(vote.politician_id)
+            pg_id = ctx.politician_to_pg.get(vote.politician_id)
+            group_judgment = ctx.pg_judgment_map.get(pg_id) if pg_id else None
 
             if existing is not None:
                 existing.approve = vote.approve
@@ -124,6 +136,11 @@ class OverrideIndividualJudgeUseCase:
                 judge.is_defection = judge.compute_defection(group_judgment)
                 judges_to_create.append(judge)
 
+            # 造反候補を記録
+            if pg_id is not None and group_judgment is not None:
+                if vote.approve != group_judgment:
+                    defection_politician_ids.append(vote.politician_id)
+
         if judges_to_create:
             await self._proposal_judge_repo.bulk_create(judges_to_create)
             result.judges_created = len(judges_to_create)
@@ -132,27 +149,26 @@ class OverrideIndividualJudgeUseCase:
             await self._proposal_judge_repo.bulk_update(judges_to_update)
             result.judges_updated = len(judges_to_update)
 
-        for vote in request.votes:
-            pg_id = politician_to_pg.get(vote.politician_id)
-            if pg_id is None:
-                continue
-            group_judgment = pg_judgment_map.get(pg_id)
-            if group_judgment is None:
-                continue
-            if vote.approve != group_judgment:
-                politician = await self._politician_repo.get_by_id(vote.politician_id)
-                politician_name = (
-                    politician.name if politician else f"ID:{vote.politician_id}"
+        # 造反政治家の名前を一括取得
+        politician_name_map: dict[int, str] = {}
+        for pid in defection_politician_ids:
+            politician = await self._politician_repo.get_by_id(pid)
+            politician_name_map[pid] = politician.name if politician else f"ID:{pid}"
+
+        # 造反リスト生成
+        vote_map = {v.politician_id: v.approve for v in request.votes}
+        for pid in defection_politician_ids:
+            pg_id = ctx.politician_to_pg[pid]
+            group_judgment = ctx.pg_judgment_map[pg_id]
+            result.defections.append(
+                DefectionItem(
+                    politician_id=pid,
+                    politician_name=politician_name_map[pid],
+                    individual_vote=vote_map[pid],
+                    group_judgment=group_judgment,
+                    parliamentary_group_name=ctx.pg_name_map.get(pg_id, f"ID:{pg_id}"),
                 )
-                result.defections.append(
-                    DefectionItem(
-                        politician_id=vote.politician_id,
-                        politician_name=politician_name,
-                        individual_vote=vote.approve,
-                        group_judgment=group_judgment,
-                        parliamentary_group_name=pg_name_map.get(pg_id, f"ID:{pg_id}"),
-                    )
-                )
+            )
 
         return result
 
@@ -162,50 +178,43 @@ class OverrideIndividualJudgeUseCase:
         group_judges = await self._group_judge_repo.get_by_proposal(proposal_id)
 
         meeting_date = await self._get_meeting_date(proposal_id)
+        ctx = await self._build_group_context(group_judges, meeting_date)
 
-        pg_judgment_map: dict[int, str] = {}
-        politician_to_pg: dict[int, int] = {}
-        pg_name_map: dict[int, str] = {}
-
-        for gj in group_judges:
-            if not gj.is_parliamentary_group_judge():
-                continue
-            for pg_id in gj.parliamentary_group_ids:
-                pg_judgment_map[pg_id] = gj.judgment
-                pg = await self._pg_repo.get_by_id(pg_id)
-                if pg:
-                    pg_name_map[pg_id] = pg.name
-                if meeting_date:
-                    members = await self._membership_repo.get_active_by_group(
-                        pg_id, as_of_date=meeting_date
-                    )
-                    for m in members:
-                        politician_to_pg[m.politician_id] = pg_id
-
-        defections: list[DefectionItem] = []
+        # 造反候補のpolitician_idを収集
+        defection_judges: list[ProposalJudge] = []
         for judge in judges:
             if judge.approve is None:
                 continue
-            pg_id = politician_to_pg.get(judge.politician_id)
+            pg_id = ctx.politician_to_pg.get(judge.politician_id)
             if pg_id is None:
                 continue
-            group_judgment = pg_judgment_map.get(pg_id)
+            group_judgment = ctx.pg_judgment_map.get(pg_id)
             if group_judgment is None:
                 continue
             if judge.approve != group_judgment:
-                politician = await self._politician_repo.get_by_id(judge.politician_id)
-                politician_name = (
-                    politician.name if politician else f"ID:{judge.politician_id}"
+                defection_judges.append(judge)
+
+        # 造反政治家の名前を一括取得
+        politician_name_map: dict[int, str] = {}
+        for judge in defection_judges:
+            politician = await self._politician_repo.get_by_id(judge.politician_id)
+            politician_name_map[judge.politician_id] = (
+                politician.name if politician else f"ID:{judge.politician_id}"
+            )
+
+        defections: list[DefectionItem] = []
+        for judge in defection_judges:
+            pg_id = ctx.politician_to_pg[judge.politician_id]
+            group_judgment = ctx.pg_judgment_map[pg_id]
+            defections.append(
+                DefectionItem(
+                    politician_id=judge.politician_id,
+                    politician_name=politician_name_map[judge.politician_id],
+                    individual_vote=judge.approve,  # type: ignore[arg-type]
+                    group_judgment=group_judgment,
+                    parliamentary_group_name=ctx.pg_name_map.get(pg_id, f"ID:{pg_id}"),
                 )
-                defections.append(
-                    DefectionItem(
-                        politician_id=judge.politician_id,
-                        politician_name=politician_name,
-                        individual_vote=judge.approve,
-                        group_judgment=group_judgment,
-                        parliamentary_group_name=pg_name_map.get(pg_id, f"ID:{pg_id}"),
-                    )
-                )
+            )
 
         return defections
 
@@ -236,6 +245,39 @@ class OverrideIndividualJudgeUseCase:
                 IndividualVoteInputItem(politician_id=politician_id, approve=approve)
             )
         return items
+
+    async def _build_group_context(
+        self,
+        group_judges: list[ProposalParliamentaryGroupJudge],
+        meeting_date: date | None,
+    ) -> _GroupContext:
+        """会派賛否のコンテキスト情報を構築する."""
+        pg_judgment_map: dict[int, str] = {}
+        politician_to_pg: dict[int, int] = {}
+        pg_name_map: dict[int, str] = {}
+
+        for gj in group_judges:
+            if not gj.is_parliamentary_group_judge():
+                continue
+            for pg_id in gj.parliamentary_group_ids:
+                pg_judgment_map[pg_id] = gj.judgment
+
+                pg = await self._pg_repo.get_by_id(pg_id)
+                if pg:
+                    pg_name_map[pg_id] = pg.name
+
+                if meeting_date:
+                    members = await self._membership_repo.get_active_by_group(
+                        pg_id, as_of_date=meeting_date
+                    )
+                    for m in members:
+                        politician_to_pg[m.politician_id] = pg_id
+
+        return _GroupContext(
+            pg_judgment_map=pg_judgment_map,
+            politician_to_pg=politician_to_pg,
+            pg_name_map=pg_name_map,
+        )
 
     async def _get_meeting_date(self, proposal_id: int) -> date | None:
         """Proposal→Meeting→dateで投票日を特定する."""

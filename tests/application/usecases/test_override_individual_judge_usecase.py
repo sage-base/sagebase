@@ -163,6 +163,32 @@ class TestOverrideIndividualJudgeUseCase:
         mock_proposal_repo.get_by_id.return_value = sample_proposal
         mock_meeting_repo.get_by_id.return_value = sample_meeting
 
+    def _setup_common_mocks(
+        self,
+        mock_group_judge_repo,
+        mock_pg_repo,
+        mock_membership_repo,
+        mock_proposal_repo,
+        mock_meeting_repo,
+        mock_proposal_judge_repo,
+        sample_group_judge,
+        sample_pg,
+        sample_memberships,
+        sample_proposal,
+        sample_meeting,
+        existing_judges=None,
+    ):
+        """共通のモック設定をまとめるヘルパー."""
+        mock_group_judge_repo.get_by_proposal.return_value = [sample_group_judge]
+        mock_pg_repo.get_by_id.return_value = sample_pg
+        mock_membership_repo.get_active_by_group.return_value = sample_memberships
+        self._setup_meeting_date(
+            mock_proposal_repo, mock_meeting_repo, sample_proposal, sample_meeting
+        )
+        mock_proposal_judge_repo.get_by_proposal.return_value = (
+            existing_judges if existing_judges is not None else []
+        )
+
     @pytest.mark.asyncio
     async def test_override_creates_new_judges(
         self,
@@ -173,20 +199,25 @@ class TestOverrideIndividualJudgeUseCase:
         mock_pg_repo,
         mock_proposal_repo,
         mock_meeting_repo,
-        mock_deliberation_repo,
         sample_group_judge,
         sample_proposal,
         sample_meeting,
         sample_memberships,
         sample_pg,
     ):
-        mock_group_judge_repo.get_by_proposal.return_value = [sample_group_judge]
-        mock_pg_repo.get_by_id.return_value = sample_pg
-        mock_membership_repo.get_active_by_group.return_value = sample_memberships
-        self._setup_meeting_date(
-            mock_proposal_repo, mock_meeting_repo, sample_proposal, sample_meeting
+        self._setup_common_mocks(
+            mock_group_judge_repo,
+            mock_pg_repo,
+            mock_membership_repo,
+            mock_proposal_repo,
+            mock_meeting_repo,
+            mock_proposal_judge_repo,
+            sample_group_judge,
+            sample_pg,
+            sample_memberships,
+            sample_proposal,
+            sample_meeting,
         )
-        mock_proposal_judge_repo.get_by_proposal_and_politician.return_value = None
         mock_proposal_judge_repo.bulk_create.return_value = []
 
         request = OverrideIndividualJudgeRequestDTO(
@@ -224,12 +255,6 @@ class TestOverrideIndividualJudgeUseCase:
         sample_memberships,
         sample_pg,
     ):
-        mock_group_judge_repo.get_by_proposal.return_value = [sample_group_judge]
-        mock_pg_repo.get_by_id.return_value = sample_pg
-        mock_membership_repo.get_active_by_group.return_value = sample_memberships
-        self._setup_meeting_date(
-            mock_proposal_repo, mock_meeting_repo, sample_proposal, sample_meeting
-        )
         existing_judge = ProposalJudge(
             id=10,
             proposal_id=100,
@@ -238,8 +263,19 @@ class TestOverrideIndividualJudgeUseCase:
             source_type=ProposalJudge.SOURCE_TYPE_GROUP_EXPANSION,
             source_group_judge_id=1,
         )
-        mock_proposal_judge_repo.get_by_proposal_and_politician.return_value = (
-            existing_judge
+        self._setup_common_mocks(
+            mock_group_judge_repo,
+            mock_pg_repo,
+            mock_membership_repo,
+            mock_proposal_repo,
+            mock_meeting_repo,
+            mock_proposal_judge_repo,
+            sample_group_judge,
+            sample_pg,
+            sample_memberships,
+            sample_proposal,
+            sample_meeting,
+            existing_judges=[existing_judge],
         )
         mock_proposal_judge_repo.bulk_update.return_value = []
 
@@ -275,13 +311,19 @@ class TestOverrideIndividualJudgeUseCase:
         sample_memberships,
         sample_pg,
     ):
-        mock_group_judge_repo.get_by_proposal.return_value = [sample_group_judge]
-        mock_pg_repo.get_by_id.return_value = sample_pg
-        mock_membership_repo.get_active_by_group.return_value = sample_memberships
-        self._setup_meeting_date(
-            mock_proposal_repo, mock_meeting_repo, sample_proposal, sample_meeting
+        self._setup_common_mocks(
+            mock_group_judge_repo,
+            mock_pg_repo,
+            mock_membership_repo,
+            mock_proposal_repo,
+            mock_meeting_repo,
+            mock_proposal_judge_repo,
+            sample_group_judge,
+            sample_pg,
+            sample_memberships,
+            sample_proposal,
+            sample_meeting,
         )
-        mock_proposal_judge_repo.get_by_proposal_and_politician.return_value = None
         mock_proposal_judge_repo.bulk_create.return_value = []
         mock_politician_repo.get_by_id.return_value = Politician(
             id=501, name="テスト太郎", prefecture="東京都", district="1区"
@@ -316,13 +358,19 @@ class TestOverrideIndividualJudgeUseCase:
         sample_memberships,
         sample_pg,
     ):
-        mock_group_judge_repo.get_by_proposal.return_value = [sample_group_judge]
-        mock_pg_repo.get_by_id.return_value = sample_pg
-        mock_membership_repo.get_active_by_group.return_value = sample_memberships
-        self._setup_meeting_date(
-            mock_proposal_repo, mock_meeting_repo, sample_proposal, sample_meeting
+        self._setup_common_mocks(
+            mock_group_judge_repo,
+            mock_pg_repo,
+            mock_membership_repo,
+            mock_proposal_repo,
+            mock_meeting_repo,
+            mock_proposal_judge_repo,
+            sample_group_judge,
+            sample_pg,
+            sample_memberships,
+            sample_proposal,
+            sample_meeting,
         )
-        mock_proposal_judge_repo.get_by_proposal_and_politician.return_value = None
         mock_proposal_judge_repo.bulk_create.return_value = []
 
         request = OverrideIndividualJudgeRequestDTO(
@@ -352,13 +400,19 @@ class TestOverrideIndividualJudgeUseCase:
         sample_memberships,
         sample_pg,
     ):
-        mock_group_judge_repo.get_by_proposal.return_value = [sample_group_judge]
-        mock_pg_repo.get_by_id.return_value = sample_pg
-        mock_membership_repo.get_active_by_group.return_value = sample_memberships
-        self._setup_meeting_date(
-            mock_proposal_repo, mock_meeting_repo, sample_proposal, sample_meeting
+        self._setup_common_mocks(
+            mock_group_judge_repo,
+            mock_pg_repo,
+            mock_membership_repo,
+            mock_proposal_repo,
+            mock_meeting_repo,
+            mock_proposal_judge_repo,
+            sample_group_judge,
+            sample_pg,
+            sample_memberships,
+            sample_proposal,
+            sample_meeting,
         )
-        mock_proposal_judge_repo.get_by_proposal_and_politician.return_value = None
         mock_proposal_judge_repo.bulk_create.return_value = []
         mock_politician_repo.get_by_id.return_value = Politician(
             id=501, name="テスト太郎", prefecture="東京都", district="1区"
@@ -392,12 +446,6 @@ class TestOverrideIndividualJudgeUseCase:
         sample_memberships,
         sample_pg,
     ):
-        mock_group_judge_repo.get_by_proposal.return_value = [sample_group_judge]
-        mock_pg_repo.get_by_id.return_value = sample_pg
-        mock_membership_repo.get_active_by_group.return_value = sample_memberships
-        self._setup_meeting_date(
-            mock_proposal_repo, mock_meeting_repo, sample_proposal, sample_meeting
-        )
         existing_judge = ProposalJudge(
             id=10,
             proposal_id=100,
@@ -406,8 +454,19 @@ class TestOverrideIndividualJudgeUseCase:
             source_type=ProposalJudge.SOURCE_TYPE_GROUP_EXPANSION,
             source_group_judge_id=1,
         )
-        mock_proposal_judge_repo.get_by_proposal_and_politician.return_value = (
-            existing_judge
+        self._setup_common_mocks(
+            mock_group_judge_repo,
+            mock_pg_repo,
+            mock_membership_repo,
+            mock_proposal_repo,
+            mock_meeting_repo,
+            mock_proposal_judge_repo,
+            sample_group_judge,
+            sample_pg,
+            sample_memberships,
+            sample_proposal,
+            sample_meeting,
+            existing_judges=[existing_judge],
         )
         mock_proposal_judge_repo.bulk_update.return_value = []
 
@@ -437,13 +496,19 @@ class TestOverrideIndividualJudgeUseCase:
         sample_memberships,
         sample_pg,
     ):
-        mock_group_judge_repo.get_by_proposal.return_value = [sample_group_judge]
-        mock_pg_repo.get_by_id.return_value = sample_pg
-        mock_membership_repo.get_active_by_group.return_value = sample_memberships
-        self._setup_meeting_date(
-            mock_proposal_repo, mock_meeting_repo, sample_proposal, sample_meeting
+        self._setup_common_mocks(
+            mock_group_judge_repo,
+            mock_pg_repo,
+            mock_membership_repo,
+            mock_proposal_repo,
+            mock_meeting_repo,
+            mock_proposal_judge_repo,
+            sample_group_judge,
+            sample_pg,
+            sample_memberships,
+            sample_proposal,
+            sample_meeting,
         )
-        mock_proposal_judge_repo.get_by_proposal_and_politician.return_value = None
         mock_proposal_judge_repo.bulk_create.return_value = []
 
         request = OverrideIndividualJudgeRequestDTO(
@@ -493,7 +558,7 @@ class TestOverrideIndividualJudgeUseCase:
         self._setup_meeting_date(
             mock_proposal_repo, mock_meeting_repo, sample_proposal, sample_meeting
         )
-        mock_proposal_judge_repo.get_by_proposal_and_politician.return_value = None
+        mock_proposal_judge_repo.get_by_proposal.return_value = []
         mock_proposal_judge_repo.bulk_create.return_value = []
 
         request = OverrideIndividualJudgeRequestDTO(
@@ -555,3 +620,82 @@ class TestOverrideIndividualJudgeUseCase:
         assert defections[0].politician_id == 501
         assert defections[0].individual_vote == "反対"
         assert defections[0].group_judgment == "賛成"
+
+    @pytest.mark.asyncio
+    async def test_duplicate_politician_id_rejected(
+        self,
+        use_case,
+        mock_group_judge_repo,
+        mock_proposal_judge_repo,
+    ):
+        """重複したpolitician_idが含まれる場合はエラーを返す."""
+        request = OverrideIndividualJudgeRequestDTO(
+            proposal_id=100,
+            votes=[
+                IndividualVoteInputItem(politician_id=501, approve="賛成"),
+                IndividualVoteInputItem(politician_id=501, approve="反対"),
+            ],
+        )
+
+        result = await use_case.execute(request)
+
+        assert result.success is False
+        assert any("重複したpolitician_id" in e for e in result.errors)
+        mock_group_judge_repo.get_by_proposal.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_mixed_create_and_update(
+        self,
+        use_case,
+        mock_group_judge_repo,
+        mock_proposal_judge_repo,
+        mock_membership_repo,
+        mock_pg_repo,
+        mock_proposal_repo,
+        mock_meeting_repo,
+        sample_group_judge,
+        sample_proposal,
+        sample_meeting,
+        sample_memberships,
+        sample_pg,
+    ):
+        """既存と新規が混在する場合にbulk_createとbulk_updateの両方が呼ばれる."""
+        existing_judge = ProposalJudge(
+            id=10,
+            proposal_id=100,
+            politician_id=501,
+            approve="賛成",
+            source_type=ProposalJudge.SOURCE_TYPE_GROUP_EXPANSION,
+        )
+        self._setup_common_mocks(
+            mock_group_judge_repo,
+            mock_pg_repo,
+            mock_membership_repo,
+            mock_proposal_repo,
+            mock_meeting_repo,
+            mock_proposal_judge_repo,
+            sample_group_judge,
+            sample_pg,
+            sample_memberships,
+            sample_proposal,
+            sample_meeting,
+            existing_judges=[existing_judge],
+        )
+        mock_proposal_judge_repo.bulk_create.return_value = []
+        mock_proposal_judge_repo.bulk_update.return_value = []
+
+        request = OverrideIndividualJudgeRequestDTO(
+            proposal_id=100,
+            votes=[
+                IndividualVoteInputItem(politician_id=501, approve="反対"),
+                IndividualVoteInputItem(politician_id=502, approve="賛成"),
+            ],
+        )
+
+        result = await use_case.execute(request)
+
+        assert result.success is True
+        assert result.judges_updated == 1
+        assert result.judges_created == 1
+        mock_proposal_judge_repo.bulk_update.assert_called_once()
+        mock_proposal_judge_repo.bulk_create.assert_called_once()
