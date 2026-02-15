@@ -132,6 +132,7 @@ async def _run_import(file_path: Path, batch_size: int, conference_name: str) ->
         logger.info("合計: %d", result.total)
         logger.info("作成: %d", result.created)
         logger.info("スキップ: %d", result.skipped)
+        logger.info("更新(日付バックフィル): %d", result.updated)
         logger.info("エラー: %d", result.errors)
         logger.info("賛否データ: %d", result.judges_created)
 

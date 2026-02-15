@@ -1,11 +1,13 @@
 import json
 import logging
 
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 from src.domain.entities.extracted_proposal_judge import ExtractedProposalJudge
 from src.domain.entities.proposal import Proposal
+from src.infrastructure.importers._utils import parse_wareki_date
 
 
 logger = logging.getLogger(__name__)
@@ -18,6 +20,8 @@ _IDX_TITLE = 3
 _IDX_RESULT = 5
 _IDX_NESTED_DATA = 10
 _IDX_NESTED_URL = 3
+_IDX_NESTED_SUBMITTED_DATE = 9
+_IDX_NESTED_VOTED_DATE = 12
 _IDX_NESTED_SANSEI_KAIHA = 14
 _IDX_NESTED_HANTAI_KAIHA = 15
 
@@ -50,6 +54,9 @@ class SmartNewsSmriImporter:
         deliberation_result = Proposal.normalize_result(raw_result)
         deliberation_status = raw_result.strip() if raw_result else None
 
+        submitted_date = self._extract_date(record, _IDX_NESTED_SUBMITTED_DATE)
+        voted_date = self._extract_date(record, _IDX_NESTED_VOTED_DATE)
+
         return Proposal(
             title=title,
             proposal_type=proposal_type,
@@ -62,6 +69,8 @@ class SmartNewsSmriImporter:
             deliberation_result=deliberation_result,
             deliberation_status=deliberation_status,
             detail_url=external_id,
+            submitted_date=submitted_date,
+            voted_date=voted_date,
         )
 
     @staticmethod
@@ -99,6 +108,25 @@ class SmartNewsSmriImporter:
         except (IndexError, TypeError):
             logger.debug("会派賛否データの解析をスキップ: %s", record[:4])
         return judges
+
+    @staticmethod
+    def _extract_date(record: list[Any], nested_idx: int) -> date | None:
+        """nested dataから和暦日付を抽出する.
+
+        voted_dateフィールドは「平成10年 3月19日／可決」のように
+        「／」以降にテキストが付く場合があるため、先に切り出す。
+        """
+        try:
+            nested = record[_IDX_NESTED_DATA]
+            if not nested or not nested[0] or len(nested[0]) <= nested_idx:
+                return None
+            raw = nested[0][nested_idx]
+            if not raw:
+                return None
+            text = str(raw).split("／")[0]
+            return parse_wareki_date(text)
+        except (IndexError, TypeError):
+            return None
 
     @staticmethod
     def _extract_external_id(record: list[Any]) -> str | None:

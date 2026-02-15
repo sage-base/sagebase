@@ -481,6 +481,105 @@ class TestExpandGroupJudgesToIndividualUseCase:
         mock_proposal_judge_repo.bulk_create.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_voted_date_fallback_when_no_meeting(
+        self,
+        use_case,
+        mock_group_judge_repo,
+        mock_proposal_judge_repo,
+        mock_membership_repo,
+        mock_proposal_repo,
+    ):
+        """meeting未紐付けでもvoted_dateで展開成功."""
+        group_judge = ProposalParliamentaryGroupJudge(
+            id=1,
+            proposal_id=100,
+            judgment="賛成",
+            judge_type=JudgeType.PARLIAMENTARY_GROUP,
+            parliamentary_group_ids=[10],
+        )
+        proposal_with_voted_date = Proposal(
+            id=100,
+            title="テスト議案",
+            meeting_id=None,
+            voted_date=date(2025, 6, 15),
+        )
+
+        mock_group_judge_repo.get_by_proposal.return_value = [group_judge]
+        mock_proposal_repo.get_by_id.return_value = proposal_with_voted_date
+        mock_membership_repo.get_active_by_group.return_value = [
+            ParliamentaryGroupMembership(
+                id=1,
+                politician_id=501,
+                parliamentary_group_id=10,
+                start_date=date(2024, 1, 1),
+            ),
+        ]
+        mock_proposal_judge_repo.get_by_proposal_and_politician.return_value = None
+        mock_proposal_judge_repo.bulk_create.return_value = []
+
+        request = ExpandGroupJudgesRequestDTO(proposal_id=100)
+        result = await use_case.execute(request)
+
+        assert result.success is True
+        assert result.skipped_no_meeting_date == 0
+        assert result.total_group_judges_processed == 1
+        assert result.total_judges_created == 1
+
+    @pytest.mark.asyncio
+    async def test_meeting_date_preferred_over_voted_date(
+        self,
+        use_case,
+        mock_group_judge_repo,
+        mock_proposal_judge_repo,
+        mock_membership_repo,
+        mock_proposal_repo,
+        mock_meeting_repo,
+    ):
+        """meeting日付がある場合はvoted_dateより優先される."""
+        group_judge = ProposalParliamentaryGroupJudge(
+            id=1,
+            proposal_id=100,
+            judgment="賛成",
+            judge_type=JudgeType.PARLIAMENTARY_GROUP,
+            parliamentary_group_ids=[10],
+        )
+        proposal = Proposal(
+            id=100,
+            title="テスト議案",
+            meeting_id=200,
+            voted_date=date(2025, 1, 1),
+        )
+        meeting = Meeting(
+            id=200,
+            conference_id=300,
+            date=date(2025, 6, 15),
+        )
+
+        mock_group_judge_repo.get_by_proposal.return_value = [group_judge]
+        mock_proposal_repo.get_by_id.return_value = proposal
+        mock_meeting_repo.get_by_id.return_value = meeting
+        mock_membership_repo.get_active_by_group.return_value = [
+            ParliamentaryGroupMembership(
+                id=1,
+                politician_id=501,
+                parliamentary_group_id=10,
+                start_date=date(2024, 1, 1),
+            ),
+        ]
+        mock_proposal_judge_repo.get_by_proposal_and_politician.return_value = None
+        mock_proposal_judge_repo.bulk_create.return_value = []
+
+        request = ExpandGroupJudgesRequestDTO(proposal_id=100)
+        result = await use_case.execute(request)
+
+        assert result.success is True
+        assert result.total_judges_created == 1
+        # meeting日付(2025-06-15)が使われることを確認（voted_dateではなく）
+        mock_membership_repo.get_active_by_group.assert_called_once_with(
+            10, as_of_date=date(2025, 6, 15)
+        )
+
+    @pytest.mark.asyncio
     async def test_source_fields_set_correctly(
         self,
         use_case,

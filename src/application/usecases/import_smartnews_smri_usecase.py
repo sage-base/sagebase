@@ -48,6 +48,7 @@ class ImportSmartNewsSmriUseCase:
             batch_result = await self._import_batch(importer, batch)
             output.created += batch_result.created
             output.skipped += batch_result.skipped
+            output.updated += batch_result.updated
             output.errors += batch_result.errors
             output.judges_created += batch_result.judges_created
 
@@ -61,10 +62,12 @@ class ImportSmartNewsSmriUseCase:
             )
 
         logger.info(
-            "インポート完了: 合計=%d, 作成=%d, スキップ=%d, エラー=%d, 賛否=%d",
+            "インポート完了: 合計=%d, 作成=%d, スキップ=%d, "
+            "更新=%d, エラー=%d, 賛否=%d",
             output.total,
             output.created,
             output.skipped,
+            output.updated,
             output.errors,
             output.judges_created,
         )
@@ -80,8 +83,11 @@ class ImportSmartNewsSmriUseCase:
         for record in records:
             try:
                 proposal = importer.parse_record(record)
-                if await self._check_duplicate(proposal):
+                is_duplicate, was_updated = await self._check_duplicate(proposal)
+                if is_duplicate:
                     result.skipped += 1
+                    if was_updated:
+                        result.updated += 1
                     continue
                 created_proposal = await self._repo.create(proposal)
                 result.created += 1
@@ -101,9 +107,15 @@ class ImportSmartNewsSmriUseCase:
                 logger.exception("賛否データの保存に失敗 (件数=%d)", len(all_judges))
         return result
 
-    async def _check_duplicate(self, proposal: Proposal) -> bool:
+    async def _check_duplicate(self, proposal: Proposal) -> tuple[bool, bool]:
+        """重複チェックし、既存レコードの日付をバックフィルする.
+
+        Returns:
+            (is_duplicate, was_updated) のタプル
+        """
+        existing: Proposal | None = None
+
         if proposal.has_business_key:
-            # has_business_keyがTrueの時点で全てnon-None（型チェッカー用ガード）
             assert proposal.governing_body_id is not None
             assert proposal.session_number is not None
             assert proposal.proposal_number is not None
@@ -114,13 +126,28 @@ class ImportSmartNewsSmriUseCase:
                 proposal_number=proposal.proposal_number,
                 proposal_type=proposal.proposal_type,
             )
-            return existing is not None
+        elif proposal.external_id:
+            existing = await self._repo.find_by_url(proposal.external_id)
 
-        if proposal.external_id:
-            existing = await self._repo.find_by_url(
-                proposal.external_id,
-            )
-            return existing is not None
+        if existing is None:
+            return (False, False)
 
-        # ビジネスキーもexternal_idもない場合は重複チェック不可
-        return False
+        was_updated = await self._backfill_dates(existing, proposal)
+        return (True, was_updated)
+
+    async def _backfill_dates(self, existing: Proposal, new_data: Proposal) -> bool:
+        """既存レコードの日付がNULLの場合、新データで補完する."""
+        needs_update = False
+
+        if existing.submitted_date is None and new_data.submitted_date is not None:
+            existing.submitted_date = new_data.submitted_date
+            needs_update = True
+
+        if existing.voted_date is None and new_data.voted_date is not None:
+            existing.voted_date = new_data.voted_date
+            needs_update = True
+
+        if needs_update:
+            await self._repo.update(existing)
+
+        return needs_update

@@ -1,5 +1,7 @@
 """Proposal entity module."""
 
+from datetime import date
+
 from src.domain.entities.base import BaseEntity
 
 
@@ -71,6 +73,8 @@ class Proposal(BaseEntity):
         external_id: str | None = None,
         deliberation_status: str | None = None,
         deliberation_result: str | None = None,
+        submitted_date: date | None = None,
+        voted_date: date | None = None,
         id: int | None = None,
     ) -> None:
         super().__init__(id)
@@ -88,6 +92,8 @@ class Proposal(BaseEntity):
         self.external_id = external_id
         self.deliberation_status = deliberation_status
         self.deliberation_result = deliberation_result
+        self.submitted_date = submitted_date
+        self.voted_date = voted_date
 
     def __str__(self) -> str:
         identifier = f"ID:{self.id}"

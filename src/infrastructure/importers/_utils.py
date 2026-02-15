@@ -10,6 +10,8 @@ WAREKI_MAP: dict[str, int] = {
     "令和": 2018,
     "平成": 1988,
     "昭和": 1925,
+    "大正": 1911,
+    "明治": 1867,
 }
 
 
@@ -29,7 +31,7 @@ def parse_wareki_date(text: str) -> date | None:
     if not text:
         return None
     text = zen_to_han(str(text))
-    pattern = r"(令和|平成|昭和)(\d+)年(\d+)月(\d+)日"
+    pattern = r"(令和|平成|昭和|大正|明治)(\d+)年\s*(\d+)月\s*(\d+)日"
     match = re.search(pattern, text)
     if not match:
         return None
