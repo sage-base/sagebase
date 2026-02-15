@@ -930,6 +930,206 @@ class SeedGenerator:
             output.write(result_str)
         return result_str
 
+    def generate_proposals_seed(self, output: TextIO | None = None) -> str:
+        """proposalsテーブルのSEEDファイルを生成する"""
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    SELECT
+                        p.id,
+                        p.title,
+                        p.detail_url,
+                        p.status_url,
+                        p.votes_url,
+                        p.proposal_category,
+                        p.proposal_type,
+                        p.session_number,
+                        p.proposal_number,
+                        p.external_id,
+                        p.deliberation_status,
+                        p.deliberation_result,
+                        p.submitted_date,
+                        p.voted_date,
+                        p.meeting_id,
+                        p.conference_id,
+                        gb.name AS governing_body_name,
+                        gb.type AS governing_body_type,
+                        c.name AS conference_name
+                    FROM proposals p
+                    JOIN governing_bodies gb ON p.governing_body_id = gb.id
+                    LEFT JOIN conferences c ON p.conference_id = c.id
+                    ORDER BY p.session_number NULLS LAST, p.id
+                """)
+            )
+            columns = result.keys()
+            proposals = [dict(zip(columns, row, strict=False)) for row in result]
+
+        lines = [
+            (
+                f"-- Generated from database on "
+                f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            ),
+            "-- proposals seed data",
+            "",
+            (
+                "INSERT INTO proposals "
+                "(id, title, detail_url, status_url, votes_url, "
+                "proposal_category, proposal_type, session_number, "
+                "proposal_number, external_id, deliberation_status, "
+                "deliberation_result, submitted_date, voted_date, "
+                "governing_body_id, conference_id, meeting_id) "
+                "VALUES"
+            ),
+        ]
+
+        # session_numberごとにグループ化
+        grouped_data: dict[str, dict[str, Any]] = {}
+        for proposal in proposals:
+            sn = proposal["session_number"]
+            key = str(sn) if sn is not None else "NULL"
+            if key not in grouped_data:
+                grouped_data[key] = {
+                    "session_number": sn,
+                    "proposals": [],
+                }
+            grouped_data[key]["proposals"].append(proposal)
+
+        group_keys: list[str] = list(grouped_data.keys())
+        first_group = True
+        for group_idx, (_key, data) in enumerate(grouped_data.items()):
+            session_number = data["session_number"]
+            proposals_list: list[dict[str, Any]] = data["proposals"]
+
+            if not first_group:
+                lines.append("")
+            if session_number is not None:
+                lines.append(f"-- 第{session_number}回国会")
+            else:
+                lines.append("-- session_number未設定")
+
+            for i, proposal in enumerate(proposals_list):
+                pid = proposal["id"]
+                title = self._escape_sql(proposal["title"])
+                detail_url = self._sql_str_or_null(proposal["detail_url"])
+                status_url = self._sql_str_or_null(proposal["status_url"])
+                votes_url = self._sql_str_or_null(proposal["votes_url"])
+                proposal_category = self._sql_str_or_null(proposal["proposal_category"])
+                proposal_type = self._sql_str_or_null(proposal["proposal_type"])
+                sn_val = (
+                    str(proposal["session_number"])
+                    if proposal["session_number"] is not None
+                    else "NULL"
+                )
+                pn_val = (
+                    str(proposal["proposal_number"])
+                    if proposal["proposal_number"] is not None
+                    else "NULL"
+                )
+                external_id = self._sql_str_or_null(proposal["external_id"])
+                deliberation_status = self._sql_str_or_null(
+                    proposal["deliberation_status"]
+                )
+                deliberation_result = self._sql_str_or_null(
+                    proposal["deliberation_result"]
+                )
+
+                # 日付フォーマット
+                submitted_date = (
+                    f"'{proposal['submitted_date'].strftime('%Y-%m-%d')}'"
+                    if proposal["submitted_date"]
+                    else "NULL"
+                )
+                voted_date = (
+                    f"'{proposal['voted_date'].strftime('%Y-%m-%d')}'"
+                    if proposal["voted_date"]
+                    else "NULL"
+                )
+
+                # FK参照をサブクエリで解決
+                gb_name = self._escape_sql(proposal["governing_body_name"])
+                gb_type = self._escape_sql(proposal["governing_body_type"])
+                governing_body_part = (
+                    f"(SELECT id FROM governing_bodies WHERE name = "
+                    f"'{gb_name}' AND type = '{gb_type}')"
+                )
+
+                if proposal["conference_id"] is not None:
+                    conf_name = self._escape_sql(proposal["conference_name"])
+                    conference_part = (
+                        f"(SELECT id FROM conferences WHERE name = "
+                        f"'{conf_name}' AND governing_body_id = "
+                        f"{governing_body_part})"
+                    )
+                else:
+                    conference_part = "NULL"
+
+                # meeting_idは全てNULL
+                meeting_part = "NULL"
+
+                # 最後の要素かどうかチェック
+                is_last = (
+                    group_idx == len(group_keys) - 1 and i == len(proposals_list) - 1
+                )
+                comma = "" if is_last else ","
+
+                lines.append(
+                    f"({pid}, '{title}', {detail_url}, {status_url}, "
+                    f"{votes_url}, {proposal_category}, {proposal_type}, "
+                    f"{sn_val}, {pn_val}, {external_id}, "
+                    f"{deliberation_status}, {deliberation_result}, "
+                    f"{submitted_date}, {voted_date}, "
+                    f"{governing_body_part}, {conference_part}, "
+                    f"{meeting_part}){comma}"
+                )
+
+            first_group = False
+
+        lines.append(
+            "ON CONFLICT (id) DO UPDATE SET "
+            "title = EXCLUDED.title, "
+            "detail_url = EXCLUDED.detail_url, "
+            "status_url = EXCLUDED.status_url, "
+            "votes_url = EXCLUDED.votes_url, "
+            "proposal_category = EXCLUDED.proposal_category, "
+            "proposal_type = EXCLUDED.proposal_type, "
+            "session_number = EXCLUDED.session_number, "
+            "proposal_number = EXCLUDED.proposal_number, "
+            "external_id = EXCLUDED.external_id, "
+            "deliberation_status = EXCLUDED.deliberation_status, "
+            "deliberation_result = EXCLUDED.deliberation_result, "
+            "submitted_date = EXCLUDED.submitted_date, "
+            "voted_date = EXCLUDED.voted_date, "
+            "governing_body_id = EXCLUDED.governing_body_id, "
+            "conference_id = EXCLUDED.conference_id, "
+            "meeting_id = EXCLUDED.meeting_id;"
+        )
+        lines.append("")
+        lines.append("-- Reset sequence to max id + 1")
+        lines.append(
+            "SELECT setval('proposals_id_seq', "
+            "(SELECT COALESCE(MAX(id), 0) + 1 FROM proposals), false);"
+        )
+
+        result_str = "\n".join(lines) + "\n"
+        if output:
+            output.write(result_str)
+        return result_str
+
+    @staticmethod
+    def _escape_sql(value: str | None) -> str:
+        """SQL文字列のシングルクォートをエスケープする"""
+        if value is None:
+            return ""
+        return value.replace("'", "''")
+
+    @staticmethod
+    def _sql_str_or_null(value: str | None) -> str:
+        """文字列値をSQL用に変換する（NULLまたはクォート付き文字列）"""
+        if value is None:
+            return "NULL"
+        escaped = value.replace("'", "''")
+        return f"'{escaped}'"
+
 
 def generate_all_seeds(output_dir: str = "database") -> None:
     """すべてのSEEDファイルを生成する"""
@@ -994,6 +1194,12 @@ def generate_all_seeds(output_dir: str = "database") -> None:
     )
     with open(path, "w") as f:
         generator.generate_parliamentary_group_memberships_seed(f)
+        print(f"Generated: {path}")
+
+    # proposals
+    path = os.path.join(output_dir, "seed_proposals_generated.sql")
+    with open(path, "w") as f:
+        generator.generate_proposals_seed(f)
         print(f"Generated: {path}")
 
 
