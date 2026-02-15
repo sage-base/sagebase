@@ -322,7 +322,9 @@ def _insert_prerequisite_data(session: Session) -> None:
     session.execute(
         text(
             """
-            INSERT INTO parliamentary_groups (id, name, conference_id, is_active) VALUES
+            INSERT INTO parliamentary_groups
+                (id, name, governing_body_id, is_active)
+            VALUES
                 (9001, '自民党テスト', 9001, true),
                 (9002, '立憲民主党テスト', 9001, true)
             ON CONFLICT (id) DO NOTHING
@@ -476,7 +478,8 @@ class TestScenario2NoMeetingDate:
         test_db_session.execute(
             text(
                 """
-                INSERT INTO parliamentary_groups (id, name, conference_id, is_active)
+                INSERT INTO parliamentary_groups
+                    (id, name, governing_body_id, is_active)
                 VALUES (9001, '自民党テスト', 9001, true)
                 ON CONFLICT (id) DO NOTHING
                 """
@@ -532,7 +535,8 @@ class TestScenario3NoMembership:
         test_db_session.execute(
             text(
                 """
-                INSERT INTO parliamentary_groups (id, name, conference_id, is_active)
+                INSERT INTO parliamentary_groups
+                    (id, name, governing_body_id, is_active)
                 VALUES (9003, '空会派テスト', 9001, true)
                 ON CONFLICT (id) DO NOTHING
                 """
