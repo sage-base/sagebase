@@ -17,6 +17,7 @@ from src.domain.repositories.politician_repository import PoliticianRepository
 from src.domain.services.proposal_judge_extraction_service import (
     ProposalJudgeExtractionService,
 )
+from src.domain.services.submitter_string_parser import parse_submitter_string
 from src.domain.value_objects.submitter_analysis_result import (
     SubmitterAnalysisResult,
     SubmitterCandidate,
@@ -27,11 +28,13 @@ from src.domain.value_objects.submitter_type import SubmitterType
 
 # 市長系キーワード（長いものを先にチェック）
 _MAYOR_KEYWORDS = [
+    "内閣総理大臣",
     "副市長",
     "副町長",
     "副村長",
     "副区長",
     "副知事",
+    "内閣",
     "市長",
     "町長",
     "村長",
@@ -72,47 +75,104 @@ class RuleBasedProposalSubmitterAnalyzer:
         self,
         submitter_name: str,
         conference_id: int,
-    ) -> SubmitterAnalysisResult:
+    ) -> list[SubmitterAnalysisResult]:
         """提出者文字列を解析してマッチングする.
 
-        判定優先順位:
-        1. MAYOR（市長等のキーワード完全一致）
-        2. COMMITTEE（委員会系キーワード）
-        3. PARLIAMENTARY_GROUP（会派名マッチング）
-        4. POLITICIAN（議員名マッチング）
-        5. OTHER（判定不能）
+        提出者文字列をパースし、各名前に対して種別判定・マッチングを行う。
+        カンマ区切りの場合は複数の結果を返す。
         """
-        name = submitter_name.strip()
+        raw = submitter_name.strip()
+        if not raw:
+            return [
+                SubmitterAnalysisResult(
+                    submitter_type=SubmitterType.OTHER,
+                    confidence=0.0,
+                )
+            ]
+
+        # パース前にMAYOR/COMMITTEE判定（raw_name全体で判定）
+        mayor_result = self._check_mayor(raw)
+        if mayor_result is not None:
+            return [mayor_result]
+
+        committee_result = self._check_committee(raw)
+        if committee_result is not None:
+            return [committee_result]
+
+        # 提出者文字列をパース
+        parsed = parse_submitter_string(raw)
+        if not parsed.names:
+            return [
+                SubmitterAnalysisResult(
+                    submitter_type=SubmitterType.OTHER,
+                    confidence=0.0,
+                )
+            ]
+
+        # 各名前に対して個別分析
+        results: list[SubmitterAnalysisResult] = []
+        for name in parsed.names:
+            result = await self._analyze_single_name(name, conference_id)
+            results.append(result)
+
+        return results
+
+    async def _analyze_single_name(
+        self, name: str, conference_id: int
+    ) -> SubmitterAnalysisResult:
+        """単一の名前に対して種別判定・マッチングを行う."""
         if not name:
             return SubmitterAnalysisResult(
                 submitter_type=SubmitterType.OTHER,
                 confidence=0.0,
+                parsed_name=name,
             )
 
-        # 1. MAYOR判定
+        # MAYOR判定（パース後の個別名前でも再チェック）
         mayor_result = self._check_mayor(name)
         if mayor_result is not None:
-            return mayor_result
+            return SubmitterAnalysisResult(
+                submitter_type=mayor_result.submitter_type,
+                confidence=mayor_result.confidence,
+                parsed_name=name,
+            )
 
-        # 2. COMMITTEE判定
+        # COMMITTEE判定
         committee_result = self._check_committee(name)
         if committee_result is not None:
-            return committee_result
+            return SubmitterAnalysisResult(
+                submitter_type=committee_result.submitter_type,
+                confidence=committee_result.confidence,
+                parsed_name=name,
+            )
 
-        # 3. 会派マッチング（先に実行、会派名は固有名詞でヒットしやすい）
+        # 会派マッチング
         pg_result = await self._match_parliamentary_group(name, conference_id)
         if pg_result is not None:
-            return pg_result
+            return SubmitterAnalysisResult(
+                submitter_type=pg_result.submitter_type,
+                confidence=pg_result.confidence,
+                matched_parliamentary_group_id=pg_result.matched_parliamentary_group_id,
+                parsed_name=name,
+                candidates=pg_result.candidates,
+            )
 
-        # 4. 議員マッチング
+        # 議員マッチング
         politician_result = await self._match_politician(name, conference_id)
         if politician_result is not None:
-            return politician_result
+            return SubmitterAnalysisResult(
+                submitter_type=politician_result.submitter_type,
+                confidence=politician_result.confidence,
+                matched_politician_id=politician_result.matched_politician_id,
+                parsed_name=name,
+                candidates=politician_result.candidates,
+            )
 
-        # 5. 判定不能
+        # 判定不能
         return SubmitterAnalysisResult(
             submitter_type=SubmitterType.OTHER,
             confidence=0.0,
+            parsed_name=name,
         )
 
     def _check_mayor(self, name: str) -> SubmitterAnalysisResult | None:
@@ -122,6 +182,7 @@ class RuleBasedProposalSubmitterAnalyzer:
                 return SubmitterAnalysisResult(
                     submitter_type=SubmitterType.MAYOR,
                     confidence=1.0,
+                    parsed_name=name,
                 )
         return None
 
@@ -132,6 +193,7 @@ class RuleBasedProposalSubmitterAnalyzer:
                 return SubmitterAnalysisResult(
                     submitter_type=SubmitterType.COMMITTEE,
                     confidence=1.0,
+                    parsed_name=name,
                 )
         return None
 
@@ -171,6 +233,7 @@ class RuleBasedProposalSubmitterAnalyzer:
             submitter_type=SubmitterType.PARLIAMENTARY_GROUP,
             confidence=best.confidence,
             matched_parliamentary_group_id=best.entity_id,
+            parsed_name=name,
             candidates=candidates,
         )
 
@@ -221,6 +284,7 @@ class RuleBasedProposalSubmitterAnalyzer:
             submitter_type=SubmitterType.POLITICIAN,
             confidence=best.confidence,
             matched_politician_id=best.entity_id,
+            parsed_name=name,
             candidates=candidates,
         )
 
