@@ -285,6 +285,16 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             return self._row_to_entity(row)
         return None
 
+    async def get_by_ids(self, entity_ids: list[int]) -> list[Speaker]:
+        """IDリストから発言者を取得する（動的モデル対応のraw SQL実装）."""
+        if not entity_ids:
+            return []
+        placeholders = ", ".join(f":id_{i}" for i in range(len(entity_ids)))
+        query = text(f"SELECT * FROM speakers WHERE id IN ({placeholders})")
+        params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
+        result = await self.session.execute(query, params)
+        return [self._row_to_entity(row) for row in result.fetchall()]
+
     async def create(self, entity: Speaker) -> Speaker:
         """Create a new speaker."""
         query = text("""
