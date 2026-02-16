@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 
@@ -47,5 +48,51 @@ class ImportKokkaiSpeechesOutputDTO:
     total_speeches_imported: int = 0
     total_speeches_skipped: int = 0
     total_meetings_created: int = 0
+    total_speakers_created: int = 0
+    errors: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class KokkaiMeetingDTO:
+    """国会APIから取得した会議データのDTO."""
+
+    issue_id: str
+    session: int
+    name_of_house: str
+    name_of_meeting: str
+    issue: str
+    date: str
+    meeting_url: str
+
+
+# バッチインポートの進捗コールバック型
+# (処理済み件数, 全体件数, 現在処理中の会議名)
+BatchProgressCallback = Callable[[int, int, str], None]
+
+
+@dataclass
+class BatchImportKokkaiSpeechesInputDTO:
+    """バッチ発言インポート入力DTO."""
+
+    # 検索条件
+    name_of_house: str | None = None
+    name_of_meeting: str | None = None
+    from_date: str | None = None
+    until_date: str | None = None
+    session_from: int | None = None
+    session_to: int | None = None
+    # バッチ設定
+    sleep_interval: float = 1.0
+
+
+@dataclass
+class BatchImportKokkaiSpeechesOutputDTO:
+    """バッチ発言インポート出力DTO."""
+
+    total_meetings_found: int = 0
+    total_meetings_processed: int = 0
+    total_meetings_skipped: int = 0
+    total_speeches_imported: int = 0
+    total_speeches_skipped: int = 0
     total_speakers_created: int = 0
     errors: list[str] = field(default_factory=list)
