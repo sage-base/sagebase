@@ -23,14 +23,17 @@ class IProposalSubmitterAnalyzerService(Protocol):
         self,
         submitter_name: str,
         conference_id: int,
-    ) -> SubmitterAnalysisResult:
+    ) -> list[SubmitterAnalysisResult]:
         """提出者文字列を解析してマッチングする.
 
+        提出者文字列をパースし、各名前に対して種別判定・マッチングを行う。
+        カンマ区切りの場合は複数の結果を返す。
+
         Args:
-            submitter_name: 提出者の文字列（例: 「田中太郎」「自由民主党」「市長」）
+            submitter_name: 提出者の文字列（例: 「田中太郎」「熊代昭彦,谷畑孝」）
             conference_id: 会議体ID（候補絞り込みに使用）
 
         Returns:
-            SubmitterAnalysisResult: 分析結果
+            list[SubmitterAnalysisResult]: 分析結果リスト
         """
         ...

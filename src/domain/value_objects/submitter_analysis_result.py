@@ -37,4 +37,5 @@ class SubmitterAnalysisResult:
     confidence: float
     matched_politician_id: int | None = None
     matched_parliamentary_group_id: int | None = None
+    parsed_name: str = ""
     candidates: list[SubmitterCandidate] = field(default_factory=list)

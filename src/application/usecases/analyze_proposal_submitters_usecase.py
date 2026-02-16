@@ -17,6 +17,7 @@ from src.domain.repositories.proposal_submitter_repository import (
 from src.domain.services.interfaces.proposal_submitter_analyzer_service import (
     IProposalSubmitterAnalyzerService,
 )
+from src.domain.value_objects.submitter_analysis_result import SubmitterAnalysisResult
 from src.domain.value_objects.submitter_type import SubmitterType
 
 
@@ -97,39 +98,54 @@ class AnalyzeProposalSubmittersUseCase:
 
                     total_analyzed += 1
 
-                    # 分析実行
-                    analysis = await self._analyzer_service.analyze(
+                    # 分析実行（list[SubmitterAnalysisResult]を返す）
+                    analysis_results = await self._analyzer_service.analyze(
                         submitter.raw_name, conference_id
                     )
 
-                    # 結果に基づいてエンティティを更新
-                    updated = False
-                    if analysis.confidence >= _MIN_MATCH_CONFIDENCE:
-                        submitter.submitter_type = analysis.submitter_type
-                        if analysis.matched_politician_id is not None:
-                            submitter.politician_id = analysis.matched_politician_id
-                            updated = True
-                        if analysis.matched_parliamentary_group_id is not None:
-                            submitter.parliamentary_group_id = (
-                                analysis.matched_parliamentary_group_id
-                            )
-                            updated = True
-                        # MAYOR/COMMITTEEの場合はtype設定のみで更新
-                        if analysis.submitter_type in _MAYOR_OR_COMMITTEE_TYPES:
-                            updated = True
-
-                        if updated:
+                    # 最初の結果で既存submitterを更新
+                    if analysis_results:
+                        first_updated = self._apply_analysis(
+                            submitter, analysis_results[0]
+                        )
+                        if first_updated:
                             await self._proposal_submitter_repository.update(submitter)
                             total_matched += 1
 
-                    results.append(
-                        SubmitterMatchResultDTO(
-                            submitter_id=submitter.id or 0,
-                            raw_name=submitter.raw_name,
-                            analysis=analysis,
-                            updated=updated,
+                        results.append(
+                            SubmitterMatchResultDTO(
+                                submitter_id=submitter.id or 0,
+                                raw_name=submitter.raw_name,
+                                analysis=analysis_results[0],
+                                updated=first_updated,
+                            )
                         )
-                    )
+
+                    # 2件目以降の結果は新規ProposalSubmitterを作成
+                    additional_submitters: list[ProposalSubmitter] = []
+                    for analysis in analysis_results[1:]:
+                        new_submitter = self._create_additional_submitter(
+                            submitter, analysis
+                        )
+                        if new_submitter is not None:
+                            additional_submitters.append(new_submitter)
+                            total_matched += 1
+
+                    if additional_submitters:
+                        await self._proposal_submitter_repository.bulk_create(
+                            additional_submitters
+                        )
+                        for new_sub in additional_submitters:
+                            results.append(
+                                SubmitterMatchResultDTO(
+                                    submitter_id=new_sub.id or 0,
+                                    raw_name=new_sub.raw_name or "",
+                                    analysis=analysis_results[
+                                        additional_submitters.index(new_sub) + 1
+                                    ],
+                                    updated=True,
+                                )
+                            )
 
             return AnalyzeProposalSubmittersOutputDTO(
                 success=True,
@@ -148,6 +164,52 @@ class AnalyzeProposalSubmittersUseCase:
                 success=False,
                 message=f"分析中にエラーが発生しました: {e!s}",
             )
+
+    def _apply_analysis(
+        self, submitter: ProposalSubmitter, analysis: SubmitterAnalysisResult
+    ) -> bool:
+        """分析結果をsubmitterに適用する."""
+        if analysis.confidence < _MIN_MATCH_CONFIDENCE:
+            return False
+
+        updated = False
+        submitter.submitter_type = analysis.submitter_type
+
+        if analysis.matched_politician_id is not None:
+            submitter.politician_id = analysis.matched_politician_id
+            updated = True
+        if analysis.matched_parliamentary_group_id is not None:
+            submitter.parliamentary_group_id = analysis.matched_parliamentary_group_id
+            updated = True
+        if analysis.submitter_type in _MAYOR_OR_COMMITTEE_TYPES:
+            updated = True
+
+        return updated
+
+    def _create_additional_submitter(
+        self, original: ProposalSubmitter, analysis: SubmitterAnalysisResult
+    ) -> ProposalSubmitter | None:
+        """追加の分析結果からProposalSubmitterを作成する."""
+        if analysis.confidence < _MIN_MATCH_CONFIDENCE:
+            return None
+
+        new_submitter = ProposalSubmitter(
+            proposal_id=original.proposal_id,
+            submitter_type=analysis.submitter_type,
+            politician_id=analysis.matched_politician_id,
+            parliamentary_group_id=analysis.matched_parliamentary_group_id,
+            raw_name=analysis.parsed_name,
+            display_order=original.display_order + 1,
+        )
+
+        if analysis.submitter_type not in _MAYOR_OR_COMMITTEE_TYPES:
+            if (
+                analysis.matched_politician_id is None
+                and analysis.matched_parliamentary_group_id is None
+            ):
+                return None
+
+        return new_submitter
 
     @staticmethod
     def _needs_analysis(submitter: ProposalSubmitter) -> bool:

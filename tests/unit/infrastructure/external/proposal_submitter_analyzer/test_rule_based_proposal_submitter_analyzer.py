@@ -91,18 +91,30 @@ class TestRuleBasedProposalSubmitterAnalyzer:
         self, analyzer: RuleBasedProposalSubmitterAnalyzer
     ) -> None:
         """「市長」は MAYOR として判定される."""
-        result = await analyzer.analyze("市長", conference_id=1)
-        assert result.submitter_type == SubmitterType.MAYOR
-        assert result.confidence == 1.0
+        results = await analyzer.analyze("市長", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.MAYOR
+        assert results[0].confidence == 1.0
 
     @pytest.mark.asyncio()
     async def test_mayor_keywords(
         self, analyzer: RuleBasedProposalSubmitterAnalyzer
     ) -> None:
         """市長系キーワードはすべてMAYOR."""
-        for keyword in ["市長", "町長", "村長", "区長", "知事", "副市長", "副知事"]:
-            result = await analyzer.analyze(keyword, conference_id=1)
-            assert result.submitter_type == SubmitterType.MAYOR, (
+        for keyword in [
+            "市長",
+            "町長",
+            "村長",
+            "区長",
+            "知事",
+            "副市長",
+            "副知事",
+            "内閣",
+            "内閣総理大臣",
+        ]:
+            results = await analyzer.analyze(keyword, conference_id=1)
+            assert len(results) == 1
+            assert results[0].submitter_type == SubmitterType.MAYOR, (
                 f"{keyword}がMAYORでない"
             )
 
@@ -111,8 +123,9 @@ class TestRuleBasedProposalSubmitterAnalyzer:
         self, analyzer: RuleBasedProposalSubmitterAnalyzer
     ) -> None:
         """「〇〇市長」のような接尾辞もMAYOR."""
-        result = await analyzer.analyze("東京都知事", conference_id=1)
-        assert result.submitter_type == SubmitterType.MAYOR
+        results = await analyzer.analyze("東京都知事", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.MAYOR
 
     # ========== COMMITTEE判定テスト ==========
 
@@ -121,17 +134,19 @@ class TestRuleBasedProposalSubmitterAnalyzer:
         self, analyzer: RuleBasedProposalSubmitterAnalyzer
     ) -> None:
         """「委員会」を含む文字列はCOMMITTEE."""
-        result = await analyzer.analyze("総務委員会", conference_id=1)
-        assert result.submitter_type == SubmitterType.COMMITTEE
-        assert result.confidence == 1.0
+        results = await analyzer.analyze("総務委員会", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.COMMITTEE
+        assert results[0].confidence == 1.0
 
     @pytest.mark.asyncio()
     async def test_committee_chairman(
         self, analyzer: RuleBasedProposalSubmitterAnalyzer
     ) -> None:
         """「委員長」を含む文字列はCOMMITTEE."""
-        result = await analyzer.analyze("予算委員長", conference_id=1)
-        assert result.submitter_type == SubmitterType.COMMITTEE
+        results = await analyzer.analyze("予算委員長", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.COMMITTEE
 
     # ========== 議員マッチングテスト ==========
 
@@ -142,11 +157,9 @@ class TestRuleBasedProposalSubmitterAnalyzer:
         mock_repos: dict[str, AsyncMock],
     ) -> None:
         """議員名完全一致でconfidence=1.0."""
-        # 会派なし（空リスト）
         mock_repos["conference"].get_by_id.return_value = _make_conference(1, 100)
         mock_repos["parliamentary_group"].get_by_governing_body_id.return_value = []
 
-        # 議員データ
         mock_repos["conference_member"].get_by_conference.return_value = [
             _make_conference_member(1, 1),
             _make_conference_member(2, 1),
@@ -156,10 +169,11 @@ class TestRuleBasedProposalSubmitterAnalyzer:
             _make_politician(2, "鈴木花子"),
         ]
 
-        result = await analyzer.analyze("田中太郎", conference_id=1)
-        assert result.submitter_type == SubmitterType.POLITICIAN
-        assert result.confidence == 1.0
-        assert result.matched_politician_id == 1
+        results = await analyzer.analyze("田中太郎", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.POLITICIAN
+        assert results[0].confidence == 1.0
+        assert results[0].matched_politician_id == 1
 
     @pytest.mark.asyncio()
     async def test_politician_partial_match(
@@ -177,11 +191,11 @@ class TestRuleBasedProposalSubmitterAnalyzer:
             _make_politician(1, "田中太郎"),
         ]
 
-        # 「田中」は「田中太郎」に含まれる → 部分一致
-        result = await analyzer.analyze("田中", conference_id=1)
-        assert result.submitter_type == SubmitterType.POLITICIAN
-        assert result.confidence == 0.8
-        assert result.matched_politician_id == 1
+        results = await analyzer.analyze("田中", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.POLITICIAN
+        assert results[0].confidence == 0.8
+        assert results[0].matched_politician_id == 1
 
     @pytest.mark.asyncio()
     async def test_politician_multiple_candidates(
@@ -201,13 +215,12 @@ class TestRuleBasedProposalSubmitterAnalyzer:
             _make_politician(2, "田中次郎"),
         ]
 
-        result = await analyzer.analyze("田中太郎", conference_id=1)
-        assert result.submitter_type == SubmitterType.POLITICIAN
-        # 完全一致の田中太郎が最高信頼度
-        assert result.matched_politician_id == 1
-        assert result.confidence == 1.0
-        # 田中次郎も候補に含まれる（部分一致で0.7以上）
-        assert len(result.candidates) >= 1
+        results = await analyzer.analyze("田中太郎", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.POLITICIAN
+        assert results[0].matched_politician_id == 1
+        assert results[0].confidence == 1.0
+        assert len(results[0].candidates) >= 1
 
     @pytest.mark.asyncio()
     async def test_politician_honorific_stripped(
@@ -225,9 +238,10 @@ class TestRuleBasedProposalSubmitterAnalyzer:
             _make_politician(1, "田中太郎"),
         ]
 
-        result = await analyzer.analyze("田中太郎議員", conference_id=1)
-        assert result.submitter_type == SubmitterType.POLITICIAN
-        assert result.matched_politician_id == 1
+        results = await analyzer.analyze("田中太郎議員", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.POLITICIAN
+        assert results[0].matched_politician_id == 1
 
     # ========== 会派マッチングテスト ==========
 
@@ -244,10 +258,11 @@ class TestRuleBasedProposalSubmitterAnalyzer:
             _make_parliamentary_group(11, "公明党"),
         ]
 
-        result = await analyzer.analyze("自由民主党", conference_id=1)
-        assert result.submitter_type == SubmitterType.PARLIAMENTARY_GROUP
-        assert result.confidence == 1.0
-        assert result.matched_parliamentary_group_id == 10
+        results = await analyzer.analyze("自由民主党", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.PARLIAMENTARY_GROUP
+        assert results[0].confidence == 1.0
+        assert results[0].matched_parliamentary_group_id == 10
 
     @pytest.mark.asyncio()
     async def test_parliamentary_group_partial_match(
@@ -261,11 +276,11 @@ class TestRuleBasedProposalSubmitterAnalyzer:
             _make_parliamentary_group(10, "自由民主党議員団"),
         ]
 
-        # 「自由民主党」は「自由民主党議員団」に含まれる
-        result = await analyzer.analyze("自由民主党", conference_id=1)
-        assert result.submitter_type == SubmitterType.PARLIAMENTARY_GROUP
-        assert result.confidence == 0.8
-        assert result.matched_parliamentary_group_id == 10
+        results = await analyzer.analyze("自由民主党", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.PARLIAMENTARY_GROUP
+        assert results[0].confidence == 0.8
+        assert results[0].matched_parliamentary_group_id == 10
 
     # ========== OTHER判定テスト ==========
 
@@ -281,27 +296,30 @@ class TestRuleBasedProposalSubmitterAnalyzer:
         mock_repos["conference_member"].get_by_conference.return_value = []
         mock_repos["politician"].get_by_ids.return_value = []
 
-        result = await analyzer.analyze("不明な提出者", conference_id=1)
-        assert result.submitter_type == SubmitterType.OTHER
-        assert result.confidence == 0.0
+        results = await analyzer.analyze("不明な提出者", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.OTHER
+        assert results[0].confidence == 0.0
 
     @pytest.mark.asyncio()
     async def test_empty_name_returns_other(
         self, analyzer: RuleBasedProposalSubmitterAnalyzer
     ) -> None:
         """空文字列はOTHER."""
-        result = await analyzer.analyze("", conference_id=1)
-        assert result.submitter_type == SubmitterType.OTHER
-        assert result.confidence == 0.0
+        results = await analyzer.analyze("", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.OTHER
+        assert results[0].confidence == 0.0
 
     @pytest.mark.asyncio()
     async def test_whitespace_only_returns_other(
         self, analyzer: RuleBasedProposalSubmitterAnalyzer
     ) -> None:
         """空白のみはOTHER."""
-        result = await analyzer.analyze("   ", conference_id=1)
-        assert result.submitter_type == SubmitterType.OTHER
-        assert result.confidence == 0.0
+        results = await analyzer.analyze("   ", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.OTHER
+        assert results[0].confidence == 0.0
 
     # ========== 異常系テスト ==========
 
@@ -316,8 +334,9 @@ class TestRuleBasedProposalSubmitterAnalyzer:
         mock_repos["conference_member"].get_by_conference.return_value = []
         mock_repos["politician"].get_by_ids.return_value = []
 
-        result = await analyzer.analyze("田中太郎", conference_id=9999)
-        assert result.submitter_type == SubmitterType.OTHER
+        results = await analyzer.analyze("田中太郎", conference_id=9999)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.OTHER
 
     @pytest.mark.asyncio()
     async def test_no_members_in_conference(
@@ -331,8 +350,9 @@ class TestRuleBasedProposalSubmitterAnalyzer:
         mock_repos["conference_member"].get_by_conference.return_value = []
         mock_repos["politician"].get_by_ids.return_value = []
 
-        result = await analyzer.analyze("田中太郎", conference_id=1)
-        assert result.submitter_type == SubmitterType.OTHER
+        results = await analyzer.analyze("田中太郎", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.OTHER
 
     # ========== 判定優先順位テスト ==========
 
@@ -350,8 +370,9 @@ class TestRuleBasedProposalSubmitterAnalyzer:
             _make_politician(1, "市長"),
         ]
 
-        result = await analyzer.analyze("市長", conference_id=1)
-        assert result.submitter_type == SubmitterType.MAYOR
+        results = await analyzer.analyze("市長", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.MAYOR
 
     @pytest.mark.asyncio()
     async def test_committee_takes_priority_over_parliamentary_group(
@@ -365,8 +386,9 @@ class TestRuleBasedProposalSubmitterAnalyzer:
             _make_parliamentary_group(10, "総務委員会"),
         ]
 
-        result = await analyzer.analyze("総務委員会", conference_id=1)
-        assert result.submitter_type == SubmitterType.COMMITTEE
+        results = await analyzer.analyze("総務委員会", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.COMMITTEE
 
     @pytest.mark.asyncio()
     async def test_parliamentary_group_priority_over_politician(
@@ -380,9 +402,10 @@ class TestRuleBasedProposalSubmitterAnalyzer:
             _make_parliamentary_group(10, "新進党"),
         ]
 
-        result = await analyzer.analyze("新進党", conference_id=1)
-        assert result.submitter_type == SubmitterType.PARLIAMENTARY_GROUP
-        assert result.matched_parliamentary_group_id == 10
+        results = await analyzer.analyze("新進党", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.PARLIAMENTARY_GROUP
+        assert results[0].matched_parliamentary_group_id == 10
 
     # ========== 候補のソートテスト ==========
 
@@ -399,11 +422,13 @@ class TestRuleBasedProposalSubmitterAnalyzer:
             _make_parliamentary_group(11, "自由民主党"),
         ]
 
-        result = await analyzer.analyze("自由民主党", conference_id=1)
-        assert len(result.candidates) == 2
-        # 完全一致の方が先
-        assert result.candidates[0].confidence >= result.candidates[1].confidence
-        assert result.candidates[0].entity_id == 11
+        results = await analyzer.analyze("自由民主党", conference_id=1)
+        assert len(results) == 1
+        assert len(results[0].candidates) == 2
+        assert (
+            results[0].candidates[0].confidence >= results[0].candidates[1].confidence
+        )
+        assert results[0].candidates[0].entity_id == 11
 
     @pytest.mark.asyncio()
     async def test_candidate_type_is_correct(
@@ -417,9 +442,10 @@ class TestRuleBasedProposalSubmitterAnalyzer:
             _make_parliamentary_group(10, "自由民主党"),
         ]
 
-        result = await analyzer.analyze("自由民主党", conference_id=1)
+        results = await analyzer.analyze("自由民主党", conference_id=1)
+        assert len(results) == 1
         assert (
-            result.candidates[0].candidate_type
+            results[0].candidates[0].candidate_type
             == SubmitterCandidateType.PARLIAMENTARY_GROUP
         )
 
@@ -441,7 +467,98 @@ class TestRuleBasedProposalSubmitterAnalyzer:
             _make_politician(1, "田中 太郎"),
         ]
 
-        # 全角スペース入りの名前
-        result = await analyzer.analyze("田中　太郎", conference_id=1)
-        assert result.submitter_type == SubmitterType.POLITICIAN
-        assert result.matched_politician_id == 1
+        results = await analyzer.analyze("田中　太郎", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.POLITICIAN
+        assert results[0].matched_politician_id == 1
+
+    # ========== パーサー統合テスト ==========
+
+    @pytest.mark.asyncio()
+    async def test_soto_pattern_extracts_representative(
+        self,
+        analyzer: RuleBasedProposalSubmitterAnalyzer,
+        mock_repos: dict[str, AsyncMock],
+    ) -> None:
+        """「外N名」パターンから代表者名を抽出してマッチングする."""
+        mock_repos["conference"].get_by_id.return_value = _make_conference(1, 100)
+        mock_repos["parliamentary_group"].get_by_governing_body_id.return_value = []
+        mock_repos["conference_member"].get_by_conference.return_value = [
+            _make_conference_member(1, 1),
+        ]
+        mock_repos["politician"].get_by_ids.return_value = [
+            _make_politician(1, "熊代昭彦"),
+        ]
+
+        results = await analyzer.analyze("熊代昭彦君外四名", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.POLITICIAN
+        assert results[0].matched_politician_id == 1
+        assert results[0].parsed_name == "熊代昭彦"
+
+    @pytest.mark.asyncio()
+    async def test_comma_separated_returns_multiple_results(
+        self,
+        analyzer: RuleBasedProposalSubmitterAnalyzer,
+        mock_repos: dict[str, AsyncMock],
+    ) -> None:
+        """カンマ区切りで複数の結果を返す."""
+        mock_repos["conference"].get_by_id.return_value = _make_conference(1, 100)
+        mock_repos["parliamentary_group"].get_by_governing_body_id.return_value = []
+        mock_repos["conference_member"].get_by_conference.return_value = [
+            _make_conference_member(1, 1),
+            _make_conference_member(2, 1),
+            _make_conference_member(3, 1),
+        ]
+        mock_repos["politician"].get_by_ids.return_value = [
+            _make_politician(1, "熊代昭彦"),
+            _make_politician(2, "谷畑孝"),
+            _make_politician(3, "棚橋泰文"),
+        ]
+
+        results = await analyzer.analyze("熊代昭彦,谷畑孝,棚橋泰文", conference_id=1)
+        assert len(results) == 3
+        assert results[0].matched_politician_id == 1
+        assert results[0].parsed_name == "熊代昭彦"
+        assert results[1].matched_politician_id == 2
+        assert results[1].parsed_name == "谷畑孝"
+        assert results[2].matched_politician_id == 3
+        assert results[2].parsed_name == "棚橋泰文"
+
+    @pytest.mark.asyncio()
+    async def test_naikaku_mayor_keyword(
+        self, analyzer: RuleBasedProposalSubmitterAnalyzer
+    ) -> None:
+        """「内閣」はMAYOR."""
+        results = await analyzer.analyze("内閣", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.MAYOR
+
+    @pytest.mark.asyncio()
+    async def test_naikaku_souri_daijin_mayor_keyword(
+        self, analyzer: RuleBasedProposalSubmitterAnalyzer
+    ) -> None:
+        """「内閣総理大臣」はMAYOR."""
+        results = await analyzer.analyze("内閣総理大臣", conference_id=1)
+        assert len(results) == 1
+        assert results[0].submitter_type == SubmitterType.MAYOR
+
+    @pytest.mark.asyncio()
+    async def test_parsed_name_set_on_result(
+        self,
+        analyzer: RuleBasedProposalSubmitterAnalyzer,
+        mock_repos: dict[str, AsyncMock],
+    ) -> None:
+        """結果にparsed_nameが設定される."""
+        mock_repos["conference"].get_by_id.return_value = _make_conference(1, 100)
+        mock_repos["parliamentary_group"].get_by_governing_body_id.return_value = []
+        mock_repos["conference_member"].get_by_conference.return_value = [
+            _make_conference_member(1, 1),
+        ]
+        mock_repos["politician"].get_by_ids.return_value = [
+            _make_politician(1, "田中太郎"),
+        ]
+
+        results = await analyzer.analyze("田中太郎", conference_id=1)
+        assert len(results) == 1
+        assert results[0].parsed_name == "田中太郎"

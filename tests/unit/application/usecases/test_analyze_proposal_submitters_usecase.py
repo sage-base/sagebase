@@ -95,10 +95,12 @@ class TestAnalyzeProposalSubmittersUseCase:
         }
         mock_repos["proposal"].get_by_ids.return_value = [_make_proposal(100)]
 
-        mock_analyzer.analyze.return_value = SubmitterAnalysisResult(
-            submitter_type=SubmitterType.MAYOR,
-            confidence=1.0,
-        )
+        mock_analyzer.analyze.return_value = [
+            SubmitterAnalysisResult(
+                submitter_type=SubmitterType.MAYOR,
+                confidence=1.0,
+            ),
+        ]
 
         result = await use_case.execute([100])
         assert result.success is True
@@ -120,19 +122,22 @@ class TestAnalyzeProposalSubmittersUseCase:
         }
         mock_repos["proposal"].get_by_ids.return_value = [_make_proposal(100)]
 
-        mock_analyzer.analyze.return_value = SubmitterAnalysisResult(
-            submitter_type=SubmitterType.POLITICIAN,
-            confidence=1.0,
-            matched_politician_id=5,
-            candidates=[
-                SubmitterCandidate(
-                    candidate_type=SubmitterCandidateType.POLITICIAN,
-                    entity_id=5,
-                    name="田中太郎",
-                    confidence=1.0,
-                )
-            ],
-        )
+        mock_analyzer.analyze.return_value = [
+            SubmitterAnalysisResult(
+                submitter_type=SubmitterType.POLITICIAN,
+                confidence=1.0,
+                matched_politician_id=5,
+                parsed_name="田中太郎",
+                candidates=[
+                    SubmitterCandidate(
+                        candidate_type=SubmitterCandidateType.POLITICIAN,
+                        entity_id=5,
+                        name="田中太郎",
+                        confidence=1.0,
+                    )
+                ],
+            ),
+        ]
 
         result = await use_case.execute([100])
         assert result.success is True
@@ -154,19 +159,22 @@ class TestAnalyzeProposalSubmittersUseCase:
         }
         mock_repos["proposal"].get_by_ids.return_value = [_make_proposal(100)]
 
-        mock_analyzer.analyze.return_value = SubmitterAnalysisResult(
-            submitter_type=SubmitterType.PARLIAMENTARY_GROUP,
-            confidence=1.0,
-            matched_parliamentary_group_id=10,
-            candidates=[
-                SubmitterCandidate(
-                    candidate_type=SubmitterCandidateType.PARLIAMENTARY_GROUP,
-                    entity_id=10,
-                    name="自由民主党",
-                    confidence=1.0,
-                )
-            ],
-        )
+        mock_analyzer.analyze.return_value = [
+            SubmitterAnalysisResult(
+                submitter_type=SubmitterType.PARLIAMENTARY_GROUP,
+                confidence=1.0,
+                matched_parliamentary_group_id=10,
+                parsed_name="自由民主党",
+                candidates=[
+                    SubmitterCandidate(
+                        candidate_type=SubmitterCandidateType.PARLIAMENTARY_GROUP,
+                        entity_id=10,
+                        name="自由民主党",
+                        confidence=1.0,
+                    )
+                ],
+            ),
+        ]
 
         result = await use_case.execute([100])
         assert result.success is True
@@ -181,7 +189,6 @@ class TestAnalyzeProposalSubmittersUseCase:
         mock_analyzer: AsyncMock,
     ) -> None:
         """既にマッチ済みの提出者はスキップされる."""
-        # politician_idが設定済み＝マッチ済み
         submitter = _make_submitter(
             1,
             100,
@@ -237,10 +244,12 @@ class TestAnalyzeProposalSubmittersUseCase:
         }
         mock_repos["proposal"].get_by_ids.return_value = [_make_proposal(100)]
 
-        mock_analyzer.analyze.return_value = SubmitterAnalysisResult(
-            submitter_type=SubmitterType.OTHER,
-            confidence=0.3,
-        )
+        mock_analyzer.analyze.return_value = [
+            SubmitterAnalysisResult(
+                submitter_type=SubmitterType.OTHER,
+                confidence=0.3,
+            ),
+        ]
 
         result = await use_case.execute([100])
         assert result.success is True
@@ -290,15 +299,20 @@ class TestAnalyzeProposalSubmittersUseCase:
         ]
 
         mock_analyzer.analyze.side_effect = [
-            SubmitterAnalysisResult(
-                submitter_type=SubmitterType.MAYOR,
-                confidence=1.0,
-            ),
-            SubmitterAnalysisResult(
-                submitter_type=SubmitterType.POLITICIAN,
-                confidence=1.0,
-                matched_politician_id=5,
-            ),
+            [
+                SubmitterAnalysisResult(
+                    submitter_type=SubmitterType.MAYOR,
+                    confidence=1.0,
+                ),
+            ],
+            [
+                SubmitterAnalysisResult(
+                    submitter_type=SubmitterType.POLITICIAN,
+                    confidence=1.0,
+                    matched_politician_id=5,
+                    parsed_name="田中太郎",
+                ),
+            ],
         ]
 
         result = await use_case.execute([100, 200])
@@ -320,3 +334,42 @@ class TestAnalyzeProposalSubmittersUseCase:
         result = await use_case.execute([100])
         assert result.success is False
         assert "エラー" in result.message
+
+    @pytest.mark.asyncio()
+    async def test_comma_separated_creates_additional_submitters(
+        self,
+        use_case: AnalyzeProposalSubmittersUseCase,
+        mock_repos: dict[str, AsyncMock],
+        mock_analyzer: AsyncMock,
+    ) -> None:
+        """カンマ区切りで複数結果の場合、追加submitterが作成される."""
+        submitter = _make_submitter(1, 100, "熊代昭彦,谷畑孝")
+        mock_repos["proposal_submitter"].get_by_proposal_ids.return_value = {
+            100: [submitter],
+        }
+        mock_repos["proposal"].get_by_ids.return_value = [_make_proposal(100)]
+
+        mock_analyzer.analyze.return_value = [
+            SubmitterAnalysisResult(
+                submitter_type=SubmitterType.POLITICIAN,
+                confidence=1.0,
+                matched_politician_id=1,
+                parsed_name="熊代昭彦",
+            ),
+            SubmitterAnalysisResult(
+                submitter_type=SubmitterType.POLITICIAN,
+                confidence=1.0,
+                matched_politician_id=2,
+                parsed_name="谷畑孝",
+            ),
+        ]
+
+        result = await use_case.execute([100])
+        assert result.success is True
+        assert result.total_matched == 2
+        mock_repos["proposal_submitter"].update.assert_called_once()
+        mock_repos["proposal_submitter"].bulk_create.assert_called_once()
+        created = mock_repos["proposal_submitter"].bulk_create.call_args[0][0]
+        assert len(created) == 1
+        assert created[0].raw_name == "谷畑孝"
+        assert created[0].politician_id == 2
