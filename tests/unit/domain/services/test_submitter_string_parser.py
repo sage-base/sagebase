@@ -6,6 +6,7 @@ from src.domain.services.submitter_string_parser import (
     kansuji_to_int,
     parse_submitter_string,
 )
+from src.domain.value_objects.parsed_submitter import ParsedSubmitter
 
 
 class TestKansujiToInt:
@@ -68,97 +69,122 @@ class TestKansujiToInt:
             kansuji_to_int("あ")
 
 
+class TestParsedSubmitterValidation:
+    """ParsedSubmitter値オブジェクトのバリデーションテスト."""
+
+    def test_total_count_less_than_names_raises_error(self) -> None:
+        """total_countがnames数未満の場合はValueError."""
+        with pytest.raises(ValueError, match="total_count"):
+            ParsedSubmitter(names=("A", "B"), total_count=1)
+
+    def test_total_count_equal_to_names_is_valid(self) -> None:
+        """total_countがnames数と等しい場合は正常."""
+        result = ParsedSubmitter(names=("A", "B"), total_count=2)
+        assert result.total_count == 2
+
+    def test_total_count_greater_than_names_is_valid(self) -> None:
+        """total_countがnames数より大きい場合は正常（外N名パターン）."""
+        result = ParsedSubmitter(names=("A",), total_count=5)
+        assert result.total_count == 5
+
+
 class TestParseSubmitterString:
     """提出者文字列パーサーのテスト."""
 
     def test_soto_pattern_kanji(self) -> None:
         """「外N名」パターン（漢数字）."""
         result = parse_submitter_string("熊代昭彦君外四名")
-        assert result.names == ["熊代昭彦"]
+        assert result.names == ("熊代昭彦",)
         assert result.total_count == 5
 
     def test_soto_pattern_arabic(self) -> None:
         """「外N名」パターン（算用数字）."""
         result = parse_submitter_string("熊代昭彦君外4名")
-        assert result.names == ["熊代昭彦"]
+        assert result.names == ("熊代昭彦",)
         assert result.total_count == 5
 
     def test_soto_pattern_fullwidth(self) -> None:
         """「外N名」パターン（全角数字）."""
         result = parse_submitter_string("熊代昭彦君外４名")
-        assert result.names == ["熊代昭彦"]
+        assert result.names == ("熊代昭彦",)
         assert result.total_count == 5
 
     def test_soto_pattern_no_honorific(self) -> None:
         """「外N名」パターン（敬称なし）."""
         result = parse_submitter_string("田中太郎外三名")
-        assert result.names == ["田中太郎"]
+        assert result.names == ("田中太郎",)
         assert result.total_count == 4
 
     def test_soto_pattern_shi_honorific(self) -> None:
         """「外N名」パターン（氏）."""
         result = parse_submitter_string("山田花子氏外二名")
-        assert result.names == ["山田花子"]
+        assert result.names == ("山田花子",)
         assert result.total_count == 3
 
     def test_soto_pattern_giin_honorific(self) -> None:
         """「外N名」パターン（議員）."""
         result = parse_submitter_string("佐藤一郎議員外十名")
-        assert result.names == ["佐藤一郎"]
+        assert result.names == ("佐藤一郎",)
         assert result.total_count == 11
+
+    def test_soto_pattern_sensei_honorific(self) -> None:
+        """「外N名」パターン（先生）."""
+        result = parse_submitter_string("田中太郎先生外三名")
+        assert result.names == ("田中太郎",)
+        assert result.total_count == 4
 
     def test_comma_separated(self) -> None:
         """カンマ区切り."""
         result = parse_submitter_string("熊代昭彦,谷畑孝,棚橋泰文")
-        assert result.names == ["熊代昭彦", "谷畑孝", "棚橋泰文"]
+        assert result.names == ("熊代昭彦", "谷畑孝", "棚橋泰文")
         assert result.total_count == 3
 
     def test_fullwidth_comma_separated(self) -> None:
         """全角カンマ区切り."""
         result = parse_submitter_string("熊代昭彦，谷畑孝，棚橋泰文")
-        assert result.names == ["熊代昭彦", "谷畑孝", "棚橋泰文"]
+        assert result.names == ("熊代昭彦", "谷畑孝", "棚橋泰文")
         assert result.total_count == 3
 
     def test_touten_separated(self) -> None:
         """読点区切り."""
         result = parse_submitter_string("熊代昭彦、谷畑孝、棚橋泰文")
-        assert result.names == ["熊代昭彦", "谷畑孝", "棚橋泰文"]
+        assert result.names == ("熊代昭彦", "谷畑孝", "棚橋泰文")
         assert result.total_count == 3
 
     def test_single_name(self) -> None:
         """単一名."""
         result = parse_submitter_string("田中太郎")
-        assert result.names == ["田中太郎"]
+        assert result.names == ("田中太郎",)
         assert result.total_count == 1
 
     def test_single_name_with_honorific_kun(self) -> None:
         """敬称「君」付き単一名."""
         result = parse_submitter_string("田中太郎君")
-        assert result.names == ["田中太郎"]
+        assert result.names == ("田中太郎",)
         assert result.total_count == 1
 
     def test_single_name_with_honorific_shi(self) -> None:
         """敬称「氏」付き単一名."""
         result = parse_submitter_string("田中太郎氏")
-        assert result.names == ["田中太郎"]
+        assert result.names == ("田中太郎",)
         assert result.total_count == 1
 
     def test_single_name_with_honorific_giin(self) -> None:
         """敬称「議員」付き単一名."""
         result = parse_submitter_string("田中太郎議員")
-        assert result.names == ["田中太郎"]
+        assert result.names == ("田中太郎",)
         assert result.total_count == 1
 
     def test_empty_string(self) -> None:
         """空文字列."""
         result = parse_submitter_string("")
-        assert result.names == []
+        assert result.names == ()
         assert result.total_count == 0
 
     def test_whitespace_only(self) -> None:
         """空白のみ."""
         result = parse_submitter_string("   ")
-        assert result.names == []
+        assert result.names == ()
         assert result.total_count == 0
 
     def test_total_count_never_less_than_names(self) -> None:
@@ -169,5 +195,5 @@ class TestParseSubmitterString:
     def test_comma_with_spaces(self) -> None:
         """カンマ区切りにスペースを含む."""
         result = parse_submitter_string("田中太郎, 鈴木花子, 佐藤一郎")
-        assert result.names == ["田中太郎", "鈴木花子", "佐藤一郎"]
+        assert result.names == ("田中太郎", "鈴木花子", "佐藤一郎")
         assert result.total_count == 3

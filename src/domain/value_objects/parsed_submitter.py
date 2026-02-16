@@ -10,9 +10,13 @@ class ParsedSubmitter:
     提出者文字列を解析した結果として、個人名リストと総人数を保持する。
     """
 
-    names: list[str]
+    names: tuple[str, ...]
     total_count: int
 
     def __post_init__(self) -> None:
         if self.total_count < len(self.names):
-            object.__setattr__(self, "total_count", len(self.names))
+            msg = (
+                f"total_count({self.total_count})はnames数({len(self.names)})以上"
+                "でなければなりません"
+            )
+            raise ValueError(msg)

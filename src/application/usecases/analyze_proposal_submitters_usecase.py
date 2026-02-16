@@ -122,27 +122,28 @@ class AnalyzeProposalSubmittersUseCase:
                         )
 
                     # 2件目以降の結果は新規ProposalSubmitterを作成
-                    additional_submitters: list[ProposalSubmitter] = []
-                    for analysis in analysis_results[1:]:
+                    additional_pairs: list[
+                        tuple[ProposalSubmitter, SubmitterAnalysisResult]
+                    ] = []
+                    for offset, analysis in enumerate(analysis_results[1:]):
                         new_submitter = self._create_additional_submitter(
-                            submitter, analysis
+                            submitter, analysis, display_offset=offset + 1
                         )
                         if new_submitter is not None:
-                            additional_submitters.append(new_submitter)
+                            additional_pairs.append((new_submitter, analysis))
                             total_matched += 1
 
-                    if additional_submitters:
+                    if additional_pairs:
+                        additional_submitters = [p[0] for p in additional_pairs]
                         await self._proposal_submitter_repository.bulk_create(
                             additional_submitters
                         )
-                        for new_sub in additional_submitters:
+                        for new_sub, analysis in additional_pairs:
                             results.append(
                                 SubmitterMatchResultDTO(
                                     submitter_id=new_sub.id or 0,
                                     raw_name=new_sub.raw_name or "",
-                                    analysis=analysis_results[
-                                        additional_submitters.index(new_sub) + 1
-                                    ],
+                                    analysis=analysis,
                                     updated=True,
                                 )
                             )
@@ -187,7 +188,11 @@ class AnalyzeProposalSubmittersUseCase:
         return updated
 
     def _create_additional_submitter(
-        self, original: ProposalSubmitter, analysis: SubmitterAnalysisResult
+        self,
+        original: ProposalSubmitter,
+        analysis: SubmitterAnalysisResult,
+        *,
+        display_offset: int = 1,
     ) -> ProposalSubmitter | None:
         """追加の分析結果からProposalSubmitterを作成する."""
         if analysis.confidence < _MIN_MATCH_CONFIDENCE:
@@ -199,7 +204,7 @@ class AnalyzeProposalSubmittersUseCase:
             politician_id=analysis.matched_politician_id,
             parliamentary_group_id=analysis.matched_parliamentary_group_id,
             raw_name=analysis.parsed_name,
-            display_order=original.display_order + 1,
+            display_order=original.display_order + display_offset,
         )
 
         if analysis.submitter_type not in _MAYOR_OR_COMMITTEE_TYPES:

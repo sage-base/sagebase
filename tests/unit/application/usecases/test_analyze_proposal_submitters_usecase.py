@@ -373,3 +373,95 @@ class TestAnalyzeProposalSubmittersUseCase:
         assert len(created) == 1
         assert created[0].raw_name == "谷畑孝"
         assert created[0].politician_id == 2
+
+    @pytest.mark.asyncio()
+    async def test_mixed_confidence_index_mapping(
+        self,
+        use_case: AnalyzeProposalSubmittersUseCase,
+        mock_repos: dict[str, AsyncMock],
+        mock_analyzer: AsyncMock,
+    ) -> None:
+        """低信頼度の結果がフィルタされてもインデックスが正しくマッピングされる."""
+        submitter = _make_submitter(1, 100, "A,B,C")
+        mock_repos["proposal_submitter"].get_by_proposal_ids.return_value = {
+            100: [submitter],
+        }
+        mock_repos["proposal"].get_by_ids.return_value = [_make_proposal(100)]
+
+        mock_analyzer.analyze.return_value = [
+            SubmitterAnalysisResult(
+                submitter_type=SubmitterType.POLITICIAN,
+                confidence=1.0,
+                matched_politician_id=1,
+                parsed_name="A",
+            ),
+            # Bは低信頼度でフィルタされる
+            SubmitterAnalysisResult(
+                submitter_type=SubmitterType.OTHER,
+                confidence=0.3,
+                parsed_name="B",
+            ),
+            # Cは高信頼度で採用される
+            SubmitterAnalysisResult(
+                submitter_type=SubmitterType.POLITICIAN,
+                confidence=1.0,
+                matched_politician_id=3,
+                parsed_name="C",
+            ),
+        ]
+
+        result = await use_case.execute([100])
+        assert result.success is True
+        # A(update) + C(bulk_create) = 2件マッチ
+        assert result.total_matched == 2
+        mock_repos["proposal_submitter"].bulk_create.assert_called_once()
+        created = mock_repos["proposal_submitter"].bulk_create.call_args[0][0]
+        assert len(created) == 1
+        assert created[0].raw_name == "C"
+        assert created[0].politician_id == 3
+        # resultsのanalysisも正しいことを確認
+        assert len(result.results) == 2
+        assert result.results[1].analysis.parsed_name == "C"
+        assert result.results[1].analysis.matched_politician_id == 3
+
+    @pytest.mark.asyncio()
+    async def test_additional_submitters_have_incremental_display_order(
+        self,
+        use_case: AnalyzeProposalSubmittersUseCase,
+        mock_repos: dict[str, AsyncMock],
+        mock_analyzer: AsyncMock,
+    ) -> None:
+        """追加submitterのdisplay_orderが連番になる."""
+        submitter = _make_submitter(1, 100, "A,B,C")
+        submitter.display_order = 0
+        mock_repos["proposal_submitter"].get_by_proposal_ids.return_value = {
+            100: [submitter],
+        }
+        mock_repos["proposal"].get_by_ids.return_value = [_make_proposal(100)]
+
+        mock_analyzer.analyze.return_value = [
+            SubmitterAnalysisResult(
+                submitter_type=SubmitterType.POLITICIAN,
+                confidence=1.0,
+                matched_politician_id=1,
+                parsed_name="A",
+            ),
+            SubmitterAnalysisResult(
+                submitter_type=SubmitterType.POLITICIAN,
+                confidence=1.0,
+                matched_politician_id=2,
+                parsed_name="B",
+            ),
+            SubmitterAnalysisResult(
+                submitter_type=SubmitterType.POLITICIAN,
+                confidence=1.0,
+                matched_politician_id=3,
+                parsed_name="C",
+            ),
+        ]
+
+        await use_case.execute([100])
+        created = mock_repos["proposal_submitter"].bulk_create.call_args[0][0]
+        assert len(created) == 2
+        assert created[0].display_order == 1
+        assert created[1].display_order == 2

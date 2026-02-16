@@ -18,7 +18,7 @@ from src.domain.value_objects.parsed_submitter import ParsedSubmitter
 
 # 「外N名」パターン: 敬称の後に「外」+ 数字 + 「名」
 _SOTO_PATTERN = re.compile(
-    r"^(.+?)(?:君|氏|議員|さん|様)?外([\d０-９一二三四五六七八九十百]+)名$"
+    r"^(.+?)(?:君|氏|議員|先生|さん|様)?外([\d０-９一二三四五六七八九十百]+)名$"
 )
 
 # 漢数字→数値のマッピング
@@ -99,7 +99,7 @@ def parse_submitter_string(raw_name: str) -> ParsedSubmitter:
     """
     text = raw_name.strip()
     if not text:
-        return ParsedSubmitter(names=[], total_count=0)
+        return ParsedSubmitter(names=(), total_count=0)
 
     # パターン1: 「外N名」パターン（例: 「熊代昭彦君外四名」）
     match = _SOTO_PATTERN.match(text)
@@ -107,16 +107,16 @@ def parse_submitter_string(raw_name: str) -> ParsedSubmitter:
         representative = _remove_honorifics(match.group(1))
         others_count = kansuji_to_int(match.group(2))
         return ParsedSubmitter(
-            names=[representative],
+            names=(representative,),
             total_count=1 + others_count,
         )
 
     # パターン2: カンマ系区切り（例: 「熊代昭彦,谷畑孝,棚橋泰文」）
     if _COMMA_PATTERN.search(text):
         parts = _COMMA_PATTERN.split(text)
-        names = [_remove_honorifics(p.strip()) for p in parts if p.strip()]
+        names = tuple(_remove_honorifics(p.strip()) for p in parts if p.strip())
         return ParsedSubmitter(names=names, total_count=len(names))
 
     # パターン3: 単一名（例: 「田中太郎」「田中太郎君」）
     name = _remove_honorifics(text)
-    return ParsedSubmitter(names=[name], total_count=1)
+    return ParsedSubmitter(names=(name,), total_count=1)
