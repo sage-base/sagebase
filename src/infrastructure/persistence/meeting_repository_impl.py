@@ -467,6 +467,19 @@ class MeetingRepositoryImpl(BaseRepositoryImpl[Meeting], MeetingRepository):
                 return dict(row._mapping) if row else None  # type: ignore
             return None
 
+    async def get_by_url(self, url: str) -> Meeting | None:
+        """Get meeting by URL."""
+        from sqlalchemy import text
+
+        async_executor = self._get_async_executor()
+        if async_executor:
+            query = text("SELECT * FROM meetings WHERE url = :url LIMIT 1")
+            result = await async_executor.execute(query, {"url": url})
+            row = result.first()
+            if row:
+                return self._row_to_entity(row)
+        return None
+
     # Override base methods to handle both async and sync
     async def create(self, entity: Meeting) -> Meeting:
         """Create a new meeting."""

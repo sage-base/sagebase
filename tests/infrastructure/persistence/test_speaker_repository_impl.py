@@ -43,6 +43,7 @@ class MockSpeakerModel:
     matched_by_user_id = MockColumn("matched_by_user_id")
     is_manually_verified = MockColumn("is_manually_verified")
     latest_extraction_log_id = MockColumn("latest_extraction_log_id")
+    name_yomi = MockColumn("name_yomi")
 
     def __init__(
         self,
@@ -56,6 +57,7 @@ class MockSpeakerModel:
         matched_by_user_id: str | None = None,
         is_manually_verified: bool = False,
         latest_extraction_log_id: int | None = None,
+        name_yomi: str | None = None,
     ):
         self.id = id
         self.name = name
@@ -67,6 +69,7 @@ class MockSpeakerModel:
         self.matched_by_user_id = matched_by_user_id
         self.is_manually_verified = is_manually_verified
         self.latest_extraction_log_id = latest_extraction_log_id
+        self.name_yomi = name_yomi
 
 
 class TestSpeakerRepositoryImpl:

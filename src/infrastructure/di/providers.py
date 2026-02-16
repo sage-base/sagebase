@@ -26,6 +26,9 @@ from src.application.usecases.expand_group_judges_to_individual_usecase import (
 from src.application.usecases.extract_proposal_judges_usecase import (
     ExtractProposalJudgesUseCase,
 )
+from src.application.usecases.import_kokkai_speeches_usecase import (
+    ImportKokkaiSpeechesUseCase,
+)
 from src.application.usecases.link_speaker_to_politician_usecase import (
     LinkSpeakerToPoliticianUseCase,
 )
@@ -78,6 +81,7 @@ from src.domain.services.interfaces.storage_service import IStorageService
 from src.domain.services.politician_domain_service import PoliticianDomainService
 from src.domain.services.speaker_domain_service import SpeakerDomainService
 from src.infrastructure.external.gcs_storage_service import GCSStorageService
+from src.infrastructure.external.kokkai_api.client import KokkaiApiClient
 from src.infrastructure.external.llm_service import GeminiLLMService
 from src.infrastructure.external.minutes_divider.baml_minutes_divider import (
     BAMLMinutesDivider,
@@ -538,6 +542,9 @@ class ServiceContainer(containers.DeclarativeContainer):
     # Seed generator service (シードファイル生成)
     seed_generator_service = providers.Factory(SeedGeneratorServiceImpl)
 
+    # 国会会議録APIクライアント (Issue #1188)
+    kokkai_api_client = providers.Factory(KokkaiApiClient)
+
 
 class UseCaseContainer(containers.DeclarativeContainer):
     """Container for use case implementations."""
@@ -779,4 +786,17 @@ class UseCaseContainer(containers.DeclarativeContainer):
         proposal_repository=repositories.proposal_repository,
         proposal_submitter_repository=repositories.proposal_submitter_repository,
         analyzer_service=proposal_submitter_analyzer_service,
+    )
+
+    # Import Kokkai Speeches UseCase (Issue #1188)
+    # 国会会議録API発言インポートユースケース
+    import_kokkai_speeches_usecase = providers.Factory(
+        ImportKokkaiSpeechesUseCase,
+        kokkai_client=services.kokkai_api_client,
+        meeting_repository=repositories.meeting_repository,
+        minutes_repository=repositories.minutes_repository,
+        conversation_repository=repositories.conversation_repository,
+        speaker_repository=repositories.speaker_repository,
+        conference_repository=repositories.conference_repository,
+        governing_body_repository=repositories.governing_body_repository,
     )

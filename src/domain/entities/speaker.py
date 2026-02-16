@@ -24,6 +24,7 @@ class Speaker(BaseEntity):
         matched_by_user_id: UUID | None = None,
         is_manually_verified: bool = False,
         latest_extraction_log_id: int | None = None,
+        name_yomi: str | None = None,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
         id: int | None = None,
@@ -38,6 +39,7 @@ class Speaker(BaseEntity):
         self.matched_by_user_id = matched_by_user_id
         self.is_manually_verified = is_manually_verified
         self.latest_extraction_log_id = latest_extraction_log_id
+        self.name_yomi = name_yomi
         self.created_at = created_at
         self.updated_at = updated_at
 

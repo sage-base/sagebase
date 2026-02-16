@@ -132,6 +132,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             matched_by_user_id=getattr(model, "matched_by_user_id", None),
             is_manually_verified=bool(getattr(model, "is_manually_verified", False)),
             latest_extraction_log_id=getattr(model, "latest_extraction_log_id", None),
+            name_yomi=getattr(model, "name_yomi", None),
             id=model.id,
         )
 
@@ -147,6 +148,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             matched_by_user_id=entity.matched_by_user_id,
             is_manually_verified=entity.is_manually_verified,
             latest_extraction_log_id=entity.latest_extraction_log_id,
+            name_yomi=entity.name_yomi,
         )
 
     def _update_model(self, model: Any, entity: Speaker) -> None:
@@ -160,6 +162,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         model.matched_by_user_id = entity.matched_by_user_id
         model.is_manually_verified = entity.is_manually_verified
         model.latest_extraction_log_id = entity.latest_extraction_log_id
+        model.name_yomi = entity.name_yomi
 
     async def get_speakers_with_conversation_count(
         self,
@@ -287,11 +290,11 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         query = text("""
             INSERT INTO speakers (
                 name, type, political_party_name, position, is_politician,
-                matched_by_user_id
+                matched_by_user_id, name_yomi
             )
             VALUES (
                 :name, :type, :political_party_name, :position, :is_politician,
-                :matched_by_user_id
+                :matched_by_user_id, :name_yomi
             )
             RETURNING *
         """)
@@ -303,6 +306,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             "position": entity.position,
             "is_politician": entity.is_politician,
             "matched_by_user_id": entity.matched_by_user_id,
+            "name_yomi": entity.name_yomi,
         }
 
         result = await self.session.execute(query, params)
@@ -360,6 +364,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             matched_by_user_id=getattr(row, "matched_by_user_id", None),
             is_manually_verified=bool(getattr(row, "is_manually_verified", False)),
             latest_extraction_log_id=getattr(row, "latest_extraction_log_id", None),
+            name_yomi=getattr(row, "name_yomi", None),
         )
 
     async def get_speakers_with_politician_info(self) -> list[dict[str, Any]]:

@@ -10,7 +10,6 @@ from ..infrastructure.persistence.meeting_repository_impl import MeetingReposito
 from ..infrastructure.persistence.repository_adapter import RepositoryAdapter
 from .base_scraper import BaseScraper
 from .kaigiroku_net_scraper import KaigirokuNetScraper
-from .kokkai_scraper import KokkaiScraper
 from .models import MinutesData
 
 from src.infrastructure.config import config
@@ -130,9 +129,7 @@ class ScraperService:
         if "kaigiroku.net/tenant/" in url:
             return KaigirokuNetScraper()
 
-        # 国会会議録検索システムの場合
-        if "kokkai.ndl.go.jp" in url:
-            return KokkaiScraper()
+        # 国会会議録はAPIクライアント(ImportKokkaiSpeechesUseCase)で対応
 
         # 今後、他の議事録システムのスクレーパーをここに追加
         # 例: 独自システムを使う自治体など
