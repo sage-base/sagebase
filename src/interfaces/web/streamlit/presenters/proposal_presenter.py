@@ -14,6 +14,9 @@ from uuid import UUID
 
 import pandas as pd
 
+from src.application.dtos.analyze_proposal_submitters_dto import (
+    AnalyzeProposalSubmittersOutputDTO,
+)
 from src.application.dtos.expand_group_judges_dto import (
     ExpandGroupJudgesRequestDTO,
     ExpandGroupJudgesResultDTO,
@@ -31,6 +34,9 @@ from src.application.dtos.proposal_parliamentary_group_judge_dto import (
     ProposalParliamentaryGroupJudgeDTO,
 )
 from src.application.dtos.submitter_candidates_dto import SubmitterCandidatesDTO
+from src.application.usecases.analyze_proposal_submitters_usecase import (
+    AnalyzeProposalSubmittersUseCase,
+)
 from src.application.usecases.authenticate_user_usecase import AuthenticateUserUseCase
 from src.application.usecases.expand_group_judges_to_individual_usecase import (
     ExpandGroupJudgesToIndividualUseCase,
@@ -82,6 +88,9 @@ from src.domain.entities.proposal_judge import ProposalJudge
 from src.domain.entities.proposal_submitter import ProposalSubmitter
 from src.domain.value_objects.submitter_type import SubmitterType
 from src.infrastructure.di.container import Container
+from src.infrastructure.external.proposal_submitter_analyzer.rule_based_proposal_submitter_analyzer import (  # noqa: E501
+    RuleBasedProposalSubmitterAnalyzer,
+)
 from src.infrastructure.persistence.conference_member_repository_impl import (
     ConferenceMemberRepositoryImpl,
 )
@@ -1603,3 +1612,35 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
     def parse_roll_call_csv(self, csv_content: str) -> list[IndividualVoteInputItem]:
         """記名投票CSVをパースする."""
         return OverrideIndividualJudgeUseCase.parse_csv(csv_content)
+
+    # ========== 提出者マッチング (Issue #1185) ==========
+
+    def analyze_submitters(
+        self, proposal_ids: list[int]
+    ) -> AnalyzeProposalSubmittersOutputDTO:
+        """指定された議案の提出者を自動マッチングする.
+
+        Args:
+            proposal_ids: 分析対象の議案IDリスト
+
+        Returns:
+            分析結果DTO
+        """
+        return self._run_async(self._analyze_submitters_async(proposal_ids))
+
+    async def _analyze_submitters_async(
+        self, proposal_ids: list[int]
+    ) -> AnalyzeProposalSubmittersOutputDTO:
+        """提出者自動マッチングの非同期実装."""
+        analyzer = RuleBasedProposalSubmitterAnalyzer(
+            politician_repository=self.politician_repository,  # type: ignore[arg-type]
+            conference_member_repository=self.conference_member_repository,  # type: ignore[arg-type]
+            parliamentary_group_repository=self.parliamentary_group_repository,  # type: ignore[arg-type]
+            conference_repository=self.conference_repository,  # type: ignore[arg-type]
+        )
+        usecase = AnalyzeProposalSubmittersUseCase(
+            proposal_repository=self.proposal_repository,  # type: ignore[arg-type]
+            proposal_submitter_repository=self.submitter_repository,  # type: ignore[arg-type]
+            analyzer_service=analyzer,
+        )
+        return await usecase.execute(proposal_ids)
