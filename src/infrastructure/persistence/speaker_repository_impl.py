@@ -327,7 +327,8 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 position = :position,
                 is_politician = :is_politician,
                 politician_id = :politician_id,
-                matched_by_user_id = :matched_by_user_id
+                matched_by_user_id = :matched_by_user_id,
+                name_yomi = :name_yomi
             WHERE id = :id
             RETURNING *
         """)
@@ -341,6 +342,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             "is_politician": entity.is_politician,
             "politician_id": entity.politician_id,
             "matched_by_user_id": entity.matched_by_user_id,
+            "name_yomi": entity.name_yomi,
         }
 
         result = await self.session.execute(query, params)

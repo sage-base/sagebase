@@ -6,8 +6,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.application.usecases.import_kokkai_speeches_usecase import (
+from src.application.dtos.kokkai_speech_dto import (
     ImportKokkaiSpeechesInputDTO,
+    KokkaiSpeechDTO,
+)
+from src.application.usecases.import_kokkai_speeches_usecase import (
     ImportKokkaiSpeechesUseCase,
 )
 from src.domain.entities.conference import Conference
@@ -15,11 +18,17 @@ from src.domain.entities.governing_body import GoverningBody
 from src.domain.entities.meeting import Meeting
 from src.domain.entities.minutes import Minutes
 from src.domain.entities.speaker import Speaker
-from src.infrastructure.external.kokkai_api.types import SpeechRecord
+from src.domain.repositories.conference_repository import ConferenceRepository
+from src.domain.repositories.conversation_repository import ConversationRepository
+from src.domain.repositories.governing_body_repository import GoverningBodyRepository
+from src.domain.repositories.meeting_repository import MeetingRepository
+from src.domain.repositories.minutes_repository import MinutesRepository
+from src.domain.repositories.speaker_repository import SpeakerRepository
+from src.domain.services.interfaces.kokkai_speech_service import IKokkaiSpeechService
 
 
-def _make_speech(**overrides: object) -> SpeechRecord:
-    """テスト用SpeechRecordを生成."""
+def _make_speech(**overrides: object) -> KokkaiSpeechDTO:
+    """テスト用KokkaiSpeechDTOを生成."""
     defaults = {
         "speech_id": "121705253X00320250423001",
         "issue_id": "121705253X00320250423",
@@ -37,20 +46,20 @@ def _make_speech(**overrides: object) -> SpeechRecord:
         "pdf_url": "https://kokkai.ndl.go.jp/pdf/1",
     }
     defaults.update(overrides)
-    return SpeechRecord(**defaults)  # type: ignore[arg-type]
+    return KokkaiSpeechDTO(**defaults)  # type: ignore[arg-type]
 
 
 @pytest.fixture()
 def mock_repos() -> dict[str, AsyncMock]:
-    """モックリポジトリ群を生成."""
+    """モックリポジトリ群を生成（spec=で型安全性を確保）."""
     return {
-        "kokkai_client": AsyncMock(),
-        "meeting_repository": AsyncMock(),
-        "minutes_repository": AsyncMock(),
-        "conversation_repository": AsyncMock(),
-        "speaker_repository": AsyncMock(),
-        "conference_repository": AsyncMock(),
-        "governing_body_repository": AsyncMock(),
+        "kokkai_speech_service": AsyncMock(spec=IKokkaiSpeechService),
+        "meeting_repository": AsyncMock(spec=MeetingRepository),
+        "minutes_repository": AsyncMock(spec=MinutesRepository),
+        "conversation_repository": AsyncMock(spec=ConversationRepository),
+        "speaker_repository": AsyncMock(spec=SpeakerRepository),
+        "conference_repository": AsyncMock(spec=ConferenceRepository),
+        "governing_body_repository": AsyncMock(spec=GoverningBodyRepository),
     }
 
 
@@ -111,7 +120,7 @@ class TestExecute:
             _make_speech(speech_order=1, speaker="岸田文雄君"),
             _make_speech(speech_order=2, speaker="河野太郎君"),
         ]
-        mock_repos["kokkai_client"].get_all_speeches.return_value = speeches
+        mock_repos["kokkai_speech_service"].fetch_speeches.return_value = speeches
         _setup_governing_body(mock_repos)
         _setup_conference(mock_repos)
         _setup_no_existing_meeting(mock_repos)
@@ -131,6 +140,19 @@ class TestExecute:
         mock_repos["meeting_repository"].create.assert_called_once()
         mock_repos["conversation_repository"].bulk_create.assert_called_once()
 
+        # bulk_createに渡されたConversationの中身を検証
+        conversations = mock_repos["conversation_repository"].bulk_create.call_args[0][
+            0
+        ]
+        assert len(conversations) == 2
+        assert conversations[0].comment == "テスト発言内容です。"
+        assert conversations[0].sequence_number == 1
+        assert conversations[0].speaker_name == "岸田文雄"
+        assert conversations[0].is_manually_verified is True
+        assert conversations[0].minutes_id == 200
+        assert conversations[1].sequence_number == 2
+        assert conversations[1].speaker_name == "河野太郎"
+
     @pytest.mark.asyncio
     async def test_skip_existing_meeting_speeches(
         self,
@@ -138,7 +160,7 @@ class TestExecute:
         mock_repos: dict[str, AsyncMock],
     ) -> None:
         speeches = [_make_speech()]
-        mock_repos["kokkai_client"].get_all_speeches.return_value = speeches
+        mock_repos["kokkai_speech_service"].fetch_speeches.return_value = speeches
         _setup_governing_body(mock_repos)
 
         existing_meeting = Meeting(
@@ -184,7 +206,7 @@ class TestExecute:
                 meeting_url="https://kokkai.ndl.go.jp/meeting/B",
             ),
         ]
-        mock_repos["kokkai_client"].get_all_speeches.return_value = speeches
+        mock_repos["kokkai_speech_service"].fetch_speeches.return_value = speeches
         _setup_governing_body(mock_repos)
         _setup_conference(mock_repos)
         _setup_speaker_not_found(mock_repos)
@@ -229,7 +251,7 @@ class TestExecute:
         usecase: ImportKokkaiSpeechesUseCase,
         mock_repos: dict[str, AsyncMock],
     ) -> None:
-        mock_repos["kokkai_client"].get_all_speeches.return_value = []
+        mock_repos["kokkai_speech_service"].fetch_speeches.return_value = []
 
         input_dto = ImportKokkaiSpeechesInputDTO(issue_id="121705253X00320250423")
         result = await usecase.execute(input_dto)
@@ -243,7 +265,9 @@ class TestExecute:
         usecase: ImportKokkaiSpeechesUseCase,
         mock_repos: dict[str, AsyncMock],
     ) -> None:
-        mock_repos["kokkai_client"].get_all_speeches.return_value = [_make_speech()]
+        mock_repos["kokkai_speech_service"].fetch_speeches.return_value = [
+            _make_speech()
+        ]
         mock_repos["governing_body_repository"].get_by_name_and_type.return_value = None
 
         input_dto = ImportKokkaiSpeechesInputDTO(issue_id="121705253X00320250423")
@@ -258,7 +282,7 @@ class TestExecute:
         mock_repos: dict[str, AsyncMock],
     ) -> None:
         speeches = [_make_speech()]
-        mock_repos["kokkai_client"].get_all_speeches.return_value = speeches
+        mock_repos["kokkai_speech_service"].fetch_speeches.return_value = speeches
         _setup_governing_body(mock_repos)
         _setup_conference(mock_repos)
         _setup_no_existing_meeting(mock_repos)
@@ -285,7 +309,7 @@ class TestExecute:
         mock_repos: dict[str, AsyncMock],
     ) -> None:
         speeches = [_make_speech()]
-        mock_repos["kokkai_client"].get_all_speeches.return_value = speeches
+        mock_repos["kokkai_speech_service"].fetch_speeches.return_value = speeches
         _setup_governing_body(mock_repos)
         _setup_conference(mock_repos)
         _setup_no_existing_meeting(mock_repos)
@@ -309,7 +333,7 @@ class TestExecute:
         mock_repos: dict[str, AsyncMock],
     ) -> None:
         speeches = [_make_speech(name_of_meeting="特別委員会")]
-        mock_repos["kokkai_client"].get_all_speeches.return_value = speeches
+        mock_repos["kokkai_speech_service"].fetch_speeches.return_value = speeches
         _setup_governing_body(mock_repos)
         _setup_no_existing_meeting(mock_repos)
         _setup_no_existing_minutes(mock_repos)
@@ -336,8 +360,9 @@ class TestExecute:
         usecase: ImportKokkaiSpeechesUseCase,
         mock_repos: dict[str, AsyncMock],
     ) -> None:
+        mock_repos["kokkai_speech_service"].fetch_speeches.return_value = []
+
         input_dto = ImportKokkaiSpeechesInputDTO()
         result = await usecase.execute(input_dto)
 
         assert result.total_speeches_imported == 0
-        mock_repos["kokkai_client"].get_all_speeches.assert_not_called()

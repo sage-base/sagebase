@@ -108,14 +108,36 @@ class KokkaiApiClient:
         data = await self._request("speech", params)
         return self._parse_speech_response(data)
 
-    async def get_all_speeches(self, **kwargs: Any) -> list[SpeechRecord]:
+    async def get_all_speeches(
+        self,
+        *,
+        name_of_house: str | None = None,
+        name_of_meeting: str | None = None,
+        from_date: str | None = None,
+        until_date: str | None = None,
+        session_from: int | None = None,
+        session_to: int | None = None,
+        speaker: str | None = None,
+        any_keyword: str | None = None,
+        issue_id: str | None = None,
+    ) -> list[SpeechRecord]:
         """全件取得（ページネーション自動ハンドリング）."""
         all_records: list[SpeechRecord] = []
         start = 1
 
         while True:
-            kwargs["start_record"] = start
-            response = await self.search_speeches(**kwargs)
+            response = await self.search_speeches(
+                name_of_house=name_of_house,
+                name_of_meeting=name_of_meeting,
+                from_date=from_date,
+                until_date=until_date,
+                session_from=session_from,
+                session_to=session_to,
+                speaker=speaker,
+                any_keyword=any_keyword,
+                issue_id=issue_id,
+                start_record=start,
+            )
             all_records.extend(response.speech_record)
 
             if (
@@ -162,14 +184,30 @@ class KokkaiApiClient:
         data = await self._request("meeting_list", params)
         return self._parse_meeting_response(data)
 
-    async def get_all_meetings(self, **kwargs: Any) -> list[MeetingRecord]:
+    async def get_all_meetings(
+        self,
+        *,
+        name_of_house: str | None = None,
+        name_of_meeting: str | None = None,
+        from_date: str | None = None,
+        until_date: str | None = None,
+        session_from: int | None = None,
+        session_to: int | None = None,
+    ) -> list[MeetingRecord]:
         """会議一覧全件取得（ページネーション自動ハンドリング）."""
         all_records: list[MeetingRecord] = []
         start = 1
 
         while True:
-            kwargs["start_record"] = start
-            response = await self.search_meetings(**kwargs)
+            response = await self.search_meetings(
+                name_of_house=name_of_house,
+                name_of_meeting=name_of_meeting,
+                from_date=from_date,
+                until_date=until_date,
+                session_from=session_from,
+                session_to=session_to,
+                start_record=start,
+            )
             all_records.extend(response.meeting_record)
 
             if (

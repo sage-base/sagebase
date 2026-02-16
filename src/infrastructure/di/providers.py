@@ -82,6 +82,7 @@ from src.domain.services.politician_domain_service import PoliticianDomainServic
 from src.domain.services.speaker_domain_service import SpeakerDomainService
 from src.infrastructure.external.gcs_storage_service import GCSStorageService
 from src.infrastructure.external.kokkai_api.client import KokkaiApiClient
+from src.infrastructure.external.kokkai_api.service import KokkaiSpeechServiceImpl
 from src.infrastructure.external.llm_service import GeminiLLMService
 from src.infrastructure.external.minutes_divider.baml_minutes_divider import (
     BAMLMinutesDivider,
@@ -544,6 +545,10 @@ class ServiceContainer(containers.DeclarativeContainer):
 
     # 国会会議録APIクライアント (Issue #1188)
     kokkai_api_client = providers.Factory(KokkaiApiClient)
+    kokkai_speech_service = providers.Factory(
+        KokkaiSpeechServiceImpl,
+        client=kokkai_api_client,
+    )
 
 
 class UseCaseContainer(containers.DeclarativeContainer):
@@ -792,7 +797,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
     # 国会会議録API発言インポートユースケース
     import_kokkai_speeches_usecase = providers.Factory(
         ImportKokkaiSpeechesUseCase,
-        kokkai_client=services.kokkai_api_client,
+        kokkai_speech_service=services.kokkai_speech_service,
         meeting_repository=repositories.meeting_repository,
         minutes_repository=repositories.minutes_repository,
         conversation_repository=repositories.conversation_repository,

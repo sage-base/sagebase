@@ -477,7 +477,7 @@ class MeetingRepositoryImpl(BaseRepositoryImpl[Meeting], MeetingRepository):
             result = await async_executor.execute(query, {"url": url})
             row = result.first()
             if row:
-                return self._row_to_entity(row)
+                return self._dict_to_entity(dict(row._mapping))  # type: ignore
         return None
 
     # Override base methods to handle both async and sync
