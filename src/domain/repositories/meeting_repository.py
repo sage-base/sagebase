@@ -61,3 +61,8 @@ class MeetingRepository(BaseRepository[Meeting]):
     ) -> dict[str, Any] | None:
         """Get meeting by ID with conference and governing body info."""
         pass
+
+    @abstractmethod
+    async def get_by_url(self, url: str) -> Meeting | None:
+        """Get meeting by URL."""
+        pass
