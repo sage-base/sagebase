@@ -6,7 +6,6 @@ from typing import Any
 
 from src.application.dtos.kokkai_speech_dto import (
     BatchImportKokkaiSpeechesInputDTO,
-    BatchImportKokkaiSpeechesOutputDTO,
     ImportKokkaiSpeechesInputDTO,
     ImportKokkaiSpeechesOutputDTO,
     KokkaiMeetingDTO,
@@ -48,10 +47,3 @@ class KokkaiBatchImportPresenter(BasePresenter[list[KokkaiMeetingDTO]]):
         """単一会議のインポート."""
         input_dto = ImportKokkaiSpeechesInputDTO(issue_id=issue_id)
         return self._run_async(self._import_usecase.execute(input_dto))
-
-    def execute_batch_import(
-        self,
-        input_dto: BatchImportKokkaiSpeechesInputDTO,
-    ) -> BatchImportKokkaiSpeechesOutputDTO:
-        """バッチインポート全体を実行（進捗管理なし）."""
-        return self._run_async(self._batch_usecase.execute(input_dto))

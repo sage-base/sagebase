@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from src.infrastructure.external.kokkai_api.client import KokkaiApiClient
 from src.infrastructure.external.kokkai_api.service import KokkaiSpeechServiceImpl
 from src.infrastructure.external.kokkai_api.types import MeetingRecord
 
@@ -15,7 +16,7 @@ class TestFetchMeetings:
 
     @pytest.fixture()
     def mock_client(self) -> AsyncMock:
-        return AsyncMock()
+        return AsyncMock(spec=KokkaiApiClient)
 
     @pytest.fixture()
     def service(self, mock_client: AsyncMock) -> KokkaiSpeechServiceImpl:
@@ -48,7 +49,9 @@ class TestFetchMeetings:
         assert dto.session == 213
         assert dto.name_of_house == "衆議院"
         assert dto.name_of_meeting == "本会議"
+        assert dto.issue == "第3号"
         assert dto.date == "2025-04-23"
+        assert dto.meeting_url == "https://kokkai.ndl.go.jp/meeting/1"
 
     @pytest.mark.asyncio()
     async def test_passes_all_params_to_client(

@@ -17,7 +17,6 @@ from src.interfaces.web.streamlit.presenters.kokkai_batch_import_presenter impor
 
 
 _SESSION_KEY_MEETINGS = "kokkai_batch_meetings"
-_SESSION_KEY_RESULT = "kokkai_batch_result"
 
 
 def render_kokkai_batch_tab() -> None:
@@ -39,14 +38,20 @@ def render_kokkai_batch_tab() -> None:
         )
 
     if fetch_clicked:
-        with st.spinner("会議一覧を取得中..."):
-            try:
-                meetings = presenter.fetch_meetings(input_dto)
-                st.session_state[_SESSION_KEY_MEETINGS] = meetings
-                st.session_state.pop(_SESSION_KEY_RESULT, None)
-            except Exception as e:
-                st.error(f"会議一覧の取得に失敗しました: {e}")
-                return
+        if (
+            input_dto.session_from is not None
+            and input_dto.session_to is not None
+            and input_dto.session_from > input_dto.session_to
+        ):
+            st.error("開始回次は終了回次以下にしてください。")
+        else:
+            with st.spinner("会議一覧を取得中..."):
+                try:
+                    meetings = presenter.fetch_meetings(input_dto)
+                    st.session_state[_SESSION_KEY_MEETINGS] = meetings
+                except Exception as e:
+                    st.error(f"会議一覧の取得に失敗しました: {e}")
+                    return
 
     # --- 会議一覧プレビュー ---
     meetings: list[KokkaiMeetingDTO] = st.session_state.get(_SESSION_KEY_MEETINGS, [])
