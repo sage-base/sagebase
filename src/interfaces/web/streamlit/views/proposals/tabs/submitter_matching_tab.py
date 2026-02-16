@@ -47,6 +47,12 @@ def render_submitter_matching_tab(presenter: ProposalPresenter) -> None:
         st.info("会議体を選択してください。")
         return
 
+    # 会議体変更時にページネーションをリセット
+    prev_conference_key = "_submitter_matching_prev_conference"
+    if st.session_state.get(prev_conference_key) != selected_conference_id:
+        st.session_state[prev_conference_key] = selected_conference_id
+        st.session_state["submitter_matching_page"] = 0
+
     # --- マッチ状態フィルタ ---
     match_filter = st.radio(
         "マッチ状態",
@@ -305,22 +311,14 @@ def _render_manual_match_form(
         )
 
     with col2:
-        if match_type == "議員":
-            options_list = ["選択してください"] + list(politician_options.keys())
-            selected = st.selectbox(
-                "候補",
-                options=options_list,
-                key=f"match_candidate_{sub_id}",
-                label_visibility="collapsed",
-            )
-        else:
-            options_list = ["選択してください"] + list(pg_options.keys())
-            selected = st.selectbox(
-                "候補",
-                options=options_list,
-                key=f"match_candidate_{sub_id}",
-                label_visibility="collapsed",
-            )
+        base_options = politician_options if match_type == "議員" else pg_options
+        options_list = ["選択してください"] + list(base_options.keys())
+        selected = st.selectbox(
+            "候補",
+            options=options_list,
+            key=f"match_candidate_{sub_id}",
+            label_visibility="collapsed",
+        )
 
     with col3:
         if st.button("設定", key=f"set_match_{sub_id}"):
