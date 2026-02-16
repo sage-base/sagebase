@@ -9,6 +9,7 @@ from .individual_vote_expansion_tab import render_individual_vote_expansion_tab
 from .parliamentary_group_judges_tab import render_parliamentary_group_judges_tab
 from .proposals_tab import render_proposals_tab
 from .roll_call_override_tab import render_roll_call_override_tab
+from .submitter_matching_tab import render_submitter_matching_tab
 
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "render_parliamentary_group_judges_tab",
     "render_proposals_tab",
     "render_roll_call_override_tab",
+    "render_submitter_matching_tab",
 ]

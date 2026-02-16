@@ -12,6 +12,7 @@ from .tabs import (
     render_parliamentary_group_judges_tab,
     render_proposals_tab,
     render_roll_call_override_tab,
+    render_submitter_matching_tab,
 )
 
 from src.interfaces.web.streamlit.presenters.proposal_presenter import ProposalPresenter
@@ -26,7 +27,7 @@ def render_proposals_page() -> None:
     presenter = ProposalPresenter()
 
     # Create tabs
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
         [
             "議案管理",
             "LLM抽出結果",
@@ -34,6 +35,7 @@ def render_proposals_page() -> None:
             "賛否",
             "個人投票展開",
             "記名投票上書き",
+            "提出者マッチング",
         ]
     )
 
@@ -61,6 +63,10 @@ def render_proposals_page() -> None:
     def _tab6_fragment() -> None:
         render_roll_call_override_tab(presenter)
 
+    @st.fragment
+    def _tab7_fragment() -> None:
+        render_submitter_matching_tab(presenter)
+
     with tab1:
         _tab1_fragment()
 
@@ -78,6 +84,9 @@ def render_proposals_page() -> None:
 
     with tab6:
         _tab6_fragment()
+
+    with tab7:
+        _tab7_fragment()
 
 
 def main() -> None:

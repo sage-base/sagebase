@@ -1002,3 +1002,98 @@ class TestLoadSubmittersBatch:
         result = await presenter._load_submitters_batch_async([999])
 
         assert result == {}
+
+
+class TestAnalyzeSubmitters:
+    """analyze_submittersメソッドのテスト (Issue #1185)"""
+
+    async def test_analyze_submitters_success(self, presenter):
+        """自動マッチングが成功することを確認"""
+        from src.application.dtos.analyze_proposal_submitters_dto import (
+            AnalyzeProposalSubmittersOutputDTO,
+        )
+
+        # Arrange
+        mock_usecase = AsyncMock()
+        mock_container = MagicMock()
+        mock_container.use_cases.analyze_proposal_submitters_usecase.return_value = (
+            mock_usecase
+        )
+        presenter.container = mock_container
+
+        mock_usecase.execute.return_value = AnalyzeProposalSubmittersOutputDTO(
+            success=True,
+            message="3件の提出者を分析し、2件をマッチングしました",
+            total_analyzed=3,
+            total_matched=2,
+        )
+
+        # Act
+        result = await presenter._analyze_submitters_async([1, 2, 3])
+
+        # Assert
+        assert result.success is True
+        assert result.total_analyzed == 3
+        assert result.total_matched == 2
+        mock_usecase.execute.assert_awaited_once_with([1, 2, 3])
+
+    async def test_analyze_submitters_failure(self, presenter):
+        """自動マッチングが失敗DTOを返すことを確認"""
+        from src.application.dtos.analyze_proposal_submitters_dto import (
+            AnalyzeProposalSubmittersOutputDTO,
+        )
+
+        # Arrange
+        mock_usecase = AsyncMock()
+        mock_container = MagicMock()
+        mock_container.use_cases.analyze_proposal_submitters_usecase.return_value = (
+            mock_usecase
+        )
+        presenter.container = mock_container
+
+        mock_usecase.execute.return_value = AnalyzeProposalSubmittersOutputDTO(
+            success=False,
+            message="分析中にエラーが発生しました",
+        )
+
+        # Act
+        result = await presenter._analyze_submitters_async([1])
+
+        # Assert
+        assert result.success is False
+        assert "エラー" in result.message
+
+    async def test_analyze_submitters_empty_ids(self, presenter):
+        """空のIDリストでも正常に動作することを確認"""
+        from src.application.dtos.analyze_proposal_submitters_dto import (
+            AnalyzeProposalSubmittersOutputDTO,
+        )
+
+        # Arrange
+        mock_usecase = AsyncMock()
+        mock_container = MagicMock()
+        mock_container.use_cases.analyze_proposal_submitters_usecase.return_value = (
+            mock_usecase
+        )
+        presenter.container = mock_container
+
+        mock_usecase.execute.return_value = AnalyzeProposalSubmittersOutputDTO(
+            success=True,
+            message="分析対象の議案がありません",
+            total_analyzed=0,
+            total_matched=0,
+        )
+
+        # Act
+        result = await presenter._analyze_submitters_async([])
+
+        # Assert
+        assert result.success is True
+        assert result.total_analyzed == 0
+
+    async def test_analyze_submitters_no_container(self, presenter):
+        """DIコンテナが未初期化の場合にValueErrorが発生することを確認"""
+        presenter.container = None
+
+        with pytest.raises(ValueError, match="DI container"):
+            await presenter._analyze_submitters_async([1])

@@ -14,6 +14,9 @@ from uuid import UUID
 
 import pandas as pd
 
+from src.application.dtos.analyze_proposal_submitters_dto import (
+    AnalyzeProposalSubmittersOutputDTO,
+)
 from src.application.dtos.expand_group_judges_dto import (
     ExpandGroupJudgesRequestDTO,
     ExpandGroupJudgesResultDTO,
@@ -1603,3 +1606,28 @@ class ProposalPresenter(CRUDPresenter[list[Proposal]]):
     def parse_roll_call_csv(self, csv_content: str) -> list[IndividualVoteInputItem]:
         """記名投票CSVをパースする."""
         return OverrideIndividualJudgeUseCase.parse_csv(csv_content)
+
+    # ========== 提出者マッチング (Issue #1185) ==========
+
+    def analyze_submitters(
+        self, proposal_ids: list[int]
+    ) -> AnalyzeProposalSubmittersOutputDTO:
+        """指定された議案の提出者を自動マッチングする.
+
+        Args:
+            proposal_ids: 分析対象の議案IDリスト
+
+        Returns:
+            分析結果DTO
+        """
+        return self._run_async(self._analyze_submitters_async(proposal_ids))
+
+    async def _analyze_submitters_async(
+        self, proposal_ids: list[int]
+    ) -> AnalyzeProposalSubmittersOutputDTO:
+        """提出者自動マッチングの非同期実装."""
+        if self.container is None:
+            raise ValueError("DI container is not initialized")
+
+        usecase = self.container.use_cases.analyze_proposal_submitters_usecase()
+        return await usecase.execute(proposal_ids)
