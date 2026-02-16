@@ -153,6 +153,23 @@ class ConferenceMemberRepositoryImpl(
 
         return [self._row_to_entity(row) for row in rows]
 
+    async def get_by_conference_at_date(
+        self, conference_id: int, target_date: date
+    ) -> list[ConferenceMember]:
+        """指定日時点で会議体に所属するメンバーを取得する."""
+        query = text("""
+            SELECT * FROM politician_affiliations
+            WHERE conference_id = :conf_id
+              AND start_date <= :target_date
+              AND (end_date IS NULL OR end_date >= :target_date)
+            ORDER BY start_date DESC
+        """)
+        result = await self.session.execute(
+            query, {"conf_id": conference_id, "target_date": target_date}
+        )
+        rows = result.fetchall()
+        return [self._row_to_entity(row) for row in rows]
+
     async def upsert(
         self,
         politician_id: int,

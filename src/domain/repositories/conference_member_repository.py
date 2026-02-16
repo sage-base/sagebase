@@ -44,6 +44,24 @@ class ConferenceMemberRepository(BaseRepository[ConferenceMember]):
         pass
 
     @abstractmethod
+    async def get_by_conference_at_date(
+        self, conference_id: int, target_date: date
+    ) -> list[ConferenceMember]:
+        """指定日時点で会議体に所属するメンバーを取得する.
+
+        start_date <= target_date かつ (end_date IS NULL または end_date >= target_date)
+        の条件で絞り込む。
+
+        Args:
+            conference_id: 会議体ID
+            target_date: 対象日
+
+        Returns:
+            該当するConferenceMemberのリスト
+        """
+        pass
+
+    @abstractmethod
     async def end_membership(
         self, membership_id: int, end_date: date
     ) -> ConferenceMember | None:
