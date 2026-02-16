@@ -156,13 +156,17 @@ class TestMatchMeetingSpeakersUseCase:
     async def test_yomi_match_updates_speaker(
         self, usecase: MatchMeetingSpeakersUseCase, mock_repos: dict[str, AsyncMock]
     ) -> None:
-        """ふりがなマッチで Speaker.politician_id が更新される."""
+        """ふりがなマッチで Speaker.politician_id が更新される.
+
+        Speaker名（漢字表記）が候補と異なるが、ふりがなが一致するケース。
+        """
         _setup_meeting(mock_repos)
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1])
+        # 漢字表記が異なる（旧字体等を想定）がふりがなは一致
         _setup_speakers(
             mock_repos,
-            [Speaker(name="菅義偉君", name_yomi="すがよしひで", id=1)],
+            [Speaker(name="菅義偉（別表記）", name_yomi="すがよしひで", id=1)],
         )
         _setup_candidates(
             mock_repos,
@@ -189,8 +193,9 @@ class TestMatchMeetingSpeakersUseCase:
 
         assert result.success is True
         assert result.matched_count == 1
-        # 敬称除去後に完全一致するため confidence 1.0
-        assert result.results[0].confidence == 1.0
+        # 漢字名が不一致のためふりがなマッチ（confidence 0.9）
+        assert result.results[0].confidence == 0.9
+        assert result.results[0].updated is True
 
     @pytest.mark.asyncio
     async def test_low_confidence_does_not_update(
@@ -468,3 +473,30 @@ class TestMatchMeetingSpeakersUseCase:
         assert result.success is True
         assert result.matched_count == 0
         assert result.results[0].updated is False
+
+    @pytest.mark.asyncio
+    async def test_repository_exception_returns_error(
+        self, usecase: MatchMeetingSpeakersUseCase, mock_repos: dict[str, AsyncMock]
+    ) -> None:
+        """リポジトリで例外が発生した場合、success=False を返す."""
+        mock_repos["meeting_repository"].get_by_id.side_effect = RuntimeError(
+            "DB接続エラー"
+        )
+
+        result = await usecase.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
+
+        assert result.success is False
+        assert "エラー" in result.message
+
+    @pytest.mark.asyncio
+    async def test_meeting_without_date_returns_error(
+        self, usecase: MatchMeetingSpeakersUseCase, mock_repos: dict[str, AsyncMock]
+    ) -> None:
+        """日付のない Meeting の場合、エラーを返す."""
+        meeting = Meeting(conference_id=10, date=None, name="日付なし会議", id=1)
+        mock_repos["meeting_repository"].get_by_id.return_value = meeting
+
+        result = await usecase.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
+
+        assert result.success is False
+        assert "日付" in result.message
