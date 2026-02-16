@@ -8,6 +8,9 @@ from dependency_injector import containers, providers
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from src.application.usecases.analyze_proposal_submitters_usecase import (
+    AnalyzeProposalSubmittersUseCase,
+)
 from src.application.usecases.backfill_role_name_mappings_usecase import (
     BackfillRoleNameMappingsUseCase,
 )
@@ -84,6 +87,9 @@ from src.infrastructure.external.minutes_processing_service import (
 )
 from src.infrastructure.external.politician_matching import (
     BAMLPoliticianMatchingService,
+)
+from src.infrastructure.external.proposal_submitter_analyzer import (
+    RuleBasedProposalSubmitterAnalyzer,
 )
 from src.infrastructure.external.role_name_mapping.baml_role_name_mapping_service import (
     BAMLRoleNameMappingService,
@@ -754,4 +760,23 @@ class UseCaseContainer(containers.DeclarativeContainer):
         proposal_repository=repositories.proposal_repository,
         meeting_repository=repositories.meeting_repository,
         deliberation_repository=repositories.proposal_deliberation_repository,
+    )
+
+    # Proposal Submitter Analyzer Service (Issue #1021)
+    # ルールベースの議案提出者分析サービス
+    proposal_submitter_analyzer_service = providers.Factory(
+        RuleBasedProposalSubmitterAnalyzer,
+        politician_repository=repositories.politician_repository,
+        conference_member_repository=repositories.conference_member_repository,
+        parliamentary_group_repository=repositories.parliamentary_group_repository,
+        conference_repository=repositories.conference_repository,
+    )
+
+    # Analyze Proposal Submitters UseCase (Issue #1021)
+    # 議案提出者の自動分析ユースケース
+    analyze_proposal_submitters_usecase = providers.Factory(
+        AnalyzeProposalSubmittersUseCase,
+        proposal_repository=repositories.proposal_repository,
+        proposal_submitter_repository=repositories.proposal_submitter_repository,
+        analyzer_service=proposal_submitter_analyzer_service,
     )
