@@ -14,6 +14,9 @@ from src.application.usecases.analyze_proposal_submitters_usecase import (
 from src.application.usecases.backfill_role_name_mappings_usecase import (
     BackfillRoleNameMappingsUseCase,
 )
+from src.application.usecases.batch_import_kokkai_speeches_usecase import (
+    BatchImportKokkaiSpeechesUseCase,
+)
 from src.application.usecases.execute_minutes_processing_usecase import (
     ExecuteMinutesProcessingUseCase,
 )
@@ -804,4 +807,12 @@ class UseCaseContainer(containers.DeclarativeContainer):
         speaker_repository=repositories.speaker_repository,
         conference_repository=repositories.conference_repository,
         governing_body_repository=repositories.governing_body_repository,
+    )
+
+    # Batch Import Kokkai Speeches UseCase (Issue #1190)
+    # 国会発言バッチ取得ユースケース
+    batch_import_kokkai_speeches_usecase = providers.Factory(
+        BatchImportKokkaiSpeechesUseCase,
+        kokkai_speech_service=services.kokkai_speech_service,
+        import_usecase=import_kokkai_speeches_usecase,
     )
