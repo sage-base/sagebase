@@ -4,8 +4,10 @@
 議員/会派マッチングを行う。
 """
 
-from dataclasses import dataclass, field
-
+from src.application.dtos.analyze_proposal_submitters_dto import (
+    AnalyzeProposalSubmittersOutputDTO,
+    SubmitterMatchResultDTO,
+)
 from src.common.logging import get_logger
 from src.domain.entities.proposal_submitter import ProposalSubmitter
 from src.domain.repositories.proposal_repository import ProposalRepository
@@ -15,32 +17,13 @@ from src.domain.repositories.proposal_submitter_repository import (
 from src.domain.services.interfaces.proposal_submitter_analyzer_service import (
     IProposalSubmitterAnalyzerService,
 )
-from src.domain.value_objects.submitter_analysis_result import SubmitterAnalysisResult
 from src.domain.value_objects.submitter_type import SubmitterType
 
 
 _MAYOR_OR_COMMITTEE_TYPES = {SubmitterType.MAYOR, SubmitterType.COMMITTEE}
 
-
-@dataclass
-class SubmitterMatchResultDTO:
-    """提出者1件の分析結果DTO."""
-
-    submitter_id: int
-    raw_name: str
-    analysis: SubmitterAnalysisResult
-    updated: bool
-
-
-@dataclass
-class AnalyzeProposalSubmittersOutputDTO:
-    """提出者一括分析の結果DTO."""
-
-    success: bool
-    message: str
-    total_analyzed: int = 0
-    total_matched: int = 0
-    results: list[SubmitterMatchResultDTO] = field(default_factory=list)
+# マッチング結果を採用する最低信頼度
+_MIN_MATCH_CONFIDENCE = 0.7
 
 
 class AnalyzeProposalSubmittersUseCase:
@@ -85,12 +68,11 @@ class AnalyzeProposalSubmittersUseCase:
                 )
             )
 
-            # 議案情報をキャッシュ（conference_id取得用）
-            proposal_conference_map: dict[int, int | None] = {}
-            for proposal_id in proposal_ids:
-                proposal = await self._proposal_repository.get_by_id(proposal_id)
-                if proposal:
-                    proposal_conference_map[proposal_id] = proposal.conference_id
+            # 議案情報をバッチ取得（N+1回避）
+            proposals = await self._proposal_repository.get_by_ids(proposal_ids)
+            proposal_conference_map: dict[int, int | None] = {
+                p.id: p.conference_id for p in proposals if p.id is not None
+            }
 
             results: list[SubmitterMatchResultDTO] = []
             total_analyzed = 0
@@ -122,7 +104,7 @@ class AnalyzeProposalSubmittersUseCase:
 
                     # 結果に基づいてエンティティを更新
                     updated = False
-                    if analysis.confidence >= 0.7:
+                    if analysis.confidence >= _MIN_MATCH_CONFIDENCE:
                         submitter.submitter_type = analysis.submitter_type
                         if analysis.matched_politician_id is not None:
                             submitter.politician_id = analysis.matched_politician_id

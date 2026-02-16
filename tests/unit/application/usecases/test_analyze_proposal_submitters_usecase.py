@@ -93,7 +93,7 @@ class TestAnalyzeProposalSubmittersUseCase:
         mock_repos["proposal_submitter"].get_by_proposal_ids.return_value = {
             100: [submitter],
         }
-        mock_repos["proposal"].get_by_id.return_value = _make_proposal(100)
+        mock_repos["proposal"].get_by_ids.return_value = [_make_proposal(100)]
 
         mock_analyzer.analyze.return_value = SubmitterAnalysisResult(
             submitter_type=SubmitterType.MAYOR,
@@ -118,7 +118,7 @@ class TestAnalyzeProposalSubmittersUseCase:
         mock_repos["proposal_submitter"].get_by_proposal_ids.return_value = {
             100: [submitter],
         }
-        mock_repos["proposal"].get_by_id.return_value = _make_proposal(100)
+        mock_repos["proposal"].get_by_ids.return_value = [_make_proposal(100)]
 
         mock_analyzer.analyze.return_value = SubmitterAnalysisResult(
             submitter_type=SubmitterType.POLITICIAN,
@@ -152,7 +152,7 @@ class TestAnalyzeProposalSubmittersUseCase:
         mock_repos["proposal_submitter"].get_by_proposal_ids.return_value = {
             100: [submitter],
         }
-        mock_repos["proposal"].get_by_id.return_value = _make_proposal(100)
+        mock_repos["proposal"].get_by_ids.return_value = [_make_proposal(100)]
 
         mock_analyzer.analyze.return_value = SubmitterAnalysisResult(
             submitter_type=SubmitterType.PARLIAMENTARY_GROUP,
@@ -192,7 +192,7 @@ class TestAnalyzeProposalSubmittersUseCase:
         mock_repos["proposal_submitter"].get_by_proposal_ids.return_value = {
             100: [submitter],
         }
-        mock_repos["proposal"].get_by_id.return_value = _make_proposal(100)
+        mock_repos["proposal"].get_by_ids.return_value = [_make_proposal(100)]
 
         result = await use_case.execute([100])
         assert result.success is True
@@ -216,7 +216,7 @@ class TestAnalyzeProposalSubmittersUseCase:
         mock_repos["proposal_submitter"].get_by_proposal_ids.return_value = {
             100: [submitter],
         }
-        mock_repos["proposal"].get_by_id.return_value = _make_proposal(100)
+        mock_repos["proposal"].get_by_ids.return_value = [_make_proposal(100)]
 
         result = await use_case.execute([100])
         assert result.success is True
@@ -235,7 +235,7 @@ class TestAnalyzeProposalSubmittersUseCase:
         mock_repos["proposal_submitter"].get_by_proposal_ids.return_value = {
             100: [submitter],
         }
-        mock_repos["proposal"].get_by_id.return_value = _make_proposal(100)
+        mock_repos["proposal"].get_by_ids.return_value = [_make_proposal(100)]
 
         mock_analyzer.analyze.return_value = SubmitterAnalysisResult(
             submitter_type=SubmitterType.OTHER,
@@ -260,9 +260,9 @@ class TestAnalyzeProposalSubmittersUseCase:
         mock_repos["proposal_submitter"].get_by_proposal_ids.return_value = {
             100: [submitter],
         }
-        mock_repos["proposal"].get_by_id.return_value = _make_proposal(
-            100, conference_id=None
-        )
+        mock_repos["proposal"].get_by_ids.return_value = [
+            _make_proposal(100, conference_id=None)
+        ]
 
         result = await use_case.execute([100])
         assert result.success is True
@@ -284,7 +284,7 @@ class TestAnalyzeProposalSubmittersUseCase:
             100: [submitter1],
             200: [submitter2],
         }
-        mock_repos["proposal"].get_by_id.side_effect = [
+        mock_repos["proposal"].get_by_ids.return_value = [
             _make_proposal(100, conference_id=1),
             _make_proposal(200, conference_id=1),
         ]
