@@ -158,6 +158,11 @@ class BigQueryClient:
             StorageError: ロードに失敗した場合
         """
         table_ref = f"{self._dataset_ref}.{table_def.table_id}"
+
+        if not rows:
+            logger.info(f"No rows to load into {table_ref}, skipping")
+            return 0
+
         schema = to_bigquery_schema(table_def)
 
         job_config = (

@@ -194,19 +194,16 @@ class TestLoadTableData:
             client.load_table_data(sample_table_def, [{"id": 1}])
 
     @patch("src.infrastructure.bigquery.client.bigquery")
-    def test_load_table_data_empty_rows(
+    def test_load_table_data_empty_rows_skips_api_call(
         self, mock_bigquery: MagicMock, sample_table_def: BQTableDef
     ) -> None:
         from src.infrastructure.bigquery.client import BigQueryClient
 
-        mock_job = MagicMock()
-        mock_job.result.return_value = None
-
         client = BigQueryClient(project_id="test-project")
-        client.client.load_table_from_json.return_value = mock_job
 
         result = client.load_table_data(sample_table_def, [])
         assert result == 0
+        client.client.load_table_from_json.assert_not_called()
 
 
 class TestCreateAllTables:
