@@ -50,6 +50,61 @@ just migrate-rollback
 - [ ] **シードファイル更新**: カラム追加・削除時はStreamlit UIのシード生成タブでシードファイルを再生成（既存シードが削除カラムを参照してDBリセットが失敗する原因になる）
   - ⚠️ **特にUPDATEでデータ移行する場合は要注意**: フレッシュDBではマイグレーションのUPDATEが空テーブルに対して実行される（0行更新）ため、シードファイルのINSERT文にも新カラムの値を含めること（[詳細](#-critical-マイグレーションupdateとシードの実行順序)）
 
+## 🔄 スキーマ変更時のデータ保全フロー
+
+スキーマ変更時、`just clean`（Dockerボリューム削除）を伴う場合は、Seedファイルで復旧できないフロー情報（conversations, speakers, proposal_judges等）が失われます。以下の手順でデータを保全してください。
+
+### パターン1: `just migrate` で適用可能な場合（推奨）
+
+`just clean` が不要で、既存データを保持したままマイグレーションを適用できる場合：
+
+```bash
+# 1. マイグレーション適用（データは保持される）
+just migrate
+
+# 2. 適用確認
+just migrate-current
+```
+
+### パターン2: `just clean` が必要な場合
+
+Dockerボリュームの再作成が必要な場合（スキーマの大幅変更など）：
+
+```bash
+# 1. データベースダンプを取得（just cleanは自動でダンプを試みるが、手動でも取得推奨）
+just exec uv run sagebase dump-database
+
+# 2. ダンプが取れたことを確認
+just exec uv run sagebase list-dumps
+
+# 3. コンテナ＋ボリューム削除（自動ダンプも試行される）
+just clean
+
+# 4. 再起動（マイグレーション適用 + シードデータ投入）
+just up
+
+# 5. ダンプからフロー情報をリストア（スキーマ変更耐性あり）
+just exec uv run sagebase restore-dump --truncate <dump_dir名>
+# 例: just exec uv run sagebase restore-dump --truncate 2026-02-17_035525
+```
+
+### ダンプ/リストアコマンド一覧
+
+| コマンド | 説明 |
+|---------|------|
+| `sagebase dump-database` | 全テーブルをJSON形式でダンプ（`dumps/YYYY-MM-DD_HHMMSS/`に出力） |
+| `sagebase dump-database --tables t1,t2` | 指定テーブルのみダンプ |
+| `sagebase list-dumps` | 過去のダンプ一覧を表示 |
+| `sagebase restore-dump <dump_dir>` | JSONダンプからリストア |
+| `sagebase restore-dump --truncate <dump_dir>` | 既存データを削除してからリストア |
+
+### スキーマ変更耐性
+
+リストア時に以下の変更を自動処理します：
+- **削除されたカラム**: JSONにあるがDBにないカラムはスキップ（警告表示）
+- **追加されたカラム**: DBにあるがJSONにないカラムはデフォルト値を使用
+- **削除されたテーブル**: JSONにあるがDBにないテーブルはスキップ（警告表示）
+
 ## コマンドリファレンス
 
 ### justfile コマンド

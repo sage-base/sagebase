@@ -410,6 +410,27 @@ just exec uv run sagebase database list --no-gcs
 ./backup-database.sh restore database/backups/[filename]
 ```
 
+### JSON Dump and Restore
+
+スキーマ変更時にフロー情報（conversations, speakers等）を保全するためのJSON形式ダンプ/リストア。
+
+```bash
+# 全テーブルをJSONダンプ
+just exec uv run sagebase dump-database
+
+# 指定テーブルのみダンプ
+just exec uv run sagebase dump-database --tables conversations,speakers
+
+# ダンプ一覧を表示
+just exec uv run sagebase list-dumps
+
+# ダンプからリストア（既存データを削除してからリストア）
+just exec uv run sagebase restore-dump --truncate 2026-02-17_035525
+
+# ダンプからリストア（追記モード）
+just exec uv run sagebase restore-dump 2026-02-17_035525
+```
+
 ### Database Reset
 
 ```bash
@@ -564,23 +585,34 @@ just exec uv run sagebase create-affiliations --conference-id 185
 ### Database Migration Workflow
 
 ```bash
-# 1. Create migration file
-# Edit: database/migrations/016_new_feature.sql
+# 1. マイグレーションファイルを作成
+just migrate-new "add_column_to_table"
 
-# 2. Add to run script (MANDATORY!)
-# Edit: database/02_run_migrations.sql
+# 2. マイグレーションを適用
+just migrate
 
-# 3. Test migration
-./reset-database.sh
+# 3. 適用確認
+just migrate-current
+just db  # Then: \d table_name
+```
 
-# 4. Verify migration applied
-just db
-# Then: \d table_name
+### スキーマ変更でjust cleanが必要な場合のワークフロー
 
-# 5. Commit migration files
-git add database/migrations/016_new_feature.sql
-git add database/02_run_migrations.sql
-git commit -m "Add migration for new feature"
+```bash
+# 1. データベースダンプを取得
+just exec uv run sagebase dump-database
+
+# 2. ダンプを確認
+just exec uv run sagebase list-dumps
+
+# 3. ボリューム削除（自動ダンプも試行される）
+just clean
+
+# 4. 再起動（マイグレーション + シードデータ投入）
+just up
+
+# 5. ダンプからフロー情報をリストア
+just exec uv run sagebase restore-dump --truncate <dump_dir名>
 ```
 
 ## 8. Troubleshooting
