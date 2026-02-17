@@ -255,11 +255,13 @@ class ImportKokkaiSpeechesUseCase:
         return created.id
 
     @staticmethod
-    def _normalize_speaker_name(name: str) -> str:
+    def _normalize_speaker_name(name: str | None) -> str:
         """発言者名を正規化する.
 
         末尾の「君」「さん」等の敬称を除去し、スペースをトリムする。
         """
+        if not name:
+            return ""
         normalized = name.strip()
         normalized = _HONORIFIC_PATTERN.sub("", normalized)
         return normalized.strip()
