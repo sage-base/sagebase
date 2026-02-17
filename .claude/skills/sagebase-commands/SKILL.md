@@ -94,6 +94,11 @@ just exec uv run sagebase database restore backup.sql
 
 # Reset database
 just clean && just up
+
+# JSONダンプ/リストア（スキーマ変更時のデータ保全）
+just exec uv run sagebase dump-database           # 全テーブルダンプ
+just exec uv run sagebase list-dumps               # ダンプ一覧
+just exec uv run sagebase restore-dump --truncate <dump_dir>  # リストア
 ```
 
 ### Migration Commands (Alembic)
