@@ -127,6 +127,13 @@ variable "matcher_image" {
   default     = "gcr.io/PROJECT_ID/matcher-worker:latest"
 }
 
+# Analytics Hub Configuration
+variable "analytics_hub_primary_contact" {
+  description = "Analytics Hub の連絡先メールアドレス"
+  type        = string
+  default     = ""
+}
+
 # Tags
 variable "labels" {
   description = "Labels to apply to all resources"
