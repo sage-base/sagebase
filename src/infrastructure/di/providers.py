@@ -801,12 +801,7 @@ class UseCaseContainer(containers.DeclarativeContainer):
     import_kokkai_speeches_usecase = providers.Factory(
         ImportKokkaiSpeechesUseCase,
         kokkai_speech_service=services.kokkai_speech_service,
-        meeting_repository=repositories.meeting_repository,
-        minutes_repository=repositories.minutes_repository,
-        conversation_repository=repositories.conversation_repository,
-        speaker_repository=repositories.speaker_repository,
-        conference_repository=repositories.conference_repository,
-        governing_body_repository=repositories.governing_body_repository,
+        unit_of_work_factory=unit_of_work.provider,
     )
 
     # Batch Import Kokkai Speeches UseCase (Issue #1190)
