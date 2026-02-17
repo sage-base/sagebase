@@ -4,14 +4,22 @@ This implementation provides transaction management for multiple repositories
 using SQLAlchemy's session, ensuring all operations share the same transaction.
 """
 
+from src.domain.repositories.conference_repository import ConferenceRepository
 from src.domain.repositories.conversation_repository import ConversationRepository
+from src.domain.repositories.governing_body_repository import GoverningBodyRepository
 from src.domain.repositories.meeting_repository import MeetingRepository
 from src.domain.repositories.minutes_repository import MinutesRepository
 from src.domain.repositories.session_adapter import ISessionAdapter
 from src.domain.repositories.speaker_repository import SpeakerRepository
 from src.domain.services.interfaces.unit_of_work import IUnitOfWork
+from src.infrastructure.persistence.conference_repository_impl import (
+    ConferenceRepositoryImpl,
+)
 from src.infrastructure.persistence.conversation_repository_impl import (
     ConversationRepositoryImpl,
+)
+from src.infrastructure.persistence.governing_body_repository_impl import (
+    GoverningBodyRepositoryImpl,
 )
 from src.infrastructure.persistence.meeting_repository_impl import MeetingRepositoryImpl
 from src.infrastructure.persistence.minutes_repository_impl import MinutesRepositoryImpl
@@ -38,6 +46,8 @@ class UnitOfWorkImpl(IUnitOfWork):
         self._minutes_repository = MinutesRepositoryImpl(session)
         self._conversation_repository = ConversationRepositoryImpl(session)
         self._speaker_repository = SpeakerRepositoryImpl(session)
+        self._conference_repository = ConferenceRepositoryImpl(session)
+        self._governing_body_repository = GoverningBodyRepositoryImpl(session)
 
     @property
     def meeting_repository(self) -> MeetingRepository:
@@ -58,6 +68,16 @@ class UnitOfWorkImpl(IUnitOfWork):
     def speaker_repository(self) -> SpeakerRepository:
         """Get the speaker repository for this unit of work."""
         return self._speaker_repository
+
+    @property
+    def conference_repository(self) -> ConferenceRepository:
+        """Get the conference repository for this unit of work."""
+        return self._conference_repository
+
+    @property
+    def governing_body_repository(self) -> GoverningBodyRepository:
+        """Get the governing body repository for this unit of work."""
+        return self._governing_body_repository
 
     async def commit(self) -> None:
         """Commit the current transaction."""

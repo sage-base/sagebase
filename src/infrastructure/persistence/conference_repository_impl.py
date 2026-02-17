@@ -358,7 +358,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             }
 
             result = await self.session.execute(query, params)
-            await self.session.commit()
 
             row = result.first()
             if row:
@@ -373,7 +372,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
 
         except SQLAlchemyError as e:
             logger.error(f"Database error creating conference: {e}")
-            await self.session.rollback()
             raise DatabaseError(
                 "Failed to create conference", {"entity": entity, "error": str(e)}
             ) from e
@@ -411,7 +409,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             }
 
             result = await self.session.execute(query, params)
-            await self.session.commit()
 
             row = result.first()
             if row:
@@ -426,7 +423,6 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
 
         except SQLAlchemyError as e:
             logger.error(f"Database error updating conference: {e}")
-            await self.session.rollback()
             raise DatabaseError(
                 "Failed to update conference", {"entity": entity, "error": str(e)}
             ) from e
@@ -456,13 +452,11 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             # Delete the conference
             query = text("DELETE FROM conferences WHERE id = :id")
             result = await self.session.execute(query, {"id": entity_id})
-            await self.session.commit()
 
             return result.rowcount > 0  # type: ignore[attr-defined]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error deleting conference: {e}")
-            await self.session.rollback()
             raise DatabaseError(
                 "Failed to delete conference", {"id": entity_id, "error": str(e)}
             ) from e

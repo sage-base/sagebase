@@ -7,7 +7,9 @@ across multiple repository operations while maintaining Clean Architecture princ
 from abc import ABC, abstractmethod
 from typing import TypeVar
 
+from src.domain.repositories.conference_repository import ConferenceRepository
 from src.domain.repositories.conversation_repository import ConversationRepository
+from src.domain.repositories.governing_body_repository import GoverningBodyRepository
 from src.domain.repositories.meeting_repository import MeetingRepository
 from src.domain.repositories.minutes_repository import MinutesRepository
 from src.domain.repositories.speaker_repository import SpeakerRepository
@@ -45,6 +47,18 @@ class IUnitOfWork(ABC):
     @abstractmethod
     def speaker_repository(self) -> SpeakerRepository:
         """Get the speaker repository for this unit of work."""
+        pass
+
+    @property
+    @abstractmethod
+    def conference_repository(self) -> ConferenceRepository:
+        """Get the conference repository for this unit of work."""
+        pass
+
+    @property
+    @abstractmethod
+    def governing_body_repository(self) -> GoverningBodyRepository:
+        """Get the governing body repository for this unit of work."""
         pass
 
     @abstractmethod
