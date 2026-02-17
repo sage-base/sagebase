@@ -44,6 +44,8 @@ resource "google_project_service" "required_apis" {
     "monitoring.googleapis.com",        # Cloud Monitoring API
     "cloudtrace.googleapis.com",        # Cloud Trace API
     "aiplatform.googleapis.com",        # Vertex AI API
+    "bigquery.googleapis.com",          # BigQuery API
+    "analyticshub.googleapis.com",      # Analytics Hub API
   ])
 
   service            = each.key
@@ -157,6 +159,17 @@ module "app" {
     module.storage,
     google_project_service.required_apis
   ]
+}
+
+# Analytics Hub Module - BigQuery Data Sharing
+module "analytics_hub" {
+  source = "./modules/analytics_hub"
+
+  project_id      = var.project_id
+  location        = var.region
+  primary_contact = var.analytics_hub_primary_contact
+
+  depends_on = [module.storage, google_project_service.required_apis]
 }
 
 # Monitoring Module - Cloud Monitoring Dashboards and Alerts
