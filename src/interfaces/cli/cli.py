@@ -73,6 +73,11 @@ def register_clean_architecture_commands(cli_group: click.Group) -> None:
     cli_group.add_command(restore_dump, "restore-dump")
     cli_group.add_command(list_dumps, "list-dumps")
 
+    # Register BigQuery commands
+    from src.interfaces.cli.commands.bigquery import export_to_bq
+
+    cli_group.add_command(export_to_bq)
+
     # Register commands from other groups that remain unchanged
     from src.interfaces.cli.commands.minutes_commands import MinutesCommands
     from src.interfaces.cli.commands.scraping_commands import ScrapingCommands
