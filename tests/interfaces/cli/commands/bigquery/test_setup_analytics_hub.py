@@ -58,7 +58,7 @@ class TestSetupAnalyticsHubCommand:
 
         os.environ.pop("GOOGLE_CLOUD_PROJECT", None)
         cmd = SetupAnalyticsHubCommand()
-        with pytest.raises(SystemExit):
+        with pytest.raises(SystemExit) as exc_info:
             cmd.execute(
                 exchange_id="test_exchange",
                 listing_id="test_listing",
@@ -66,6 +66,7 @@ class TestSetupAnalyticsHubCommand:
                 primary_contact="",
                 dry_run=False,
             )
+        assert exc_info.value.code == 1
 
     @patch.dict(
         "os.environ",
@@ -210,4 +211,4 @@ class TestSetupAnalyticsHubClickCommand:
 
         runner = CliRunner()
         result = runner.invoke(setup_analytics_hub, [])
-        assert result.exit_code != 0
+        assert result.exit_code == 1

@@ -141,6 +141,26 @@ class TestCreateExchange:
             )
 
     @patch("src.infrastructure.bigquery.analytics_hub.AnalyticsHubServiceClient")
+    def test_create_exchange_private(
+        self, mock_client_class: MagicMock, mock_exchange: MagicMock
+    ) -> None:
+        from src.infrastructure.bigquery.analytics_hub import AnalyticsHubClient
+
+        mock_client_class.return_value.create_data_exchange.return_value = mock_exchange
+
+        client = AnalyticsHubClient(project_id="test-project")
+        client.create_exchange(
+            exchange_id="test_exchange",
+            display_name="Test Exchange",
+            public=False,
+        )
+
+        call_args = mock_client_class.return_value.create_data_exchange.call_args
+        request = call_args.kwargs["request"]
+        # DISCOVERY_TYPE_PRIVATE = 1
+        assert request.data_exchange.discovery_type == 1
+
+    @patch("src.infrastructure.bigquery.analytics_hub.AnalyticsHubServiceClient")
     def test_create_exchange_general_error(self, mock_client_class: MagicMock) -> None:
         from src.infrastructure.bigquery.analytics_hub import AnalyticsHubClient
 
@@ -200,6 +220,18 @@ class TestGetExchange:
 
         client = AnalyticsHubClient(project_id="test-project")
         with pytest.raises(StorageError, match="Permission denied"):
+            client.get_exchange("test_exchange")
+
+    @patch("src.infrastructure.bigquery.analytics_hub.AnalyticsHubServiceClient")
+    def test_get_exchange_general_error(self, mock_client_class: MagicMock) -> None:
+        from src.infrastructure.bigquery.analytics_hub import AnalyticsHubClient
+
+        mock_client_class.return_value.get_data_exchange.side_effect = RuntimeError(
+            "unexpected"
+        )
+
+        client = AnalyticsHubClient(project_id="test-project")
+        with pytest.raises(StorageError, match="Failed to get exchange"):
             client.get_exchange("test_exchange")
 
 
@@ -347,6 +379,18 @@ class TestGetListing:
         with pytest.raises(StorageError, match="Permission denied"):
             client.get_listing("test_exchange", "test_listing")
 
+    @patch("src.infrastructure.bigquery.analytics_hub.AnalyticsHubServiceClient")
+    def test_get_listing_general_error(self, mock_client_class: MagicMock) -> None:
+        from src.infrastructure.bigquery.analytics_hub import AnalyticsHubClient
+
+        mock_client_class.return_value.get_listing.side_effect = RuntimeError(
+            "unexpected"
+        )
+
+        client = AnalyticsHubClient(project_id="test-project")
+        with pytest.raises(StorageError, match="Failed to get listing"):
+            client.get_listing("test_exchange", "test_listing")
+
 
 class TestHelperMethods:
     """ヘルパーメソッドのテスト."""
@@ -382,3 +426,18 @@ class TestHelperMethods:
             "/dataExchanges/my_exchange/listings/my_listing"
         )
         assert path == expected
+
+    @patch("src.infrastructure.bigquery.analytics_hub.AnalyticsHubServiceClient")
+    def test_to_listing_info_state_without_name_attr(
+        self, mock_client_class: MagicMock
+    ) -> None:
+        from src.infrastructure.bigquery.analytics_hub import AnalyticsHubClient
+
+        mock_listing = MagicMock()
+        mock_listing.name = "test"
+        mock_listing.display_name = "Test"
+        mock_listing.description = "desc"
+        mock_listing.state = 1  # int値（name属性なし）
+
+        result = AnalyticsHubClient._to_listing_info(mock_listing)
+        assert result.state == "1"
