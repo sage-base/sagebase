@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from src.infrastructure.bigquery.client import BigQueryClient
 from src.infrastructure.bigquery.schema import GOLD_LAYER_TABLES, BQTableDef
@@ -76,10 +76,18 @@ class ExportToBigQueryCommand(Command, BaseCommand):
         bq_client.ensure_dataset()
 
         engine = get_db_engine()
+        pg_tables = set(inspect(engine).get_table_names())
 
         results: list[tuple[str, int, float]] = []
 
         for table_def in table_defs:
+            if table_def.table_id not in pg_tables:
+                self.warning(
+                    f"  スキップ: {table_def.table_id}"
+                    "（PostgreSQLにテーブルが存在しません）"
+                )
+                continue
+
             start = time.monotonic()
             self.show_progress(f"  エクスポート中: {table_def.table_id}...")
 

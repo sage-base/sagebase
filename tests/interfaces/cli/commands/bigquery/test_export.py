@@ -91,10 +91,14 @@ class TestExportToBigQueryCommand:
         "os.environ",
         {"GOOGLE_CLOUD_PROJECT": "test-project", "BQ_DATASET_ID": "test_dataset"},
     )
+    @patch("src.interfaces.cli.commands.bigquery.export.inspect")
     @patch("src.interfaces.cli.commands.bigquery.export.get_db_engine")
     @patch("src.interfaces.cli.commands.bigquery.export.BigQueryClient")
     def test_export_single_table(
-        self, mock_bq_cls: MagicMock, mock_get_engine: MagicMock
+        self,
+        mock_bq_cls: MagicMock,
+        mock_get_engine: MagicMock,
+        mock_inspect: MagicMock,
     ) -> None:
         mock_bq = MagicMock()
         mock_bq_cls.return_value = mock_bq
@@ -102,6 +106,7 @@ class TestExportToBigQueryCommand:
 
         mock_engine = MagicMock()
         mock_get_engine.return_value = mock_engine
+        mock_inspect.return_value.get_table_names.return_value = ["politicians"]
         mock_conn = MagicMock()
         mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
@@ -121,17 +126,26 @@ class TestExportToBigQueryCommand:
         "os.environ",
         {"GOOGLE_CLOUD_PROJECT": "test-project"},
     )
+    @patch("src.interfaces.cli.commands.bigquery.export.inspect")
     @patch("src.interfaces.cli.commands.bigquery.export.get_db_engine")
     @patch("src.interfaces.cli.commands.bigquery.export.BigQueryClient")
     def test_export_all_tables(
-        self, mock_bq_cls: MagicMock, mock_get_engine: MagicMock
+        self,
+        mock_bq_cls: MagicMock,
+        mock_get_engine: MagicMock,
+        mock_inspect: MagicMock,
     ) -> None:
+        from src.infrastructure.bigquery.schema import GOLD_LAYER_TABLES
+
         mock_bq = MagicMock()
         mock_bq_cls.return_value = mock_bq
         mock_bq.load_table_data.return_value = 0
 
         mock_engine = MagicMock()
         mock_get_engine.return_value = mock_engine
+        mock_inspect.return_value.get_table_names.return_value = [
+            t.table_id for t in GOLD_LAYER_TABLES
+        ]
         mock_conn = MagicMock()
         mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
@@ -169,16 +183,21 @@ class TestExportToBigQueryCommand:
         "os.environ",
         {"GOOGLE_CLOUD_PROJECT": "test-project"},
     )
+    @patch("src.interfaces.cli.commands.bigquery.export.inspect")
     @patch("src.interfaces.cli.commands.bigquery.export.get_db_engine")
     @patch("src.interfaces.cli.commands.bigquery.export.BigQueryClient")
     def test_empty_table_creates_table_without_load(
-        self, mock_bq_cls: MagicMock, mock_get_engine: MagicMock
+        self,
+        mock_bq_cls: MagicMock,
+        mock_get_engine: MagicMock,
+        mock_inspect: MagicMock,
     ) -> None:
         mock_bq = MagicMock()
         mock_bq_cls.return_value = mock_bq
 
         mock_engine = MagicMock()
         mock_get_engine.return_value = mock_engine
+        mock_inspect.return_value.get_table_names.return_value = ["politicians"]
         mock_conn = MagicMock()
         mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
@@ -194,6 +213,32 @@ class TestExportToBigQueryCommand:
         mock_bq.load_table_data.assert_not_called()
         mock_bq.create_table.assert_called_once()
 
+    @patch.dict(
+        "os.environ",
+        {"GOOGLE_CLOUD_PROJECT": "test-project"},
+    )
+    @patch("src.interfaces.cli.commands.bigquery.export.inspect")
+    @patch("src.interfaces.cli.commands.bigquery.export.get_db_engine")
+    @patch("src.interfaces.cli.commands.bigquery.export.BigQueryClient")
+    def test_missing_pg_table_is_skipped(
+        self,
+        mock_bq_cls: MagicMock,
+        mock_get_engine: MagicMock,
+        mock_inspect: MagicMock,
+    ) -> None:
+        mock_bq = MagicMock()
+        mock_bq_cls.return_value = mock_bq
+
+        mock_engine = MagicMock()
+        mock_get_engine.return_value = mock_engine
+        mock_inspect.return_value.get_table_names.return_value = []
+
+        cmd = ExportToBigQueryCommand()
+        cmd.execute(table="politicians", export_all=False, dataset=None)
+
+        mock_bq.load_table_data.assert_not_called()
+        mock_engine.connect.assert_not_called()
+
 
 class TestExportToBqClickCommand:
     """Click コマンドの結合テスト."""
@@ -202,11 +247,16 @@ class TestExportToBqClickCommand:
         "os.environ",
         {"GOOGLE_CLOUD_PROJECT": "test-project", "BQ_DATASET_ID": "test_dataset"},
     )
+    @patch("src.interfaces.cli.commands.bigquery.export.inspect")
     @patch("src.interfaces.cli.commands.bigquery.export.get_db_engine")
     @patch("src.interfaces.cli.commands.bigquery.export.BigQueryClient")
     def test_click_command_with_all_flag(
-        self, mock_bq_cls: MagicMock, mock_get_engine: MagicMock
+        self,
+        mock_bq_cls: MagicMock,
+        mock_get_engine: MagicMock,
+        mock_inspect: MagicMock,
     ) -> None:
+        from src.infrastructure.bigquery.schema import GOLD_LAYER_TABLES
         from src.interfaces.cli.commands.bigquery import export_to_bq
 
         mock_bq = MagicMock()
@@ -215,6 +265,9 @@ class TestExportToBqClickCommand:
 
         mock_engine = MagicMock()
         mock_get_engine.return_value = mock_engine
+        mock_inspect.return_value.get_table_names.return_value = [
+            t.table_id for t in GOLD_LAYER_TABLES
+        ]
         mock_conn = MagicMock()
         mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
@@ -232,10 +285,14 @@ class TestExportToBqClickCommand:
         "os.environ",
         {"GOOGLE_CLOUD_PROJECT": "test-project"},
     )
+    @patch("src.interfaces.cli.commands.bigquery.export.inspect")
     @patch("src.interfaces.cli.commands.bigquery.export.get_db_engine")
     @patch("src.interfaces.cli.commands.bigquery.export.BigQueryClient")
     def test_click_command_with_table_and_dataset(
-        self, mock_bq_cls: MagicMock, mock_get_engine: MagicMock
+        self,
+        mock_bq_cls: MagicMock,
+        mock_get_engine: MagicMock,
+        mock_inspect: MagicMock,
     ) -> None:
         from src.interfaces.cli.commands.bigquery import export_to_bq
 
@@ -245,6 +302,7 @@ class TestExportToBqClickCommand:
 
         mock_engine = MagicMock()
         mock_get_engine.return_value = mock_engine
+        mock_inspect.return_value.get_table_names.return_value = ["politicians"]
         mock_conn = MagicMock()
         mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
