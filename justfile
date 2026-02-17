@@ -301,6 +301,12 @@ exec *args: _setup_worktree
 
 # Clean up all containers and volumes (dangerous!)
 clean: down
+	#!/bin/bash
+	echo "Taking database dump before clean..."
+	docker compose {{compose_cmd}} exec sagebase uv run sagebase database dump 2>/dev/null
+	if [ $? -ne 0 ]; then
+		echo "⚠ Dump failed (database may not be running). Proceeding with clean..."
+	fi
 	docker compose -f docker/docker-compose.yml down -v
 	docker compose -f docker/docker-compose.yml rm -f
 

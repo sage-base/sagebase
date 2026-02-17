@@ -7,6 +7,9 @@ coverage.xml
 
 # Database backups
 database/backups/*.sql
+
+# Database JSON dumps
+dumps/
 data/scraped/**
 cache/**
 
