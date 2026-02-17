@@ -285,7 +285,9 @@ class RestoreDumpCommand(Command, BaseCommand):
             inserted = 0
             with engine.begin() as conn:
                 for record in records:
-                    params = {c: record.get(c) for c in sorted_columns}
+                    params = {
+                        c: self._adapt_value(record.get(c)) for c in sorted_columns
+                    }
                     try:
                         conn.execute(text(insert_sql), params)
                         inserted += 1
@@ -301,6 +303,15 @@ class RestoreDumpCommand(Command, BaseCommand):
             self.show_progress(f"  リストア: {table_name} ({inserted} レコード)")
 
         self.success(f"リストア完了: {total_inserted} レコード")
+
+    @staticmethod
+    def _adapt_value(value: Any) -> Any:
+        """JSONB型カラム用にdict/listをpsycopg2.extras.Jsonでラップ."""
+        if isinstance(value, (dict, list)):
+            from psycopg2.extras import Json
+
+            return Json(value)
+        return value
 
     @staticmethod
     def _reset_sequence(engine: Any, table_name: str) -> None:
