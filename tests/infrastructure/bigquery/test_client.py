@@ -143,6 +143,72 @@ class TestCreateTable:
             client.create_table(sample_table_def)
 
 
+class TestLoadTableData:
+    """load_table_data テスト."""
+
+    @patch("src.infrastructure.bigquery.client.bigquery")
+    def test_load_table_data_success(
+        self, mock_bigquery: MagicMock, sample_table_def: BQTableDef
+    ) -> None:
+        from src.infrastructure.bigquery.client import BigQueryClient
+
+        mock_job = MagicMock()
+        mock_job.result.return_value = None
+
+        client = BigQueryClient(project_id="test-project")
+        client.client.load_table_from_json.return_value = mock_job
+
+        rows = [{"id": 1, "name": "test", "created_at": "2024-01-01T00:00:00"}]
+        result = client.load_table_data(sample_table_def, rows)
+
+        assert result == 1
+        client.client.load_table_from_json.assert_called_once()
+        mock_job.result.assert_called_once()
+
+    @patch("src.infrastructure.bigquery.client.bigquery")
+    def test_load_table_data_permission_error(
+        self, mock_bigquery: MagicMock, sample_table_def: BQTableDef
+    ) -> None:
+        from google.api_core.exceptions import Forbidden
+
+        from src.infrastructure.bigquery.client import BigQueryClient
+
+        client = BigQueryClient(project_id="test-project")
+        client.client.load_table_from_json.side_effect = Forbidden("denied")
+
+        with pytest.raises(StorageError, match="Permission denied"):
+            client.load_table_data(sample_table_def, [{"id": 1}])
+
+    @patch("src.infrastructure.bigquery.client.bigquery")
+    def test_load_table_data_general_error(
+        self, mock_bigquery: MagicMock, sample_table_def: BQTableDef
+    ) -> None:
+        from google.cloud.exceptions import GoogleCloudError
+
+        from src.infrastructure.bigquery.client import BigQueryClient
+
+        client = BigQueryClient(project_id="test-project")
+        client.client.load_table_from_json.side_effect = GoogleCloudError("error")
+
+        with pytest.raises(StorageError, match="Failed to load data"):
+            client.load_table_data(sample_table_def, [{"id": 1}])
+
+    @patch("src.infrastructure.bigquery.client.bigquery")
+    def test_load_table_data_empty_rows(
+        self, mock_bigquery: MagicMock, sample_table_def: BQTableDef
+    ) -> None:
+        from src.infrastructure.bigquery.client import BigQueryClient
+
+        mock_job = MagicMock()
+        mock_job.result.return_value = None
+
+        client = BigQueryClient(project_id="test-project")
+        client.client.load_table_from_json.return_value = mock_job
+
+        result = client.load_table_data(sample_table_def, [])
+        assert result == 0
+
+
 class TestCreateAllTables:
     """create_all_tables テスト."""
 

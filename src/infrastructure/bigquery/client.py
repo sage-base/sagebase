@@ -143,3 +143,50 @@ class BigQueryClient:
         for table_def in table_defs:
             self.create_table(table_def)
         logger.info(f"All {len(table_defs)} tables created successfully")
+
+    def load_table_data(self, table_def: BQTableDef, rows: list[dict[str, Any]]) -> int:
+        """テーブルにデータをロード（WRITE_TRUNCATE: 全件置換）.
+
+        Args:
+            table_def: テーブル定義
+            rows: ロードするデータ行
+
+        Returns:
+            ロードした行数
+
+        Raises:
+            StorageError: ロードに失敗した場合
+        """
+        table_ref = f"{self._dataset_ref}.{table_def.table_id}"
+        schema = to_bigquery_schema(table_def)
+
+        job_config = (
+            bigquery.LoadJobConfig(
+                schema=schema,
+                write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+            )
+            if bigquery
+            else None
+        )
+        if job_config is None:
+            raise StorageError("BigQuery library not available")
+
+        try:
+            load_job = self.client.load_table_from_json(
+                rows, table_ref, job_config=job_config
+            )
+            load_job.result()
+            logger.info(f"Loaded {len(rows)} rows into {table_ref}")
+            return len(rows)
+        except Forbidden as e:
+            logger.error(f"Permission denied loading data: {e}")
+            raise StorageError(
+                f"Permission denied loading data into '{table_def.table_id}'",
+                {"table_id": table_def.table_id, "error": str(e)},
+            ) from e
+        except GoogleCloudError as e:
+            logger.error(f"Failed to load data: {e}")
+            raise StorageError(
+                f"Failed to load data into '{table_def.table_id}'",
+                {"table_id": table_def.table_id, "error": str(e)},
+            ) from e
