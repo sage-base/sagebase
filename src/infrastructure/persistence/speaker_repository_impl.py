@@ -440,7 +440,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                         DISTINCT CASE WHEN s.is_politician = TRUE THEN s.id END
                     ) as linked_politician_speakers
                 FROM speakers s
-                INNER JOIN politicians p ON s.id = p.speaker_id
+                INNER JOIN politicians p ON s.politician_id = p.id
             )
             SELECT
                 stats.total_speakers,
@@ -464,22 +464,25 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         row = result.fetchone()
 
         if row:
+            unlinked = row.total_speakers - row.linked_speakers
             return {
                 "total_speakers": row.total_speakers,
                 "linked_speakers": row.linked_speakers,
+                "unlinked_speakers": unlinked,
                 "politician_speakers": row.politician_speakers,
                 "linked_politician_speakers": row.linked_politician_speakers,
                 "non_politician_speakers": row.non_politician_speakers,
-                "link_rate": float(row.link_rate),
+                "match_rate": float(row.link_rate),
             }
         else:
             return {
                 "total_speakers": 0,
                 "linked_speakers": 0,
+                "unlinked_speakers": 0,
                 "politician_speakers": 0,
                 "linked_politician_speakers": 0,
                 "non_politician_speakers": 0,
-                "link_rate": 0.0,
+                "match_rate": 0.0,
             }
 
     async def get_all_for_matching(self) -> list[dict[str, Any]]:
