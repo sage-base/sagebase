@@ -99,6 +99,8 @@ Before committing tests:
 - [ ] **Entity Constructor**: テストデータ作成時、ドメインエンティティのコンストラクタ引数を実際のクラス定義で確認済み
 - [ ] **Guard Clause Coverage**: `if x:` / `if x is None` 等のガードクローズは、`None`や空を返すケースもテスト
 - [ ] **Domain Constant Coverage**: エンティティの定数リスト（`VALID_RESULTS`等）でフィルタする場合、全値パターンをテスト（特に類似値: 「当選」と「繰上当選」「無投票当選」等）
+- [ ] **テストデータの順序**: ソートやグループ化を検証する場合、テストデータは意図的に期待順序と異なる並びで提供し、実装のソート処理が実際に機能することを検証する
+- [ ] **述語関数のパラメタライズドテスト**: 判定ロジック（`_is_retryable`等）の純粋関数は `@pytest.mark.parametrize` で全分岐パターン（True/False両方）を網羅する
 
 ## リポジトリテストの網羅性
 
