@@ -231,6 +231,32 @@ def presenter(mock_container):
         yield presenter  # ← テスト終了後にpatchが解除される
 ```
 
+### ローカルインポートのモックパッチ
+
+関数内でローカルインポートされたシンボルはモジュール属性にならないため、
+`patch("使用側モジュール.シンボル名")` ではパッチできない。
+**インポート元モジュールでパッチする**こと。
+
+```python
+# 対象コード: survey.py
+async def _run_survey():
+    from src.infrastructure.external.kokkai_api.client import KokkaiApiClient  # ローカルインポート
+    client = KokkaiApiClient()
+
+# ❌ BAD: ローカルインポートなのでモジュール属性に存在しない
+@patch("src.interfaces.cli.commands.kokkai.survey.KokkaiApiClient")
+def test_survey(mock_cls):
+    ...  # AttributeError!
+
+# ✅ GOOD: インポート元モジュールでパッチ
+@patch("src.infrastructure.external.kokkai_api.client.KokkaiApiClient")
+def test_survey(mock_cls):
+    ...  # OK!
+```
+
+**注意**: トップレベルでインポートされた場合は `patch("使用側モジュール.シンボル名")` が正しい。
+ローカルインポートかどうかで使い分けること。
+
 ### 内部メソッドをモック上書きしない
 
 テスト対象の内部メソッド（`_run_async` 等）をMagicMockで上書きすると、
