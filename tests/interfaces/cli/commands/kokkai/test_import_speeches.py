@@ -5,9 +5,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from click.testing import CliRunner
 
 from src.application.dtos.kokkai_speech_dto import (
+    BatchImportKokkaiSpeechesInputDTO,
     BatchImportKokkaiSpeechesOutputDTO,
     KokkaiMeetingDTO,
     SessionProgress,
+)
+from src.application.usecases.batch_import_kokkai_speeches_usecase import (
+    BatchImportKokkaiSpeechesUseCase,
 )
 from src.interfaces.cli.commands.kokkai.import_speeches import import_speeches
 
@@ -48,15 +52,22 @@ def _make_output(
     )
 
 
+def _setup_usecase_mock(
+    mock_container: MagicMock,
+) -> AsyncMock:
+    mock_usecase = AsyncMock(spec=BatchImportKokkaiSpeechesUseCase)
+    mock_container.use_cases.batch_import_kokkai_speeches_usecase.return_value = (
+        mock_usecase
+    )
+    return mock_usecase
+
+
 class TestImportSpeechesCommand:
     @patch(f"{_DI_PATH}.get_container")
     def test_dry_run_shows_meetings(self, mock_get_container: MagicMock) -> None:
         mock_container = MagicMock()
         mock_get_container.return_value = mock_container
-        mock_usecase = AsyncMock()
-        mock_container.use_cases.batch_import_kokkai_speeches_usecase.return_value = (
-            mock_usecase
-        )
+        mock_usecase = _setup_usecase_mock(mock_container)
         mock_usecase.fetch_target_meetings = AsyncMock(
             return_value=[_make_meeting(1), _make_meeting(2)]
         )
@@ -73,10 +84,7 @@ class TestImportSpeechesCommand:
     def test_dry_run_no_meetings(self, mock_get_container: MagicMock) -> None:
         mock_container = MagicMock()
         mock_get_container.return_value = mock_container
-        mock_usecase = AsyncMock()
-        mock_container.use_cases.batch_import_kokkai_speeches_usecase.return_value = (
-            mock_usecase
-        )
+        mock_usecase = _setup_usecase_mock(mock_container)
         mock_usecase.fetch_target_meetings = AsyncMock(return_value=[])
 
         runner = CliRunner()
@@ -91,10 +99,7 @@ class TestImportSpeechesCommand:
     ) -> None:
         mock_container = MagicMock()
         mock_get_container.return_value = mock_container
-        mock_usecase = AsyncMock()
-        mock_container.use_cases.batch_import_kokkai_speeches_usecase.return_value = (
-            mock_usecase
-        )
+        mock_usecase = _setup_usecase_mock(mock_container)
         mock_usecase.execute = AsyncMock(return_value=_make_output())
 
         runner = CliRunner()
@@ -107,15 +112,18 @@ class TestImportSpeechesCommand:
         assert "インポート結果" in result.output
         assert "100" in result.output
         mock_usecase.execute.assert_called_once()
+        input_dto = mock_usecase.execute.call_args[0][0]
+        assert isinstance(input_dto, BatchImportKokkaiSpeechesInputDTO)
+        assert input_dto.session_from == 1
+        assert input_dto.session_to == 1
 
     @patch(f"{_DI_PATH}.get_container")
-    def test_import_with_options(self, mock_get_container: MagicMock) -> None:
+    def test_import_with_options_maps_to_dto(
+        self, mock_get_container: MagicMock
+    ) -> None:
         mock_container = MagicMock()
         mock_get_container.return_value = mock_container
-        mock_usecase = AsyncMock()
-        mock_container.use_cases.batch_import_kokkai_speeches_usecase.return_value = (
-            mock_usecase
-        )
+        mock_usecase = _setup_usecase_mock(mock_container)
         mock_usecase.execute = AsyncMock(return_value=_make_output())
 
         runner = CliRunner()
@@ -136,17 +144,35 @@ class TestImportSpeechesCommand:
         )
 
         assert result.exit_code == 0
-        assert "衆議院" in result.output
-        assert "本会議" in result.output
+        input_dto = mock_usecase.execute.call_args[0][0]
+        assert isinstance(input_dto, BatchImportKokkaiSpeechesInputDTO)
+        assert input_dto.session_from == 1
+        assert input_dto.session_to == 3
+        assert input_dto.name_of_house == "衆議院"
+        assert input_dto.name_of_meeting == "本会議"
+        assert input_dto.sleep_interval == 0.5
+
+    @patch(f"{_DI_PATH}.get_container")
+    def test_import_passes_progress_callback(
+        self, mock_get_container: MagicMock
+    ) -> None:
+        mock_container = MagicMock()
+        mock_get_container.return_value = mock_container
+        mock_usecase = _setup_usecase_mock(mock_container)
+        mock_usecase.execute = AsyncMock(return_value=_make_output())
+
+        runner = CliRunner()
+        runner.invoke(import_speeches, [])
+
+        call_kwargs = mock_usecase.execute.call_args[1]
+        assert "progress_callback" in call_kwargs
+        assert callable(call_kwargs["progress_callback"])
 
     @patch(f"{_DI_PATH}.get_container")
     def test_import_shows_errors(self, mock_get_container: MagicMock) -> None:
         mock_container = MagicMock()
         mock_get_container.return_value = mock_container
-        mock_usecase = AsyncMock()
-        mock_container.use_cases.batch_import_kokkai_speeches_usecase.return_value = (
-            mock_usecase
-        )
+        mock_usecase = _setup_usecase_mock(mock_container)
         output = _make_output()
         output.errors = ["テストエラー1", "テストエラー2"]
         mock_usecase.execute = AsyncMock(return_value=output)
@@ -165,13 +191,11 @@ class TestImportSpeechesCommand:
     ) -> None:
         mock_container = MagicMock()
         mock_init.return_value = mock_container
-        mock_usecase = AsyncMock()
-        mock_container.use_cases.batch_import_kokkai_speeches_usecase.return_value = (
-            mock_usecase
-        )
+        mock_usecase = _setup_usecase_mock(mock_container)
         mock_usecase.fetch_target_meetings = AsyncMock(return_value=[])
 
         runner = CliRunner()
-        runner.invoke(import_speeches, ["--dry-run"])
+        result = runner.invoke(import_speeches, ["--dry-run"])
 
+        assert result.exit_code == 0
         mock_init.assert_called_once()

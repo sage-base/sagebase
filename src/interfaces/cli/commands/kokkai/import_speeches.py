@@ -130,9 +130,9 @@ def _show_params(
     name_of_meeting: str | None,
     sleep_interval: float,
 ) -> None:
-    if session_from or session_to:
-        s_from = session_from or "?"
-        s_to = session_to or "?"
+    if session_from is not None or session_to is not None:
+        s_from = session_from if session_from is not None else "?"
+        s_to = session_to if session_to is not None else "?"
         click.echo(f"  回次: {s_from} 〜 {s_to}")
     if name_of_house:
         click.echo(f"  院名: {name_of_house}")

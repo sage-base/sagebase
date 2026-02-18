@@ -2,19 +2,25 @@
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from click.testing import CliRunner
 
-from src.interfaces.cli.commands.kokkai.survey import survey
+from src.infrastructure.external.kokkai_api.client import KokkaiApiClient
+from src.infrastructure.external.kokkai_api.types import (
+    MeetingListApiResponse,
+    SpeechApiResponse,
+)
+from src.interfaces.cli.commands.kokkai.survey import _detect_latest_session, survey
 
 
 _API_PATH = "src.infrastructure.external.kokkai_api.client.KokkaiApiClient"
 _DETECT_PATH = "src.interfaces.cli.commands.kokkai.survey._detect_latest_session"
 
 
-def _make_meeting_response(number_of_records: int):
-    """MeetingListApiResponse のモックを生成する."""
-    from src.infrastructure.external.kokkai_api.types import MeetingListApiResponse
-
+def _make_meeting_response(
+    number_of_records: int,
+) -> MeetingListApiResponse:
     return MeetingListApiResponse(
         number_of_records=number_of_records,
         number_of_return=0,
@@ -24,10 +30,9 @@ def _make_meeting_response(number_of_records: int):
     )
 
 
-def _make_speech_response(number_of_records: int):
-    """SpeechApiResponse のモックを生成する."""
-    from src.infrastructure.external.kokkai_api.types import SpeechApiResponse
-
+def _make_speech_response(
+    number_of_records: int,
+) -> SpeechApiResponse:
     return SpeechApiResponse(
         number_of_records=number_of_records,
         number_of_return=0,
@@ -40,7 +45,7 @@ def _make_speech_response(number_of_records: int):
 class TestSurveyCommand:
     @patch(_API_PATH)
     def test_survey_shows_results(self, mock_client_cls: AsyncMock) -> None:
-        mock_client = AsyncMock()
+        mock_client = AsyncMock(spec=KokkaiApiClient)
         mock_client_cls.return_value = mock_client
         mock_client.search_meetings = AsyncMock(return_value=_make_meeting_response(10))
         mock_client.search_speeches = AsyncMock(return_value=_make_speech_response(500))
@@ -58,7 +63,7 @@ class TestSurveyCommand:
 
     @patch(_API_PATH)
     def test_survey_with_name_of_house(self, mock_client_cls: AsyncMock) -> None:
-        mock_client = AsyncMock()
+        mock_client = AsyncMock(spec=KokkaiApiClient)
         mock_client_cls.return_value = mock_client
         mock_client.search_meetings = AsyncMock(return_value=_make_meeting_response(5))
         mock_client.search_speeches = AsyncMock(return_value=_make_speech_response(100))
@@ -89,7 +94,7 @@ class TestSurveyCommand:
 
     @patch(_API_PATH)
     def test_survey_empty_session(self, mock_client_cls: AsyncMock) -> None:
-        mock_client = AsyncMock()
+        mock_client = AsyncMock(spec=KokkaiApiClient)
         mock_client_cls.return_value = mock_client
         mock_client.search_meetings = AsyncMock(return_value=_make_meeting_response(0))
         mock_client.search_speeches = AsyncMock(return_value=_make_speech_response(0))
@@ -109,7 +114,7 @@ class TestSurveyCommand:
         self, mock_client_cls: AsyncMock, mock_detect: AsyncMock
     ) -> None:
         mock_detect.return_value = 3
-        mock_client = AsyncMock()
+        mock_client = AsyncMock(spec=KokkaiApiClient)
         mock_client_cls.return_value = mock_client
         mock_client.search_meetings = AsyncMock(return_value=_make_meeting_response(5))
         mock_client.search_speeches = AsyncMock(return_value=_make_speech_response(100))
@@ -119,3 +124,53 @@ class TestSurveyCommand:
 
         assert result.exit_code == 0
         mock_detect.assert_called_once()
+
+
+class TestDetectLatestSession:
+    @pytest.mark.asyncio
+    async def test_finds_latest_session_in_middle(self) -> None:
+        mock_client = AsyncMock(spec=KokkaiApiClient)
+
+        async def side_effect(
+            *, session_from: int, session_to: int, maximum_records: int
+        ) -> MeetingListApiResponse:
+            if session_from <= 150:
+                return _make_meeting_response(10)
+            return _make_meeting_response(0)
+
+        mock_client.search_meetings = AsyncMock(side_effect=side_effect)
+
+        result = await _detect_latest_session(mock_client, sleep_interval=0)
+        assert result == 150
+
+    @pytest.mark.asyncio
+    async def test_finds_latest_session_at_minimum(self) -> None:
+        mock_client = AsyncMock(spec=KokkaiApiClient)
+
+        async def side_effect(
+            *, session_from: int, session_to: int, maximum_records: int
+        ) -> MeetingListApiResponse:
+            if session_from == 1:
+                return _make_meeting_response(5)
+            return _make_meeting_response(0)
+
+        mock_client.search_meetings = AsyncMock(side_effect=side_effect)
+
+        result = await _detect_latest_session(mock_client, sleep_interval=0)
+        assert result == 1
+
+    @pytest.mark.asyncio
+    async def test_finds_latest_session_at_maximum(self) -> None:
+        mock_client = AsyncMock(spec=KokkaiApiClient)
+        mock_client.search_meetings = AsyncMock(return_value=_make_meeting_response(10))
+
+        result = await _detect_latest_session(mock_client, sleep_interval=0)
+        assert result == 220
+
+    @pytest.mark.asyncio
+    async def test_returns_1_when_no_sessions_exist(self) -> None:
+        mock_client = AsyncMock(spec=KokkaiApiClient)
+        mock_client.search_meetings = AsyncMock(return_value=_make_meeting_response(0))
+
+        result = await _detect_latest_session(mock_client, sleep_interval=0)
+        assert result == 1

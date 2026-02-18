@@ -5,10 +5,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from click.testing import CliRunner
 
 from src.domain.entities.speaker import Speaker
+from src.domain.repositories.speaker_repository import SpeakerRepository
 from src.interfaces.cli.commands.kokkai.stats import stats
 
 
 _DI_PATH = "src.infrastructure.di.container"
+
+
+def _setup_repo_mock(mock_container: MagicMock) -> AsyncMock:
+    mock_repo = AsyncMock(spec=SpeakerRepository)
+    mock_container.repositories.speaker_repository.return_value = mock_repo
+    return mock_repo
 
 
 class TestStatsCommand:
@@ -16,8 +23,7 @@ class TestStatsCommand:
     def test_stats_shows_match_rate(self, mock_get_container: MagicMock) -> None:
         mock_container = MagicMock()
         mock_get_container.return_value = mock_container
-        mock_repo = AsyncMock()
-        mock_container.repositories.speaker_repository.return_value = mock_repo
+        mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_politician_stats = AsyncMock(
             return_value={
                 "total_speakers": 1000,
@@ -40,8 +46,7 @@ class TestStatsCommand:
     def test_stats_shows_unlinked_speakers(self, mock_get_container: MagicMock) -> None:
         mock_container = MagicMock()
         mock_get_container.return_value = mock_container
-        mock_repo = AsyncMock()
-        mock_container.repositories.speaker_repository.return_value = mock_repo
+        mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_politician_stats = AsyncMock(
             return_value={
                 "total_speakers": 100,
@@ -70,8 +75,7 @@ class TestStatsCommand:
     def test_stats_respects_limit(self, mock_get_container: MagicMock) -> None:
         mock_container = MagicMock()
         mock_get_container.return_value = mock_container
-        mock_repo = AsyncMock()
-        mock_container.repositories.speaker_repository.return_value = mock_repo
+        mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_politician_stats = AsyncMock(
             return_value={
                 "total_speakers": 10,
@@ -98,8 +102,7 @@ class TestStatsCommand:
     def test_stats_no_unlinked(self, mock_get_container: MagicMock) -> None:
         mock_container = MagicMock()
         mock_get_container.return_value = mock_container
-        mock_repo = AsyncMock()
-        mock_container.repositories.speaker_repository.return_value = mock_repo
+        mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_politician_stats = AsyncMock(
             return_value={
                 "total_speakers": 100,
@@ -123,8 +126,7 @@ class TestStatsCommand:
     ) -> None:
         mock_container = MagicMock()
         mock_init.return_value = mock_container
-        mock_repo = AsyncMock()
-        mock_container.repositories.speaker_repository.return_value = mock_repo
+        mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_politician_stats = AsyncMock(
             return_value={
                 "total_speakers": 0,
@@ -136,6 +138,7 @@ class TestStatsCommand:
         mock_repo.get_speakers_not_linked_to_politicians = AsyncMock(return_value=[])
 
         runner = CliRunner()
-        runner.invoke(stats)
+        result = runner.invoke(stats)
 
+        assert result.exit_code == 0
         mock_init.assert_called_once()
