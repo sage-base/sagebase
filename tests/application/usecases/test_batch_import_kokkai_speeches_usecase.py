@@ -278,13 +278,15 @@ class TestExecute:
         mock_speech_service: AsyncMock,
         mock_import_usecase: AsyncMock,
     ) -> None:
-        """異なる回次の会議で回次ごとの集計が正しく記録される."""
+        """異なる回次の会議で回次ごとの集計が正しく記録される（ソート検証含む）."""
+        # 意図的にソート順をシャッフルし、回次ごとのグループ化＋ソートを検証
         meetings = [
+            _make_meeting(issue_id="s213_m1", session=213, date="2025-04-01"),
             _make_meeting(issue_id="s212_m1", session=212, date="2025-01-10"),
             _make_meeting(issue_id="s212_m2", session=212, date="2025-01-11"),
-            _make_meeting(issue_id="s213_m1", session=213, date="2025-04-01"),
         ]
         mock_speech_service.fetch_meetings.return_value = meetings
+        # ソート後の順序: s212_m1, s212_m2, s213_m1
         mock_import_usecase.execute.side_effect = [
             ImportKokkaiSpeechesOutputDTO(total_speeches_imported=10),
             ImportKokkaiSpeechesOutputDTO(
@@ -300,7 +302,7 @@ class TestExecute:
 
         assert len(result.session_progress) == 2
 
-        # 回次212: 2件処理、1件スキップ、10件インポート
+        # 回次212が先に処理される（ソート済み）
         sp212 = result.session_progress[0]
         assert sp212.session == 212
         assert sp212.meetings_processed == 2
@@ -348,3 +350,8 @@ class TestExecute:
         assert failed.name_of_meeting == "本会議"
         assert failed.date == "2025-04-02"
         assert "API接続エラー" in failed.error_message
+
+        # エラー会議はmeetings_processedに含まれない（ok1, ok2のみ）
+        assert result.total_meetings_processed == 2
+        sp = result.session_progress[0]
+        assert sp.meetings_processed == 2  # エラー会議は除外

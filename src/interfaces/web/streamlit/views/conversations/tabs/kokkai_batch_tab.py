@@ -218,16 +218,7 @@ def _execute_batch_import(
                 error_msg = f"会議 {label} の処理中にエラー: {e}"
                 st.error(f"  ✗ {error_msg}")
                 errors.append(error_msg)
-                failed_meetings.append(
-                    FailedMeetingInfo(
-                        issue_id=meeting.issue_id,
-                        session=meeting.session,
-                        name_of_house=meeting.name_of_house,
-                        name_of_meeting=meeting.name_of_meeting,
-                        date=meeting.date,
-                        error_message=str(e),
-                    )
-                )
+                failed_meetings.append(FailedMeetingInfo.from_meeting(meeting, e))
 
             # API負荷軽減
             if i < total - 1 and input_dto.sleep_interval > 0:

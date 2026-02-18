@@ -92,6 +92,20 @@ class FailedMeetingInfo:
     date: str
     error_message: str
 
+    @classmethod
+    def from_meeting(
+        cls, meeting: KokkaiMeetingDTO, error: Exception
+    ) -> FailedMeetingInfo:
+        """KokkaiMeetingDTOとエラーからFailedMeetingInfoを生成."""
+        return cls(
+            issue_id=meeting.issue_id,
+            session=meeting.session,
+            name_of_house=meeting.name_of_house,
+            name_of_meeting=meeting.name_of_meeting,
+            date=meeting.date,
+            error_message=str(error),
+        )
+
 
 @dataclass
 class BatchImportKokkaiSpeechesInputDTO:

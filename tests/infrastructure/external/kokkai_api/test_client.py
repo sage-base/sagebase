@@ -6,6 +6,7 @@ import pytest
 from src.infrastructure.external.kokkai_api.client import (
     KokkaiApiClient,
     KokkaiApiError,
+    _is_retryable,
 )
 
 
@@ -365,3 +366,50 @@ class TestRetry:
 
         assert call_count == 4  # 初回 + 3回リトライ
         assert exc_info.value.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_retry_on_429_rate_limit(self) -> None:
+        """429→200 でリトライして成功."""
+        call_count = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return httpx.Response(429, text="Too Many Requests")
+            return httpx.Response(
+                200, json=_make_speech_response([_make_speech_record()])
+            )
+
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            api = KokkaiApiClient(client=client, max_retries=3)
+            result = await api.search_speeches(name_of_house="衆議院")
+
+        assert call_count == 2
+        assert result.number_of_records == 1
+
+
+class TestIsRetryable:
+    """_is_retryable 関数の単体テスト."""
+
+    @pytest.mark.parametrize(
+        ("exception", "expected"),
+        [
+            (KokkaiApiError("server error", status_code=500), True),
+            (KokkaiApiError("bad gateway", status_code=502), True),
+            (KokkaiApiError("service unavailable", status_code=503), True),
+            (KokkaiApiError("rate limit", status_code=429), True),
+            (KokkaiApiError("timeout"), True),  # status_code=None
+            (KokkaiApiError("bad request", status_code=400), False),
+            (KokkaiApiError("forbidden", status_code=403), False),
+            (KokkaiApiError("not found", status_code=404), False),
+            (ValueError("unrelated"), False),
+            (RuntimeError("unrelated"), False),
+        ],
+    )
+    def test_retryable_classification(
+        self, exception: BaseException, expected: bool
+    ) -> None:
+        """各例外がリトライ対象か正しく判定される."""
+        assert _is_retryable(exception) == expected

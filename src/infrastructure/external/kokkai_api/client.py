@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
+from tenacity import RetryError, wait_exponential
 
 from .types import (
     MeetingListApiResponse,
@@ -20,6 +20,8 @@ from .types import (
     SpeechApiResponse,
     SpeechRecord,
 )
+
+from src.infrastructure.resilience.retry import RetryPolicy
 
 
 logger = logging.getLogger(__name__)
@@ -81,6 +83,15 @@ class KokkaiApiClient:
         self._external_client = client
         self._owns_client = client is None
         self._max_retries = max_retries
+        # リトライポリシーを__init__で1回だけ生成しキャッシュ
+        if max_retries > 0:
+            self._retry_policy = RetryPolicy.custom(
+                max_attempts=max_retries + 1,
+                wait_strategy=wait_exponential(multiplier=1, min=1, max=8),
+                should_retry=_is_retryable,
+            )
+        else:
+            self._retry_policy = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """HTTPクライアントを取得（外部注入 or 自動生成）."""
@@ -257,14 +268,15 @@ class KokkaiApiClient:
                 raise KokkaiApiError(f"HTTPエラー: {e}") from e
 
         try:
-            if self._max_retries > 0:
-                retrying = retry(
-                    stop=stop_after_attempt(self._max_retries + 1),
-                    wait=wait_exponential(multiplier=1, min=1, max=8),
-                    retry=retry_if_exception(_is_retryable),
-                    reraise=True,
-                )
-                return await retrying(_do_request)()
+            if self._retry_policy is not None:
+                try:
+                    return await self._retry_policy(_do_request)()
+                except RetryError as e:
+                    # リトライ枯渇時は元の例外を再送出
+                    last = e.last_attempt.exception()
+                    if last is not None:
+                        raise last from None
+                    raise  # pragma: no cover
             else:
                 return await _do_request()
         finally:

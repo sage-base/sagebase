@@ -145,14 +145,7 @@ class BatchImportKokkaiSpeechesUseCase:
                     logger.exception(error_msg)
                     output.errors.append(error_msg)
                     output.failed_meetings.append(
-                        FailedMeetingInfo(
-                            issue_id=meeting.issue_id,
-                            session=meeting.session,
-                            name_of_house=meeting.name_of_house,
-                            name_of_meeting=meeting.name_of_meeting,
-                            date=meeting.date,
-                            error_message=str(e),
-                        )
+                        FailedMeetingInfo.from_meeting(meeting, e)
                     )
 
                 global_index += 1
