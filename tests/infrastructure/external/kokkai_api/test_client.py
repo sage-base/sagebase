@@ -254,7 +254,7 @@ class TestSearchMeetings:
 
 
 class TestErrorHandling:
-    """エラーハンドリングのテスト."""
+    """エラーハンドリングのテスト（リトライ無効で高速化）."""
 
     @pytest.mark.asyncio
     async def test_handle_http_status_error(self) -> None:
@@ -262,7 +262,7 @@ class TestErrorHandling:
             lambda request: httpx.Response(500, text="Internal Server Error")
         )
         async with httpx.AsyncClient(transport=transport) as client:
-            api = KokkaiApiClient(client=client)
+            api = KokkaiApiClient(client=client, max_retries=0)
             with pytest.raises(KokkaiApiError) as exc_info:
                 await api.search_speeches(name_of_house="衆議院")
 
@@ -274,8 +274,94 @@ class TestErrorHandling:
             lambda request: httpx.Response(404, text="Not Found")
         )
         async with httpx.AsyncClient(transport=transport) as client:
-            api = KokkaiApiClient(client=client)
+            api = KokkaiApiClient(client=client, max_retries=0)
             with pytest.raises(KokkaiApiError) as exc_info:
                 await api.search_speeches(name_of_house="衆議院")
 
         assert exc_info.value.status_code == 404
+
+
+class TestRetry:
+    """リトライロジックのテスト."""
+
+    @pytest.mark.asyncio
+    async def test_retry_on_server_error(self) -> None:
+        """500→500→200 で最終的に成功."""
+        call_count = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 2:
+                return httpx.Response(500, text="Internal Server Error")
+            return httpx.Response(
+                200, json=_make_speech_response([_make_speech_record()])
+            )
+
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            api = KokkaiApiClient(client=client, max_retries=3)
+            result = await api.search_speeches(name_of_house="衆議院")
+
+        assert call_count == 3
+        assert result.number_of_records == 1
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_client_error(self) -> None:
+        """400が即座にKokkaiApiErrorを送出（リトライしない）."""
+        call_count = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            return httpx.Response(400, text="Bad Request")
+
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            api = KokkaiApiClient(client=client, max_retries=3)
+            with pytest.raises(KokkaiApiError) as exc_info:
+                await api.search_speeches(name_of_house="衆議院")
+
+        assert call_count == 1
+        assert exc_info.value.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_retry_on_timeout(self) -> None:
+        """タイムアウト→200 で成功."""
+        call_count = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise httpx.ReadTimeout("read timeout")
+            return httpx.Response(
+                200, json=_make_speech_response([_make_speech_record()])
+            )
+
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            api = KokkaiApiClient(client=client, max_retries=3)
+            result = await api.search_speeches(name_of_house="衆議院")
+
+        assert call_count == 2
+        assert result.number_of_records == 1
+
+    @pytest.mark.asyncio
+    async def test_retry_exhausted(self) -> None:
+        """500が4回続くとKokkaiApiErrorを送出."""
+        call_count = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal call_count
+            call_count += 1
+            return httpx.Response(500, text="Internal Server Error")
+
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            api = KokkaiApiClient(client=client, max_retries=3)
+            with pytest.raises(KokkaiApiError) as exc_info:
+                await api.search_speeches(name_of_house="衆議院")
+
+        assert call_count == 4  # 初回 + 3回リトライ
+        assert exc_info.value.status_code == 500

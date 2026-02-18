@@ -71,6 +71,29 @@ BatchProgressCallback = Callable[[int, int, str], None]
 
 
 @dataclass
+class SessionProgress:
+    """回次ごとの進捗情報."""
+
+    session: int
+    meetings_processed: int = 0
+    meetings_skipped: int = 0
+    speeches_imported: int = 0
+    speeches_skipped: int = 0
+
+
+@dataclass(frozen=True)
+class FailedMeetingInfo:
+    """エラーが発生した会議の情報（後で再取得可能に）."""
+
+    issue_id: str
+    session: int
+    name_of_house: str
+    name_of_meeting: str
+    date: str
+    error_message: str
+
+
+@dataclass
 class BatchImportKokkaiSpeechesInputDTO:
     """バッチ発言インポート入力DTO."""
 
@@ -82,7 +105,7 @@ class BatchImportKokkaiSpeechesInputDTO:
     session_from: int | None = None
     session_to: int | None = None
     # バッチ設定
-    sleep_interval: float = 1.0
+    sleep_interval: float = 2.0
 
 
 @dataclass
@@ -96,3 +119,5 @@ class BatchImportKokkaiSpeechesOutputDTO:
     total_speeches_skipped: int = 0
     total_speakers_created: int = 0
     errors: list[str] = field(default_factory=list)
+    session_progress: list[SessionProgress] = field(default_factory=list)
+    failed_meetings: list[FailedMeetingInfo] = field(default_factory=list)

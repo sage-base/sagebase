@@ -9,6 +9,7 @@ import streamlit as st
 
 from src.application.dtos.kokkai_speech_dto import (
     BatchImportKokkaiSpeechesInputDTO,
+    FailedMeetingInfo,
     KokkaiMeetingDTO,
 )
 from src.interfaces.web.streamlit.presenters.kokkai_batch_import_presenter import (
@@ -68,6 +69,12 @@ def render_kokkai_batch_tab() -> None:
             disabled=import_disabled,
         )
 
+    if meetings:
+        st.info(
+            "取得済みの会議は自動スキップされます。"
+            "中断後に同じ条件で再実行すれば続きから取得できます。"
+        )
+
     if import_clicked and meetings:
         _execute_batch_import(presenter, meetings, input_dto)
 
@@ -116,10 +123,10 @@ def _render_search_form() -> BatchImportKokkaiSpeechesInputDTO:
 
     with col5:
         sleep_interval = st.number_input(
-            "API間隔（秒）",
+            "API間隔（秒）（推奨: 2秒以上）",
             min_value=0.0,
             max_value=10.0,
-            value=1.0,
+            value=2.0,
             step=0.5,
             key="kokkai_sleep",
         )
@@ -171,6 +178,7 @@ def _execute_batch_import(
     total_speakers = 0
     total_meetings_created = 0
     errors: list[str] = []
+    failed_meetings: list[FailedMeetingInfo] = []
 
     with st.status(f"バッチインポート実行中（0/{total}）", expanded=True) as status:
         for i, meeting in enumerate(meetings):
@@ -210,6 +218,16 @@ def _execute_batch_import(
                 error_msg = f"会議 {label} の処理中にエラー: {e}"
                 st.error(f"  ✗ {error_msg}")
                 errors.append(error_msg)
+                failed_meetings.append(
+                    FailedMeetingInfo(
+                        issue_id=meeting.issue_id,
+                        session=meeting.session,
+                        name_of_house=meeting.name_of_house,
+                        name_of_meeting=meeting.name_of_meeting,
+                        date=meeting.date,
+                        error_message=str(e),
+                    )
+                )
 
             # API負荷軽減
             if i < total - 1 and input_dto.sleep_interval > 0:
@@ -226,6 +244,7 @@ def _execute_batch_import(
         total_skipped=total_skipped,
         total_speakers=total_speakers,
         errors=errors,
+        failed_meetings=failed_meetings,
     )
 
 
@@ -237,6 +256,7 @@ def _render_result_summary(
     total_skipped: int,
     total_speakers: int,
     errors: list[str],
+    failed_meetings: list[FailedMeetingInfo] | None = None,
 ) -> None:
     """結果サマリを表示する."""
     st.markdown("### 結果サマリ")
@@ -258,7 +278,26 @@ def _render_result_summary(
         error_count = len(errors)
         st.metric("エラー数", f"{error_count}件")
 
-    if errors:
+    if failed_meetings:
+        with st.expander(f"エラー会議詳細（{len(failed_meetings)}件）"):
+            st.caption(
+                "以下の会議でエラーが発生しました。同じ条件で再実行すれば再取得されます。"
+            )
+            df = pd.DataFrame(
+                [
+                    {
+                        "issueID": fm.issue_id,
+                        "回次": fm.session,
+                        "院名": fm.name_of_house,
+                        "会議名": fm.name_of_meeting,
+                        "日付": fm.date,
+                        "エラー": fm.error_message,
+                    }
+                    for fm in failed_meetings
+                ]
+            )
+            st.dataframe(df, use_container_width=True, hide_index=True)
+    elif errors:
         with st.expander(f"エラー詳細（{len(errors)}件）"):
             for err in errors:
                 st.text(err)
