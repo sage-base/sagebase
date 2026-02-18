@@ -34,6 +34,7 @@ Before approving code, verify:
 - [ ] **新規リポジトリ作成方針（ADR 0007）**: 新規リポジトリはSQLAlchemy ORM第一選択、Pydanticは既存拡張時のみ許容、動的モデルは新規禁止。変換メソッドは`_to_entity()`のみ使用
 - [ ] **オーバーライドのシグネチャ一致**: BaseRepository IFのデフォルト値（`offset: int | None = None`等）と実装のシグネチャが一致しているか
 - [ ] **`_to_entity`/`_dict_to_entity`の一貫性**: 両メソッドで`created_at`/`updated_at`の設定が一致しているか
+- [ ] **DTO構築ロジックの一元化**: 同じDTOを複数の層（UseCase層とUI層等）で構築する場合、ファクトリメソッド（`@classmethod`）をDTOに定義して重複を防ぐ
 
 ## Core Principles
 

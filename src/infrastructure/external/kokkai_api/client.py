@@ -12,12 +12,16 @@ from typing import Any
 
 import httpx
 
+from tenacity import RetryError, wait_exponential
+
 from .types import (
     MeetingListApiResponse,
     MeetingRecord,
     SpeechApiResponse,
     SpeechRecord,
 )
+
+from src.infrastructure.resilience.retry import RetryPolicy
 
 
 logger = logging.getLogger(__name__)
@@ -57,15 +61,37 @@ class KokkaiApiError(Exception):
         self.status_code = status_code
 
 
+def _is_retryable(exception: BaseException) -> bool:
+    """リトライ対象の例外か判定."""
+    if isinstance(exception, KokkaiApiError):
+        if exception.status_code is not None:
+            return exception.status_code >= 500 or exception.status_code == 429
+        # status_codeなし = タイムアウト/ネットワークエラー → リトライ
+        return True
+    return False
+
+
 class KokkaiApiClient:
     """国会会議録検索システムAPIクライアント (httpx async)."""
 
     BASE_URL = "https://kokkai.ndl.go.jp/api"
     MAX_RECORDS_PER_REQUEST = 100
 
-    def __init__(self, client: httpx.AsyncClient | None = None) -> None:
+    def __init__(
+        self, client: httpx.AsyncClient | None = None, max_retries: int = 3
+    ) -> None:
         self._external_client = client
         self._owns_client = client is None
+        self._max_retries = max_retries
+        # リトライポリシーを__init__で1回だけ生成しキャッシュ
+        if max_retries > 0:
+            self._retry_policy = RetryPolicy.custom(
+                max_attempts=max_retries + 1,
+                wait_strategy=wait_exponential(multiplier=1, min=1, max=8),
+                should_retry=_is_retryable,
+            )
+        else:
+            self._retry_policy = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """HTTPクライアントを取得（外部注入 or 自動生成）."""
@@ -221,24 +247,38 @@ class KokkaiApiClient:
         return all_records
 
     async def _request(self, endpoint: str, params: dict[str, Any]) -> dict[str, Any]:
-        """APIリクエスト実行."""
+        """APIリクエスト実行（リトライ付き）."""
         url = f"{self.BASE_URL}/{endpoint}"
         client = await self._get_client()
 
+        async def _do_request() -> dict[str, Any]:
+            try:
+                response = await client.get(url, params=params)
+                response.raise_for_status()
+                data: dict[str, Any] = response.json()
+                return data
+            except httpx.HTTPStatusError as e:
+                raise KokkaiApiError(
+                    f"APIリクエストエラー: {e.response.status_code}",
+                    status_code=e.response.status_code,
+                ) from e
+            except httpx.TimeoutException as e:
+                raise KokkaiApiError("APIリクエストタイムアウト") from e
+            except httpx.HTTPError as e:
+                raise KokkaiApiError(f"HTTPエラー: {e}") from e
+
         try:
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            data: dict[str, Any] = response.json()
-            return data
-        except httpx.HTTPStatusError as e:
-            raise KokkaiApiError(
-                f"APIリクエストエラー: {e.response.status_code}",
-                status_code=e.response.status_code,
-            ) from e
-        except httpx.TimeoutException as e:
-            raise KokkaiApiError("APIリクエストタイムアウト") from e
-        except httpx.HTTPError as e:
-            raise KokkaiApiError(f"HTTPエラー: {e}") from e
+            if self._retry_policy is not None:
+                try:
+                    return await self._retry_policy(_do_request)()
+                except RetryError as e:
+                    # リトライ枯渇時は元の例外を再送出
+                    last = e.last_attempt.exception()
+                    if last is not None:
+                        raise last from None
+                    raise  # pragma: no cover
+            else:
+                return await _do_request()
         finally:
             if self._owns_client:
                 await client.aclose()

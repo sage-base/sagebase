@@ -270,3 +270,88 @@ class TestExecute:
 
         assert len(result.errors) == 1
         assert "Conference 解決に失敗" in result.errors[0]
+
+    @pytest.mark.asyncio()
+    async def test_session_progress_tracked(
+        self,
+        usecase: BatchImportKokkaiSpeechesUseCase,
+        mock_speech_service: AsyncMock,
+        mock_import_usecase: AsyncMock,
+    ) -> None:
+        """異なる回次の会議で回次ごとの集計が正しく記録される（ソート検証含む）."""
+        # 意図的にソート順をシャッフルし、回次ごとのグループ化＋ソートを検証
+        meetings = [
+            _make_meeting(issue_id="s213_m1", session=213, date="2025-04-01"),
+            _make_meeting(issue_id="s212_m1", session=212, date="2025-01-10"),
+            _make_meeting(issue_id="s212_m2", session=212, date="2025-01-11"),
+        ]
+        mock_speech_service.fetch_meetings.return_value = meetings
+        # ソート後の順序: s212_m1, s212_m2, s213_m1
+        mock_import_usecase.execute.side_effect = [
+            ImportKokkaiSpeechesOutputDTO(total_speeches_imported=10),
+            ImportKokkaiSpeechesOutputDTO(
+                total_speeches_imported=0, total_speeches_skipped=5
+            ),
+            ImportKokkaiSpeechesOutputDTO(total_speeches_imported=8),
+        ]
+
+        input_dto = BatchImportKokkaiSpeechesInputDTO(
+            session_from=212, session_to=213, sleep_interval=0.0
+        )
+        result = await usecase.execute(input_dto)
+
+        assert len(result.session_progress) == 2
+
+        # 回次212が先に処理される（ソート済み）
+        sp212 = result.session_progress[0]
+        assert sp212.session == 212
+        assert sp212.meetings_processed == 2
+        assert sp212.meetings_skipped == 1
+        assert sp212.speeches_imported == 10
+        assert sp212.speeches_skipped == 5
+
+        # 回次213: 1件処理、0件スキップ、8件インポート
+        sp213 = result.session_progress[1]
+        assert sp213.session == 213
+        assert sp213.meetings_processed == 1
+        assert sp213.meetings_skipped == 0
+        assert sp213.speeches_imported == 8
+
+    @pytest.mark.asyncio()
+    async def test_failed_meetings_recorded(
+        self,
+        usecase: BatchImportKokkaiSpeechesUseCase,
+        mock_speech_service: AsyncMock,
+        mock_import_usecase: AsyncMock,
+    ) -> None:
+        """エラー会議の情報がFailedMeetingInfoに記録される."""
+        meetings = [
+            _make_meeting(issue_id="ok1", date="2025-04-01"),
+            _make_meeting(issue_id="fail1", date="2025-04-02"),
+            _make_meeting(issue_id="ok2", date="2025-04-03"),
+        ]
+        mock_speech_service.fetch_meetings.return_value = meetings
+        mock_import_usecase.execute.side_effect = [
+            ImportKokkaiSpeechesOutputDTO(total_speeches_imported=5),
+            RuntimeError("API接続エラー"),
+            ImportKokkaiSpeechesOutputDTO(total_speeches_imported=3),
+        ]
+
+        input_dto = BatchImportKokkaiSpeechesInputDTO(
+            session_from=213, session_to=213, sleep_interval=0.0
+        )
+        result = await usecase.execute(input_dto)
+
+        assert len(result.failed_meetings) == 1
+        failed = result.failed_meetings[0]
+        assert failed.issue_id == "fail1"
+        assert failed.session == 213
+        assert failed.name_of_house == "衆議院"
+        assert failed.name_of_meeting == "本会議"
+        assert failed.date == "2025-04-02"
+        assert "API接続エラー" in failed.error_message
+
+        # エラー会議はmeetings_processedに含まれない（ok1, ok2のみ）
+        assert result.total_meetings_processed == 2
+        sp = result.session_progress[0]
+        assert sp.meetings_processed == 2  # エラー会議は除外

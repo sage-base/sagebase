@@ -226,6 +226,41 @@ except json.JSONDecodeError as json_err:
     )
 ```
 
+### パターン4: 既存インフラ基盤の確認（リトライ・エラーハンドリング実装前）
+
+**使用場面**: リトライ、エラーハンドリング、ログ出力などの横断的関心事を新規実装する前
+
+横断的関心事を実装する際は、プロジェクトに既存の基盤がないか**必ず確認**すること。
+
+**確認すべきファイル:**
+- `src/infrastructure/resilience/retry.py`: `RetryPolicy`（リトライポリシー統一基盤）
+- `src/infrastructure/exceptions.py`: Infrastructure層例外階層
+
+```python
+# ❌ 悪い例: 既存基盤を無視してtenacityを直接使用
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+retrying = retry(
+    stop=stop_after_attempt(4),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    retry=retry_if_exception(_is_retryable),
+    reraise=True,
+)
+```
+
+```python
+# ✅ 良い例: 既存のRetryPolicyを活用（ログ出力も自動付与）
+from src.infrastructure.resilience.retry import RetryPolicy
+
+self._retry_policy = RetryPolicy.custom(
+    max_attempts=4,
+    wait_strategy=wait_exponential(multiplier=1, min=1, max=8),
+    should_retry=_is_retryable,
+)
+```
+
+**なぜ重要か**: `RetryPolicy` は `before_sleep_log` と `after_log` を内蔵しており、リトライ発生時のログが自動出力される。直接tenacityを使うとこのログが失われ、運用時のデバッグが困難になる。
+
 ---
 
 ## アンチパターン
