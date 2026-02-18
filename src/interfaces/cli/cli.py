@@ -73,6 +73,11 @@ def register_clean_architecture_commands(cli_group: click.Group) -> None:
     cli_group.add_command(restore_dump, "restore-dump")
     cli_group.add_command(list_dumps, "list-dumps")
 
+    # Register kokkai (国会会議録API) commands
+    from src.interfaces.cli.commands.kokkai import kokkai
+
+    cli_group.add_command(kokkai)
+
     # Register BigQuery commands
     from src.interfaces.cli.commands.bigquery import export_to_bq, setup_analytics_hub
 

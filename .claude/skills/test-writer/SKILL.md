@@ -98,6 +98,7 @@ Before committing tests:
 - [ ] **Private Method Calls**: `_to_entity` 等のプライベートメソッド呼び出しには `# type: ignore[reportPrivateUsage]` を付与
 - [ ] **Entity Constructor**: テストデータ作成時、ドメインエンティティのコンストラクタ引数を実際のクラス定義で確認済み
 - [ ] **Guard Clause Coverage**: `if x:` / `if x is None` 等のガードクローズは、`None`や空を返すケースもテスト
+- [ ] **int | None の truthiness 罠**: `int | None` 型の変数を `if x:` で判定しない。`0` は有効値だが falsy と評価される → `if x is not None:` を使う
 - [ ] **Domain Constant Coverage**: エンティティの定数リスト（`VALID_RESULTS`等）でフィルタする場合、全値パターンをテスト（特に類似値: 「当選」と「繰上当選」「無投票当選」等）
 - [ ] **テストデータの順序**: ソートやグループ化を検証する場合、テストデータは意図的に期待順序と異なる並びで提供し、実装のソート処理が実際に機能することを検証する
 - [ ] **述語関数のパラメタライズドテスト**: 判定ロジック（`_is_retryable`等）の純粋関数は `@pytest.mark.parametrize` で全分岐パターン（True/False両方）を網羅する
@@ -263,6 +264,24 @@ from tests.fixtures.smri_record_factories import make_smri_record_with_judges
 
 **判断基準**: ヘルパーが2つ以上のテストファイルで必要になると分かっている場合は、最初から`tests/fixtures/`に作成する。
 
+## CLI→UseCase引数のマッピング検証
+
+CLIコマンドのテストでは、**CLIオプションがUseCaseの入力DTOに正しくマッピングされたか**を検証すること。
+出力文字列のチェックだけでは、オプション値がDTOに反映されているかわからない。
+
+```python
+# ❌ 悪い例 - 出力文字列のみチェック（DTOマッピングは未検証）
+result = runner.invoke(cmd, ["--session-from", "1", "--name-of-house", "衆議院"])
+assert "衆議院" in result.output  # 出力に表示されてるだけ
+
+# ✅ 良い例 - DTOの中身まで検証
+result = runner.invoke(cmd, ["--session-from", "1", "--name-of-house", "衆議院"])
+input_dto = mock_usecase.execute.call_args[0][0]
+assert isinstance(input_dto, BatchImportInputDTO)
+assert input_dto.session_from == 1
+assert input_dto.name_of_house == "衆議院"
+```
+
 ## bulk操作テストの検証ルール
 
 `bulk_create`や`bulk_update`等のバルク操作を呼ぶUseCaseをテストする場合、**呼ばれたことだけでなく、渡された引数の中身も検証する**こと。
@@ -301,5 +320,7 @@ assert processed_ids == [1, 2, 3]
 7. **❌ 内部メソッドのモック上書き**: `presenter._run_async = MagicMock(...)` はプロダクションコードの検証をバイパスする
 8. **❌ ドメインエンティティのコンストラクタ引数ミス**: テストデータ作成時に存在しないキーワード引数を使用 → 必ず`find_symbol`等でコンストラクタを確認する
 9. **❌ bulk操作の引数未検証**: `bulk_create.assert_called_once()` だけで、渡されたエンティティの中身を検証していない
+10. **❌ ローカルインポートのパッチパス誤り**: 関数内でローカルインポートされたシンボルは、モジュール属性にならないため `patch("module.symbol")` でパッチできない → インポート元モジュールでパッチする
+11. **❌ `spec=` なしの `AsyncMock`/`MagicMock`**: 存在しないメソッド名のタイプミスが検出されず偽陽性テストになる → **常に `spec=` を付ける**
 
 See [reference.md](reference.md) for detailed explanations and fixes.

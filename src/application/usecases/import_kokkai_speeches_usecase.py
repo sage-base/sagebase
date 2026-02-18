@@ -147,6 +147,9 @@ class ImportKokkaiSpeechesUseCase:
         # Meeting を作成（既存があればそれを使用）
         meeting = existing_meeting
         if not meeting:
+            if not first.date:
+                output.errors.append(f"会議 {first.issue_id} に有効な日付がありません")
+                return
             meeting_date = date.fromisoformat(first.date)
             meeting_name = f"第{first.session}回国会 {first.issue}"
             meeting = Meeting(
