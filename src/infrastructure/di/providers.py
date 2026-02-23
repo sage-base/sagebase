@@ -48,6 +48,9 @@ from src.application.usecases.manage_governing_bodies_usecase import (
 from src.application.usecases.manage_parliamentary_group_judges_usecase import (
     ManageParliamentaryGroupJudgesUseCase,
 )
+from src.application.usecases.manage_party_membership_history_usecase import (
+    ManagePartyMembershipHistoryUseCase,
+)
 from src.application.usecases.manage_political_parties_usecase import (
     ManagePoliticalPartiesUseCase,
 )
@@ -150,6 +153,9 @@ from src.infrastructure.persistence.monitoring_repository_impl import (
 from src.infrastructure.persistence.parliamentary_group_repository_impl import (
     ParliamentaryGroupMembershipRepositoryImpl,
     ParliamentaryGroupRepositoryImpl,
+)
+from src.infrastructure.persistence.party_membership_history_repository_impl import (
+    PartyMembershipHistoryRepositoryImpl,
 )
 from src.infrastructure.persistence.political_party_repository_impl import (
     PoliticalPartyRepositoryImpl,
@@ -422,6 +428,11 @@ class RepositoryContainer(containers.DeclarativeContainer):
 
     parliamentary_group_membership_repository = providers.Factory(
         ParliamentaryGroupMembershipRepositoryImpl,
+        session=database.async_session,
+    )
+
+    party_membership_history_repository = providers.Factory(
+        PartyMembershipHistoryRepositoryImpl,
         session=database.async_session,
     )
 
@@ -810,4 +821,11 @@ class UseCaseContainer(containers.DeclarativeContainer):
         BatchImportKokkaiSpeechesUseCase,
         kokkai_speech_service=services.kokkai_speech_service,
         import_usecase=import_kokkai_speeches_usecase,
+    )
+
+    # Manage Party Membership History UseCase (Issue #1216)
+    # 政党所属履歴管理ユースケース
+    manage_party_membership_history_usecase = providers.Factory(
+        ManagePartyMembershipHistoryUseCase,
+        repository=repositories.party_membership_history_repository,
     )

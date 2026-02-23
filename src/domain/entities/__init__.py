@@ -17,6 +17,7 @@ from src.domain.entities.parliamentary_group import ParliamentaryGroup
 from src.domain.entities.parliamentary_group_membership import (
     ParliamentaryGroupMembership,
 )
+from src.domain.entities.party_membership_history import PartyMembershipHistory
 from src.domain.entities.political_party import PoliticalParty
 from src.domain.entities.politician import Politician
 from src.domain.entities.politician_operation_log import (
@@ -42,6 +43,7 @@ __all__ = [
     "Minutes",
     "ParliamentaryGroup",
     "ParliamentaryGroupMembership",
+    "PartyMembershipHistory",
     "PoliticalParty",
     "Politician",
     "PoliticianOperationLog",
