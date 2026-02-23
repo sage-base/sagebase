@@ -23,6 +23,12 @@ class PartyMembershipHistory(BaseEntity):
         id: int | None = None,
     ) -> None:
         super().__init__(id)
+        if end_date is not None and end_date < start_date:
+            msg = (
+                f"end_date ({end_date}) は"
+                f"start_date ({start_date}) より前にはできません"
+            )
+            raise ValueError(msg)
         self.politician_id = politician_id
         self.political_party_id = political_party_id
         self.start_date = start_date
@@ -45,10 +51,10 @@ class PartyMembershipHistory(BaseEntity):
 
     def overlaps_with(self, start_date: date, end_date: date | None = None) -> bool:
         """指定期間と重複するかどうかを返す."""
-        if end_date and self.start_date > end_date:
+        if end_date is not None and self.start_date > end_date:
             return False
 
-        if self.end_date and self.end_date < start_date:
+        if self.end_date is not None and self.end_date < start_date:
             return False
 
         return True

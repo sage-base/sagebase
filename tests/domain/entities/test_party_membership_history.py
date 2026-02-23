@@ -2,6 +2,8 @@
 
 from datetime import date, datetime
 
+import pytest
+
 from src.domain.entities.party_membership_history import PartyMembershipHistory
 
 
@@ -189,3 +191,42 @@ class TestPartyMembershipHistory:
         assert first.is_active(date(2023, 6, 1)) is False
         assert second.is_active(date(2021, 6, 1)) is False
         assert second.is_active(date(2023, 6, 1)) is True
+
+    def test_end_date_before_start_date_raises_error(self) -> None:
+        with pytest.raises(ValueError, match="start_date"):
+            PartyMembershipHistory(
+                politician_id=1,
+                political_party_id=2,
+                start_date=date(2024, 12, 31),
+                end_date=date(2024, 1, 1),
+            )
+
+    def test_overlaps_with_adjacent_periods(self) -> None:
+        """隣接する期間は重複しない."""
+        membership = PartyMembershipHistory(
+            politician_id=1,
+            political_party_id=2,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+        )
+        assert membership.overlaps_with(date(2025, 1, 1), date(2025, 12, 31)) is False
+
+    def test_overlaps_with_boundary_same_day(self) -> None:
+        """終了日と開始日が同日の場合は重複する."""
+        membership = PartyMembershipHistory(
+            politician_id=1,
+            political_party_id=2,
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31),
+        )
+        assert membership.overlaps_with(date(2024, 12, 31), date(2025, 6, 30)) is True
+
+    def test_overlaps_both_no_end_date(self) -> None:
+        """双方ともend_dateなしの場合は重複する."""
+        membership = PartyMembershipHistory(
+            politician_id=1,
+            political_party_id=2,
+            start_date=date(2024, 1, 1),
+            end_date=None,
+        )
+        assert membership.overlaps_with(date(2024, 6, 1), None) is True

@@ -102,7 +102,7 @@ class PartyMembershipHistoryRepositoryImpl(
 
     def _to_model(self, entity: PartyMembershipHistory) -> PartyMembershipHistoryModel:
         return PartyMembershipHistoryModel(
-            id=entity.id or 0,
+            id=entity.id,
             politician_id=entity.politician_id,
             political_party_id=entity.political_party_id,
             start_date=entity.start_date,
