@@ -70,9 +70,14 @@ class TestParseElectedYears:
     """_parse_elected_years のテスト."""
 
     def test_comma_separated_years(self) -> None:
-        """カンマ区切りの年をパースする."""
+        """半角カンマ区切りの年をパースする."""
         result = SmartNewsSmriSangiinDataSource._parse_elected_years("2022, 2016, 2010")
         assert result == [2022, 2016, 2010]
+
+    def test_fullwidth_comma_separated_years(self) -> None:
+        """全角読点区切りの年をパースする（giin.jsonの実データ形式）."""
+        result = SmartNewsSmriSangiinDataSource._parse_elected_years("2007、2016、2022")
+        assert result == [2022, 2016, 2007]
 
     def test_single_year_string(self) -> None:
         """単一年（文字列）をパースする."""

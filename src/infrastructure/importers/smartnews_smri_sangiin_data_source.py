@@ -103,8 +103,9 @@ class SmartNewsSmriSangiinDataSource:
     def _parse_elected_years(value: Any) -> list[int]:
         """当選年フィールドをパースしてリストに変換する.
 
-        giin.jsonでは「当選年」がカンマ区切り文字列（例: "2019, 2013"）
+        giin.jsonでは「当選年」が読点区切り文字列（例: "2019、2013"）
         または整数値で格納されている。
+        半角カンマ区切り（"2019, 2013"）にも対応する。
 
         Args:
             value: 当選年フィールドの値
@@ -119,8 +120,10 @@ class SmartNewsSmriSangiinDataSource:
         if not raw:
             return []
 
+        # 読点（全角）を半角カンマに統一してから分割
+        normalized = raw.replace("、", ",")
         years: list[int] = []
-        for part in raw.split(","):
+        for part in normalized.split(","):
             part = part.strip()
             if part.isdigit():
                 years.append(int(part))
