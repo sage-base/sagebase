@@ -18,6 +18,11 @@ from src.interfaces.cli.base import BaseCommand, Command
 
 logger = logging.getLogger(__name__)
 
+# 大規模テーブルのバッチサイズ
+_BATCH_SIZE = 500_000
+# バッチ処理を使用する行数の閾値
+_BATCH_THRESHOLD = 1_000_000
+
 
 def serialize_value(value: Any) -> Any:
     """PostgreSQLの値をBigQuery JSON互換の値に変換する."""
@@ -89,11 +94,81 @@ class ExportToBigQueryCommand(Command, BaseCommand):
                 continue
 
             start = time.monotonic()
-            self.show_progress(f"  エクスポート中: {table_def.table_id}...")
 
-            columns = [col.name for col in table_def.columns]
-            col_list = ", ".join(f'"{c}"' for c in columns)
-            query = f'SELECT {col_list} FROM "{table_def.table_id}"'  # noqa: S608
+            # 行数を事前チェックして大規模テーブルはバッチ処理
+            with engine.connect() as conn:
+                count_result = conn.execute(
+                    text(f'SELECT COUNT(*) FROM "{table_def.table_id}"')  # noqa: S608
+                )
+                row_count = count_result.scalar() or 0
+
+            if row_count >= _BATCH_THRESHOLD:
+                loaded = self._export_table_batched(
+                    engine, bq_client, table_def, row_count
+                )
+            else:
+                loaded = self._export_table_simple(engine, bq_client, table_def)
+
+            elapsed = time.monotonic() - start
+            results.append((table_def.table_id, loaded, elapsed))
+            self.show_progress(f"    {loaded} 行 ({elapsed:.1f}s)")
+
+        self._show_summary(results)
+
+    def _export_table_simple(
+        self,
+        engine: Any,
+        bq_client: BigQueryClient,
+        table_def: BQTableDef,
+    ) -> int:
+        """小規模テーブルを一括エクスポート."""
+        self.show_progress(f"  エクスポート中: {table_def.table_id}...")
+
+        columns = [col.name for col in table_def.columns]
+        col_list = ", ".join(f'"{c}"' for c in columns)
+        query = f'SELECT {col_list} FROM "{table_def.table_id}"'  # noqa: S608
+
+        with engine.connect() as conn:
+            result = conn.execute(text(query))
+            col_names = list(result.keys())
+            rows = [
+                serialize_row(dict(zip(col_names, row, strict=True)))
+                for row in result.fetchall()
+            ]
+
+        if rows:
+            bq_client.load_table_data(table_def, rows)
+        else:
+            bq_client.create_table(table_def)
+            logger.info(f"Table {table_def.table_id} has 0 rows, skipping load")
+
+        return len(rows)
+
+    def _export_table_batched(
+        self,
+        engine: Any,
+        bq_client: BigQueryClient,
+        table_def: BQTableDef,
+        total_rows: int,
+    ) -> int:
+        """大規模テーブルをバッチ処理でエクスポート."""
+        columns = [col.name for col in table_def.columns]
+        col_list = ", ".join(f'"{c}"' for c in columns)
+        base_query = f'SELECT {col_list} FROM "{table_def.table_id}" ORDER BY id'  # noqa: S608
+
+        total_loaded = 0
+        batch_num = 0
+        total_batches = (total_rows + _BATCH_SIZE - 1) // _BATCH_SIZE
+
+        self.show_progress(
+            f"  エクスポート中: {table_def.table_id}"
+            f" ({total_rows:,}行, {total_batches}バッチ)..."
+        )
+
+        offset = 0
+        while offset < total_rows:
+            batch_num += 1
+            query = f"{base_query} LIMIT {_BATCH_SIZE} OFFSET {offset}"  # noqa: S608
 
             with engine.connect() as conn:
                 result = conn.execute(text(query))
@@ -103,17 +178,22 @@ class ExportToBigQueryCommand(Command, BaseCommand):
                     for row in result.fetchall()
                 ]
 
-            if rows:
-                bq_client.load_table_data(table_def, rows)
-            else:
-                bq_client.create_table(table_def)
-                logger.info(f"Table {table_def.table_id} has 0 rows, skipping load")
+            if not rows:
+                break
 
-            elapsed = time.monotonic() - start
-            results.append((table_def.table_id, len(rows), elapsed))
-            self.show_progress(f"    {len(rows)} 行 ({elapsed:.1f}s)")
+            # 最初のバッチはTRUNCATE、以降はAPPEND
+            is_first_batch = batch_num == 1
+            bq_client.load_table_data(table_def, rows, append=not is_first_batch)
+            total_loaded += len(rows)
 
-        self._show_summary(results)
+            self.show_progress(
+                f"    バッチ {batch_num}/{total_batches}:"
+                f" {total_loaded:,}/{total_rows:,} 行"
+            )
+
+            offset += _BATCH_SIZE
+
+        return total_loaded
 
     def _resolve_table_defs(
         self, table_name: str | None, export_all: bool
@@ -143,5 +223,5 @@ class ExportToBigQueryCommand(Command, BaseCommand):
         total_time = sum(r[2] for r in results)
         self.success(
             f"エクスポート完了: {len(results)} テーブル, "
-            f"{total_rows} 行 ({total_time:.1f}s)"
+            f"{total_rows:,} 行 ({total_time:.1f}s)"
         )

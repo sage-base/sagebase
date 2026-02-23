@@ -111,10 +111,13 @@ class TestExportToBigQueryCommand:
         mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
 
-        mock_result = MagicMock()
-        mock_result.keys.return_value = ["id", "name"]
-        mock_result.fetchall.return_value = [(1, "Alice"), (2, "Bob")]
-        mock_conn.execute.return_value = mock_result
+        # COUNT(*)クエリ用とSELECTクエリ用のモック
+        mock_count_result = MagicMock()
+        mock_count_result.scalar.return_value = 2
+        mock_select_result = MagicMock()
+        mock_select_result.keys.return_value = ["id", "name"]
+        mock_select_result.fetchall.return_value = [(1, "Alice"), (2, "Bob")]
+        mock_conn.execute.side_effect = [mock_count_result, mock_select_result]
 
         cmd = ExportToBigQueryCommand()
         cmd.execute(table="politicians", export_all=False, dataset=None)
@@ -150,10 +153,15 @@ class TestExportToBigQueryCommand:
         mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
 
-        mock_result = MagicMock()
-        mock_result.keys.return_value = ["id"]
-        mock_result.fetchall.return_value = []
-        mock_conn.execute.return_value = mock_result
+        # COUNT(*)は0を返す、SELECTは空リストを返す（各テーブルで繰り返し）
+        mock_count_result = MagicMock()
+        mock_count_result.scalar.return_value = 0
+        mock_select_result = MagicMock()
+        mock_select_result.keys.return_value = ["id"]
+        mock_select_result.fetchall.return_value = []
+        mock_conn.execute.side_effect = lambda _q: (
+            mock_count_result if "COUNT" in str(_q) else mock_select_result
+        )
 
         cmd = ExportToBigQueryCommand()
         cmd.execute(table=None, export_all=True, dataset=None)
@@ -202,10 +210,13 @@ class TestExportToBigQueryCommand:
         mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
 
-        mock_result = MagicMock()
-        mock_result.keys.return_value = ["id", "name"]
-        mock_result.fetchall.return_value = []
-        mock_conn.execute.return_value = mock_result
+        # COUNT(*)は0を返す、SELECTは空リストを返す
+        mock_count_result = MagicMock()
+        mock_count_result.scalar.return_value = 0
+        mock_select_result = MagicMock()
+        mock_select_result.keys.return_value = ["id", "name"]
+        mock_select_result.fetchall.return_value = []
+        mock_conn.execute.side_effect = [mock_count_result, mock_select_result]
 
         cmd = ExportToBigQueryCommand()
         cmd.execute(table="politicians", export_all=False, dataset=None)
@@ -272,10 +283,14 @@ class TestExportToBqClickCommand:
         mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
 
-        mock_result = MagicMock()
-        mock_result.keys.return_value = ["id"]
-        mock_result.fetchall.return_value = []
-        mock_conn.execute.return_value = mock_result
+        mock_count_result = MagicMock()
+        mock_count_result.scalar.return_value = 0
+        mock_select_result = MagicMock()
+        mock_select_result.keys.return_value = ["id"]
+        mock_select_result.fetchall.return_value = []
+        mock_conn.execute.side_effect = lambda _q: (
+            mock_count_result if "COUNT" in str(_q) else mock_select_result
+        )
 
         runner = CliRunner()
         result = runner.invoke(export_to_bq, ["--all"])
@@ -307,10 +322,13 @@ class TestExportToBqClickCommand:
         mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
         mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
 
-        mock_result = MagicMock()
-        mock_result.keys.return_value = ["id", "name"]
-        mock_result.fetchall.return_value = [(1, "test")]
-        mock_conn.execute.return_value = mock_result
+        # COUNT(*)は1を返す、SELECTは1行返す
+        mock_count_result = MagicMock()
+        mock_count_result.scalar.return_value = 1
+        mock_select_result = MagicMock()
+        mock_select_result.keys.return_value = ["id", "name"]
+        mock_select_result.fetchall.return_value = [(1, "test")]
+        mock_conn.execute.side_effect = [mock_count_result, mock_select_result]
 
         runner = CliRunner()
         result = runner.invoke(
