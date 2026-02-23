@@ -8,19 +8,22 @@
     scripts/verify_party_membership_migration.py
 """
 
+import asyncio
+import os
 import sys
 
 from pathlib import Path
 
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-import asyncio  # noqa: E402
-
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from src.common.config import DATABASE_URL
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql://sagebase_user:sagebase_password@postgres:5432/sagebase_db",
+)
 
 
 async def verify_migration(session: AsyncSession) -> bool:
