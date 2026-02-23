@@ -144,12 +144,19 @@ class BigQueryClient:
             self.create_table(table_def)
         logger.info(f"All {len(table_defs)} tables created successfully")
 
-    def load_table_data(self, table_def: BQTableDef, rows: list[dict[str, Any]]) -> int:
-        """テーブルにデータをロード（WRITE_TRUNCATE: 全件置換）.
+    def load_table_data(
+        self,
+        table_def: BQTableDef,
+        rows: list[dict[str, Any]],
+        *,
+        append: bool = False,
+    ) -> int:
+        """テーブルにデータをロード.
 
         Args:
             table_def: テーブル定義
             rows: ロードするデータ行
+            append: Trueの場合WRITE_APPEND、Falseの場合WRITE_TRUNCATE（全件置換）
 
         Returns:
             ロードした行数
@@ -165,10 +172,15 @@ class BigQueryClient:
 
         schema = to_bigquery_schema(table_def)
 
+        disposition = (
+            bigquery.WriteDisposition.WRITE_APPEND
+            if append
+            else bigquery.WriteDisposition.WRITE_TRUNCATE
+        )
         job_config = (
             bigquery.LoadJobConfig(
                 schema=schema,
-                write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+                write_disposition=disposition,
             )
             if bigquery
             else None
