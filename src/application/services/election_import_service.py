@@ -115,8 +115,9 @@ class ElectionImportService:
         party_id: int | None,
     ) -> Politician | None:
         """新規政治家を作成する."""
+        normalized = normalize_name(name)
         politician = Politician(
-            name=name,
+            name=normalized,
             prefecture=prefecture,
             district=district,
             political_party_id=party_id,

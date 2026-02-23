@@ -14,6 +14,7 @@ class Election(BaseEntity):
     """
 
     ELECTION_TYPE_GENERAL = "衆議院議員総選挙"
+    ELECTION_TYPE_SANGIIN = "参議院議員通常選挙"
 
     def __init__(
         self,
