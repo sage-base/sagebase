@@ -11,6 +11,8 @@
 
 import logging
 
+from datetime import date
+
 from src.application.dtos.national_election_import_dto import (
     ImportNationalElectionInputDto,
     ImportNationalElectionOutputDto,
@@ -19,6 +21,9 @@ from src.application.services.election_import_service import ElectionImportServi
 from src.domain.entities.election_member import ElectionMember
 from src.domain.repositories.election_member_repository import ElectionMemberRepository
 from src.domain.repositories.election_repository import ElectionRepository
+from src.domain.repositories.party_membership_history_repository import (
+    PartyMembershipHistoryRepository,
+)
 from src.domain.repositories.political_party_repository import (
     PoliticalPartyRepository,
 )
@@ -43,6 +48,9 @@ class ImportNationalElectionUseCase:
         political_party_repository: PoliticalPartyRepository,
         election_data_source: IElectionDataSourceService,
         import_service: ElectionImportService | None = None,
+        party_membership_history_repository: (
+            PartyMembershipHistoryRepository | None
+        ) = None,
     ) -> None:
         self._election_repo = election_repository
         self._member_repo = election_member_repository
@@ -52,6 +60,7 @@ class ImportNationalElectionUseCase:
             politician_repository=politician_repository,
             political_party_repository=political_party_repository,
             election_repository=election_repository,
+            party_membership_history_repository=party_membership_history_repository,
         )
 
         # 同一選挙内で処理済みのpolitician_idを追跡（重複ElectionMember防止）
@@ -109,7 +118,9 @@ class ImportNationalElectionUseCase:
         # 3. 各候補者を処理
         for candidate in all_candidates:
             try:
-                await self._process_candidate(candidate, election.id, output)
+                await self._process_candidate(
+                    candidate, election.id, output, election_date
+                )
             except Exception:
                 logger.exception("候補者処理失敗: %s", candidate.name)
                 output.errors += 1
@@ -134,6 +145,7 @@ class ImportNationalElectionUseCase:
         candidate: CandidateRecord,
         election_id: int,
         output: ImportNationalElectionOutputDto,
+        election_date: date | None = None,
     ) -> None:
         """候補者1名分の処理（政党解決→名寄せ→ElectionMember作成）."""
         # 政党を解決
@@ -146,7 +158,7 @@ class ImportNationalElectionUseCase:
 
         # 政治家を名寄せ
         politician, status = await self._import_service.match_politician(
-            candidate.name, party_id
+            candidate.name, party_id, election_date=election_date
         )
 
         if status == "ambiguous":
@@ -159,7 +171,11 @@ class ImportNationalElectionUseCase:
         if politician is None:
             # 新規作成
             politician = await self._import_service.create_politician(
-                candidate.name, candidate.prefecture, candidate.district_name, party_id
+                candidate.name,
+                candidate.prefecture,
+                candidate.district_name,
+                party_id,
+                election_date=election_date,
             )
             output.created_politicians += 1
         else:

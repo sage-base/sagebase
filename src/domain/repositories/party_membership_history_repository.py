@@ -54,6 +54,21 @@ class PartyMembershipHistoryRepository(BaseRepository[PartyMembershipHistory]):
         pass
 
     @abstractmethod
+    async def get_current_by_politicians(
+        self, politician_ids: list[int], as_of_date: date | None = None
+    ) -> dict[int, PartyMembershipHistory]:
+        """複数政治家の指定日時点の所属を一括取得する.
+
+        Args:
+            politician_ids: 政治家IDリスト
+            as_of_date: 基準日（Noneの場合は今日）
+
+        Returns:
+            politician_id → 現在の所属履歴のマッピング
+        """
+        pass
+
+    @abstractmethod
     async def end_membership(
         self, membership_id: int, end_date: date
     ) -> PartyMembershipHistory | None:

@@ -17,6 +17,7 @@ from src.domain.entities.parliamentary_group import ParliamentaryGroup
 from src.domain.entities.parliamentary_group_membership import (
     ParliamentaryGroupMembership,
 )
+from src.domain.entities.party_membership_history import PartyMembershipHistory
 from src.domain.entities.politician import Politician
 from src.domain.repositories.election_member_repository import ElectionMemberRepository
 from src.domain.repositories.election_repository import ElectionRepository
@@ -25,6 +26,9 @@ from src.domain.repositories.parliamentary_group_membership_repository import (
 )
 from src.domain.repositories.parliamentary_group_repository import (
     ParliamentaryGroupRepository,
+)
+from src.domain.repositories.party_membership_history_repository import (
+    PartyMembershipHistoryRepository,
 )
 from src.domain.repositories.politician_repository import PoliticianRepository
 
@@ -423,3 +427,188 @@ class TestLinkParliamentaryGroupUseCase:
 
         assert result.errors == 1
         assert "politician_id=999が見つかりません" in result.error_details
+
+
+class TestLinkParliamentaryGroupWithHistory:
+    """履歴ベースの会派紐付けテスト."""
+
+    @pytest.fixture()
+    def mock_repos(self) -> dict[str, AsyncMock]:
+        return {
+            "election": AsyncMock(spec=ElectionRepository),
+            "election_member": AsyncMock(spec=ElectionMemberRepository),
+            "politician": AsyncMock(spec=PoliticianRepository),
+            "group": AsyncMock(spec=ParliamentaryGroupRepository),
+            "membership": AsyncMock(spec=ParliamentaryGroupMembershipRepository),
+            "party_history": AsyncMock(spec=PartyMembershipHistoryRepository),
+        }
+
+    @pytest.fixture()
+    def use_case_with_history(
+        self, mock_repos: dict[str, AsyncMock]
+    ) -> LinkParliamentaryGroupUseCase:
+        return LinkParliamentaryGroupUseCase(
+            election_repository=mock_repos["election"],
+            election_member_repository=mock_repos["election_member"],
+            politician_repository=mock_repos["politician"],
+            parliamentary_group_repository=mock_repos["group"],
+            parliamentary_group_membership_repository=mock_repos["membership"],
+            party_membership_history_repository=mock_repos["party_history"],
+        )
+
+    @pytest.fixture()
+    def election(self) -> Election:
+        return Election(
+            governing_body_id=1,
+            term_number=50,
+            election_date=ELECTION_DATE,
+            election_type="衆議院議員総選挙",
+            id=1,
+        )
+
+    @pytest.fixture()
+    def ldp_group(self) -> ParliamentaryGroup:
+        return ParliamentaryGroup(
+            name="自由民主党・無所属の会",
+            governing_body_id=1,
+            political_party_id=10,
+            is_active=True,
+            id=100,
+        )
+
+    def _setup_election(
+        self,
+        mock_repos: dict[str, AsyncMock],
+        election: Election,
+    ) -> None:
+        mock_repos["election"].get_by_governing_body_and_term.return_value = election
+
+    async def test_uses_party_history_when_available(
+        self,
+        use_case_with_history: LinkParliamentaryGroupUseCase,
+        mock_repos: dict[str, AsyncMock],
+        election: Election,
+        ldp_group: ParliamentaryGroup,
+    ) -> None:
+        """履歴ベースのparty_idで会派マッチング."""
+        self._setup_election(mock_repos, election)
+        mock_repos["election_member"].get_by_election_id.return_value = [
+            ElectionMember(election_id=1, politician_id=1, result="当選", id=1),
+        ]
+        # politician.political_party_id は 999 だが履歴は 10
+        mock_repos["politician"].get_by_ids.return_value = [
+            Politician(
+                name="自民太郎",
+                prefecture="東京都",
+                district="",
+                political_party_id=999,
+                id=1,
+            ),
+        ]
+        mock_repos["party_history"].get_current_by_politicians.return_value = {
+            1: PartyMembershipHistory(
+                politician_id=1,
+                political_party_id=10,
+                start_date=date(2024, 1, 1),
+                id=1,
+            ),
+        }
+        mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
+        mock_repos["membership"].get_active_by_group.return_value = []
+        mock_repos[
+            "membership"
+        ].create_membership.return_value = ParliamentaryGroupMembership(
+            politician_id=1,
+            parliamentary_group_id=100,
+            start_date=ELECTION_DATE,
+            id=1,
+        )
+
+        input_dto = LinkParliamentaryGroupInputDto(term_number=50)
+        result = await use_case_with_history.execute(input_dto)
+
+        assert result.linked_count == 1
+        assert (
+            result.linked_members[0].parliamentary_group_name
+            == "自由民主党・無所属の会"
+        )
+
+    async def test_history_different_party_than_snapshot(
+        self,
+        use_case_with_history: LinkParliamentaryGroupUseCase,
+        mock_repos: dict[str, AsyncMock],
+        election: Election,
+        ldp_group: ParliamentaryGroup,
+    ) -> None:
+        """履歴値とスナップショット値が異なる場合に履歴値が使われる."""
+        self._setup_election(mock_repos, election)
+        mock_repos["election_member"].get_by_election_id.return_value = [
+            ElectionMember(election_id=1, politician_id=1, result="当選", id=1),
+        ]
+        # political_party_id=10（自民）だが、履歴では999（unknown）
+        mock_repos["politician"].get_by_ids.return_value = [
+            Politician(
+                name="元自民太郎",
+                prefecture="東京都",
+                district="",
+                political_party_id=10,
+                id=1,
+            ),
+        ]
+        mock_repos["party_history"].get_current_by_politicians.return_value = {
+            1: PartyMembershipHistory(
+                politician_id=1,
+                political_party_id=999,
+                start_date=date(2024, 1, 1),
+                id=1,
+            ),
+        }
+        mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
+        mock_repos["membership"].get_active_by_group.return_value = []
+
+        input_dto = LinkParliamentaryGroupInputDto(term_number=50)
+        result = await use_case_with_history.execute(input_dto)
+
+        # 履歴のparty_id=999なので自民の会派にマッチしない
+        assert result.skipped_no_group == 1
+        assert result.linked_count == 0
+
+    async def test_history_no_party_at_election_date(
+        self,
+        use_case_with_history: LinkParliamentaryGroupUseCase,
+        mock_repos: dict[str, AsyncMock],
+        election: Election,
+        ldp_group: ParliamentaryGroup,
+    ) -> None:
+        """選挙日時点で履歴なし → politician.political_party_idにフォールバック."""
+        self._setup_election(mock_repos, election)
+        mock_repos["election_member"].get_by_election_id.return_value = [
+            ElectionMember(election_id=1, politician_id=1, result="当選", id=1),
+        ]
+        mock_repos["politician"].get_by_ids.return_value = [
+            Politician(
+                name="自民太郎",
+                prefecture="東京都",
+                district="",
+                political_party_id=10,
+                id=1,
+            ),
+        ]
+        # 履歴なし → 空dict
+        mock_repos["party_history"].get_current_by_politicians.return_value = {}
+        mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
+        mock_repos["membership"].get_active_by_group.return_value = []
+        mock_repos[
+            "membership"
+        ].create_membership.return_value = ParliamentaryGroupMembership(
+            politician_id=1,
+            parliamentary_group_id=100,
+            start_date=ELECTION_DATE,
+            id=1,
+        )
+
+        input_dto = LinkParliamentaryGroupInputDto(term_number=50)
+        result = await use_case_with_history.execute(input_dto)
+
+        # フォールバックでpolitician.political_party_id=10が使われ、自民の会派にマッチ
+        assert result.linked_count == 1

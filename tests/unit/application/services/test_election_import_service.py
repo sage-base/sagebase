@@ -10,9 +10,13 @@ from src.application.services.election_import_service import (
     normalize_name,
 )
 from src.domain.entities.election import Election
+from src.domain.entities.party_membership_history import PartyMembershipHistory
 from src.domain.entities.political_party import PoliticalParty
 from src.domain.entities.politician import Politician
 from src.domain.repositories.election_repository import ElectionRepository
+from src.domain.repositories.party_membership_history_repository import (
+    PartyMembershipHistoryRepository,
+)
 from src.domain.repositories.political_party_repository import (
     PoliticalPartyRepository,
 )
@@ -263,3 +267,251 @@ class TestGetOrCreateElection:
         )
         with pytest.raises(RuntimeError, match="election_repository is not set"):
             await service.get_or_create_election(1, 50, date(2024, 10, 27))
+
+
+class TestMatchPoliticianWithHistory:
+    """履歴ベースのmatch_politicianテスト."""
+
+    @pytest.fixture()
+    def mock_politician_repo(self) -> AsyncMock:
+        return AsyncMock(spec=PoliticianRepository)
+
+    @pytest.fixture()
+    def mock_party_repo(self) -> AsyncMock:
+        return AsyncMock(spec=PoliticalPartyRepository)
+
+    @pytest.fixture()
+    def mock_history_repo(self) -> AsyncMock:
+        return AsyncMock(spec=PartyMembershipHistoryRepository)
+
+    @pytest.fixture()
+    def service_with_history(
+        self,
+        mock_politician_repo: AsyncMock,
+        mock_party_repo: AsyncMock,
+        mock_history_repo: AsyncMock,
+    ) -> ElectionImportService:
+        return ElectionImportService(
+            politician_repository=mock_politician_repo,
+            political_party_repository=mock_party_repo,
+            party_membership_history_repository=mock_history_repo,
+        )
+
+    async def test_match_politician_uses_history(
+        self,
+        service_with_history: ElectionImportService,
+        mock_politician_repo: AsyncMock,
+        mock_history_repo: AsyncMock,
+    ) -> None:
+        """履歴ベースで絞り込み成功."""
+        p1 = Politician(
+            name="田中太郎",
+            prefecture="",
+            district="",
+            political_party_id=1,
+            id=10,
+        )
+        p2 = Politician(
+            name="田中太郎",
+            prefecture="",
+            district="",
+            political_party_id=2,
+            id=20,
+        )
+        mock_politician_repo.search_by_normalized_name.return_value = [p1, p2]
+
+        mock_history_repo.get_current_by_politicians.return_value = {
+            10: PartyMembershipHistory(
+                politician_id=10,
+                political_party_id=1,
+                start_date=date(2024, 1, 1),
+                id=1,
+            ),
+            20: PartyMembershipHistory(
+                politician_id=20,
+                political_party_id=2,
+                start_date=date(2024, 1, 1),
+                id=2,
+            ),
+        }
+
+        result, status = await service_with_history.match_politician(
+            "田中太郎", party_id=1, election_date=date(2024, 10, 27)
+        )
+        assert status == "matched"
+        assert result is not None
+        assert result.id == 10
+
+    async def test_match_politician_falls_back_without_repo(
+        self,
+        mock_politician_repo: AsyncMock,
+        mock_party_repo: AsyncMock,
+    ) -> None:
+        """リポジトリ未設定で従来のpolitical_party_idにフォールバック."""
+        service = ElectionImportService(
+            politician_repository=mock_politician_repo,
+            political_party_repository=mock_party_repo,
+        )
+        p1 = Politician(
+            name="田中太郎",
+            prefecture="",
+            district="",
+            political_party_id=1,
+            id=10,
+        )
+        p2 = Politician(
+            name="田中太郎",
+            prefecture="",
+            district="",
+            political_party_id=2,
+            id=20,
+        )
+        mock_politician_repo.search_by_normalized_name.return_value = [p1, p2]
+
+        result, status = await service.match_politician(
+            "田中太郎", party_id=1, election_date=date(2024, 10, 27)
+        )
+        assert status == "matched"
+        assert result is not None
+        assert result.id == 10
+
+    async def test_match_politician_history_missing_falls_back(
+        self,
+        service_with_history: ElectionImportService,
+        mock_politician_repo: AsyncMock,
+        mock_history_repo: AsyncMock,
+    ) -> None:
+        """履歴がない候補者はpolitical_party_idにフォールバック."""
+        p1 = Politician(
+            name="田中太郎",
+            prefecture="",
+            district="",
+            political_party_id=1,
+            id=10,
+        )
+        p2 = Politician(
+            name="田中太郎",
+            prefecture="",
+            district="",
+            political_party_id=2,
+            id=20,
+        )
+        mock_politician_repo.search_by_normalized_name.return_value = [p1, p2]
+
+        # 履歴なし → 空dict
+        mock_history_repo.get_current_by_politicians.return_value = {}
+
+        result, status = await service_with_history.match_politician(
+            "田中太郎", party_id=1, election_date=date(2024, 10, 27)
+        )
+        assert status == "matched"
+        assert result is not None
+        assert result.id == 10
+
+
+class TestCreatePoliticianWithHistory:
+    """履歴ベースのcreate_politicianテスト."""
+
+    @pytest.fixture()
+    def mock_politician_repo(self) -> AsyncMock:
+        return AsyncMock(spec=PoliticianRepository)
+
+    @pytest.fixture()
+    def mock_party_repo(self) -> AsyncMock:
+        return AsyncMock(spec=PoliticalPartyRepository)
+
+    @pytest.fixture()
+    def mock_history_repo(self) -> AsyncMock:
+        return AsyncMock(spec=PartyMembershipHistoryRepository)
+
+    async def test_create_politician_creates_history(
+        self,
+        mock_politician_repo: AsyncMock,
+        mock_party_repo: AsyncMock,
+        mock_history_repo: AsyncMock,
+    ) -> None:
+        """所属履歴が同時作成される."""
+        service = ElectionImportService(
+            politician_repository=mock_politician_repo,
+            political_party_repository=mock_party_repo,
+            party_membership_history_repository=mock_history_repo,
+        )
+        created = Politician(name="佐藤花子", prefecture="", district="", id=1)
+        mock_politician_repo.create.return_value = created
+        mock_history_repo.create.return_value = PartyMembershipHistory(
+            politician_id=1,
+            political_party_id=10,
+            start_date=date(2024, 10, 27),
+            id=1,
+        )
+
+        result = await service.create_politician(
+            "佐藤 花子", "", "", party_id=10, election_date=date(2024, 10, 27)
+        )
+        assert result is not None
+        assert result.id == 1
+        mock_history_repo.create.assert_called_once()
+        history_arg = mock_history_repo.create.call_args[0][0]
+        assert history_arg.politician_id == 1
+        assert history_arg.political_party_id == 10
+        assert history_arg.start_date == date(2024, 10, 27)
+
+    async def test_create_politician_no_history_when_repo_none(
+        self,
+        mock_politician_repo: AsyncMock,
+        mock_party_repo: AsyncMock,
+    ) -> None:
+        """リポジトリ未設定で履歴作成なし."""
+        service = ElectionImportService(
+            politician_repository=mock_politician_repo,
+            political_party_repository=mock_party_repo,
+        )
+        created = Politician(name="佐藤花子", prefecture="", district="", id=1)
+        mock_politician_repo.create.return_value = created
+
+        result = await service.create_politician(
+            "佐藤 花子", "", "", party_id=10, election_date=date(2024, 10, 27)
+        )
+        assert result is not None
+
+    async def test_create_politician_no_history_when_party_none(
+        self,
+        mock_politician_repo: AsyncMock,
+        mock_party_repo: AsyncMock,
+        mock_history_repo: AsyncMock,
+    ) -> None:
+        """party_id=Noneで履歴作成なし."""
+        service = ElectionImportService(
+            politician_repository=mock_politician_repo,
+            political_party_repository=mock_party_repo,
+            party_membership_history_repository=mock_history_repo,
+        )
+        created = Politician(name="無所属太郎", prefecture="", district="", id=1)
+        mock_politician_repo.create.return_value = created
+
+        result = await service.create_politician(
+            "無所属 太郎", "", "", party_id=None, election_date=date(2024, 10, 27)
+        )
+        assert result is not None
+        mock_history_repo.create.assert_not_called()
+
+    async def test_create_politician_no_history_when_election_date_none(
+        self,
+        mock_politician_repo: AsyncMock,
+        mock_party_repo: AsyncMock,
+        mock_history_repo: AsyncMock,
+    ) -> None:
+        """election_date=Noneで履歴作成なし."""
+        service = ElectionImportService(
+            politician_repository=mock_politician_repo,
+            political_party_repository=mock_party_repo,
+            party_membership_history_repository=mock_history_repo,
+        )
+        created = Politician(name="佐藤花子", prefecture="", district="", id=1)
+        mock_politician_repo.create.return_value = created
+
+        result = await service.create_politician(
+            "佐藤 花子", "", "", party_id=10, election_date=None
+        )
+        assert result is not None
+        mock_history_repo.create.assert_not_called()

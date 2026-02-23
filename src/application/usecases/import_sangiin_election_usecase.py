@@ -24,6 +24,9 @@ from src.domain.entities.election import Election
 from src.domain.entities.election_member import ElectionMember
 from src.domain.repositories.election_member_repository import ElectionMemberRepository
 from src.domain.repositories.election_repository import ElectionRepository
+from src.domain.repositories.party_membership_history_repository import (
+    PartyMembershipHistoryRepository,
+)
 from src.domain.repositories.political_party_repository import (
     PoliticalPartyRepository,
 )
@@ -63,6 +66,9 @@ class ImportSangiinElectionUseCase:
         political_party_repository: PoliticalPartyRepository,
         data_source: ISangiinElectionDataSourceService,
         import_service: ElectionImportService | None = None,
+        party_membership_history_repository: (
+            PartyMembershipHistoryRepository | None
+        ) = None,
     ) -> None:
         self._election_repo = election_repository
         self._member_repo = election_member_repository
@@ -72,6 +78,7 @@ class ImportSangiinElectionUseCase:
             politician_repository=politician_repository,
             political_party_repository=political_party_repository,
             election_repository=election_repository,
+            party_membership_history_repository=party_membership_history_repository,
         )
 
         # 回次ごとに処理済みのpolitician_idを追跡（重複ElectionMember防止）
@@ -152,9 +159,20 @@ class ImportSangiinElectionUseCase:
         if is_new_party:
             output.created_parties += 1
 
+        # 最も新しい当選年から election_date を算出
+        # match_politician / create_politician で所属履歴の参照・作成に使用する。
+        # create_politician は1議員につき1回のみ呼ばれるため、
+        # 所属履歴もこの最新当選年1回分のみ作成される（意図通りの動作）。
+        latest_year = (
+            max(councillor.elected_years) if councillor.elected_years else None
+        )
+        election_date_for_match = (
+            date(latest_year, 7, 1) if latest_year is not None else None
+        )
+
         # 政治家を名寄せ
         politician, status = await self._import_service.match_politician(
-            councillor.name, party_id
+            councillor.name, party_id, election_date=election_date_for_match
         )
 
         if status == "ambiguous":
@@ -168,7 +186,11 @@ class ImportSangiinElectionUseCase:
             # 新規作成（参議院は都道府県名がdistrictに入る）
             prefecture = "" if councillor.is_proportional else councillor.district_name
             politician = await self._import_service.create_politician(
-                councillor.name, prefecture, councillor.district_name, party_id
+                councillor.name,
+                prefecture,
+                councillor.district_name,
+                party_id,
+                election_date=election_date_for_match,
             )
             output.created_politicians += 1
         else:
