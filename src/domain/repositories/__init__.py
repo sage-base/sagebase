@@ -16,6 +16,9 @@ from src.domain.repositories.minutes_repository import MinutesRepository
 from src.domain.repositories.parliamentary_group_repository import (
     ParliamentaryGroupRepository,
 )
+from src.domain.repositories.party_membership_history_repository import (
+    PartyMembershipHistoryRepository,
+)
 from src.domain.repositories.political_party_repository import PoliticalPartyRepository
 from src.domain.repositories.politician_operation_log_repository import (
     PoliticianOperationLogRepository,
@@ -42,6 +45,7 @@ __all__ = [
     "MeetingRepository",
     "MinutesRepository",
     "ParliamentaryGroupRepository",
+    "PartyMembershipHistoryRepository",
     "PoliticalPartyRepository",
     "PoliticianOperationLogRepository",
     "PoliticianRepository",

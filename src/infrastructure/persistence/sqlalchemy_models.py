@@ -259,3 +259,45 @@ class ElectionMemberModel(Base):
             f"result={self.result}"
             f")>"
         )
+
+
+class PartyMembershipHistoryModel(Base):
+    """SQLAlchemy model for party_membership_history table."""
+
+    __tablename__ = "party_membership_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    politician_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("politicians.id", use_alter=True, name="fk_pmh_politician"),
+    )
+    political_party_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("political_parties.id", use_alter=True, name="fk_pmh_party"),
+    )
+    start_date: Mapped[date] = mapped_column()
+    end_date: Mapped[date | None] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "end_date IS NULL OR end_date >= start_date",
+            name="chk_party_membership_end_date_after_start",
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<PartyMembershipHistoryModel("
+            f"id={self.id}, "
+            f"politician_id={self.politician_id}, "
+            f"political_party_id={self.political_party_id}, "
+            f"start_date={self.start_date}, "
+            f"end_date={self.end_date}"
+            f")>"
+        )
