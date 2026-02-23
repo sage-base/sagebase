@@ -108,6 +108,7 @@
       }
     ]
   },
+  "plansDirectory": "./tmp",
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": ["serena", "context7", "codex"],
   "statusLine": {
