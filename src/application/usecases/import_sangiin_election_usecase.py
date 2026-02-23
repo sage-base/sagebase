@@ -249,6 +249,12 @@ class ImportSangiinElectionUseCase:
         # 選挙日は7/1をデフォルトとする（参議院選挙は通常7月実施）
         election_date = date(elected_year, 7, 1)
 
+        # 新規作成かどうかを判定するため、事前に既存レコードを確認
+        existing = await self._election_repo.get_by_governing_body_and_term(
+            governing_body_id, term_number
+        )
+        is_new = existing is None
+
         election = await self._import_service.get_or_create_election(
             governing_body_id,
             term_number,
@@ -266,7 +272,8 @@ class ImportSangiinElectionUseCase:
                         deleted,
                     )
             cache[term_number] = election
-            output.elections_created += 1
+            if is_new:
+                output.elections_created += 1
 
         return election
 

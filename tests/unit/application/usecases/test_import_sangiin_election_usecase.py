@@ -541,6 +541,7 @@ class TestImportSangiinElectionUseCase:
         mock_repos["election_member"].delete_by_election_id.assert_called_once_with(1)
         # Electionは新規作成されない
         mock_repos["election"].create.assert_not_called()
+        assert result.elections_created == 0
         # ElectionMemberが再作成される
         assert result.election_members_created == 1
         assert result.matched_politicians == 1
