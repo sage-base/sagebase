@@ -47,6 +47,9 @@ from src.infrastructure.persistence.parliamentary_group_membership_repository_im
 from src.infrastructure.persistence.parliamentary_group_repository_impl import (
     ParliamentaryGroupRepositoryImpl,
 )
+from src.infrastructure.persistence.party_membership_history_repository_impl import (
+    PartyMembershipHistoryRepositoryImpl,
+)
 from src.infrastructure.persistence.politician_repository_impl import (
     PoliticianRepositoryImpl,
 )
@@ -76,6 +79,9 @@ async def run_link(term_number: int, dry_run: bool) -> bool:
             politician_repository=PoliticianRepositoryImpl(session),
             parliamentary_group_repository=ParliamentaryGroupRepositoryImpl(session),
             parliamentary_group_membership_repository=ParliamentaryGroupMembershipRepositoryImpl(
+                session
+            ),
+            party_membership_history_repository=PartyMembershipHistoryRepositoryImpl(
                 session
             ),
         )

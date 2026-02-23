@@ -77,6 +77,46 @@ class PartyMembershipHistoryRepositoryImpl(
             return None
         return self._to_entity(model)
 
+    async def get_current_by_politicians(
+        self, politician_ids: list[int], as_of_date: date | None = None
+    ) -> dict[int, PartyMembershipHistory]:
+        """複数政治家の指定日時点の所属を一括取得する.
+
+        Note:
+            IN句を使用するため、politician_idsが数千件を超える場合は
+            PostgreSQLのパラメータ上限に達する可能性がある。
+            現在の用途（数百件程度）では問題ないが、大量IDを渡す場合は
+            チャンク分割を検討すること。
+        """
+        if not politician_ids:
+            return {}
+
+        if as_of_date is None:
+            as_of_date = date.today()
+
+        query = (
+            select(self.model_class)
+            .where(
+                and_(
+                    self.model_class.politician_id.in_(politician_ids),
+                    self.model_class.start_date <= as_of_date,
+                    (
+                        self.model_class.end_date.is_(None)
+                        | (self.model_class.end_date >= as_of_date)
+                    ),
+                )
+            )
+            .order_by(self.model_class.start_date.desc())
+        )
+        result = await self.session.execute(query)
+        models = result.scalars().all()
+
+        history_map: dict[int, PartyMembershipHistory] = {}
+        for model in models:
+            if model.politician_id not in history_map:
+                history_map[model.politician_id] = self._to_entity(model)
+        return history_map
+
     async def end_membership(
         self, membership_id: int, end_date: date
     ) -> PartyMembershipHistory | None:

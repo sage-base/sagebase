@@ -31,6 +31,9 @@ from src.domain.repositories.parliamentary_group_membership_repository import (
 from src.domain.repositories.parliamentary_group_repository import (
     ParliamentaryGroupRepository,
 )
+from src.domain.repositories.party_membership_history_repository import (
+    PartyMembershipHistoryRepository,
+)
 from src.domain.repositories.politician_repository import PoliticianRepository
 
 
@@ -49,12 +52,16 @@ class LinkParliamentaryGroupUseCase:
         parliamentary_group_membership_repository: (
             ParliamentaryGroupMembershipRepository
         ),
+        party_membership_history_repository: (
+            PartyMembershipHistoryRepository | None
+        ) = None,
     ) -> None:
         self._election_repo = election_repository
         self._member_repo = election_member_repository
         self._politician_repo = politician_repository
         self._group_repo = parliamentary_group_repository
         self._membership_repo = parliamentary_group_membership_repository
+        self._party_history_repo = party_membership_history_repository
 
     async def execute(
         self,
@@ -87,6 +94,13 @@ class LinkParliamentaryGroupUseCase:
         politician_ids = [m.politician_id for m in elected_members]
         politicians = await self._politician_repo.get_by_ids(politician_ids)
         politician_map = {p.id: p for p in politicians if p.id is not None}
+
+        # 3.5. 選挙日時点の政党所属を一括取得
+        history_map = None
+        if self._party_history_repo is not None:
+            history_map = await self._party_history_repo.get_current_by_politicians(
+                politician_ids, as_of_date=election.election_date
+            )
 
         # 4. アクティブな会派を取得し、political_party_id → 会派のマッピングを構築
         groups = await self._group_repo.get_by_governing_body_id(
@@ -125,7 +139,14 @@ class LinkParliamentaryGroupUseCase:
                 continue
 
             politician_name = politician.name
-            party_id = politician.political_party_id
+            if history_map is not None:
+                history = history_map.get(member.politician_id)
+                if history is not None:
+                    party_id = history.political_party_id
+                else:
+                    party_id = politician.political_party_id
+            else:
+                party_id = politician.political_party_id
 
             if party_id is None:
                 output.skipped_no_party += 1

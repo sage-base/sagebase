@@ -16,6 +16,8 @@
 
 import logging
 
+from datetime import date
+
 from src.application.dtos.proportional_election_import_dto import (
     ImportProportionalElectionInputDto,
     ImportProportionalElectionOutputDto,
@@ -24,6 +26,9 @@ from src.application.services.election_import_service import ElectionImportServi
 from src.domain.entities.election_member import ElectionMember
 from src.domain.repositories.election_member_repository import ElectionMemberRepository
 from src.domain.repositories.election_repository import ElectionRepository
+from src.domain.repositories.party_membership_history_repository import (
+    PartyMembershipHistoryRepository,
+)
 from src.domain.repositories.political_party_repository import (
     PoliticalPartyRepository,
 )
@@ -50,6 +55,9 @@ class ImportProportionalElectionUseCase:
         political_party_repository: PoliticalPartyRepository,
         proportional_data_source: IProportionalElectionDataSourceService,
         import_service: ElectionImportService | None = None,
+        party_membership_history_repository: (
+            PartyMembershipHistoryRepository | None
+        ) = None,
     ) -> None:
         self._election_repo = election_repository
         self._member_repo = election_member_repository
@@ -59,6 +67,7 @@ class ImportProportionalElectionUseCase:
             politician_repository=politician_repository,
             political_party_repository=political_party_repository,
             election_repository=election_repository,
+            party_membership_history_repository=party_membership_history_repository,
         )
 
         self._processed_politician_ids: set[int] = set()
@@ -141,7 +150,9 @@ class ImportProportionalElectionUseCase:
         # 3. 当選者を処理
         for candidate in elected:
             try:
-                await self._process_candidate(candidate, election.id, output)
+                await self._process_candidate(
+                    candidate, election.id, output, election_date
+                )
             except Exception:
                 logger.exception("候補者処理失敗: %s", candidate.name)
                 output.errors += 1
@@ -172,6 +183,7 @@ class ImportProportionalElectionUseCase:
         candidate: ProportionalCandidateRecord,
         election_id: int,
         output: ImportProportionalElectionOutputDto,
+        election_date: date | None = None,
     ) -> None:
         """候補者1名分の処理."""
         # 小選挙区当選者はスキップ（比例レコード不要）
@@ -192,7 +204,7 @@ class ImportProportionalElectionUseCase:
 
         # 政治家を名寄せ
         politician, status = await self._import_service.match_politician(
-            candidate.name, party_id
+            candidate.name, party_id, election_date=election_date
         )
 
         if status == "ambiguous":
@@ -205,7 +217,11 @@ class ImportProportionalElectionUseCase:
         if politician is None:
             # 新規作成
             politician = await self._import_service.create_politician(
-                candidate.name, "", candidate.block_name, party_id
+                candidate.name,
+                "",
+                candidate.block_name,
+                party_id,
+                election_date=election_date,
             )
             output.created_politicians += 1
         else:
