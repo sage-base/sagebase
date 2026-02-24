@@ -1,0 +1,183 @@
+name: Export to BigQuery
+
+on:
+  schedule:
+    # 毎日 AM 6:00 JST (21:00 UTC 前日)
+    - cron: "0 21 * * *"
+  workflow_dispatch:
+    inputs:
+      table:
+        description: "エクスポートするテーブル名（空欄で全テーブル）"
+        required: false
+        default: ""
+        type: string
+      dataset:
+        description: "BigQueryデータセットID（空欄でデフォルト）"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  id-token: write # Workload Identity Federation用
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: ${{ secrets.GCP_REGION != '' && secrets.GCP_REGION || 'asia-northeast1' }}
+
+jobs:
+  export:
+    name: Export Gold Layer to BigQuery
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Google Cloud認証（Workload Identity Federation）
+      - name: Authenticate to Google Cloud (Workload Identity)
+        if: vars.USE_WORKLOAD_IDENTITY == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      # Google Cloud認証（Service Account Key）
+      - name: Authenticate to Google Cloud (Service Account Key)
+        if: vars.USE_WORKLOAD_IDENTITY != 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # Cloud SDKのセットアップ
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Cloud SQL Auth Proxy起動
+      - name: Start Cloud SQL Auth Proxy
+        run: |
+          # Cloud SQL Auth Proxyをダウンロード
+          curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.3/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+
+          # バックグラウンドで起動（TCPモード: localhost:5432）
+          ./cloud-sql-proxy \
+            --port 5432 \
+            "${{ secrets.CLOUD_SQL_INSTANCE }}" &
+
+          # 接続待機
+          for i in {1..30}; do
+            if nc -z localhost 5432 2>/dev/null; then
+              echo "Cloud SQL Auth Proxy is ready"
+              break
+            fi
+            echo "Waiting for Cloud SQL Auth Proxy... ($i/30)"
+            sleep 2
+          done
+
+      # Python/UVセットアップ
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up UV
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      # BQエクスポート実行
+      - name: Export to BigQuery
+        id: export
+        env:
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          GOOGLE_CLOUD_PROJECT: ${{ env.PROJECT_ID }}
+        run: |
+          START_TIME=$(date +%s)
+
+          # エクスポートコマンドの組み立て
+          EXPORT_CMD="uv run sagebase export-to-bq"
+
+          # workflow_dispatch時のパラメータ対応
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ -n "${{ inputs.table }}" ]; then
+              EXPORT_CMD="${EXPORT_CMD} --table ${{ inputs.table }}"
+            else
+              EXPORT_CMD="${EXPORT_CMD} --all"
+            fi
+            if [ -n "${{ inputs.dataset }}" ]; then
+              EXPORT_CMD="${EXPORT_CMD} --dataset ${{ inputs.dataset }}"
+            fi
+          else
+            # スケジュール実行時は全テーブル
+            EXPORT_CMD="${EXPORT_CMD} --all"
+          fi
+
+          echo "Executing: ${EXPORT_CMD}"
+          ${EXPORT_CMD} 2>&1 | tee /tmp/export_output.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+
+          echo "exit_code=${EXIT_CODE}" >> $GITHUB_OUTPUT
+          echo "duration=${DURATION}" >> $GITHUB_OUTPUT
+
+          exit ${EXIT_CODE}
+
+      # 結果サマリ
+      - name: Export summary
+        if: always()
+        run: |
+          echo "## 📊 BigQuery Export Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Export Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Project**: ${{ env.PROJECT_ID }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Duration**: ${{ steps.export.outputs.duration }}s" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ steps.export.outcome == 'success' && '✅ Success' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "- **Table**: ${{ inputs.table || '全テーブル' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Dataset**: ${{ inputs.dataset || 'デフォルト' }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Table**: 全テーブル（スケジュール実行）" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f /tmp/export_output.txt ]; then
+            echo "### Export Output (last 50 lines)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -50 /tmp/export_output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # Slack通知
+      - name: Notify export status (Slack)
+        if: always()
+        continue-on-error: true
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "${{ steps.export.outcome == 'success' && '✅' || '❌' }} BigQuery Export ${{ steps.export.outcome }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "${{ steps.export.outcome == 'success' && '✅ *BigQuery Export Successful*' || '❌ *BigQuery Export Failed*' }}\n*Trigger*: ${{ github.event_name }}\n*Duration*: ${{ steps.export.outputs.duration }}s\n*Workflow*: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
