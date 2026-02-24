@@ -18,3 +18,4 @@ class ImportSmartNewsSmriOutputDto:
     updated: int = 0
     errors: int = 0
     judges_created: int = 0
+    submitters_created: int = 0
