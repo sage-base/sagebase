@@ -125,7 +125,6 @@ class TestManagePoliticiansUseCase:
         input_dto = CreatePoliticianInputDto(
             name="田中次郎",
             prefecture="東京都",
-            party_id=1,
             district="東京都第1区",
         )
 
@@ -156,7 +155,6 @@ class TestManagePoliticiansUseCase:
             name="田中次郎",
             prefecture="東京都",
             district="東京1区",
-            party_id=1,
         )
 
         # Act
@@ -180,7 +178,6 @@ class TestManagePoliticiansUseCase:
             name="田中次郎",
             prefecture="東京都",
             district="東京1区",
-            party_id=1,
         )
 
         # Act
@@ -614,7 +611,6 @@ class TestManagePoliticiansUseCaseWithLogging:
         input_dto = CreatePoliticianInputDto(
             name="田中次郎",
             prefecture="東京都",
-            party_id=1,
             district="東京都第1区",
             user_id=user_id,
         )
@@ -724,7 +720,6 @@ class TestManagePoliticiansUseCaseWithLogging:
             name="田中次郎",
             prefecture="東京都",
             district="東京1区",
-            party_id=1,
         )
 
         # Act
@@ -756,7 +751,6 @@ class TestManagePoliticiansUseCaseWithLogging:
         input_dto = CreatePoliticianInputDto(
             name="田中次郎",
             prefecture="東京都",
-            party_id=1,
             district="東京都第1区",
         )
 
@@ -789,7 +783,6 @@ class TestManagePoliticiansUseCaseWithLogging:
         input_dto = CreatePoliticianInputDto(
             name="田中次郎",
             prefecture="東京都",
-            party_id=1,
             district="東京都第1区",
         )
 

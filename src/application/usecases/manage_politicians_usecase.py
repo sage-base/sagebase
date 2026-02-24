@@ -160,7 +160,6 @@ class ManagePoliticiansUseCase:
                     details={
                         "prefecture": input_dto.prefecture,
                         "district": input_dto.district,
-                        "party_id": input_dto.party_id,
                         "profile_url": input_dto.profile_url,
                     },
                 )
@@ -199,7 +198,6 @@ class ManagePoliticiansUseCase:
                 details={
                     "prefecture": input_dto.prefecture,
                     "district": input_dto.district,
-                    "party_id": input_dto.party_id,
                     "profile_url": input_dto.profile_url,
                 },
             )

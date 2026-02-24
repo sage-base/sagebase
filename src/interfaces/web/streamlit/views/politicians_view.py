@@ -205,7 +205,6 @@ def render_politicians_list_tab(presenter: PoliticianPresenter) -> None:
                                     id=politician_id,
                                     name=original.name,
                                     prefecture=new_prefecture or "",
-                                    party_id=None,
                                     district=original.district or "",
                                     profile_url=original.profile_page_url,
                                     user_id=user_id,
@@ -252,9 +251,6 @@ def render_new_politician_tab(presenter: PoliticianPresenter) -> None:
     if "new_politician_success_message" in st.session_state:
         st.success(st.session_state.new_politician_success_message)
         del st.session_state.new_politician_success_message
-
-    # Get parties
-    parties = presenter.get_all_parties()
 
     # 都道府県リスト
     prefectures = [
@@ -313,9 +309,7 @@ def render_new_politician_tab(presenter: PoliticianPresenter) -> None:
 
         prefecture = st.selectbox("選挙区の都道府県 *", prefectures)
 
-        party_options = ["無所属"] + [p.name for p in parties]
-        party_map = {p.name: p.id for p in parties}
-        selected_party = st.selectbox("政党", party_options)
+        st.info("政党の設定は「政党所属履歴」画面から行ってください。")
 
         district = st.text_input("選挙区 *", placeholder="東京1区")
         profile_url = st.text_input(
@@ -332,16 +326,10 @@ def render_new_politician_tab(presenter: PoliticianPresenter) -> None:
             elif not district:
                 st.error("選挙区を入力してください")
             else:
-                party_id = (
-                    party_map.get(selected_party)
-                    if selected_party != "無所属"
-                    else None
-                )
                 user_id = presenter.get_current_user_id()
                 success, politician_id, error = presenter.create(
                     name,
                     prefecture,
-                    party_id,
                     district,
                     profile_url if profile_url else None,
                     user_id=user_id,
@@ -472,18 +460,13 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
                 index=prefecture_index,
             )
 
-            party_options = ["無所属"] + [p.name for p in parties]
-            party_map = {p.name: p.id for p in parties}
             current_party = (
                 politician_party_map.get(selected_politician.id, "無所属")
                 if selected_politician.id is not None
                 else "無所属"
             )
-            new_party = st.selectbox(
-                "政党",
-                party_options,
-                index=party_options.index(current_party),
-            )
+            st.text_input("政党（読み取り専用）", value=current_party, disabled=True)
+            st.caption("政党の変更は「政党所属履歴」画面から行ってください。")
 
             new_district = st.text_input(
                 "選挙区 *", value=selected_politician.district or ""
@@ -502,15 +485,11 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
                 elif not new_district:
                     st.error("選挙区を入力してください")
                 else:
-                    party_id = (
-                        party_map.get(new_party) if new_party != "無所属" else None
-                    )
                     user_id = presenter.get_current_user_id()
                     success, error = presenter.update(
                         selected_politician.id,  # type: ignore[arg-type]
                         new_name,
                         new_prefecture,
-                        party_id,
                         new_district,
                         new_profile_url if new_profile_url else None,
                         user_id=user_id,

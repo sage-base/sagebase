@@ -392,6 +392,44 @@ class TestMatchPoliticianWithHistory:
         assert status == "ambiguous"
         assert result is None
 
+    async def test_match_politician_one_with_history_one_without(
+        self,
+        service_with_history: ElectionImportService,
+        mock_politician_repo: AsyncMock,
+        mock_history_repo: AsyncMock,
+    ) -> None:
+        """一方に履歴あり、一方に履歴なしの場合、履歴ありの候補のみで絞り込む."""
+        p1 = Politician(
+            name="田中太郎",
+            prefecture="",
+            district="",
+            id=10,
+        )
+        p2 = Politician(
+            name="田中太郎",
+            prefecture="",
+            district="",
+            id=20,
+        )
+        mock_politician_repo.search_by_normalized_name.return_value = [p1, p2]
+
+        # p1のみ履歴あり（party_id=1）、p2は履歴なし
+        mock_history_repo.get_current_by_politicians.return_value = {
+            10: PartyMembershipHistory(
+                politician_id=10,
+                political_party_id=1,
+                start_date=date(2024, 1, 1),
+                id=1,
+            ),
+        }
+
+        result, status = await service_with_history.match_politician(
+            "田中太郎", party_id=1, election_date=date(2024, 10, 27)
+        )
+        assert status == "matched"
+        assert result is not None
+        assert result.id == 10
+
 
 class TestCreatePoliticianWithHistory:
     """履歴ベースのcreate_politicianテスト."""

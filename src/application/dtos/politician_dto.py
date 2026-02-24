@@ -104,7 +104,6 @@ class CreatePoliticianInputDto:
     name: str
     prefecture: str
     district: str
-    party_id: int | None = None
     profile_url: str | None = None
     user_id: UUID | None = None  # 操作ユーザーID（ログ記録用）
 
@@ -126,7 +125,6 @@ class UpdatePoliticianInputDto:
     name: str
     prefecture: str
     district: str
-    party_id: int | None = None
     profile_url: str | None = None
     user_id: UUID | None = None  # 操作ユーザーID（ログ記録用）
 

@@ -67,7 +67,15 @@ def sample_parties():
 
 
 @pytest.fixture
-def presenter(mock_use_case, mock_party_repo):
+def mock_party_history_repo():
+    """PartyMembershipHistoryRepositoryのモック"""
+    repo = MagicMock()
+    repo.get_current_party_name_map = AsyncMock(return_value={})
+    return repo
+
+
+@pytest.fixture
+def presenter(mock_use_case, mock_party_repo, mock_party_history_repo):
     """PoliticianPresenterのインスタンス"""
     with (
         patch(
@@ -90,6 +98,7 @@ def presenter(mock_use_case, mock_party_repo):
         presenter = PoliticianPresenter()
         presenter.use_case = mock_use_case
         presenter.party_repo = mock_party_repo
+        presenter.party_history_repo = mock_party_history_repo
         return presenter
 
 
@@ -238,7 +247,6 @@ class TestCreate:
         success, politician_id, error = await presenter._create_async(
             name="新人 議員",
             prefecture="東京都",
-            party_id=1,
             district="渋谷区",
             profile_url="https://example.com/new",
             user_id=uuid4(),
@@ -260,7 +268,6 @@ class TestCreate:
         await presenter._create_async(
             name="田中　太郎",  # 全角スペース
             prefecture="東京都",
-            party_id=1,
             district="新宿　区",  # 全角スペース
             profile_url=None,
         )
@@ -284,7 +291,6 @@ class TestCreate:
         success, politician_id, error = await presenter._create_async(
             name="田中太郎",
             prefecture="東京都",
-            party_id=1,
             district="新宿区",
         )
 
@@ -302,7 +308,6 @@ class TestCreate:
         success, politician_id, error = await presenter._create_async(
             name="田中太郎",
             prefecture="東京都",
-            party_id=1,
             district="新宿区",
         )
 
@@ -327,7 +332,6 @@ class TestUpdate:
             id=1,
             name="田中太郎",
             prefecture="東京都",
-            party_id=1,
             district="新宿区",
             profile_url="https://example.com/updated",
         )
@@ -348,7 +352,6 @@ class TestUpdate:
             id=999,
             name="不明",
             prefecture="不明",
-            party_id=None,
             district="不明",
         )
 
@@ -500,6 +503,49 @@ class TestToDataframe:
         assert df.iloc[0]["政党"] == "無所属"
 
 
+class TestGetPoliticianPartyMap:
+    """get_politician_party_mapメソッドのテスト"""
+
+    async def test_get_party_map_success(self, presenter, mock_party_history_repo):
+        """履歴データから政党マッピングを取得できることを確認"""
+        # Arrange
+        mock_party_history_repo.get_current_party_name_map.return_value = {
+            1: "自民党",
+            2: "立憲民主党",
+        }
+
+        # Act
+        result = await presenter._get_politician_party_map_async()
+
+        # Assert
+        assert result == {1: "自民党", 2: "立憲民主党"}
+        mock_party_history_repo.get_current_party_name_map.assert_called_once()
+
+    async def test_get_party_map_empty(self, presenter, mock_party_history_repo):
+        """履歴データがない場合に空辞書を返すことを確認"""
+        # Arrange
+        mock_party_history_repo.get_current_party_name_map.return_value = {}
+
+        # Act
+        result = await presenter._get_politician_party_map_async()
+
+        # Assert
+        assert result == {}
+
+    async def test_get_party_map_exception(self, presenter, mock_party_history_repo):
+        """例外発生時に空辞書を返すことを確認"""
+        # Arrange
+        mock_party_history_repo.get_current_party_name_map.side_effect = Exception(
+            "Database error"
+        )
+
+        # Act
+        result = await presenter._get_politician_party_map_async()
+
+        # Assert
+        assert result == {}
+
+
 class TestHandleAction:
     """handle_actionメソッドのテスト"""
 
@@ -509,10 +555,10 @@ class TestHandleAction:
             presenter, "load_politicians_with_filters", return_value=[]
         ) as mock_method:
             # Act
-            presenter.handle_action("list", party_id=1, search_name="田中")
+            presenter.handle_action("list", search_name="田中")
 
             # Assert
-            mock_method.assert_called_once_with(1, "田中")
+            mock_method.assert_called_once_with(search_name="田中")
 
     def test_handle_action_create(self, presenter):
         """createアクションが正しく処理されることを確認"""
@@ -524,7 +570,6 @@ class TestHandleAction:
                 "create",
                 name="田中太郎",
                 prefecture="東京都",
-                party_id=1,
                 district="新宿区",
             )
 
@@ -542,7 +587,6 @@ class TestHandleAction:
                 id=1,
                 name="田中太郎",
                 prefecture="東京都",
-                party_id=1,
                 district="新宿区",
             )
 
