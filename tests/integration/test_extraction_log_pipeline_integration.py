@@ -271,7 +271,6 @@ class TestSpeakerMatchingWithExtractionLog:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
 
     @pytest.mark.asyncio

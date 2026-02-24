@@ -87,7 +87,6 @@ class TestMatchSpeakersUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
 
         mock_speaker_repo.get_politicians.return_value = [speaker]
@@ -122,7 +121,6 @@ class TestMatchSpeakersUseCase:
             name="鈴木花子",
             prefecture="東京都",
             district="東京2区",
-            political_party_id=1,
         )
 
         mock_speaker_repo.get_politicians.return_value = [speaker]
@@ -237,10 +235,13 @@ class TestMatchSpeakersUseCase:
         assert results[0].speaker_id == 1
 
     @pytest.mark.asyncio
-    async def test_rule_based_matching_with_party_boost(
+    async def test_rule_based_matching_below_threshold_no_match(
         self, use_case, mock_speaker_repo, mock_politician_repo, mock_speaker_service
     ):
-        """Test rule-based matching with party information boost."""
+        """類似度が閾値0.8未満の場合はマッチしないことを確認する。
+
+        political_party_id廃止により政党ブーストは削除済み。
+        """
         # Setup
         speaker = Speaker(
             id=5,
@@ -253,22 +254,19 @@ class TestMatchSpeakersUseCase:
             name="高橋四郎",
             prefecture="東京都",
             district="東京5区",
-            political_party_id=1,
         )
 
         mock_speaker_repo.get_politicians.return_value = [speaker]
-        # No existing politician link
         mock_politician_repo.search_by_name.return_value = [politician]
         mock_speaker_service.calculate_name_similarity.return_value = 0.75
 
         # Execute
         results = await use_case.execute(use_llm=False)
 
-        # Verify
+        # Verify - 0.75 < 0.8閾値のためマッチなし
         assert len(results) == 1
-        assert results[0].matched_politician_id == 50
-        # Score should be boosted by 0.1 for party match
-        assert results[0].confidence_score == 0.85
+        assert results[0].matched_politician_id is None
+        assert results[0].matching_method == "none"
 
     @pytest.mark.asyncio
     async def test_baml_matching_no_service_configured(
@@ -305,7 +303,6 @@ class TestMatchSpeakersUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
 
         mock_speaker_repo.get_politicians.return_value = [speaker]
@@ -343,7 +340,6 @@ class TestMatchSpeakersUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
 
         mock_speaker_repo.get_politicians.return_value = [speaker]
@@ -390,7 +386,6 @@ class TestMatchSpeakersUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
 
         mock_speaker_repo.get_politicians.return_value = [speaker]
@@ -424,7 +419,6 @@ class TestMatchSpeakersUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
 
         mock_speaker_repo.get_politicians.return_value = [speaker]

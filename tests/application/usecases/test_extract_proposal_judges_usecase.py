@@ -190,7 +190,6 @@ class TestExtractProposalJudgesUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
         politician_repo.search_by_name.return_value = [politician]
         politician_repo.get_by_id.return_value = politician
@@ -275,7 +274,6 @@ class TestExtractProposalJudgesUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
         politician_repo.get_by_id.return_value = politician
 

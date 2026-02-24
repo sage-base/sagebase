@@ -186,10 +186,4 @@ class SpeakerDomainService:
         if similarity < 0.7:
             return False
 
-        # If speaker has party info, it should match
-        if speaker.political_party_name and politician.political_party_id:
-            # This would need party name lookup in real implementation
-            # For now, we assume it's valid
-            pass
-
         return True

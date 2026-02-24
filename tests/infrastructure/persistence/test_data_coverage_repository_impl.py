@@ -90,7 +90,6 @@ async def async_session() -> AsyncGenerator[AsyncSession]:
             CREATE TABLE politicians (
                 id INTEGER PRIMARY KEY,
                 name TEXT,
-                political_party_id INTEGER,
                 created_at TIMESTAMP
             )
         """)
@@ -530,8 +529,8 @@ async def test_get_activity_trend_with_data(
         text("""
             INSERT INTO politicians
                 (id, name, prefecture, electoral_district,
-                 political_party_id, created_at)
-            VALUES (1, 'Politician', '東京都', '東京1区', 1, CURRENT_TIMESTAMP)
+                 created_at)
+            VALUES (1, 'Politician', '東京都', '東京1区', CURRENT_TIMESTAMP)
         """)
     )
 

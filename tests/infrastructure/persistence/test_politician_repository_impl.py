@@ -41,7 +41,6 @@ class TestPoliticianRepositoryImpl:
         return {
             "id": 1,
             "name": "山田太郎",
-            "political_party_id": 10,
             "district": "東京1区",
             "profile_page_url": "https://example.com/yamada",
             "furigana": "やまだたろう",
@@ -58,105 +57,65 @@ class TestPoliticianRepositoryImpl:
             id=1,
             name="山田太郎",
             prefecture="東京都",
-            political_party_id=10,
             district="東京1区",
             profile_page_url="https://example.com/yamada",
             furigana="やまだたろう",
         )
 
     @pytest.mark.asyncio
-    async def test_get_by_name_and_party_found(
+    async def test_get_by_name_found(
         self,
         repository: PoliticianRepositoryImpl,
         mock_session: MagicMock,
         sample_politician_dict: dict[str, Any],
     ) -> None:
-        """Test get_by_name_and_party when politician is found."""
+        """Test get_by_name when politician is found."""
         mock_row = MagicMock()
         mock_row._mapping = sample_politician_dict
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
 
-        result = await repository.get_by_name_and_party("山田太郎", 10)
+        result = await repository.get_by_name("山田太郎")
 
         assert result is not None
         assert result.id == 1
         assert result.name == "山田太郎"
-        assert result.political_party_id == 10
         assert result.district == "東京1区"
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_by_name_and_party_not_found(
+    async def test_get_by_name_not_found(
         self, repository: PoliticianRepositoryImpl, mock_session: MagicMock
     ) -> None:
-        """Test get_by_name_and_party when politician is not found."""
+        """Test get_by_name when politician is not found."""
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=None)
         mock_session.execute.return_value = mock_result
 
-        result = await repository.get_by_name_and_party("存在しない人", 10)
+        result = await repository.get_by_name("存在しない人")
 
         assert result is None
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_by_name_and_party_without_party_id(
+    async def test_get_by_name_name_only(
         self,
         repository: PoliticianRepositoryImpl,
         mock_session: MagicMock,
         sample_politician_dict: dict[str, Any],
     ) -> None:
-        """Test get_by_name_and_party without party_id."""
+        """Test get_by_name searches by name only."""
         mock_row = MagicMock()
         mock_row._mapping = sample_politician_dict
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
 
-        result = await repository.get_by_name_and_party("山田太郎")
+        result = await repository.get_by_name("山田太郎")
 
         assert result is not None
         assert result.name == "山田太郎"
-        mock_session.execute.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_get_by_party(
-        self,
-        repository: PoliticianRepositoryImpl,
-        mock_session: MagicMock,
-        sample_politician_dict: dict[str, Any],
-    ) -> None:
-        """Test get_by_party returns list of politicians."""
-        mock_row1 = MagicMock()
-        mock_row1._mapping = sample_politician_dict
-        mock_row2_dict = {**sample_politician_dict, "id": 2, "name": "鈴木花子"}
-        mock_row2 = MagicMock()
-        mock_row2._mapping = mock_row2_dict
-        mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.get_by_party(10)
-
-        assert len(result) == 2
-        assert result[0].name == "山田太郎"
-        assert result[1].name == "鈴木花子"
-        mock_session.execute.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_get_by_party_empty(
-        self, repository: PoliticianRepositoryImpl, mock_session: MagicMock
-    ) -> None:
-        """Test get_by_party returns empty list when no politicians."""
-        mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[])
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.get_by_party(10)
-
-        assert result == []
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
@@ -203,35 +162,6 @@ class TestPoliticianRepositoryImpl:
         mock_session.execute.return_value = mock_result
 
         result = await repository.count()
-
-        assert result == 0
-
-    @pytest.mark.asyncio
-    async def test_count_by_party(
-        self, repository: PoliticianRepositoryImpl, mock_session: MagicMock
-    ) -> None:
-        """Test count_by_party returns count for specific party."""
-        mock_row = MagicMock()
-        mock_row.count = 10
-        mock_result = MagicMock()
-        mock_result.first = MagicMock(return_value=mock_row)
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.count_by_party(10)
-
-        assert result == 10
-        mock_session.execute.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_count_by_party_zero(
-        self, repository: PoliticianRepositoryImpl, mock_session: MagicMock
-    ) -> None:
-        """Test count_by_party returns 0 when no politicians in party."""
-        mock_result = MagicMock()
-        mock_result.first = MagicMock(return_value=None)
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.count_by_party(10)
 
         assert result == 0
 
@@ -444,7 +374,6 @@ class TestPoliticianRepositoryImpl:
         model = PoliticianModel(
             id=1,
             name="山田太郎",
-            political_party_id=10,
             district="東京1区",
             profile_page_url="https://example.com/yamada",
             furigana="やまだたろう",
@@ -455,7 +384,6 @@ class TestPoliticianRepositoryImpl:
         assert isinstance(entity, Politician)
         assert entity.id == 1
         assert entity.name == "山田太郎"
-        assert entity.political_party_id == 10
         assert entity.district == "東京1区"
         assert entity.profile_page_url == "https://example.com/yamada"
 
@@ -467,7 +395,6 @@ class TestPoliticianRepositoryImpl:
 
         assert isinstance(model, PoliticianModel)
         assert model.name == "山田太郎"
-        assert model.political_party_id == 10
         assert model.district == "東京1区"
         assert model.profile_page_url == "https://example.com/yamada"
 
@@ -478,7 +405,6 @@ class TestPoliticianRepositoryImpl:
         model = PoliticianModel(
             id=1,
             name="旧名前",
-            political_party_id=5,
             district="旧地区",
             profile_page_url="https://old.com",
             furigana="きゅうなまえ",
@@ -487,7 +413,6 @@ class TestPoliticianRepositoryImpl:
         repository._update_model(model, sample_politician_entity)
 
         assert model.name == "山田太郎"
-        assert model.political_party_id == 10
         assert model.district == "東京1区"
         assert model.profile_page_url == "https://example.com/yamada"
         assert model.furigana == "やまだたろう"

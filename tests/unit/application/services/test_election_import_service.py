@@ -135,12 +135,8 @@ class TestElectionImportService:
         self, service: ElectionImportService, mock_politician_repo: AsyncMock
     ) -> None:
         """複数件（絞り込み不可）でambiguousを返す."""
-        p1 = Politician(
-            name="田中太郎", prefecture="", district="", political_party_id=1, id=10
-        )
-        p2 = Politician(
-            name="田中太郎", prefecture="", district="", political_party_id=2, id=20
-        )
+        p1 = Politician(name="田中太郎", prefecture="", district="", id=10)
+        p2 = Politician(name="田中太郎", prefecture="", district="", id=20)
         mock_politician_repo.search_by_normalized_name.return_value = [p1, p2]
 
         result, status = await service.match_politician("田中太郎", None)
@@ -150,18 +146,14 @@ class TestElectionImportService:
     async def test_match_politician_ambiguous_with_party_filter(
         self, service: ElectionImportService, mock_politician_repo: AsyncMock
     ) -> None:
-        """同姓同名で政党絞り込みにより1件になる場合matchedを返す."""
-        p1 = Politician(
-            name="田中太郎", prefecture="", district="", political_party_id=1, id=10
-        )
-        p2 = Politician(
-            name="田中太郎", prefecture="", district="", political_party_id=2, id=20
-        )
+        """同姓同名で履歴リポジトリ未設定のため絞り込み不可でambiguousを返す."""
+        p1 = Politician(name="田中太郎", prefecture="", district="", id=10)
+        p2 = Politician(name="田中太郎", prefecture="", district="", id=20)
         mock_politician_repo.search_by_normalized_name.return_value = [p1, p2]
 
         result, status = await service.match_politician("田中太郎", 1)
-        assert status == "matched"
-        assert result == p1
+        assert status == "ambiguous"
+        assert result is None
 
     # --- create_politician ---
 
@@ -308,14 +300,12 @@ class TestMatchPoliticianWithHistory:
             name="田中太郎",
             prefecture="",
             district="",
-            political_party_id=1,
             id=10,
         )
         p2 = Politician(
             name="田中太郎",
             prefecture="",
             district="",
-            political_party_id=2,
             id=20,
         )
         mock_politician_repo.search_by_normalized_name.return_value = [p1, p2]
@@ -347,7 +337,7 @@ class TestMatchPoliticianWithHistory:
         mock_politician_repo: AsyncMock,
         mock_party_repo: AsyncMock,
     ) -> None:
-        """リポジトリ未設定で従来のpolitical_party_idにフォールバック."""
+        """リポジトリ未設定で絞り込み不可のためambiguousを返す."""
         service = ElectionImportService(
             politician_repository=mock_politician_repo,
             political_party_repository=mock_party_repo,
@@ -356,14 +346,12 @@ class TestMatchPoliticianWithHistory:
             name="田中太郎",
             prefecture="",
             district="",
-            political_party_id=1,
             id=10,
         )
         p2 = Politician(
             name="田中太郎",
             prefecture="",
             district="",
-            political_party_id=2,
             id=20,
         )
         mock_politician_repo.search_by_normalized_name.return_value = [p1, p2]
@@ -371,9 +359,8 @@ class TestMatchPoliticianWithHistory:
         result, status = await service.match_politician(
             "田中太郎", party_id=1, election_date=date(2024, 10, 27)
         )
-        assert status == "matched"
-        assert result is not None
-        assert result.id == 10
+        assert status == "ambiguous"
+        assert result is None
 
     async def test_match_politician_history_missing_falls_back(
         self,
@@ -381,19 +368,17 @@ class TestMatchPoliticianWithHistory:
         mock_politician_repo: AsyncMock,
         mock_history_repo: AsyncMock,
     ) -> None:
-        """履歴がない候補者はpolitical_party_idにフォールバック."""
+        """履歴がない候補者は絞り込み不可のためambiguousを返す."""
         p1 = Politician(
             name="田中太郎",
             prefecture="",
             district="",
-            political_party_id=1,
             id=10,
         )
         p2 = Politician(
             name="田中太郎",
             prefecture="",
             district="",
-            political_party_id=2,
             id=20,
         )
         mock_politician_repo.search_by_normalized_name.return_value = [p1, p2]
@@ -404,9 +389,8 @@ class TestMatchPoliticianWithHistory:
         result, status = await service_with_history.match_politician(
             "田中太郎", party_id=1, election_date=date(2024, 10, 27)
         )
-        assert status == "matched"
-        assert result is not None
-        assert result.id == 10
+        assert status == "ambiguous"
+        assert result is None
 
 
 class TestCreatePoliticianWithHistory:

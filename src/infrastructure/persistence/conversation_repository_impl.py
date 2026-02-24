@@ -608,7 +608,9 @@ class ConversationRepositoryImpl(
             LEFT JOIN conferences conf ON m.conference_id = conf.id
             LEFT JOIN governing_bodies gb ON conf.governing_body_id = gb.id
             LEFT JOIN politicians p ON s.id = p.speaker_id
-            LEFT JOIN political_parties pp ON p.political_party_id = pp.id
+            LEFT JOIN party_membership_history pmh
+                ON p.id = pmh.politician_id AND pmh.end_date IS NULL
+            LEFT JOIN political_parties pp ON pmh.political_party_id = pp.id
             WHERE {where_clause}
             ORDER BY c.id DESC
             LIMIT :limit OFFSET :offset

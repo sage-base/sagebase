@@ -109,11 +109,10 @@ def setup_test_data(db_session):
     politician_result = db_session.execute(
         text("""
         INSERT INTO politicians
-            (name, prefecture, district, political_party_id)
-        VALUES ('モニターテスト議員', '東京都', '東京1区', :party_id)
+            (name, prefecture, district)
+        VALUES ('モニターテスト議員', '東京都', '東京1区')
         RETURNING id
         """),
-        {"party_id": party_id},
     )
     politician_id = politician_result.scalar()
 

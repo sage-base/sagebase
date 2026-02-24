@@ -96,7 +96,6 @@ def create_politician(**kwargs: Any) -> Politician:
         "name": "山田太郎",
         "prefecture": "東京都",
         "district": "東京1区",
-        "political_party_id": None,
         "furigana": None,
         "profile_page_url": None,
         "party_position": None,

@@ -40,7 +40,6 @@ def sample_politicians():
             id=1,
             name="田中太郎",
             prefecture="東京都",
-            political_party_id=1,
             district="新宿区",
             furigana=None,
             profile_page_url="https://example.com/tanaka",
@@ -50,7 +49,6 @@ def sample_politicians():
             id=2,
             name="山田花子",
             prefecture="大阪府",
-            political_party_id=2,
             district="中央区",
             furigana=None,
             profile_page_url=None,
@@ -167,20 +165,18 @@ class TestLoadData:
 class TestLoadPoliticiansWithFilters:
     """load_politicians_with_filtersメソッドのテスト"""
 
-    async def test_with_party_filter(
-        self, presenter, mock_use_case, sample_politicians
-    ):
-        """政党フィルタで政治家を絞り込めることを確認"""
+    async def test_with_no_filter(self, presenter, mock_use_case, sample_politicians):
+        """フィルタなしで全政治家を取得できることを確認"""
         # Arrange
         mock_use_case.list_politicians.return_value = PoliticianListOutputDto(
-            politicians=[sample_politicians[0]]
+            politicians=sample_politicians
         )
 
         # Act
-        result = await presenter._load_politicians_with_filters_async(party_id=1)
+        result = await presenter._load_politicians_with_filters_async()
 
         # Assert
-        assert len(result) == 1
+        assert len(result) == 2
         mock_use_case.list_politicians.assert_called_once()
 
     async def test_with_name_filter(self, presenter, mock_use_case, sample_politicians):
@@ -456,8 +452,13 @@ class TestToDataframe:
 
     def test_to_dataframe_success(self, presenter, sample_politicians, sample_parties):
         """政治家リストをDataFrameに変換できることを確認"""
+        # Arrange - party_membership_history経由の政党マッピング
+        politician_party_map = {1: "自民党", 2: "立憲民主党"}
+
         # Act
-        df = presenter.to_dataframe(sample_politicians, sample_parties)
+        df = presenter.to_dataframe(
+            sample_politicians, sample_parties, politician_party_map
+        )
 
         # Assert
         assert isinstance(df, pd.DataFrame)
@@ -485,7 +486,6 @@ class TestToDataframe:
                 id=1,
                 name="無所属議員",
                 prefecture="東京都",
-                political_party_id=None,
                 district="新宿区",
                 furigana=None,
                 profile_page_url=None,

@@ -77,7 +77,6 @@ _POLITICIANS = BQTableDef(
     columns=(
         BQColumnDef("id", "INT64", "REQUIRED", "政治家ID"),
         BQColumnDef("name", "STRING", "REQUIRED", "氏名"),
-        BQColumnDef("political_party_id", "INT64", description="政党ID"),
         BQColumnDef("prefecture", "STRING", description="都道府県"),
         BQColumnDef("furigana", "STRING", description="ふりがな"),
         BQColumnDef("district", "STRING", description="選挙区"),

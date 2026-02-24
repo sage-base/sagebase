@@ -95,7 +95,6 @@ class PoliticianRepositorySyncImpl:
                 {
                     "id": p.id,
                     "name": p.name,
-                    "political_party_id": p.political_party_id,
                     "electoral_district": p.district,
                     "profile_url": p.profile_page_url,
                     "furigana": p.furigana,
@@ -121,9 +120,7 @@ class PoliticianRepositorySyncImpl:
             for data in politicians_data:
                 try:
                     # Check if politician exists
-                    existing = self.find_by_name_and_party(
-                        data.get("name", ""), data.get("political_party_id")
-                    )
+                    existing = self.find_one_by_name(data.get("name", ""))
 
                     if existing:
                         # Update existing politician if needed
@@ -192,7 +189,6 @@ class PoliticianRepositorySyncImpl:
                     {
                         "id": p.id,
                         "name": p.name,
-                        "political_party_id": p.political_party_id,
                         "electoral_district": p.district,
                         "profile_url": p.profile_page_url,
                         "furigana": p.furigana,
@@ -203,7 +199,6 @@ class PoliticianRepositorySyncImpl:
                     {
                         "id": p.id,
                         "name": p.name,
-                        "political_party_id": p.political_party_id,
                         "electoral_district": p.district,
                         "profile_url": p.profile_page_url,
                         "furigana": p.furigana,
@@ -215,19 +210,14 @@ class PoliticianRepositorySyncImpl:
 
         return {"created": [], "updated": [], "errors": []}
 
-    def find_by_name_and_party(
-        self, name: str, political_party_id: int | None = None
-    ) -> dict[str, Any] | None:
-        """Find politician by name and party (synchronous).
+    def find_one_by_name(self, name: str) -> dict[str, Any] | None:
+        """Find single politician by name (synchronous).
 
         Returns dict for backward compatibility.
         """
         if self.sync_session:
             query = "SELECT * FROM politicians WHERE name = :name"
             params: dict[str, Any] = {"name": name}
-            if political_party_id is not None:
-                query += " AND political_party_id = :party_id"
-                params["party_id"] = political_party_id
             query += " LIMIT 1"
             result = self.sync_session.execute(text(query), params)
             row = result.first()
@@ -238,13 +228,12 @@ class PoliticianRepositorySyncImpl:
             return None
         elif self.async_session:
             # Use async repo with asyncio.run
-            coro = self.async_repo.get_by_name_and_party(name, political_party_id)
+            coro = self.async_repo.get_by_name(name)
             politician = self._run_async(coro)
             if politician:
                 return {
                     "id": politician.id,
                     "name": politician.name,
-                    "political_party_id": politician.political_party_id,
                     "electoral_district": politician.district,
                     "profile_url": politician.profile_page_url,
                     "furigana": politician.furigana,

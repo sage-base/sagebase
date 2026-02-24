@@ -23,21 +23,14 @@ class PoliticianDomainService:
     def is_duplicate_politician(
         self, new_politician: Politician, existing_politicians: list[Politician]
     ) -> Politician | None:
-        """Check if politician already exists based on name and party."""
+        """Check if politician already exists based on name."""
         normalized_new = self.normalize_politician_name(new_politician.name)
 
         for existing in existing_politicians:
             normalized_existing = self.normalize_politician_name(existing.name)
 
-            # Exact match
             if normalized_new == normalized_existing:
-                # Same party or no party info
-                if (
-                    new_politician.political_party_id == existing.political_party_id
-                    or new_politician.political_party_id is None
-                    or existing.political_party_id is None
-                ):
-                    return existing
+                return existing
 
         return None
 
@@ -49,8 +42,6 @@ class PoliticianDomainService:
         merged = Politician(
             name=existing.name,  # Keep original name format
             prefecture=new_info.prefecture or existing.prefecture,
-            political_party_id=new_info.political_party_id
-            or existing.political_party_id,
             furigana=new_info.furigana or existing.furigana,
             district=new_info.district or existing.district,
             profile_page_url=new_info.profile_page_url or existing.profile_page_url,
@@ -73,20 +64,6 @@ class PoliticianDomainService:
             issues.append("District name is unusually long")
 
         return issues
-
-    def group_politicians_by_party(
-        self, politicians: list[Politician]
-    ) -> dict[int | None, list[Politician]]:
-        """Group politicians by their political party."""
-        grouped: dict[int | None, list[Politician]] = {}
-
-        for politician in politicians:
-            party_id = politician.political_party_id
-            if party_id not in grouped:
-                grouped[party_id] = []
-            grouped[party_id].append(politician)
-
-        return grouped
 
     def find_similar_politicians(
         self, name: str, politicians: list[Politician], threshold: float = 0.7

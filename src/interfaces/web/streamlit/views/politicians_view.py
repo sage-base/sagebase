@@ -125,27 +125,36 @@ def render_politicians_list_tab(presenter: PoliticianPresenter) -> None:
 
     # Get parties for filter
     parties = presenter.get_all_parties()
+    # politician_id → 政党名のマッピングを取得（party_membership_history経由）
+    politician_party_map = presenter.get_politician_party_map()
 
     # Filters
     col1, col2 = st.columns(2)
 
     with col1:
         party_options = ["すべて"] + [p.name for p in parties]
-        party_map = {p.name: p.id for p in parties}
         selected_party = st.selectbox("政党でフィルタ", party_options)
 
     with col2:
         search_name = st.text_input("名前で検索", placeholder="例: 山田")
 
     # Load politicians
-    party_id = party_map.get(selected_party) if selected_party != "すべて" else None
     politicians = presenter.load_politicians_with_filters(
-        party_id, search_name if search_name else None
+        search_name=search_name if search_name else None
     )
+
+    # 政党フィルタリング（party_membership_history経由）
+    if selected_party != "すべて":
+        party_name_filter = selected_party
+        politicians = [
+            p
+            for p in politicians
+            if p.id is not None and politician_party_map.get(p.id) == party_name_filter
+        ]
 
     if politicians:
         # Display data in DataFrame with editable prefecture column
-        df = presenter.to_dataframe(politicians, parties)
+        df = presenter.to_dataframe(politicians, parties, politician_party_map)
         if df is not None:
             # 都道府県列をドロップダウンで編集可能にする
             column_config = {
@@ -190,15 +199,13 @@ def render_politicians_list_tab(presenter: PoliticianPresenter) -> None:
                                 (p for p in politicians if p.id == politician_id), None
                             )
                             if original:
-                                # 政党IDを取得
-                                party_id = original.political_party_id
                                 user_id = presenter.get_current_user_id()
 
                                 success, error = presenter.update(
                                     id=politician_id,
                                     name=original.name,
                                     prefecture=new_prefecture or "",
-                                    party_id=party_id,
+                                    party_id=None,
                                     district=original.district or "",
                                     profile_url=original.profile_page_url,
                                     user_id=user_id,
@@ -222,17 +229,12 @@ def render_politicians_list_tab(presenter: PoliticianPresenter) -> None:
         with col1:
             st.metric("総数", f"{len(politicians)}名")
         with col2:
-            party_counts = {}
+            party_counts: dict[str, int] = {}
             for p in politicians:
-                party_name = next(
-                    (
-                        party.name
-                        for party in parties
-                        if party.id == p.political_party_id
-                    ),
-                    "無所属",
-                )
-                party_counts[party_name] = party_counts.get(party_name, 0) + 1
+                pname = "無所属"
+                if politician_party_map and p.id is not None:
+                    pname = politician_party_map.get(p.id, "無所属")
+                party_counts[pname] = party_counts.get(pname, 0) + 1
             if party_counts:
                 max_party = max(party_counts, key=party_counts.get)  # type: ignore[arg-type]
                 st.metric("最多政党", f"{max_party} ({party_counts[max_party]}名)")
@@ -374,7 +376,6 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
 
     # 政党フィルター
     party_filter_options = ["すべて"] + [p.name for p in parties]
-    party_id_map = {p.name: p.id for p in parties}
     selected_party_filter = st.selectbox(
         "政党でフィルター",
         party_filter_options,
@@ -403,11 +404,14 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
     # フィルター適用
     filtered_politicians = politicians
 
-    # 政党フィルター
+    # 政党フィルター（party_membership_history経由）
+    politician_party_map = presenter.get_politician_party_map()
     if selected_party_filter != "すべて":
-        selected_party_id = party_id_map.get(selected_party_filter)
         filtered_politicians = [
-            p for p in filtered_politicians if p.political_party_id == selected_party_id
+            p
+            for p in filtered_politicians
+            if p.id is not None
+            and politician_party_map.get(p.id) == selected_party_filter
         ]
 
     # 都道府県フィルター
@@ -470,13 +474,10 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
 
             party_options = ["無所属"] + [p.name for p in parties]
             party_map = {p.name: p.id for p in parties}
-            current_party = next(
-                (
-                    p.name
-                    for p in parties
-                    if p.id == selected_politician.political_party_id
-                ),
-                "無所属",
+            current_party = (
+                politician_party_map.get(selected_politician.id, "無所属")
+                if selected_politician.id is not None
+                else "無所属"
             )
             new_party = st.selectbox(
                 "政党",

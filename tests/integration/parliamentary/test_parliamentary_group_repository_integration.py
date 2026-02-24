@@ -213,15 +213,14 @@ def setup_test_data(db_session):
     politician_result1 = db_session.execute(
         text("""
         INSERT INTO politicians
-            (name, prefecture, district, political_party_id)
-        VALUES (:politician_name, :prefecture, :district, :party_id)
+            (name, prefecture, district)
+        VALUES (:politician_name, :prefecture, :district)
         RETURNING id
         """),
         {
             "politician_name": f"テスト議員1_{test_id}",
             "prefecture": "東京都",
             "district": "東京1区",
-            "party_id": party_id1,
         },
     )
     politician_id1 = politician_result1.scalar()
@@ -229,15 +228,14 @@ def setup_test_data(db_session):
     politician_result2 = db_session.execute(
         text("""
         INSERT INTO politicians
-            (name, prefecture, district, political_party_id)
-        VALUES (:politician_name, :prefecture, :district, :party_id)
+            (name, prefecture, district)
+        VALUES (:politician_name, :prefecture, :district)
         RETURNING id
         """),
         {
             "politician_name": f"テスト議員2_{test_id}",
             "prefecture": "大阪府",
             "district": "大阪1区",
-            "party_id": party_id2,
         },
     )
     politician_id2 = politician_result2.scalar()
@@ -245,15 +243,14 @@ def setup_test_data(db_session):
     politician_result3 = db_session.execute(
         text("""
         INSERT INTO politicians
-            (name, prefecture, district, political_party_id)
-        VALUES (:politician_name, :prefecture, :district, :party_id)
+            (name, prefecture, district)
+        VALUES (:politician_name, :prefecture, :district)
         RETURNING id
         """),
         {
             "politician_name": f"テスト議員3_{test_id}",
             "prefecture": "愛知県",
             "district": "愛知1区",
-            "party_id": party_id1,
         },
     )
     politician_id3 = politician_result3.scalar()

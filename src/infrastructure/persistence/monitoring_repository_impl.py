@@ -113,8 +113,9 @@ class MonitoringRepositoryImpl:
                      JOIN politician_affiliations pa ON p.id = pa.politician_id)
                         as active_politicians,
                     (SELECT COUNT(*) FROM political_parties) as total_parties,
-                    (SELECT COUNT(DISTINCT political_party_id) FROM politicians
-                     WHERE political_party_id IS NOT NULL) as active_parties,
+                    (SELECT COUNT(DISTINCT pmh.political_party_id)
+                     FROM party_membership_history pmh
+                     WHERE pmh.end_date IS NULL) as active_parties,
                     (SELECT COUNT(*) FROM conversations) as total_conversations,
                     (SELECT COUNT(DISTINCT speaker_id) FROM conversations
                      WHERE speaker_id IS NOT NULL) as linked_conversations,
@@ -226,7 +227,9 @@ class MonitoringRepositoryImpl:
                     pp.name as conference_name,
                     NULL as governing_body_name
                 FROM politicians p
-                LEFT JOIN political_parties pp ON p.political_party_id = pp.id
+                LEFT JOIN party_membership_history pmh
+                    ON p.id = pmh.politician_id AND pmh.end_date IS NULL
+                LEFT JOIN political_parties pp ON pmh.political_party_id = pp.id
                 WHERE p.created_at IS NOT NULL
 
                 UNION ALL
@@ -451,7 +454,9 @@ class MonitoringRepositoryImpl:
                 COUNT(DISTINCT s.id) as speaker_count,
                 COUNT(DISTINCT c.id) as conversation_count
             FROM political_parties pp
-            LEFT JOIN politicians p ON pp.id = p.political_party_id
+            LEFT JOIN party_membership_history pmh
+                ON pp.id = pmh.political_party_id AND pmh.end_date IS NULL
+            LEFT JOIN politicians p ON pmh.politician_id = p.id
             LEFT JOIN speakers s ON pp.name = s.political_party_name
             LEFT JOIN conversations c ON s.id = c.speaker_id
             GROUP BY pp.id, pp.name

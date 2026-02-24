@@ -11,15 +11,8 @@ class PoliticianRepository(BaseRepository[Politician]):
     """Repository interface for politicians."""
 
     @abstractmethod
-    async def get_by_name_and_party(
-        self, name: str, political_party_id: int | None = None
-    ) -> Politician | None:
-        """Get politician by name and political party."""
-        pass
-
-    @abstractmethod
-    async def get_by_party(self, political_party_id: int) -> list[Politician]:
-        """Get all politicians for a political party."""
+    async def get_by_name(self, name: str) -> Politician | None:
+        """Get politician by name."""
         pass
 
     @abstractmethod
@@ -44,18 +37,6 @@ class PoliticianRepository(BaseRepository[Politician]):
         self, query: str, params: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
         """Execute raw SQL query and return results as dictionaries (async)."""
-        pass
-
-    @abstractmethod
-    async def count_by_party(self, political_party_id: int) -> int:
-        """Count politicians by political party.
-
-        Args:
-            political_party_id: Political party ID
-
-        Returns:
-            Number of politicians in the party
-        """
         pass
 
     @abstractmethod

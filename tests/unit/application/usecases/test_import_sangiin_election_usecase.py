@@ -408,14 +408,12 @@ class TestImportSangiinElectionUseCase:
             prefecture="東京都",
             district="",
             id=10,
-            political_party_id=1,
         )
         p2 = Politician(
             name="田中太郎",
             prefecture="大阪府",
             district="",
             id=20,
-            political_party_id=1,
         )
         mock_repos["politician"].search_by_normalized_name.return_value = [p1, p2]
 

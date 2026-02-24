@@ -47,6 +47,7 @@ class TestLinkParliamentaryGroupUseCase:
             "politician": AsyncMock(spec=PoliticianRepository),
             "group": AsyncMock(spec=ParliamentaryGroupRepository),
             "membership": AsyncMock(spec=ParliamentaryGroupMembershipRepository),
+            "party_history": AsyncMock(spec=PartyMembershipHistoryRepository),
         }
 
     @pytest.fixture()
@@ -59,6 +60,7 @@ class TestLinkParliamentaryGroupUseCase:
             politician_repository=mock_repos["politician"],
             parliamentary_group_repository=mock_repos["group"],
             parliamentary_group_membership_repository=mock_repos["membership"],
+            party_membership_history_repository=mock_repos["party_history"],
         )
 
     @pytest.fixture()
@@ -137,7 +139,7 @@ class TestLinkParliamentaryGroupUseCase:
         election: Election,
         ldp_group: ParliamentaryGroup,
     ) -> None:
-        """political_party_id未設定でスキップ."""
+        """政党所属履歴なしでスキップ."""
         self._setup_election(mock_repos, election)
         mock_repos["election_member"].get_by_election_id.return_value = [
             ElectionMember(election_id=1, politician_id=1, result="当選", id=1),
@@ -145,6 +147,8 @@ class TestLinkParliamentaryGroupUseCase:
         mock_repos["politician"].get_by_ids.return_value = [
             Politician(name="無所属太郎", prefecture="東京都", district="", id=1),
         ]
+        # 履歴なし
+        mock_repos["party_history"].get_current_by_politicians.return_value = {}
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         mock_repos["membership"].get_active_by_group.return_value = []
 
@@ -153,7 +157,7 @@ class TestLinkParliamentaryGroupUseCase:
 
         assert result.skipped_no_party == 1
         assert result.linked_count == 0
-        assert result.skipped_members[0].reason == "political_party_id未設定"
+        assert result.skipped_members[0].reason == "政党所属履歴なし"
 
     async def test_skip_no_matching_group(
         self,
@@ -172,10 +176,18 @@ class TestLinkParliamentaryGroupUseCase:
                 name="新党太郎",
                 prefecture="東京都",
                 district="",
-                political_party_id=999,
                 id=1,
             ),
         ]
+        # 政党99はldp_group(10)に合致しない
+        mock_repos["party_history"].get_current_by_politicians.return_value = {
+            1: PartyMembershipHistory(
+                politician_id=1,
+                political_party_id=99,
+                start_date=date(2020, 1, 1),
+                end_date=None,
+            ),
+        }
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         mock_repos["membership"].get_active_by_group.return_value = []
 
@@ -201,7 +213,6 @@ class TestLinkParliamentaryGroupUseCase:
                 name="維新太郎",
                 prefecture="大阪府",
                 district="",
-                political_party_id=30,
                 id=1,
             ),
         ]
@@ -219,6 +230,15 @@ class TestLinkParliamentaryGroupUseCase:
             is_active=True,
             id=302,
         )
+        # 政党30は両方のグループに合致
+        mock_repos["party_history"].get_current_by_politicians.return_value = {
+            1: PartyMembershipHistory(
+                politician_id=1,
+                political_party_id=30,
+                start_date=date(2020, 1, 1),
+                end_date=None,
+            ),
+        }
         mock_repos["group"].get_by_governing_body_id.return_value = [group_a, group_b]
         mock_repos["membership"].get_active_by_group.return_value = []
 
@@ -245,10 +265,17 @@ class TestLinkParliamentaryGroupUseCase:
                 name="自民太郎",
                 prefecture="東京都",
                 district="",
-                political_party_id=10,
                 id=1,
             ),
         ]
+        mock_repos["party_history"].get_current_by_politicians.return_value = {
+            1: PartyMembershipHistory(
+                politician_id=1,
+                political_party_id=10,
+                start_date=date(2020, 1, 1),
+                end_date=None,
+            ),
+        }
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         mock_repos["membership"].get_active_by_group.return_value = []
         mock_repos[
@@ -293,10 +320,17 @@ class TestLinkParliamentaryGroupUseCase:
                 name="自民太郎",
                 prefecture="東京都",
                 district="",
-                political_party_id=10,
                 id=1,
             ),
         ]
+        mock_repos["party_history"].get_current_by_politicians.return_value = {
+            1: PartyMembershipHistory(
+                politician_id=1,
+                political_party_id=10,
+                start_date=date(2020, 1, 1),
+                end_date=None,
+            ),
+        }
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         mock_repos["membership"].get_active_by_group.return_value = [
             ParliamentaryGroupMembership(
@@ -332,10 +366,17 @@ class TestLinkParliamentaryGroupUseCase:
                 name="自民太郎",
                 prefecture="東京都",
                 district="",
-                political_party_id=10,
                 id=1,
             ),
         ]
+        mock_repos["party_history"].get_current_by_politicians.return_value = {
+            1: PartyMembershipHistory(
+                politician_id=1,
+                political_party_id=10,
+                start_date=date(2020, 1, 1),
+                end_date=None,
+            ),
+        }
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         mock_repos["membership"].get_active_by_group.return_value = []
 
@@ -365,24 +406,36 @@ class TestLinkParliamentaryGroupUseCase:
                 name="自民太郎",
                 prefecture="東京都",
                 district="",
-                political_party_id=10,
                 id=1,
             ),
             Politician(
                 name="無所属花子",
                 prefecture="大阪府",
                 district="",
-                political_party_id=None,
                 id=2,
             ),
             Politician(
                 name="新党次郎",
                 prefecture="北海道",
                 district="",
-                political_party_id=999,
                 id=3,
             ),
         ]
+        # 1=自民(10→紐付け成功), 2=履歴なし(スキップ), 3=新党(99→会派なしスキップ)
+        mock_repos["party_history"].get_current_by_politicians.return_value = {
+            1: PartyMembershipHistory(
+                politician_id=1,
+                political_party_id=10,
+                start_date=date(2020, 1, 1),
+                end_date=None,
+            ),
+            3: PartyMembershipHistory(
+                politician_id=3,
+                political_party_id=99,
+                start_date=date(2020, 1, 1),
+                end_date=None,
+            ),
+        }
         mock_repos["group"].get_by_governing_body_id.return_value = [
             ldp_group,
             cdp_group,
@@ -419,6 +472,7 @@ class TestLinkParliamentaryGroupUseCase:
             ElectionMember(election_id=1, politician_id=999, result="当選", id=1),
         ]
         mock_repos["politician"].get_by_ids.return_value = []
+        mock_repos["party_history"].get_current_by_politicians.return_value = {}
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         mock_repos["membership"].get_active_by_group.return_value = []
 
@@ -495,13 +549,12 @@ class TestLinkParliamentaryGroupWithHistory:
         mock_repos["election_member"].get_by_election_id.return_value = [
             ElectionMember(election_id=1, politician_id=1, result="当選", id=1),
         ]
-        # politician.political_party_id は 999 だが履歴は 10
+        # 履歴のpolitical_party_id=10が使われる
         mock_repos["politician"].get_by_ids.return_value = [
             Politician(
                 name="自民太郎",
                 prefecture="東京都",
                 district="",
-                political_party_id=999,
                 id=1,
             ),
         ]
@@ -545,13 +598,12 @@ class TestLinkParliamentaryGroupWithHistory:
         mock_repos["election_member"].get_by_election_id.return_value = [
             ElectionMember(election_id=1, politician_id=1, result="当選", id=1),
         ]
-        # political_party_id=10（自民）だが、履歴では999（unknown）
+        # 履歴のpolitical_party_id=999が使われる
         mock_repos["politician"].get_by_ids.return_value = [
             Politician(
                 name="元自民太郎",
                 prefecture="東京都",
                 district="",
-                political_party_id=10,
                 id=1,
             ),
         ]
@@ -580,7 +632,7 @@ class TestLinkParliamentaryGroupWithHistory:
         election: Election,
         ldp_group: ParliamentaryGroup,
     ) -> None:
-        """選挙日時点で履歴なし → politician.political_party_idにフォールバック."""
+        """選挙日時点で履歴なし → 政党所属履歴なしでスキップ."""
         self._setup_election(mock_repos, election)
         mock_repos["election_member"].get_by_election_id.return_value = [
             ElectionMember(election_id=1, politician_id=1, result="当選", id=1),
@@ -590,7 +642,6 @@ class TestLinkParliamentaryGroupWithHistory:
                 name="自民太郎",
                 prefecture="東京都",
                 district="",
-                political_party_id=10,
                 id=1,
             ),
         ]
@@ -610,5 +661,6 @@ class TestLinkParliamentaryGroupWithHistory:
         input_dto = LinkParliamentaryGroupInputDto(term_number=50)
         result = await use_case_with_history.execute(input_dto)
 
-        # フォールバックでpolitician.political_party_id=10が使われ、自民の会派にマッチ
-        assert result.linked_count == 1
+        # 履歴なし → 政党所属履歴なしでスキップ
+        assert result.skipped_no_party == 1
+        assert result.linked_count == 0

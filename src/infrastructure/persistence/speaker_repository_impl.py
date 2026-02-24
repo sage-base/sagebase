@@ -395,7 +395,9 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 COUNT(c.id) as conversation_count
             FROM speakers s
             LEFT JOIN politicians p ON s.politician_id = p.id
-            LEFT JOIN political_parties pp ON p.political_party_id = pp.id
+            LEFT JOIN party_membership_history pmh
+                ON p.id = pmh.politician_id AND pmh.end_date IS NULL
+            LEFT JOIN political_parties pp ON pmh.political_party_id = pp.id
             LEFT JOIN conversations c ON s.id = c.speaker_id
             GROUP BY s.id, s.name, s.type, s.political_party_name,
                      s.position, s.is_politician, p.id, p.name, pp.name

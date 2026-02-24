@@ -89,18 +89,19 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
     def load_politicians_with_filters(
         self, party_id: int | None = None, search_name: str | None = None
     ) -> list[PoliticianOutputItem]:
-        """Load politicians with filters."""
-        return self._run_async(
-            self._load_politicians_with_filters_async(party_id, search_name)
-        )
+        """Load politicians with filters.
+
+        party_id引数は後方互換のため残すが、フィルタリングはビュー側で行う。
+        """
+        return self._run_async(self._load_politicians_with_filters_async(search_name))
 
     async def _load_politicians_with_filters_async(
-        self, party_id: int | None = None, search_name: str | None = None
+        self, search_name: str | None = None
     ) -> list[PoliticianOutputItem]:
         """Load politicians with filters (async implementation)."""
         try:
             result = await self.use_case.list_politicians(
-                PoliticianListInputDto(party_id=party_id, search_name=search_name)
+                PoliticianListInputDto(search_name=search_name)
             )
             return result.politicians
         except Exception as e:
@@ -118,6 +119,28 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
         except Exception as e:
             self.logger.error(f"Failed to get parties: {e}")
             return []
+
+    def get_politician_party_map(self) -> dict[int, str]:
+        """politician_id→政党名マッピングを取得（履歴経由）."""
+        return self._run_async(self._get_politician_party_map_async())
+
+    async def _get_politician_party_map_async(self) -> dict[int, str]:
+        """politician_id → 政党名のマッピングを取得する（async）."""
+        try:
+            from sqlalchemy import text
+
+            query = text("""
+                SELECT pmh.politician_id, pp.name as party_name
+                FROM party_membership_history pmh
+                JOIN political_parties pp ON pmh.political_party_id = pp.id
+                WHERE pmh.end_date IS NULL
+            """)
+            result = await self.politician_repo.session.execute(query)
+            rows = result.fetchall()
+            return {row.politician_id: row.party_name for row in rows}
+        except Exception as e:
+            self.logger.error(f"Failed to get politician party map: {e}")
+            return {}
 
     def create(
         self,
@@ -321,7 +344,7 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                             name=normalized_name,
                             prefecture=politician.prefecture or "",
                             district=normalized_district,
-                            party_id=politician.political_party_id,
+                            party_id=None,
                             profile_url=normalized_url if normalized_url else None,
                             user_id=None,
                         )
@@ -335,24 +358,34 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
             return False, 0, error_msg
 
     def to_dataframe(
-        self, politicians: list[PoliticianOutputItem], parties: list[PoliticalParty]
+        self,
+        politicians: list[PoliticianOutputItem],
+        parties: list[PoliticalParty],
+        politician_party_map: dict[int, str] | None = None,
     ) -> pd.DataFrame | None:
-        """Convert politicians to DataFrame."""
+        """Convert politicians to DataFrame.
+
+        Args:
+            politicians: 政治家リスト
+            parties: 政党リスト（後方互換のため残す）
+            politician_party_map: politician_id → 政党名のマッピング
+                                  （party_membership_history経由で構築）
+        """
         if not politicians:
             return None
 
-        party_map = {p.id: p.name for p in parties}
-
         df_data = []
         for politician in politicians:
+            party_name = "無所属"
+            if politician_party_map and politician.id is not None:
+                party_name = politician_party_map.get(politician.id, "無所属")
+
             df_data.append(
                 {
                     "ID": politician.id,
                     "名前": politician.name,
                     "都道府県": politician.prefecture or "",
-                    "政党": party_map.get(politician.political_party_id, "無所属")
-                    if politician.political_party_id
-                    else "無所属",
+                    "政党": party_name,
                     "選挙区": politician.district or "",
                     "プロフィールURL": politician.profile_page_url or "",
                 }
