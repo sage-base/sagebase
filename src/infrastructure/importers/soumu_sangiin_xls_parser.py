@@ -26,6 +26,17 @@ from src.infrastructure.importers._utils import parse_wareki_date, zen_to_han
 
 logger = logging.getLogger(__name__)
 
+# 合区マッピング（第24回以降: コンポーネント県→合区名）
+# 第24回(2016年)から鳥取県・島根県、徳島県・高知県が合区
+GOUKU_MAPPING: dict[str, str] = {
+    "鳥取県": "鳥取県・島根県",
+    "島根県": "鳥取県・島根県",
+    "徳島県": "徳島県・高知県",
+    "高知県": "徳島県・高知県",
+}
+# 合区導入開始回次
+GOUKU_START_ELECTION = 24
+
 # 参議院選挙区の改選定数（回次→都道府県名→定数）
 # 半数改選のため、改選がない選挙区は含まれない
 # 出典: 総務省選挙結果 基礎データ
@@ -108,9 +119,11 @@ SANGIIN_SEATS: dict[int, dict[str, int]] = {
         "兵庫県": 3,
         "奈良県": 1,
         "和歌山県": 1,
+        "鳥取県・島根県": 1,
         "岡山県": 1,
         "広島県": 2,
         "山口県": 1,
+        "徳島県・高知県": 1,
         "香川県": 1,
         "愛媛県": 1,
         "福岡県": 3,
@@ -503,7 +516,9 @@ def _parse_sangiin_xlsx(
     import openpyxl
 
     wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
-    all_candidates: list[CandidateRecord] = []
+    # 選挙区名→候補者リストのマップ（同一選挙区名の重複排除用）
+    # 合区正規化により複数シートが同名になる場合、最多候補者のシートを採用
+    district_candidates: dict[str, list[CandidateRecord]] = {}
     election_info: ElectionInfo | None = None
 
     for sheet_name in wb.sheetnames:
@@ -515,12 +530,23 @@ def _parse_sangiin_xlsx(
             logger.debug("シート '%s' のデータ行が不足: %d行", sheet_name, len(rows))
             continue
 
-        candidates, sheet_election_info = _parse_sangiin_rows(rows, election_number)
+        candidates, sheet_election_info = _parse_sangiin_rows(
+            rows, election_number, sheet_name=sheet_name
+        )
         if sheet_election_info and election_info is None:
             election_info = sheet_election_info
-        all_candidates.extend(candidates)
+
+        if not candidates:
+            continue
+        district = candidates[0].district_name
+        existing = district_candidates.get(district)
+        if existing is None or len(candidates) > len(existing):
+            district_candidates[district] = candidates
 
     wb.close()
+    all_candidates: list[CandidateRecord] = []
+    for candidates in district_candidates.values():
+        all_candidates.extend(candidates)
     return election_info, all_candidates
 
 
@@ -532,7 +558,7 @@ def _parse_sangiin_xls(
     import xlrd
 
     wb = xlrd.open_workbook(str(file_path))
-    all_candidates: list[CandidateRecord] = []
+    district_candidates: dict[str, list[CandidateRecord]] = {}
     election_info: ElectionInfo | None = None
 
     for sheet_idx in range(wb.nsheets):
@@ -548,23 +574,36 @@ def _parse_sangiin_xls(
             )
             rows.append(row)
 
-        candidates, sheet_election_info = _parse_sangiin_rows(rows, election_number)
+        candidates, sheet_election_info = _parse_sangiin_rows(
+            rows, election_number, sheet_name=ws.name
+        )
         if sheet_election_info and election_info is None:
             election_info = sheet_election_info
-        all_candidates.extend(candidates)
 
+        if not candidates:
+            continue
+        district = candidates[0].district_name
+        existing = district_candidates.get(district)
+        if existing is None or len(candidates) > len(existing):
+            district_candidates[district] = candidates
+
+    all_candidates: list[CandidateRecord] = []
+    for candidates in district_candidates.values():
+        all_candidates.extend(candidates)
     return election_info, all_candidates
 
 
 def _parse_sangiin_rows(
     rows: list[tuple[object, ...]],
     election_number: int | None = None,
+    sheet_name: str | None = None,
 ) -> tuple[list[CandidateRecord], ElectionInfo | None]:
     """行データから参議院候補者レコードを抽出する.
 
     Args:
         rows: シートの全行データ
         election_number: 選挙回次（定数判定用）
+        sheet_name: シート名（選挙区名のフォールバック用）
 
     Returns:
         (候補者リスト, 選挙情報)
@@ -577,16 +616,27 @@ def _parse_sangiin_rows(
     election_date = parse_wareki_date(election_date_str or "")
 
     # Row 3: 選挙区名（0-indexed: rows[2]）
+    # data_only=Trueで読んでも数式の結果がキャッシュされていない場合がある
     district_name = ""
     for cell in rows[2]:
         val = _clean_cell_value(cell)
-        if val and val != "[単位：票]":
+        if val and val != "[単位：票]" and not val.startswith("="):
             district_name = zen_to_han(val)
             break
+
+    # シート名をフォールバックとして使用（XLSファイルのシート名は都道府県名）
+    if not district_name and sheet_name:
+        district_name = zen_to_han(sheet_name)
 
     if not district_name:
         logger.debug("選挙区名が取得できません")
         return [], None
+
+    # 合区正規化（第24回以降: 鳥取県→鳥取県・島根県 等）
+    if election_number is not None and election_number >= GOUKU_START_ELECTION:
+        normalized = GOUKU_MAPPING.get(district_name)
+        if normalized:
+            district_name = normalized
 
     # タイトル確認（参議院選挙区データかチェック）
     title_row = _clean_cell_value(rows[1][1]) if len(rows[1]) > 1 else None

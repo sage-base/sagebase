@@ -50,7 +50,9 @@ SANGIIN_ELECTION_DATES: dict[int, date] = {
 }
 
 # XLSリンクのラベルパターン（選挙区候補者別得票数を優先）
-SANGIIN_VOTE_DATA_LABELS = ["選挙結果", "得票数", "候補者"]
+# ページには「選挙区」「政党別」「候補者別」の3リンクがあり、
+# 「選挙区」が選挙区候補者別データ、「候補者別」は比例代表なので注意
+SANGIIN_VOTE_DATA_LABELS = ["選挙区", "選挙結果", "得票数"]
 
 
 @dataclass

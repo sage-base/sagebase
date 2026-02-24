@@ -13,8 +13,22 @@ from src.infrastructure.importers.soumu_sangiin_election_scraper import (
 class TestFindCandidateXlsUrl:
     """候補者別XLS URL検索のテスト."""
 
-    def test_senkyokekka_label_preferred(self) -> None:
-        """「選挙結果」ラベルが最優先される."""
+    def test_senkyoku_label_preferred(self) -> None:
+        """「選挙区」ラベルが最優先される."""
+        html = """
+        <html><body>
+        <a href="senkyoku.xlsx">選挙区</a>
+        <a href="party.xlsx">政党別</a>
+        <a href="candidate.xlsx">候補者別</a>
+        </body></html>
+        """
+        soup = BeautifulSoup(html, "html.parser")
+        result = _find_candidate_xls_url(soup, "https://example.com/page.html")
+        assert result is not None
+        assert result[1] == "https://example.com/senkyoku.xlsx"
+
+    def test_senkyokekka_label_fallback(self) -> None:
+        """「選挙結果」ラベルにフォールバックする."""
         html = """
         <html><body>
         <a href="other.xls">その他データ</a>
@@ -40,19 +54,6 @@ class TestFindCandidateXlsUrl:
         result = _find_candidate_xls_url(soup, "https://example.com/page.html")
         assert result is not None
         assert result[1] == "https://example.com/votes.xlsx"
-
-    def test_kouhosya_label_fallback(self) -> None:
-        """「候補者」ラベルにフォールバックする."""
-        html = """
-        <html><body>
-        <a href="candidate.xls">候補者別データ</a>
-        <a href="rate.xlsx">得票率</a>
-        </body></html>
-        """
-        soup = BeautifulSoup(html, "html.parser")
-        result = _find_candidate_xls_url(soup, "https://example.com/page.html")
-        assert result is not None
-        assert result[1] == "https://example.com/candidate.xls"
 
     def test_first_xls_as_fallback(self) -> None:
         """ラベルが一致しない場合、最初のXLSリンクを返す."""
