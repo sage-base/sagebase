@@ -98,10 +98,14 @@ class ImportNationalElectionUseCase:
             return output
 
         # 2. Electionレコード作成
+        kwargs: dict[str, object] = {}
+        if input_dto.election_type is not None:
+            kwargs["election_type"] = input_dto.election_type
         election = await self._import_service.get_or_create_election(
             input_dto.governing_body_id,
             input_dto.election_number,
             election_date,
+            **kwargs,  # type: ignore[arg-type]
         )
         if election is None or election.id is None:
             output.errors = 1
