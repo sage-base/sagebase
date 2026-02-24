@@ -37,8 +37,6 @@ _IDX_SANGIIN_PLENARY_RESULT = 21  # 参議院本会議経過情報 - 議決
 _IDX_SANGIIN_VOTE_MANNER = 23  # 参議院本会議経過情報 - 採決態様
 _IDX_SANGIIN_VOTE_METHOD = 24  # 参議院本会議経過情報 - 採決方法
 
-_SOURCE_URL = "smartnews-smri/house-of-councillors"
-
 # 提出者区分 → SubmitterType マッピング
 _SUBMITTER_TYPE_MAP: dict[str, SubmitterType] = {
     "議員": SubmitterType.POLITICIAN,

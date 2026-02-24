@@ -319,6 +319,36 @@ class TestSmartNewsSmriSangiinGianImporterParseSubmitter:
         assert submitter.raw_name == "鈴木一郎"
 
 
+class TestSmartNewsSmriSangiinGianImporterShortRow:
+    """カラム不足の短い行のハンドリングテスト."""
+
+    @pytest.fixture
+    def importer(self) -> SmartNewsSmriSangiinGianImporter:
+        return SmartNewsSmriSangiinGianImporter(governing_body_id=1, conference_id=10)
+
+    def test_parse_record_short_row(
+        self, importer: SmartNewsSmriSangiinGianImporter
+    ) -> None:
+        """最低限のフィールド（タイトルまで）だけの行でもパースできることを確認."""
+        short_row: list[Any] = ["153", "法律案（内閣提出）", "153", "1", "短い行の法案"]
+        proposal = importer.parse_record(short_row)
+
+        assert proposal.title == "短い行の法案"
+        assert proposal.session_number == 153
+        assert proposal.submitted_date is None
+        assert proposal.voted_date is None
+        assert proposal.external_id is None
+
+    def test_parse_submitter_short_row(
+        self, importer: SmartNewsSmriSangiinGianImporter
+    ) -> None:
+        """カラム不足の行では提出者がNoneになることを確認."""
+        short_row: list[Any] = ["153", "法律案（内閣提出）", "153", "1", "法案"]
+        submitter = importer.parse_submitter(short_row, proposal_id=1)
+
+        assert submitter is None
+
+
 class TestSmartNewsSmriSangiinGianImporterParseIsoDate:
     def test_valid_date(self) -> None:
         result = SmartNewsSmriSangiinGianImporter._parse_iso_date("2001-09-28")

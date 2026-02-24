@@ -273,3 +273,55 @@ class TestImportSangiinGianUseCase:
 
         assert result.created == 1
         assert result.submitters_created == 0
+
+    @pytest.mark.asyncio
+    async def test_execute_batch_splitting(
+        self,
+        use_case: ImportSangiinGianUseCase,
+        mock_repo: AsyncMock,
+    ) -> None:
+        """batch_sizeが小さい場合にバッチ分割が正しく動作することを確認."""
+        records = [
+            _make_sangiin_row(title="法案1", proposal_number="1"),
+            _make_sangiin_row(title="法案2", proposal_number="2"),
+            _make_sangiin_row(title="法案3", proposal_number="3"),
+        ]
+        file_path = _write_json(records)
+
+        input_dto = ImportSmartNewsSmriInputDto(
+            file_path=file_path,
+            governing_body_id=1,
+            conference_id=10,
+            batch_size=2,
+        )
+        result = await use_case.execute(input_dto)
+
+        assert result.total == 3
+        assert result.created == 3
+        assert result.errors == 0
+
+    @pytest.mark.asyncio
+    async def test_execute_submitter_bulk_create_failure(
+        self,
+        use_case: ImportSangiinGianUseCase,
+        mock_repo: AsyncMock,
+        mock_submitter_repo: AsyncMock,
+    ) -> None:
+        """提出者のbulk_createが失敗してもproposal作成は成功することを確認."""
+        mock_submitter_repo.bulk_create = AsyncMock(
+            side_effect=RuntimeError("DB error")
+        )
+        records = [
+            _make_sangiin_row(submitter="山田太郎", submitter_type="議員"),
+        ]
+        file_path = _write_json(records)
+
+        input_dto = ImportSmartNewsSmriInputDto(
+            file_path=file_path,
+            governing_body_id=1,
+            conference_id=10,
+        )
+        result = await use_case.execute(input_dto)
+
+        assert result.created == 1
+        assert result.submitters_created == 0
