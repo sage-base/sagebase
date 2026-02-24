@@ -6,6 +6,7 @@ from src.domain.entities.base import BaseEntity
 
 
 PROPOSAL_CATEGORY_MAP: dict[str, str] = {
+    # 衆議院（短縮形）
     "衆法": "legislation",
     "閣法": "legislation",
     "参法": "legislation",
@@ -22,6 +23,15 @@ PROPOSAL_CATEGORY_MAP: dict[str, str] = {
     "議決": "other",
     "国庫債務": "other",
     "憲法八条議決案": "other",
+    # 参議院（長形式）
+    "法律案（内閣提出）": "legislation",
+    "法律案（衆議院提出）": "legislation",
+    "法律案（参議院提出）": "legislation",
+    "承認案件": "approval",
+    "決議案": "other",
+    "承諾案件": "approval",
+    "予算案": "budget",
+    "条約及び国際約束": "treaty",
 }
 
 DELIBERATION_RESULT_MAP: dict[str, str] = {
@@ -51,6 +61,12 @@ DELIBERATION_RESULT_MAP: dict[str, str] = {
     "参議院回付案（不同意）": "rejected",
     "承諾なし": "rejected",
     "衆議院で併合修正": "other",
+    # 参議院gian.json固有の議決結果
+    "可決": "passed",
+    "否決": "rejected",
+    "修正": "passed",
+    "みなし否決": "rejected",
+    "審議未了": "expired",
 }
 
 
