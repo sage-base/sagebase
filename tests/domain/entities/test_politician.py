@@ -17,7 +17,6 @@ class TestPolitician:
         assert politician.name == "山田太郎"
         assert politician.prefecture == "東京都"
         assert politician.district == "東京1区"
-        assert politician.political_party_id is None
         assert politician.furigana is None
         assert politician.profile_page_url is None
         assert politician.party_position is None
@@ -29,7 +28,6 @@ class TestPolitician:
             id=1,
             name="田中花子",
             prefecture="東京都",
-            political_party_id=10,
             furigana="たなかはなこ",
             district="東京1区",
             profile_page_url="https://example.com/tanaka",
@@ -39,7 +37,6 @@ class TestPolitician:
         assert politician.id == 1
         assert politician.name == "田中花子"
         assert politician.prefecture == "東京都"
-        assert politician.political_party_id == 10
         assert politician.furigana == "たなかはなこ"
         assert politician.district == "東京1区"
         assert politician.profile_page_url == "https://example.com/tanaka"
@@ -65,7 +62,6 @@ class TestPolitician:
         assert politician.name == "山田太郎"
         assert politician.prefecture == "東京都"
         assert politician.district == "東京1区"
-        assert politician.political_party_id is None
         assert politician.furigana is None
         assert politician.profile_page_url is None
         assert politician.party_position is None
@@ -76,7 +72,6 @@ class TestPolitician:
             id=99,
             name="渡辺五郎",
             prefecture="大阪府",
-            political_party_id=5,
             furigana="わたなべごろう",
             district="大阪3区",
             profile_page_url="https://example.com/watanabe",
@@ -86,31 +81,10 @@ class TestPolitician:
         assert politician.id == 99
         assert politician.name == "渡辺五郎"
         assert politician.prefecture == "大阪府"
-        assert politician.political_party_id == 5
         assert politician.furigana == "わたなべごろう"
         assert politician.district == "大阪3区"
         assert politician.profile_page_url == "https://example.com/watanabe"
         assert politician.party_position == "政調会長"
-
-    def test_different_political_parties(self) -> None:
-        """Test politicians with different political parties."""
-        # Politician with party
-        ldp_politician = Politician(
-            name="自民太郎",
-            prefecture="東京都",
-            district="東京1区",
-            political_party_id=1,
-        )
-        assert ldp_politician.political_party_id == 1
-
-        # Independent politician
-        independent = Politician(
-            name="無所属花子",
-            prefecture="東京都",
-            district="東京1区",
-            political_party_id=None,
-        )
-        assert independent.political_party_id is None
 
     def test_various_districts(self) -> None:
         """Test various district formats."""
@@ -206,7 +180,6 @@ class TestPolitician:
         party_leader = Politician(
             name="党首太郎",
             prefecture="東京都",
-            political_party_id=1,
             furigana="とうしゅたろう",
             district="東京1区",
             profile_page_url="https://example.com/leader",
@@ -220,20 +193,17 @@ class TestPolitician:
         independent = Politician(
             name="無所属花子",
             prefecture="大阪府",
-            political_party_id=None,
             furigana="むしょぞくはなこ",
             district="大阪3区",
             profile_page_url="https://example.com/independent",
             party_position=None,
         )
-        assert independent.political_party_id is None
         assert independent.party_position is None
 
         # Proportional representation politician
         pr_politician = Politician(
             name="比例一郎",
             prefecture="比例代表",
-            political_party_id=2,
             furigana="ひれいいちろう",
             district="全国比例",
             profile_page_url="https://example.com/pr",
@@ -289,14 +259,12 @@ class TestPolitician:
         politician = Politician(
             name="Test Politician",
             prefecture="東京都",
-            political_party_id=None,
             furigana=None,
             district=None,
             profile_page_url=None,
             party_position=None,
         )
 
-        assert politician.political_party_id is None
         assert politician.furigana is None
         assert politician.district is None
         assert politician.profile_page_url is None

@@ -69,6 +69,15 @@ class PartyMembershipHistoryRepository(BaseRepository[PartyMembershipHistory]):
         pass
 
     @abstractmethod
+    async def get_current_party_name_map(self) -> dict[int, str]:
+        """現在有効な全政治家のpolitician_id→政党名マッピングを取得する.
+
+        Returns:
+            politician_id → 政党名のマッピング（end_dateがNULLの履歴のみ）
+        """
+        pass
+
+    @abstractmethod
     async def end_membership(
         self, membership_id: int, end_date: date
     ) -> PartyMembershipHistory | None:

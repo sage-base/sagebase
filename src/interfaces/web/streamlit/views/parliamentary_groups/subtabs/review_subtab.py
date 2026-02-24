@@ -389,18 +389,7 @@ def _execute_politician_search(
     # Search with name only (party filtering done below)
     politicians = presenter.search_politicians(search_name, None)
 
-    # Filter by party name if specified
-    if party_filter != "すべて" and politicians:
-        # Get party names for filtering
-        filtered_politicians = []
-        for p in politicians:
-            if p.political_party_id:
-                party_name = presenter.get_party_name_by_id(p.political_party_id)
-                if party_filter.lower() in party_name.lower():
-                    filtered_politicians.append(p)
-            elif party_filter == "無所属":
-                filtered_politicians.append(p)
-        politicians = filtered_politicians
+    # 政党フィルタリングは省略（party_membership_history経由の実装が必要）
 
     # Store search results in session state
     st.session_state[search_key] = politicians
@@ -425,11 +414,8 @@ def _display_search_results(
 
         # Display politician options with party names
         def format_politician(p: Any) -> str:
-            party_name = "無所属"
-            if p.political_party_id:
-                party_name = presenter.get_party_name_by_id(p.political_party_id)
             district = p.district or "-"
-            return f"{p.name} ({party_name}) - {district}"
+            return f"{p.name} - {district}"
 
         politician_options = [format_politician(p) for p in politicians]
         politician_map = {format_politician(p): p.id for p in politicians if p.id}

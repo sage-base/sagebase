@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.party_membership_history import PartyMembershipHistory
@@ -116,6 +116,17 @@ class PartyMembershipHistoryRepositoryImpl(
             if model.politician_id not in history_map:
                 history_map[model.politician_id] = self._to_entity(model)
         return history_map
+
+    async def get_current_party_name_map(self) -> dict[int, str]:
+        """現在有効な全政治家のpolitician_id→政党名マッピングを取得する."""
+        query = text("""
+            SELECT pmh.politician_id, pp.name as party_name
+            FROM party_membership_history pmh
+            JOIN political_parties pp ON pmh.political_party_id = pp.id
+            WHERE pmh.end_date IS NULL
+        """)
+        result = await self.session.execute(query)
+        return {row.politician_id: row.party_name for row in result}
 
     async def end_membership(
         self, membership_id: int, end_date: date

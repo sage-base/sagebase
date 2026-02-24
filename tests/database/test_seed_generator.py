@@ -234,20 +234,18 @@ class TestSeedGenerator:
         assert "INSERT INTO politicians" in result
         assert "-- 自由民主党" in result
         assert (
-            "('山田太郎', (SELECT id FROM political_parties "
-            "WHERE name = '自由民主党'), '東京都', 'やまだたろう', '東京1区', "
-            "'https://example.com/yamada')" in result
+            "('山田太郎', '東京都', 'やまだたろう', "
+            "'東京1区', 'https://example.com/yamada')" in result
         )
         assert "-- 立憲民主党" in result
         assert (
-            "('佐藤花子', (SELECT id FROM political_parties "
-            "WHERE name = '立憲民主党'), '大阪府', 'さとうはなこ', '大阪府', "
-            "'https://example.com/sato')" in result
+            "('佐藤花子', '大阪府', 'さとうはなこ', "
+            "'大阪府', 'https://example.com/sato')" in result
         )
         assert "-- 無所属" in result
         assert (
-            "('鈴木一郎', NULL, '北海道', NULL, '北海道1区', "
-            "'https://example.com/suzuki')" in result
+            "('鈴木一郎', '北海道', NULL, "
+            "'北海道1区', 'https://example.com/suzuki')" in result
         )
         assert ";" in result
 

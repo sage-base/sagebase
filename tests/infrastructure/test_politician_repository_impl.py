@@ -46,7 +46,6 @@ def sample_politician():
         id=1,
         name="テスト太郎",
         prefecture="東京都",
-        political_party_id=2,
         furigana="てすとたろう",
         district="東京1区",
         profile_page_url="https://example.com/politician/1",
@@ -59,7 +58,6 @@ def sample_politician_row():
     return {
         "id": 1,
         "name": "テスト太郎",
-        "political_party_id": 2,
         "furigana": "てすとたろう",
         "prefecture": None,
         "district": "東京1区",
@@ -118,7 +116,6 @@ class TestPoliticianRepositoryImplConversions:
         assert isinstance(entity, Politician)
         assert entity.id == 1
         assert entity.name == "テスト太郎"
-        assert entity.political_party_id == 2
         assert entity.furigana == "てすとたろう"
         assert entity.district == "東京1区"  # electoral_district → district mapping
         assert (
@@ -132,7 +129,6 @@ class TestPoliticianRepositoryImplConversions:
             "name": "最小太郎",
             "prefecture": "東京都",
             "district": "東京1区",
-            "political_party_id": 3,
         }
 
         mock_row = MagicMock()
@@ -146,7 +142,6 @@ class TestPoliticianRepositoryImplConversions:
         assert entity.name == "最小太郎"
         assert entity.prefecture == "東京都"
         assert entity.district == "東京1区"
-        assert entity.political_party_id == 3
         assert entity.profile_page_url is None
 
     def test_row_to_entity_with_dict_input(self, async_repository):
@@ -154,7 +149,6 @@ class TestPoliticianRepositoryImplConversions:
         row_dict = {
             "id": 2,
             "name": "辞書太郎",
-            "political_party_id": 4,
             "district": "大阪1区",
             "profile_page_url": "https://example.com/dict",
         }
@@ -194,7 +188,6 @@ class TestPoliticianRepositoryImplConversions:
 
         assert model.id == 1
         assert model.name == "テスト太郎"
-        assert model.political_party_id == 2
         assert model.furigana == "てすとたろう"
         assert model.district == "東京1区"
         assert model.profile_page_url == "https://example.com/politician/1"
@@ -207,13 +200,11 @@ class TestPoliticianRepositoryImplConversions:
             name="最小太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=3,
         )
 
         model = async_repository._to_model(minimal_politician)
 
         assert model.name == "最小太郎"
-        assert model.political_party_id == 3
         assert model.district == "東京1区"
         assert model.profile_page_url is None
 
@@ -224,7 +215,6 @@ class TestPoliticianRepositoryImplConversions:
         async_repository._update_model(mock_model, sample_politician)
 
         assert mock_model.name == "テスト太郎"
-        assert mock_model.political_party_id == 2
         assert mock_model.furigana == "てすとたろう"
         assert mock_model.district == "東京1区"
         assert mock_model.profile_page_url == "https://example.com/politician/1"
@@ -239,7 +229,6 @@ class TestPoliticianRepositoryImplConversions:
             name="新名前",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=5,
             furigana="しんなまえ",
         )
 
@@ -247,7 +236,6 @@ class TestPoliticianRepositoryImplConversions:
 
         assert mock_model.name == "新名前"
         assert mock_model.furigana == "しんなまえ"
-        assert mock_model.political_party_id == 5
 
 
 class TestPoliticianRepositoryImplCRUD:
@@ -292,13 +280,11 @@ class TestPoliticianRepositoryImplCRUD:
         row1_data = {
             "id": 1,
             "name": "太郎",
-            "political_party_id": 1,
             "party_name": "党A",
         }
         row2_data = {
             "id": 2,
             "name": "次郎",
-            "political_party_id": 2,
             "party_name": "党B",
         }
 
@@ -338,7 +324,6 @@ class TestPoliticianRepositoryImplCRUD:
         mock_row._mapping = {
             "id": 100,
             "name": sample_politician.name,
-            "political_party_id": sample_politician.political_party_id,
             "district": sample_politician.district,
             "profile_page_url": sample_politician.profile_page_url,
             "furigana": sample_politician.furigana,
@@ -376,7 +361,6 @@ class TestPoliticianRepositoryImplCRUD:
             name="更新太郎",
             prefecture="東京都",
             district="東京5区",
-            political_party_id=3,
             furigana="こうしんたろう",
         )
 
@@ -384,7 +368,6 @@ class TestPoliticianRepositoryImplCRUD:
         mock_row._mapping = {
             "id": 50,
             "name": "更新太郎",
-            "political_party_id": 3,
             "furigana": "こうしんたろう",
             "district": None,
             "profile_page_url": None,
@@ -413,7 +396,6 @@ class TestPoliticianRepositoryImplCRUD:
             name="存在しない",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
 
         mock_result = MagicMock()
@@ -458,41 +440,6 @@ class TestPoliticianRepositoryImplQueryMethods:
     """
 
     @pytest.mark.asyncio
-    async def test_get_by_party(self, async_repository):
-        """Test get_by_party returns all politicians for a party"""
-        row1_data = {"id": 1, "name": "党員1", "political_party_id": 2}
-        row2_data = {"id": 2, "name": "党員2", "political_party_id": 2}
-
-        mock_rows = []
-        for row_data in [row1_data, row2_data]:
-            mock_row = MagicMock()
-            mock_row._mapping = row_data
-            for key, value in row_data.items():
-                setattr(mock_row, key, value)
-            mock_rows.append(mock_row)
-
-        mock_result = MagicMock()
-        mock_result.fetchall.return_value = mock_rows
-        async_repository.session.execute = AsyncMock(return_value=mock_result)
-
-        results = await async_repository.get_by_party(2)
-
-        assert len(results) == 2
-        assert results[0].name == "党員1"
-        assert results[1].name == "党員2"
-
-    @pytest.mark.asyncio
-    async def test_get_by_party_empty(self, async_repository):
-        """Test get_by_party returns empty list when no politicians found"""
-        mock_result = MagicMock()
-        mock_result.fetchall.return_value = []
-        async_repository.session.execute = AsyncMock(return_value=mock_result)
-
-        results = await async_repository.get_by_party(999)
-
-        assert results == []
-
-    @pytest.mark.asyncio
     async def test_get_all_for_matching(self, async_repository):
         """Test get_all_for_matching returns politicians with relevant fields"""
         row1_data = {
@@ -532,10 +479,8 @@ class TestPoliticianRepositoryImplQueryMethods:
         assert results[1]["party_name"] == "サンプル党"
 
     @pytest.mark.asyncio
-    async def test_get_by_name_and_party_found(
-        self, async_repository, sample_politician_row
-    ):
-        """Test get_by_name_and_party returns politician when found"""
+    async def test_get_by_name_found(self, async_repository, sample_politician_row):
+        """Test get_by_name returns politician when found"""
         mock_row = MagicMock()
         mock_row._mapping = sample_politician_row
         for key, value in sample_politician_row.items():
@@ -547,28 +492,27 @@ class TestPoliticianRepositoryImplQueryMethods:
         # session.execute IS async
         async_repository.session.execute = AsyncMock(return_value=mock_result)
 
-        result = await async_repository.get_by_name_and_party("テスト太郎", 2)
+        result = await async_repository.get_by_name("テスト太郎")
 
         assert result is not None
         assert result.name == "テスト太郎"
-        assert result.political_party_id == 2
 
     @pytest.mark.asyncio
-    async def test_get_by_name_and_party_not_found(self, async_repository):
-        """Test get_by_name_and_party returns None when not found"""
+    async def test_get_by_name_not_found(self, async_repository):
+        """Test get_by_name returns None when not found"""
         mock_result = MagicMock()
         mock_result.fetchone.return_value = None
         async_repository.session.execute = AsyncMock(return_value=mock_result)
 
-        result = await async_repository.get_by_name_and_party("存在しない", 999)
+        result = await async_repository.get_by_name("存在しない")
 
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_by_name_and_party_without_party_id(
+    async def test_get_by_name_search_by_name_only(
         self, async_repository, sample_politician_row
     ):
-        """Test get_by_name_and_party with None party_id searches by name only"""
+        """Test get_by_name searches by name only"""
         mock_row = MagicMock()
         mock_row._mapping = sample_politician_row
         for key, value in sample_politician_row.items():
@@ -578,7 +522,7 @@ class TestPoliticianRepositoryImplQueryMethods:
         mock_result.fetchone.return_value = mock_row
         async_repository.session.execute = AsyncMock(return_value=mock_result)
 
-        result = await async_repository.get_by_name_and_party("テスト太郎", None)
+        result = await async_repository.get_by_name("テスト太郎")
 
         assert result is not None
         assert result.name == "テスト太郎"
@@ -589,13 +533,11 @@ class TestPoliticianRepositoryImplQueryMethods:
         row1 = {
             "id": 1,
             "name": "テスト太郎",
-            "political_party_id": 2,
             "district": "東京1区",
         }
         row2 = {
             "id": 2,
             "name": "テスト次郎",
-            "political_party_id": 3,
             "district": "東京2区",
         }
 
@@ -635,19 +577,17 @@ class TestPoliticianRepositoryImplQueryMethods:
             name="新規太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=4,
             furigana="しんきたろう",
         )
 
         with patch.object(
-            async_repository, "get_by_name_and_party", return_value=None
+            async_repository, "get_by_name", return_value=None
         ) as mock_get:
             created_politician = Politician(
                 id=10,
                 name="新規太郎",
                 prefecture="東京都",
                 district="東京1区",
-                political_party_id=4,
                 furigana="しんきたろう",
             )
             with patch.object(
@@ -657,7 +597,7 @@ class TestPoliticianRepositoryImplQueryMethods:
 
                 assert result.id == 10
                 assert result.name == "新規太郎"
-                mock_get.assert_called_once_with("新規太郎", 4)
+                mock_get.assert_called_once_with("新規太郎")
                 mock_create.assert_called_once()
 
     @pytest.mark.asyncio
@@ -668,25 +608,22 @@ class TestPoliticianRepositoryImplQueryMethods:
             name="既存太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=6,
             furigana="きそんたろう",
         )
         update_data = Politician(
             name="既存太郎",
             prefecture="東京都",
-            political_party_id=6,
             furigana="きそんたろう",
             district="更新区",
         )
 
         with patch.object(
-            async_repository, "get_by_name_and_party", return_value=existing
+            async_repository, "get_by_name", return_value=existing
         ) as mock_get:
             updated = Politician(
                 id=5,
                 name="既存太郎",
                 prefecture="東京都",
-                political_party_id=6,
                 furigana="きそんたろう",
                 district="更新区",
             )
@@ -724,31 +661,6 @@ class TestPoliticianRepositoryImplQueryMethods:
 
         assert count == 0
 
-    @pytest.mark.asyncio
-    async def test_count_by_party(self, async_repository):
-        """Test count_by_party returns count for specific party"""
-        mock_row = MagicMock()
-        mock_row.count = 15
-
-        mock_result = MagicMock()
-        mock_result.first.return_value = mock_row
-        async_repository.session.execute = AsyncMock(return_value=mock_result)
-
-        count = await async_repository.count_by_party(2)
-
-        assert count == 15
-
-    @pytest.mark.asyncio
-    async def test_count_by_party_returns_zero_when_none(self, async_repository):
-        """Test count_by_party returns 0 when no row found"""
-        mock_result = MagicMock()
-        mock_result.first.return_value = None
-        async_repository.session.execute = AsyncMock(return_value=mock_result)
-
-        count = await async_repository.count_by_party(999)
-
-        assert count == 0
-
 
 class TestPoliticianRepositoryImplBulkOperations:
     """Test bulk operations with mocked responses"""
@@ -759,12 +671,10 @@ class TestPoliticianRepositoryImplBulkOperations:
         politicians_data = [
             {
                 "name": "バルク太郎",
-                "political_party_id": 7,
                 "electoral_district": "神奈川1区",
             },
             {
                 "name": "バルク次郎",
-                "political_party_id": 7,
                 "electoral_district": "神奈川2区",
             },
         ]
@@ -773,19 +683,17 @@ class TestPoliticianRepositoryImplBulkOperations:
             id=20,
             name="バルク太郎",
             prefecture="神奈川県",
-            political_party_id=7,
             district="神奈川1区",
         )
         created_politician2 = Politician(
             id=21,
             name="バルク次郎",
             prefecture="神奈川県",
-            political_party_id=7,
             district="神奈川2区",
         )
 
-        # Mock get_by_name_and_party to return None (not exists)
-        with patch.object(async_repository, "get_by_name_and_party", return_value=None):
+        # Mock get_by_name to return None (not exists)
+        with patch.object(async_repository, "get_by_name", return_value=None):
             # Mock create_entity to return created politicians
             with patch.object(
                 async_repository,
@@ -811,7 +719,6 @@ class TestPoliticianRepositoryImplBulkOperations:
         politicians_data = [
             {
                 "name": "既存太郎",
-                "political_party_id": 8,
                 "electoral_district": "新区画",
                 "profile_url": "https://example.com/new",
             }
@@ -821,7 +728,6 @@ class TestPoliticianRepositoryImplBulkOperations:
             id=30,
             name="既存太郎",
             prefecture="東京都",
-            political_party_id=8,
             district="旧区画",
             profile_page_url="https://example.com/old",
         )
@@ -829,14 +735,11 @@ class TestPoliticianRepositoryImplBulkOperations:
             id=30,
             name="既存太郎",
             prefecture="東京都",
-            political_party_id=8,
             district="新区画",
             profile_page_url="https://example.com/new",
         )
 
-        with patch.object(
-            async_repository, "get_by_name_and_party", return_value=existing
-        ):
+        with patch.object(async_repository, "get_by_name", return_value=existing):
             with patch.object(async_repository, "update", return_value=updated):
                 async_repository.session.commit = AsyncMock()
 
@@ -855,12 +758,12 @@ class TestPoliticianRepositoryImplBulkOperations:
         from sqlalchemy.exc import IntegrityError as SQLIntegrityError
 
         politicians_data = [
-            {"name": "エラー太郎", "political_party_id": 9},
-            {"name": "成功太郎", "political_party_id": 9},
+            {"name": "エラー太郎"},
+            {"name": "成功太郎"},
         ]
 
         # First politician causes error, second succeeds
-        def side_effect_get(name, party_id):
+        def side_effect_get(name):
             if name == "エラー太郎":
                 raise SQLIntegrityError("statement", "params", "orig")
             return None
@@ -870,12 +773,9 @@ class TestPoliticianRepositoryImplBulkOperations:
             name="成功太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=9,
         )
 
-        with patch.object(
-            async_repository, "get_by_name_and_party", side_effect=side_effect_get
-        ):
+        with patch.object(async_repository, "get_by_name", side_effect=side_effect_get):
             with patch.object(async_repository, "create_entity", return_value=created):
                 async_repository.session.commit = AsyncMock()
 

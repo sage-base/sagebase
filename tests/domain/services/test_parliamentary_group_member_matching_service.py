@@ -68,7 +68,6 @@ class TestParliamentaryGroupMemberMatchingService:
             name="田中太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
             id=100,
         )
         mock_politician_repo.search_by_name.return_value = [politician]
@@ -101,7 +100,6 @@ class TestParliamentaryGroupMemberMatchingService:
             name="佐藤はな子",
             prefecture="東京都",
             district="東京2区",
-            political_party_id=2,
             id=200,
         )
         mock_politician_repo.search_by_name.return_value = [politician]

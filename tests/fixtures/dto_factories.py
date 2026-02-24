@@ -88,7 +88,6 @@ def create_politician_dto(**kwargs: Any) -> PoliticianDTO:
         "id": 1,
         "name": "山田太郎",
         "speaker_id": 1,
-        "political_party_id": 1,
         "political_party_name": "自民党",
         "furigana": None,
         "district": None,

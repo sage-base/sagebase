@@ -453,7 +453,9 @@ class SeedGenerator:
                         p.profile_page_url,
                         pp.name as party_name
                     FROM politicians p
-                    LEFT JOIN political_parties pp ON p.political_party_id = pp.id
+                    LEFT JOIN party_membership_history pmh
+                        ON p.id = pmh.politician_id AND pmh.end_date IS NULL
+                    LEFT JOIN political_parties pp ON pmh.political_party_id = pp.id
                     ORDER BY pp.name, p.name
                 """)
             )
@@ -469,7 +471,7 @@ class SeedGenerator:
             "",
             (
                 "INSERT INTO politicians "
-                "(name, political_party_id, prefecture, furigana, "
+                "(name, prefecture, furigana, "
                 "district, profile_page_url) VALUES"
             ),
         ]
@@ -526,18 +528,8 @@ class SeedGenerator:
                     else "NULL"
                 )
 
-                # political_party_idの処理
-                if party_name != "_無所属_":
-                    party_name_escaped = party_name.replace("'", "''")
-                    party_id_part = (
-                        f"(SELECT id FROM political_parties "
-                        f"WHERE name = '{party_name_escaped}')"
-                    )
-                else:
-                    party_id_part = "NULL"
-
                 lines.append(
-                    f"('{name}', {party_id_part}, {prefecture}, {furigana}, "
+                    f"('{name}', {prefecture}, {furigana}, "
                     f"{district}, {profile_page_url}){comma}"
                 )
 

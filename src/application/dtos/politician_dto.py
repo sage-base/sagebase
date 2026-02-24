@@ -20,7 +20,6 @@ class CreatePoliticianDTO:
     """DTO for creating a politician."""
 
     name: str
-    political_party_id: int | None = None
     furigana: str | None = None
     district: str | None = None
     profile_page_url: str | None = None
@@ -33,7 +32,6 @@ class UpdatePoliticianDTO:
 
     id: int
     name: str | None = None
-    political_party_id: int | None = None
     furigana: str | None = None
     district: str | None = None
     profile_page_url: str | None = None
@@ -46,7 +44,6 @@ class PoliticianDTO:
 
     id: int
     name: str
-    political_party_id: int | None
     political_party_name: str | None
     furigana: str | None
     district: str | None
@@ -64,7 +61,6 @@ class PoliticianDTO:
 class PoliticianListInputDto:
     """Input DTO for listing politicians."""
 
-    party_id: int | None = None
     search_name: str | None = None
 
 
@@ -76,7 +72,6 @@ class PoliticianOutputItem:
     name: str
     prefecture: str
     district: str
-    political_party_id: int | None
     furigana: str | None
     profile_page_url: str | None
     party_position: str | None
@@ -89,7 +84,6 @@ class PoliticianOutputItem:
             name=entity.name,
             prefecture=entity.prefecture,
             district=entity.district,
-            political_party_id=entity.political_party_id,
             furigana=entity.furigana,
             profile_page_url=entity.profile_page_url,
             party_position=entity.party_position,
@@ -110,7 +104,6 @@ class CreatePoliticianInputDto:
     name: str
     prefecture: str
     district: str
-    party_id: int | None = None
     profile_url: str | None = None
     user_id: UUID | None = None  # 操作ユーザーID（ログ記録用）
 
@@ -132,7 +125,6 @@ class UpdatePoliticianInputDto:
     name: str
     prefecture: str
     district: str
-    party_id: int | None = None
     profile_url: str | None = None
     user_id: UUID | None = None  # 操作ユーザーID（ログ記録用）
 

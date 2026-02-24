@@ -11,7 +11,6 @@ class Politician(BaseEntity):
         name: str,
         prefecture: str,
         district: str,
-        political_party_id: int | None = None,
         furigana: str | None = None,
         profile_page_url: str | None = None,
         party_position: str | None = None,
@@ -21,7 +20,6 @@ class Politician(BaseEntity):
         self.name = name
         self.prefecture = prefecture
         self.district = district
-        self.political_party_id = political_party_id
         self.furigana = furigana
         self.profile_page_url = profile_page_url
         self.party_position = party_position

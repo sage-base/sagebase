@@ -20,6 +20,9 @@ from src.application.usecases.manage_politicians_usecase import (
 from src.common.logging import get_logger
 from src.domain.entities import PoliticalParty
 from src.infrastructure.di.container import Container
+from src.infrastructure.persistence.party_membership_history_repository_impl import (
+    PartyMembershipHistoryRepositoryImpl,
+)
 from src.infrastructure.persistence.political_party_repository_impl import (
     PoliticalPartyRepositoryImpl,
 )
@@ -44,6 +47,9 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
         # Initialize repositories and use case
         self.politician_repo = RepositoryAdapter(PoliticianRepositoryImpl)
         self.party_repo = RepositoryAdapter(PoliticalPartyRepositoryImpl)
+        self.party_history_repo = RepositoryAdapter(
+            PartyMembershipHistoryRepositoryImpl
+        )
         self.operation_log_repo = RepositoryAdapter(
             PoliticianOperationLogRepositoryImpl
         )
@@ -87,20 +93,18 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
             return []
 
     def load_politicians_with_filters(
-        self, party_id: int | None = None, search_name: str | None = None
+        self, search_name: str | None = None
     ) -> list[PoliticianOutputItem]:
         """Load politicians with filters."""
-        return self._run_async(
-            self._load_politicians_with_filters_async(party_id, search_name)
-        )
+        return self._run_async(self._load_politicians_with_filters_async(search_name))
 
     async def _load_politicians_with_filters_async(
-        self, party_id: int | None = None, search_name: str | None = None
+        self, search_name: str | None = None
     ) -> list[PoliticianOutputItem]:
         """Load politicians with filters (async implementation)."""
         try:
             result = await self.use_case.list_politicians(
-                PoliticianListInputDto(party_id=party_id, search_name=search_name)
+                PoliticianListInputDto(search_name=search_name)
             )
             return result.politicians
         except Exception as e:
@@ -119,27 +123,35 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
             self.logger.error(f"Failed to get parties: {e}")
             return []
 
+    def get_politician_party_map(self) -> dict[int, str]:
+        """politician_id→政党名マッピングを取得（履歴経由）."""
+        return self._run_async(self._get_politician_party_map_async())
+
+    async def _get_politician_party_map_async(self) -> dict[int, str]:
+        """politician_id → 政党名のマッピングを取得する（async）."""
+        try:
+            return await self.party_history_repo.get_current_party_name_map()
+        except Exception as e:
+            self.logger.error(f"Failed to get politician party map: {e}")
+            return {}
+
     def create(
         self,
         name: str,
         prefecture: str,
-        party_id: int | None,
         district: str,
         profile_url: str | None = None,
         user_id: UUID | None = None,
     ) -> tuple[bool, int | None, str | None]:
         """Create a new politician."""
         return self._run_async(
-            self._create_async(
-                name, prefecture, party_id, district, profile_url, user_id
-            )
+            self._create_async(name, prefecture, district, profile_url, user_id)
         )
 
     async def _create_async(
         self,
         name: str,
         prefecture: str,
-        party_id: int | None,
         district: str,
         profile_url: str | None = None,
         user_id: UUID | None = None,
@@ -159,7 +171,6 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                     name=normalized_name,
                     prefecture=prefecture,
                     district=normalized_district,
-                    party_id=party_id,
                     profile_url=normalized_profile_url,
                     user_id=user_id,
                 )
@@ -178,16 +189,13 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
         id: int,
         name: str,
         prefecture: str,
-        party_id: int | None,
         district: str,
         profile_url: str | None = None,
         user_id: UUID | None = None,
     ) -> tuple[bool, str | None]:
         """Update an existing politician."""
         return self._run_async(
-            self._update_async(
-                id, name, prefecture, party_id, district, profile_url, user_id
-            )
+            self._update_async(id, name, prefecture, district, profile_url, user_id)
         )
 
     async def _update_async(
@@ -195,7 +203,6 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
         id: int,
         name: str,
         prefecture: str,
-        party_id: int | None,
         district: str,
         profile_url: str | None = None,
         user_id: UUID | None = None,
@@ -216,7 +223,6 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                     name=normalized_name,
                     prefecture=prefecture,
                     district=normalized_district,
-                    party_id=party_id,
                     profile_url=normalized_profile_url,
                     user_id=user_id,
                 )
@@ -321,7 +327,6 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                             name=normalized_name,
                             prefecture=politician.prefecture or "",
                             district=normalized_district,
-                            party_id=politician.political_party_id,
                             profile_url=normalized_url if normalized_url else None,
                             user_id=None,
                         )
@@ -335,24 +340,34 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
             return False, 0, error_msg
 
     def to_dataframe(
-        self, politicians: list[PoliticianOutputItem], parties: list[PoliticalParty]
+        self,
+        politicians: list[PoliticianOutputItem],
+        parties: list[PoliticalParty],
+        politician_party_map: dict[int, str] | None = None,
     ) -> pd.DataFrame | None:
-        """Convert politicians to DataFrame."""
+        """Convert politicians to DataFrame.
+
+        Args:
+            politicians: 政治家リスト
+            parties: 政党リスト（後方互換のため残す）
+            politician_party_map: politician_id → 政党名のマッピング
+                                  （party_membership_history経由で構築）
+        """
         if not politicians:
             return None
 
-        party_map = {p.id: p.name for p in parties}
-
         df_data = []
         for politician in politicians:
+            party_name = "無所属"
+            if politician_party_map and politician.id is not None:
+                party_name = politician_party_map.get(politician.id, "無所属")
+
             df_data.append(
                 {
                     "ID": politician.id,
                     "名前": politician.name,
                     "都道府県": politician.prefecture or "",
-                    "政党": party_map.get(politician.political_party_id, "無所属")
-                    if politician.political_party_id
-                    else "無所属",
+                    "政党": party_name,
                     "選挙区": politician.district or "",
                     "プロフィールURL": politician.profile_page_url or "",
                 }
@@ -363,13 +378,12 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
         """Handle user actions."""
         if action == "list":
             return self.load_politicians_with_filters(
-                kwargs.get("party_id"), kwargs.get("search_name")
+                search_name=kwargs.get("search_name")
             )
         elif action == "create":
             return self.create(
                 kwargs.get("name", ""),
                 kwargs.get("prefecture", ""),
-                kwargs.get("party_id"),
                 kwargs.get("district", ""),
                 kwargs.get("profile_url"),
             )
@@ -378,7 +392,6 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                 kwargs.get("id", 0),
                 kwargs.get("name", ""),
                 kwargs.get("prefecture", ""),
-                kwargs.get("party_id"),
                 kwargs.get("district", ""),
                 kwargs.get("profile_url"),
             )

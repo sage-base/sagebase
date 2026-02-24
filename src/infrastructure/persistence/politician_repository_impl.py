@@ -46,36 +46,16 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
 
         super().__init__(session, Politician, model_class)
 
-    async def get_by_name_and_party(
-        self, name: str, political_party_id: int | None = None
-    ) -> Politician | None:
-        """Get politician by name and political party."""
-        conditions = ["name = :name"]
-        params: dict[str, Any] = {"name": name}
-
-        if political_party_id is not None:
-            conditions.append("political_party_id = :party_id")
-            params["party_id"] = political_party_id
-
-        query = text(f"""
-            SELECT * FROM politicians
-            WHERE {" AND ".join(conditions)}
-            LIMIT 1
-        """)
-        result = await self.session.execute(query, params)
-        row = result.fetchone()
-        return self._row_to_entity(row) if row else None
-
-    async def get_by_party(self, political_party_id: int) -> list[Politician]:
-        """Get all politicians for a political party."""
+    async def get_by_name(self, name: str) -> Politician | None:
+        """Get politician by name."""
         query = text("""
             SELECT * FROM politicians
-            WHERE political_party_id = :party_id
-            ORDER BY name
+            WHERE name = :name
+            LIMIT 1
         """)
-        result = await self.session.execute(query, {"party_id": political_party_id})
-        rows = result.fetchall()
-        return [self._row_to_entity(row) for row in rows]
+        result = await self.session.execute(query, {"name": name})
+        row = result.fetchone()
+        return self._row_to_entity(row) if row else None
 
     async def search_by_name(self, name_pattern: str) -> list[Politician]:
         """Search politicians by name pattern."""
@@ -91,10 +71,7 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
     async def upsert(self, politician: Politician) -> Politician:
         """Insert or update politician (upsert)."""
         # Check if exists
-        existing = await self.get_by_name_and_party(
-            politician.name,
-            politician.political_party_id,
-        )
+        existing = await self.get_by_name(politician.name)
 
         if existing:
             # Update existing
@@ -118,9 +95,8 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         for data in politicians_data:
             try:
                 # Check existing politician
-                existing = await self.get_by_name_and_party(
+                existing = await self.get_by_name(
                     data.get("name", ""),
-                    data.get("political_party_id"),
                 )
 
                 if existing:
@@ -149,7 +125,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
                         name=data.get("name", ""),
                         prefecture=data.get("prefecture", ""),
                         district=data.get("electoral_district", ""),
-                        political_party_id=data.get("political_party_id"),
                         profile_page_url=data.get("profile_url"),
                     )
                     created_politician = await self.create_entity(new_politician)
@@ -206,9 +181,8 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
     ) -> list[Politician]:
         """Get all politicians."""
         query_text = """
-            SELECT p.*, pp.name as party_name
+            SELECT p.*
             FROM politicians p
-            LEFT JOIN political_parties pp ON p.political_party_id = pp.id
             ORDER BY p.name
         """
         params = {}
@@ -227,9 +201,8 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
     async def get_by_id(self, entity_id: int) -> Politician | None:
         """Get politician by ID."""
         query = text("""
-            SELECT p.*, pp.name as party_name
+            SELECT p.*
             FROM politicians p
-            LEFT JOIN political_parties pp ON p.political_party_id = pp.id
             WHERE p.id = :id
         """)
 
@@ -246,9 +219,8 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             return []
         placeholders = ", ".join(f":id_{i}" for i in range(len(entity_ids)))
         query = text(f"""
-            SELECT p.*, pp.name as party_name
+            SELECT p.*
             FROM politicians p
-            LEFT JOIN political_parties pp ON p.political_party_id = pp.id
             WHERE p.id IN ({placeholders})
         """)
         params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
@@ -259,11 +231,11 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         """Create a new politician."""
         query = text("""
             INSERT INTO politicians (
-                name, political_party_id, prefecture,
+                name, prefecture,
                 district, profile_page_url, furigana
             )
             VALUES (
-                :name, :political_party_id, :prefecture,
+                :name, :prefecture,
                 :district, :profile_page_url, :furigana
             )
             RETURNING *
@@ -271,7 +243,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
 
         params = {
             "name": entity.name,
-            "political_party_id": entity.political_party_id,
             "prefecture": entity.prefecture,
             "district": entity.district,
             "profile_page_url": entity.profile_page_url,
@@ -293,7 +264,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         query = text("""
             UPDATE politicians
             SET name = :name,
-                political_party_id = :political_party_id,
                 prefecture = :prefecture,
                 district = :district,
                 profile_page_url = :profile_page_url,
@@ -305,7 +275,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         params = {
             "id": entity.id,
             "name": entity.name,
-            "political_party_id": entity.political_party_id,
             "prefecture": entity.prefecture,
             "district": entity.district,
             "profile_page_url": entity.profile_page_url,
@@ -336,18 +305,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         count = result.scalar()
         return count if count is not None else 0
 
-    async def count_by_party(self, political_party_id: int) -> int:
-        """Count politicians by political party."""
-        query = text("""
-            SELECT COUNT(*) as count
-            FROM politicians
-            WHERE political_party_id = :party_id
-        """)
-
-        result = await self.session.execute(query, {"party_id": political_party_id})
-        row = result.first()
-        return row.count if row else 0  # type: ignore[attr-defined]
-
     def _row_to_entity(self, row: Any) -> Politician:
         """Convert database row to domain entity."""
         if row is None:
@@ -363,7 +320,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             data = {
                 "id": getattr(row, "id", None),
                 "name": getattr(row, "name", None),
-                "political_party_id": getattr(row, "political_party_id", None),
                 "prefecture": getattr(row, "prefecture", None),
                 "district": getattr(row, "district", None),
                 "profile_page_url": getattr(row, "profile_page_url", None),
@@ -375,7 +331,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             name=str(data.get("name") or ""),
             prefecture=str(data.get("prefecture") or ""),
             district=str(data.get("district") or ""),
-            political_party_id=data.get("political_party_id"),
             furigana=data.get("furigana"),
             profile_page_url=data.get("profile_page_url"),
             party_position=data.get("party_position"),
@@ -390,7 +345,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         """Convert domain entity to database model."""
         return self.model_class(
             name=entity.name,
-            political_party_id=entity.political_party_id,
             prefecture=entity.prefecture,
             district=entity.district,
             profile_page_url=entity.profile_page_url,
@@ -402,7 +356,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
     def _update_model(self, model: Any, entity: Politician) -> None:
         """Update model fields from entity."""
         model.name = entity.name
-        model.political_party_id = entity.political_party_id
         model.prefecture = entity.prefecture
         model.district = entity.district
         model.profile_page_url = entity.profile_page_url
@@ -419,12 +372,17 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         return [self._row_to_entity(row) for row in rows]
 
     async def get_all_for_matching(self) -> list[dict[str, Any]]:
-        """Get all politicians for matching purposes."""
+        """Get all politicians for matching purposes.
+
+        政党名はparty_membership_history経由で取得する。
+        """
         query = text("""
             SELECT p.id, p.name, p.party_position, p.district,
                    pp.name as party_name
             FROM politicians p
-            LEFT JOIN political_parties pp ON p.political_party_id = pp.id
+            LEFT JOIN party_membership_history pmh
+                ON p.id = pmh.politician_id AND pmh.end_date IS NULL
+            LEFT JOIN political_parties pp ON pmh.political_party_id = pp.id
             ORDER BY p.name
         """)
         result = await self.session.execute(query)

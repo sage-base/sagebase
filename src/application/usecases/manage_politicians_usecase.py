@@ -116,10 +116,6 @@ class ManagePoliticiansUseCase:
                 politicians = await self.politician_repository.search_by_name(
                     input_dto.search_name
                 )
-            elif input_dto.party_id:
-                politicians = await self.politician_repository.get_by_party(
-                    input_dto.party_id
-                )
             else:
                 politicians = await self.politician_repository.get_all()
 
@@ -136,13 +132,11 @@ class ManagePoliticiansUseCase:
         """Create a new politician."""
         try:
             # Check for duplicates
-            existing = await self.politician_repository.get_by_name_and_party(
-                input_dto.name, input_dto.party_id
-            )
+            existing = await self.politician_repository.get_by_name(input_dto.name)
             if existing:
                 return CreatePoliticianOutputDto(
                     success=False,
-                    error_message="同じ名前と政党の政治家が既に存在します。",
+                    error_message="同じ名前の政治家が既に存在します。",
                 )
 
             # Create new politician
@@ -150,7 +144,6 @@ class ManagePoliticiansUseCase:
                 id=0,  # Will be assigned by database
                 name=input_dto.name,
                 prefecture=input_dto.prefecture,
-                political_party_id=input_dto.party_id,
                 district=input_dto.district,
                 profile_page_url=input_dto.profile_url,
             )
@@ -167,7 +160,6 @@ class ManagePoliticiansUseCase:
                     details={
                         "prefecture": input_dto.prefecture,
                         "district": input_dto.district,
-                        "party_id": input_dto.party_id,
                         "profile_url": input_dto.profile_url,
                     },
                 )
@@ -192,7 +184,6 @@ class ManagePoliticiansUseCase:
             # Update fields
             existing.name = input_dto.name
             existing.prefecture = input_dto.prefecture
-            existing.political_party_id = input_dto.party_id
             existing.district = input_dto.district
             existing.profile_page_url = input_dto.profile_url
 
@@ -207,7 +198,6 @@ class ManagePoliticiansUseCase:
                 details={
                     "prefecture": input_dto.prefecture,
                     "district": input_dto.district,
-                    "party_id": input_dto.party_id,
                     "profile_url": input_dto.profile_url,
                 },
             )

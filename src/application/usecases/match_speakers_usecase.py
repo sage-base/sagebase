@@ -222,11 +222,6 @@ class MatchSpeakersUseCase:
                 speaker.name, candidate.name
             )
 
-            # Boost score if party matches
-            if speaker.political_party_name and candidate.political_party_id:
-                # Would need to lookup party name
-                score += 0.1
-
             if score > best_score and score >= 0.8:
                 best_match = candidate
                 best_score = score

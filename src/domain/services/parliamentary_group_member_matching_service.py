@@ -91,13 +91,6 @@ class ParliamentaryGroupMemberMatchingService:
                 member.extracted_name, candidate.name
             )
 
-            # 政党IDが一致する場合はスコアをブースト
-            # Note: 現在のPoliticianエンティティには政党名がないため、
-            # political_party_idの一致で判定
-            if member.extracted_party_name and candidate.political_party_id:
-                # 将来的には政党名のルックアップを実装
-                score += 0.15
-
             if score > best_score:
                 best_match = candidate
                 best_score = score
@@ -143,7 +136,7 @@ class ParliamentaryGroupMemberMatchingService:
             PoliticianBaseDTO(
                 id=p.id or 0,
                 name=p.name,
-                party_id=p.political_party_id,
+                party_id=None,  # 政党所属はparty_membership_history経由で取得
                 prefecture=None,  # Politicianエンティティにはprefectureフィールドがない
                 electoral_district=p.district,  # districtフィールドを使用
                 profile_url=p.profile_page_url,

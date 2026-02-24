@@ -1,12 +1,12 @@
 """政党所属議員の会派自動紐付けユースケース.
 
-選挙で当選した政党所属議員を、political_party_id に基づいて
+選挙で当選した政党所属議員を、party_membership_history の政党所属に基づいて
 会派（parliamentary_group）に自動紐付けする。
 
 処理フロー:
     1. 選挙を term_number で検索
     2. 当選者の election_member を取得
-    3. 各議員の political_party_id を確認
+    3. 各議員の政党所属を party_membership_history から確認
     4. parliamentary_groups で political_party_id 一致 + active の会派を検索
     5. 1:1 マッチなら parliamentary_group_memberships を作成
 """
@@ -139,14 +139,11 @@ class LinkParliamentaryGroupUseCase:
                 continue
 
             politician_name = politician.name
+            party_id: int | None = None
             if history_map is not None:
                 history = history_map.get(member.politician_id)
                 if history is not None:
                     party_id = history.political_party_id
-                else:
-                    party_id = politician.political_party_id
-            else:
-                party_id = politician.political_party_id
 
             if party_id is None:
                 output.skipped_no_party += 1
@@ -154,7 +151,7 @@ class LinkParliamentaryGroupUseCase:
                     SkippedMember(
                         politician_id=member.politician_id,
                         politician_name=politician_name,
-                        reason="political_party_id未設定",
+                        reason="政党所属履歴なし",
                     )
                 )
                 continue

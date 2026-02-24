@@ -398,7 +398,7 @@ class ExtractProposalJudgesUseCase:
                 {
                     "id": c.id,
                     "name": c.name,
-                    "party_id": c.political_party_id,
+                    "party_id": None,
                     "prefecture": None,
                     "electoral_district": None,
                     "profile_url": None,

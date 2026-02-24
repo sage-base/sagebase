@@ -124,7 +124,7 @@ class ElectionImportService:
         party_id: int,
         election_date: date | None,
     ) -> list[Politician]:
-        """候補者リストを政党IDで絞り込む."""
+        """候補者リストを政党IDで絞り込む（party_membership_history経由）."""
         if self._membership_history_repo is not None and election_date is not None:
             candidate_ids = [c.id for c in candidates if c.id is not None]
             history_map = (
@@ -138,12 +138,9 @@ class ElectionImportService:
                 if history is not None:
                     if history.political_party_id == party_id:
                         filtered.append(c)
-                else:
-                    # 履歴欠損時: politician.political_party_id にフォールバック
-                    if c.political_party_id == party_id:
-                        filtered.append(c)
             return filtered
-        return [c for c in candidates if c.political_party_id == party_id]
+        # 履歴リポジトリが未設定の場合は空リストを返す
+        return []
 
     async def create_politician(
         self,
@@ -159,7 +156,6 @@ class ElectionImportService:
             name=normalized,
             prefecture=prefecture,
             district=district,
-            political_party_id=party_id,
         )
         try:
             created = await self._politician_repo.create(politician)

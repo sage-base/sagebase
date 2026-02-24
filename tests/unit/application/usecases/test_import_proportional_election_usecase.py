@@ -14,10 +14,14 @@ from src.application.usecases.import_proportional_election_usecase import (
 )
 from src.domain.entities.election import Election
 from src.domain.entities.election_member import ElectionMember
+from src.domain.entities.party_membership_history import PartyMembershipHistory
 from src.domain.entities.political_party import PoliticalParty
 from src.domain.entities.politician import Politician
 from src.domain.repositories.election_member_repository import ElectionMemberRepository
 from src.domain.repositories.election_repository import ElectionRepository
+from src.domain.repositories.party_membership_history_repository import (
+    PartyMembershipHistoryRepository,
+)
 from src.domain.repositories.political_party_repository import (
     PoliticalPartyRepository,
 )
@@ -39,6 +43,9 @@ class TestImportProportionalElectionUseCase:
             "election_member": AsyncMock(spec=ElectionMemberRepository),
             "politician": AsyncMock(spec=PoliticianRepository),
             "political_party": AsyncMock(spec=PoliticalPartyRepository),
+            "party_membership_history": AsyncMock(
+                spec=PartyMembershipHistoryRepository
+            ),
         }
 
     @pytest.fixture()
@@ -57,6 +64,7 @@ class TestImportProportionalElectionUseCase:
             politician_repository=mock_repos["politician"],
             political_party_repository=mock_repos["political_party"],
             proportional_data_source=mock_data_source,
+            party_membership_history_repository=mock_repos["party_membership_history"],
         )
 
     @pytest.fixture()
@@ -226,19 +234,30 @@ class TestImportProportionalElectionUseCase:
             name="田中太郎",
             prefecture="東京都",
             district="",
-            political_party_id=1,
             id=10,
         )
         p2 = Politician(
             name="田中太郎",
             prefecture="大阪府",
             district="",
-            political_party_id=2,
             id=20,
         )
         mock_repos["politician"].search_by_normalized_name.return_value = [p1, p2]
 
-        result, status = await use_case._import_service.match_politician("田中太郎", 1)
+        # party_membership_history経由で政党を絞り込む
+        history_p1 = PartyMembershipHistory(
+            politician_id=10,
+            political_party_id=1,
+            start_date=date(2020, 1, 1),
+            end_date=None,
+        )
+        mock_repos[
+            "party_membership_history"
+        ].get_current_by_politicians.return_value = {10: history_p1}
+
+        result, status = await use_case._import_service.match_politician(
+            "田中太郎", 1, election_date=date(2024, 10, 27)
+        )
         assert status == "matched"
         assert result is not None
         assert result.id == 10

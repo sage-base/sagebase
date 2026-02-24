@@ -72,7 +72,6 @@ class TestManageConferenceMembersUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
         mock_politician_repo.get_by_id.return_value = politician
 
@@ -121,7 +120,6 @@ class TestManageConferenceMembersUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
         mock_politician_repo.get_by_id.return_value = politician
 
@@ -165,7 +163,6 @@ class TestManageConferenceMembersUseCase:
                 name="山田太郎",
                 prefecture="東京都",
                 district="東京1区",
-                political_party_id=1,
             )
         ]
 

@@ -21,7 +21,6 @@ class TestPoliticianDomainService:
             id=1,
             name="山田太郎",
             prefecture="東京都",
-            political_party_id=1,
             furigana="ヤマダタロウ",
             district="東京1区",
             profile_page_url="https://example.com/profile",
@@ -69,34 +68,30 @@ class TestPoliticianDomainService:
                 name="山田太郎",
                 prefecture="東京都",
                 district="東京1区",
-                political_party_id=1,
             ),
             Politician(
                 id=2,
                 name="鈴木花子",
                 prefecture="大阪府",
                 district="大阪1区",
-                political_party_id=2,
             ),
         ]
 
-        # Exact match with same party
+        # Exact match by name
         new = Politician(
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
         duplicate = service.is_duplicate_politician(new, existing)
         assert duplicate is not None
         assert duplicate.id == 1
 
-        # Exact match with different party
+        # No match with different name
         new = Politician(
-            name="山田太郎",
+            name="田中三郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=3,
         )
         duplicate = service.is_duplicate_politician(new, existing)
         assert duplicate is None
@@ -109,7 +104,6 @@ class TestPoliticianDomainService:
                 name="山田太郎",
                 prefecture="東京都",
                 district="東京1区",
-                political_party_id=1,
             ),
         ]
 
@@ -118,53 +112,31 @@ class TestPoliticianDomainService:
             name="山田 太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
         duplicate = service.is_duplicate_politician(new, existing)
         assert duplicate is not None
         assert duplicate.id == 1
 
-    def test_is_duplicate_politician_no_party_info(self, service):
-        """Test duplicate detection when party info is missing."""
+    def test_is_duplicate_politician_name_only(self, service):
+        """Test duplicate detection based on name only."""
         existing = [
             Politician(
                 id=1,
                 name="山田太郎",
                 prefecture="東京都",
                 district="東京1区",
-                political_party_id=None,
             ),
         ]
 
-        # New politician with party info
+        # Same name matches regardless of other fields
         new = Politician(
             name="山田太郎",
-            prefecture="東京都",
-            district="東京1区",
-            political_party_id=1,
+            prefecture="大阪府",
+            district="大阪1区",
         )
         duplicate = service.is_duplicate_politician(new, existing)
         assert duplicate is not None
         assert duplicate.id == 1
-
-        # Both without party info
-        existing = [
-            Politician(
-                id=1,
-                name="山田太郎",
-                prefecture="東京都",
-                district="東京1区",
-                political_party_id=1,
-            ),
-        ]
-        new = Politician(
-            name="山田太郎",
-            prefecture="東京都",
-            district="東京1区",
-            political_party_id=None,
-        )
-        duplicate = service.is_duplicate_politician(new, existing)
-        assert duplicate is not None
 
     def test_merge_politician_info(self, service, sample_politician):
         """Test merging politician information."""
@@ -172,7 +144,6 @@ class TestPoliticianDomainService:
             id=1,
             name="山田太郎",
             prefecture="東京都",
-            political_party_id=1,
             furigana=None,
             district="東京1区",
             profile_page_url=None,
@@ -181,7 +152,6 @@ class TestPoliticianDomainService:
         new_info = Politician(
             name="山田　太郎",  # Different format
             prefecture="東京都",
-            political_party_id=2,
             furigana="ヤマダタロウ",
             district="東京2区",
             profile_page_url="https://example.com/new",
@@ -194,7 +164,6 @@ class TestPoliticianDomainService:
         assert merged.name == "山田太郎"  # Keep original name format
 
         # Should take new values when existing is None
-        assert merged.political_party_id == 2
         assert merged.furigana == "ヤマダタロウ"
         assert merged.profile_page_url == "https://example.com/new"
 
@@ -207,7 +176,6 @@ class TestPoliticianDomainService:
         valid = Politician(
             name="山田太郎",
             prefecture="東京都",
-            political_party_id=1,
             district="東京1区",
         )
         issues = service.validate_politician_data(valid)
@@ -218,22 +186,11 @@ class TestPoliticianDomainService:
         issues = service.validate_politician_data(invalid)
         assert "Name is required" in issues
 
-        # Party can be None
-        valid = Politician(
-            name="山田太郎",
-            prefecture="東京都",
-            district="東京1区",
-            political_party_id=None,
-        )
-        issues = service.validate_politician_data(valid)
-        assert len(issues) == 0
-
         # Long name
         invalid = Politician(
             name="あ" * 51,  # 51 characters
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
         issues = service.validate_politician_data(invalid)
         assert "Name is unusually long" in issues
@@ -242,56 +199,10 @@ class TestPoliticianDomainService:
         invalid = Politician(
             name="山田太郎",
             prefecture="東京都",
-            political_party_id=1,
             district="あ" * 101,  # 101 characters
         )
         issues = service.validate_politician_data(invalid)
         assert "District name is unusually long" in issues
-
-    def test_group_politicians_by_party(self, service):
-        """Test grouping politicians by party."""
-        politicians = [
-            Politician(
-                name="山田太郎",
-                prefecture="東京都",
-                district="東京1区",
-                political_party_id=1,
-            ),
-            Politician(
-                name="鈴木花子",
-                prefecture="大阪府",
-                district="大阪1区",
-                political_party_id=1,
-            ),
-            Politician(
-                name="佐藤次郎",
-                prefecture="愛知県",
-                district="愛知1区",
-                political_party_id=2,
-            ),
-            Politician(
-                name="田中三郎",
-                prefecture="福岡県",
-                district="福岡1区",
-                political_party_id=None,
-            ),
-            Politician(
-                name="高橋四郎",
-                prefecture="北海道",
-                district="北海道1区",
-                political_party_id=None,
-            ),
-        ]
-
-        grouped = service.group_politicians_by_party(politicians)
-
-        assert len(grouped[1]) == 2
-        assert len(grouped[2]) == 1
-        assert len(grouped[None]) == 2
-
-        assert grouped[1][0].name == "山田太郎"
-        assert grouped[1][1].name == "鈴木花子"
-        assert grouped[2][0].name == "佐藤次郎"
 
     def test_find_similar_politicians(self, service):
         """Test finding similar politicians."""

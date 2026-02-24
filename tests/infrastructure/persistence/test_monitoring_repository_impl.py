@@ -58,7 +58,6 @@ async def async_session() -> AsyncGenerator[AsyncSession]:
             CREATE TABLE politicians (
                 id INTEGER PRIMARY KEY,
                 name TEXT,
-                political_party_id INTEGER,
                 created_at TIMESTAMP
             )
         """)
@@ -88,6 +87,17 @@ async def async_session() -> AsyncGenerator[AsyncSession]:
                 id INTEGER PRIMARY KEY,
                 minutes_id INTEGER,
                 speaker_id INTEGER
+            )
+        """)
+        )
+        await conn.execute(
+            text("""
+            CREATE TABLE party_membership_history (
+                id INTEGER PRIMARY KEY,
+                politician_id INTEGER,
+                political_party_id INTEGER,
+                start_date DATE,
+                end_date DATE
             )
         """)
         )

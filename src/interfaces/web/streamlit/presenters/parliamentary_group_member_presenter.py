@@ -454,11 +454,7 @@ class ParliamentaryGroupMemberPresenter(
             # Filter by name
             politicians = [p for p in all_politicians if name.lower() in p.name.lower()]
 
-            # Filter by party if specified
-            if party_id:
-                politicians = [
-                    p for p in politicians if p.political_party_id == party_id
-                ]
+            # party_idフィルタは廃止（party_membership_history経由で別途実装が必要）
 
             return politicians
 
@@ -517,12 +513,7 @@ class ParliamentaryGroupMemberPresenter(
             if m.matched_politician_id:
                 politician = self.get_politician_by_id(m.matched_politician_id)
                 if politician:
-                    party_name = "無所属"
-                    if politician.political_party_id:
-                        party_name = self.get_party_name_by_id(
-                            politician.political_party_id
-                        )
-                    politician_name = f"{politician.name} ({party_name})"
+                    politician_name = politician.name
 
             data.append(
                 {

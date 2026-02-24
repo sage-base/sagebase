@@ -295,7 +295,6 @@ class TestMatchSpeakersUseCaseBAML:
             name="ルール七郎",
             prefecture="東京都",
             district="東京7区",
-            political_party_id=1,
         )
 
         mock_speaker_repo.get_politicians.return_value = [speaker]

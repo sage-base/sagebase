@@ -14,7 +14,6 @@ class TestPoliticianOutputItemFromEntity:
             name="田中太郎",
             prefecture="東京都",
             district="新宿区",
-            political_party_id=1,
             furigana="タナカタロウ",
             profile_page_url="https://example.com/tanaka",
             party_position="幹事長",
@@ -26,7 +25,6 @@ class TestPoliticianOutputItemFromEntity:
         assert item.name == "田中太郎"
         assert item.prefecture == "東京都"
         assert item.district == "新宿区"
-        assert item.political_party_id == 1
         assert item.furigana == "タナカタロウ"
         assert item.profile_page_url == "https://example.com/tanaka"
         assert item.party_position == "幹事長"
@@ -51,7 +49,6 @@ class TestPoliticianOutputItemFromEntity:
             name="山田花子",
             prefecture="大阪府",
             district="中央区",
-            political_party_id=None,
             furigana=None,
             profile_page_url=None,
             party_position=None,
@@ -59,7 +56,6 @@ class TestPoliticianOutputItemFromEntity:
 
         item = PoliticianOutputItem.from_entity(entity)
 
-        assert item.political_party_id is None
         assert item.furigana is None
         assert item.profile_page_url is None
         assert item.party_position is None

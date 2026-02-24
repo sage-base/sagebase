@@ -48,14 +48,12 @@ class TestManagePoliticiansUseCase:
                 name="山田太郎",
                 prefecture="東京都",
                 district="東京1区",
-                political_party_id=1,
             ),
             Politician(
                 id=2,
                 name="鈴木花子",
                 prefecture="大阪府",
                 district="大阪1区",
-                political_party_id=2,
             ),
         ]
         mock_politician_repository.get_all.return_value = politicians
@@ -83,19 +81,17 @@ class TestManagePoliticiansUseCase:
                 name="山田太郎",
                 prefecture="東京都",
                 district="東京1区",
-                political_party_id=1,
             )
         ]
-        mock_politician_repository.get_by_party.return_value = politicians
+        mock_politician_repository.get_all.return_value = politicians
 
-        input_dto = PoliticianListInputDto(party_id=1)
+        input_dto = PoliticianListInputDto()
 
         # Act
         result = await use_case.list_politicians(input_dto)
 
         # Assert
         assert len(result.politicians) == 1
-        assert result.politicians[0].political_party_id == 1
 
     @pytest.mark.asyncio
     async def test_list_politicians_empty(self, use_case, mock_politician_repository):
@@ -117,12 +113,11 @@ class TestManagePoliticiansUseCase:
     ):
         """Test creating a politician successfully."""
         # Arrange
-        mock_politician_repository.get_by_name_and_party.return_value = None
+        mock_politician_repository.get_by_name.return_value = None
         created_politician = Politician(
             id=1,
             name="田中次郎",
             prefecture="東京都",
-            political_party_id=1,
             district="東京都第1区",
         )
         mock_politician_repository.create.return_value = created_politician
@@ -130,7 +125,6 @@ class TestManagePoliticiansUseCase:
         input_dto = CreatePoliticianInputDto(
             name="田中次郎",
             prefecture="東京都",
-            party_id=1,
             district="東京都第1区",
         )
 
@@ -154,17 +148,13 @@ class TestManagePoliticiansUseCase:
             name="田中次郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
-        mock_politician_repository.get_by_name_and_party.return_value = (
-            existing_politician
-        )
+        mock_politician_repository.get_by_name.return_value = existing_politician
 
         input_dto = CreatePoliticianInputDto(
             name="田中次郎",
             prefecture="東京都",
             district="東京1区",
-            party_id=1,
         )
 
         # Act
@@ -181,14 +171,13 @@ class TestManagePoliticiansUseCase:
     ):
         """Test creating a politician when repository raises an error."""
         # Arrange
-        mock_politician_repository.get_by_name_and_party.return_value = None
+        mock_politician_repository.get_by_name.return_value = None
         mock_politician_repository.create.side_effect = Exception("Database error")
 
         input_dto = CreatePoliticianInputDto(
             name="田中次郎",
             prefecture="東京都",
             district="東京1区",
-            party_id=1,
         )
 
         # Act
@@ -208,7 +197,6 @@ class TestManagePoliticiansUseCase:
             id=1,
             name="山田太郎",
             prefecture="東京都",
-            political_party_id=1,
             district="東京都第1区",
         )
         mock_politician_repository.get_by_id.return_value = existing_politician
@@ -263,7 +251,6 @@ class TestManagePoliticiansUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
         mock_politician_repository.get_by_id.return_value = existing_politician
         mock_politician_repository.update.side_effect = Exception("Update failed")
@@ -293,7 +280,6 @@ class TestManagePoliticiansUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
         mock_politician_repository.get_by_id.return_value = existing_politician
         mock_politician_repository.get_related_data_counts.return_value = {}
@@ -338,7 +324,6 @@ class TestManagePoliticiansUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
         mock_politician_repository.get_by_id.return_value = existing_politician
         mock_politician_repository.get_related_data_counts.return_value = {}
@@ -368,7 +353,6 @@ class TestManagePoliticiansUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
         mock_politician_repository.get_by_id.return_value = existing_politician
 
@@ -415,7 +399,6 @@ class TestManagePoliticiansUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
         mock_politician_repository.get_by_id.return_value = existing_politician
         mock_politician_repository.delete.return_value = None
@@ -456,7 +439,6 @@ class TestManagePoliticiansUseCase:
             name="山田太郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
         mock_politician_repository.get_by_id.return_value = existing_politician
         mock_politician_repository.delete.return_value = None
@@ -486,14 +468,12 @@ class TestManagePoliticiansUseCase:
             name="山田太郎A",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
         target_politician = Politician(
             id=2,
             name="山田太郎B",
             prefecture="東京都",
             district="東京2区",
-            political_party_id=1,
         )
         mock_politician_repository.get_by_id.side_effect = [
             source_politician,
@@ -544,7 +524,6 @@ class TestManagePoliticiansUseCase:
             name="山田太郎A",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
 
         async def side_effect_func(politician_id):
@@ -620,12 +599,11 @@ class TestManagePoliticiansUseCaseWithLogging:
         """Test that creating a politician logs the operation."""
         # Arrange
         user_id = uuid4()
-        mock_politician_repository.get_by_name_and_party.return_value = None
+        mock_politician_repository.get_by_name.return_value = None
         created_politician = Politician(
             id=1,
             name="田中次郎",
             prefecture="東京都",
-            political_party_id=1,
             district="東京都第1区",
         )
         mock_politician_repository.create.return_value = created_politician
@@ -633,7 +611,6 @@ class TestManagePoliticiansUseCaseWithLogging:
         input_dto = CreatePoliticianInputDto(
             name="田中次郎",
             prefecture="東京都",
-            party_id=1,
             district="東京都第1区",
             user_id=user_id,
         )
@@ -664,7 +641,6 @@ class TestManagePoliticiansUseCaseWithLogging:
             id=1,
             name="山田太郎",
             prefecture="東京都",
-            political_party_id=1,
             district="東京都第1区",
         )
         mock_politician_repository.get_by_id.return_value = existing_politician
@@ -704,7 +680,6 @@ class TestManagePoliticiansUseCaseWithLogging:
             id=1,
             name="山田太郎",
             prefecture="東京都",
-            political_party_id=1,
             district="東京1区",
         )
         mock_politician_repository.get_by_id.return_value = existing_politician
@@ -738,17 +713,13 @@ class TestManagePoliticiansUseCaseWithLogging:
             name="田中次郎",
             prefecture="東京都",
             district="東京1区",
-            political_party_id=1,
         )
-        mock_politician_repository.get_by_name_and_party.return_value = (
-            existing_politician
-        )
+        mock_politician_repository.get_by_name.return_value = existing_politician
 
         input_dto = CreatePoliticianInputDto(
             name="田中次郎",
             prefecture="東京都",
             district="東京1区",
-            party_id=1,
         )
 
         # Act
@@ -767,12 +738,11 @@ class TestManagePoliticiansUseCaseWithLogging:
     ):
         """Test that log failure does not affect the main operation."""
         # Arrange
-        mock_politician_repository.get_by_name_and_party.return_value = None
+        mock_politician_repository.get_by_name.return_value = None
         created_politician = Politician(
             id=1,
             name="田中次郎",
             prefecture="東京都",
-            political_party_id=1,
             district="東京都第1区",
         )
         mock_politician_repository.create.return_value = created_politician
@@ -781,7 +751,6 @@ class TestManagePoliticiansUseCaseWithLogging:
         input_dto = CreatePoliticianInputDto(
             name="田中次郎",
             prefecture="東京都",
-            party_id=1,
             district="東京都第1区",
         )
 
@@ -802,12 +771,11 @@ class TestManagePoliticiansUseCaseWithLogging:
             politician_repository=mock_politician_repository,
             operation_log_repository=None,  # No log repository
         )
-        mock_politician_repository.get_by_name_and_party.return_value = None
+        mock_politician_repository.get_by_name.return_value = None
         created_politician = Politician(
             id=1,
             name="田中次郎",
             prefecture="東京都",
-            political_party_id=1,
             district="東京都第1区",
         )
         mock_politician_repository.create.return_value = created_politician
@@ -815,7 +783,6 @@ class TestManagePoliticiansUseCaseWithLogging:
         input_dto = CreatePoliticianInputDto(
             name="田中次郎",
             prefecture="東京都",
-            party_id=1,
             district="東京都第1区",
         )
 
