@@ -144,6 +144,18 @@ class TestGetSeatsForDistrict:
     def test_aomori_26(self) -> None:
         assert _get_seats_for_district(26, "青森県") == 1
 
+    def test_hokkaido_27(self) -> None:
+        """第27回の北海道定数."""
+        assert _get_seats_for_district(27, "北海道") == 2
+
+    def test_tokyo_27(self) -> None:
+        """第27回の東京都定数."""
+        assert _get_seats_for_district(27, "東京都") == 6
+
+    def test_gouku_27(self) -> None:
+        """第27回の合区定数."""
+        assert _get_seats_for_district(27, "鳥取県・島根県") == 1
+
     def test_gouku_25(self) -> None:
         """合区の定数取得."""
         assert _get_seats_for_district(25, "鳥取県・島根県") == 1

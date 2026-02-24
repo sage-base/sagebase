@@ -64,25 +64,24 @@ class SoumuSangiinElectionDataSource:
                 election_info = parsed_info
 
             # 重複選挙区チェック（同じ選挙区のデータが複数ページに存在する場合）
-            for candidate in candidates:
-                if candidate.district_name not in seen_districts:
-                    all_candidates.append(candidate)
-            if candidates:
-                district = candidates[0].district_name
-                if district not in seen_districts:
-                    seen_districts.add(district)
-                    logger.info(
-                        "page_%s (%s): %d候補者を抽出",
-                        xls_info.page_code,
-                        district,
-                        len(candidates),
-                    )
-                else:
-                    logger.debug(
-                        "重複選挙区スキップ: page_%s (%s)",
-                        xls_info.page_code,
-                        district,
-                    )
+            if not candidates:
+                continue
+            district = candidates[0].district_name
+            if district in seen_districts:
+                logger.debug(
+                    "重複選挙区スキップ: page_%s (%s)",
+                    xls_info.page_code,
+                    district,
+                )
+                continue
+            seen_districts.add(district)
+            all_candidates.extend(candidates)
+            logger.info(
+                "page_%s (%s): %d候補者を抽出",
+                xls_info.page_code,
+                district,
+                len(candidates),
+            )
 
         # election_info がない場合、定数マッピングからフォールバック
         if election_info is None and election_number in SANGIIN_ELECTION_DATES:
