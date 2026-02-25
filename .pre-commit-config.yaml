@@ -20,7 +20,7 @@ repos:
     hooks:
       - id: prettier
         types_or: [yaml, json]
-        exclude: '^(uv\.lock|.*\.min\.(js|css))$'
+        exclude: '^(uv\.lock|.*\.min\.(js|css)|\.serena/.*)$'
 
   - repo: local
     hooks:
