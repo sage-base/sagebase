@@ -252,6 +252,7 @@ class SeedGenerator:
                         pg.description,
                         pg.is_active,
                         pg.political_party_id,
+                        pg.chamber,
                         gb.name as governing_body_name,
                         gb.type as governing_body_type,
                         pp.name as party_name
@@ -274,7 +275,7 @@ class SeedGenerator:
             (
                 "INSERT INTO parliamentary_groups "
                 "(name, governing_body_id, url, description, is_active, "
-                "political_party_id) VALUES"
+                "political_party_id, chamber) VALUES"
             ),
         ]
 
@@ -341,16 +342,20 @@ class SeedGenerator:
                 else:
                     party_id_part = "NULL"
 
+                # chamber値
+                chamber = group.get("chamber", "")
+                chamber_sql = f"'{chamber}'" if chamber else "''"
+
                 lines.append(
                     f"('{name}', {governing_body_part}, "
                     f"{url}, {description}, {is_active}, "
-                    f"{party_id_part}){comma}"
+                    f"{party_id_part}, {chamber_sql}){comma}"
                 )
 
             first_group = False
 
         lines.append(
-            "ON CONFLICT (name, governing_body_id) DO UPDATE SET "
+            "ON CONFLICT (name, governing_body_id, chamber) DO UPDATE SET "
             "url = EXCLUDED.url, "
             "description = EXCLUDED.description, "
             "is_active = EXCLUDED.is_active, "
@@ -808,6 +813,7 @@ class SeedGenerator:
                         pgm.role,
                         p.name AS politician_name,
                         pg.name AS group_name,
+                        pg.chamber AS group_chamber,
                         gb.name AS governing_body_name,
                         gb.type AS governing_body_type,
                         e.term_number
@@ -866,6 +872,7 @@ class SeedGenerator:
             for membership in members_list:
                 politician_name = membership["politician_name"].replace("'", "''")
                 group_name = membership["group_name"].replace("'", "''")
+                group_chamber = membership.get("group_chamber", "")
                 body_name = membership["governing_body_name"].replace("'", "''")
                 body_type = membership["governing_body_type"].replace("'", "''")
 
@@ -887,13 +894,15 @@ class SeedGenerator:
                 politician_sub = (
                     f"(SELECT id FROM politicians WHERE name = '{politician_name}')"
                 )
+                chamber_sql = f"'{group_chamber}'" if group_chamber else "''"
                 group_sub = (
                     f"(SELECT id FROM parliamentary_groups "
                     f"WHERE name = '{group_name}' "
                     f"AND governing_body_id = "
                     f"(SELECT id FROM governing_bodies "
                     f"WHERE name = '{body_name}' "
-                    f"AND type = '{body_type}'))"
+                    f"AND type = '{body_type}') "
+                    f"AND chamber = {chamber_sql})"
                 )
 
                 insert_stmt = (

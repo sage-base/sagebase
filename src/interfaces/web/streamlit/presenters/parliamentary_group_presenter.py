@@ -190,11 +190,18 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         description: str | None = None,
         is_active: bool = True,
         political_party_id: int | None = None,
+        chamber: str = "",
     ) -> tuple[bool, ParliamentaryGroup | None, str | None]:
         """Create a new parliamentary group."""
         return self._run_async(
             self._create_async(
-                name, governing_body_id, url, description, is_active, political_party_id
+                name,
+                governing_body_id,
+                url,
+                description,
+                is_active,
+                political_party_id,
+                chamber,
             )
         )
 
@@ -206,6 +213,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         description: str | None = None,
         is_active: bool = True,
         political_party_id: int | None = None,
+        chamber: str = "",
     ) -> tuple[bool, ParliamentaryGroup | None, str | None]:
         """Create a new parliamentary group (async implementation)."""
         try:
@@ -217,6 +225,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
                     description=description,
                     is_active=is_active,
                     political_party_id=political_party_id,
+                    chamber=chamber,
                 )
             )
             if result.success:
@@ -236,11 +245,12 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         description: str | None = None,
         is_active: bool = True,
         political_party_id: int | None = None,
+        chamber: str = "",
     ) -> tuple[bool, str | None]:
         """Update an existing parliamentary group."""
         return self._run_async(
             self._update_async(
-                id, name, url, description, is_active, political_party_id
+                id, name, url, description, is_active, political_party_id, chamber
             )
         )
 
@@ -252,6 +262,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         description: str | None = None,
         is_active: bool = True,
         political_party_id: int | None = None,
+        chamber: str = "",
     ) -> tuple[bool, str | None]:
         """Update an existing parliamentary group (async implementation)."""
         try:
@@ -263,6 +274,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
                     description=description,
                     is_active=is_active,
                     political_party_id=political_party_id,
+                    chamber=chamber,
                 )
             )
             if result.success:
@@ -430,6 +442,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
                 {
                     "ID": group.id,
                     "議員団名": group.name,
+                    "院": group.chamber if group.chamber else "-",
                     "開催主体": gb_name,
                     "政党": party_name,
                     "URL": group.url or "未設定",
@@ -484,6 +497,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
                 kwargs.get("description"),
                 kwargs.get("is_active", True),
                 kwargs.get("political_party_id"),
+                kwargs.get("chamber", ""),
             )
         elif action == "update":
             return self.update(
@@ -493,6 +507,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
                 kwargs.get("description"),
                 kwargs.get("is_active", True),
                 kwargs.get("political_party_id"),
+                kwargs.get("chamber", ""),
             )
         elif action == "delete":
             return self.delete(kwargs.get("id", 0))

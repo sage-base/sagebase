@@ -21,6 +21,7 @@ class TestParliamentaryGroup:
         assert group.description is None
         assert group.is_active is True  # Default value
         assert group.political_party_id is None
+        assert group.chamber == ""
         assert group.id is None
 
     def test_initialization_with_all_fields(self) -> None:
@@ -33,6 +34,7 @@ class TestParliamentaryGroup:
             description="立憲民主党所属の議員で構成される会派",
             is_active=False,
             political_party_id=42,
+            chamber="衆議院",
         )
 
         assert group.id == 10
@@ -42,6 +44,24 @@ class TestParliamentaryGroup:
         assert group.description == "立憲民主党所属の議員で構成される会派"
         assert group.is_active is False
         assert group.political_party_id == 42
+        assert group.chamber == "衆議院"
+
+    def test_chamber_field(self) -> None:
+        """Test chamber field variations."""
+        group_shuugiin = ParliamentaryGroup(
+            name="公明党", governing_body_id=1, chamber="衆議院"
+        )
+        assert group_shuugiin.chamber == "衆議院"
+
+        group_sangiin = ParliamentaryGroup(
+            name="公明党", governing_body_id=1, chamber="参議院"
+        )
+        assert group_sangiin.chamber == "参議院"
+
+        group_local = ParliamentaryGroup(
+            name="公明党京都市会議員団", governing_body_id=2
+        )
+        assert group_local.chamber == ""
 
     def test_str_representation(self) -> None:
         """Test string representation."""

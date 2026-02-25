@@ -104,7 +104,9 @@ class LinkParliamentaryGroupUseCase:
 
         # 4. アクティブな会派を取得し、political_party_id → 会派のマッピングを構築
         groups = await self._group_repo.get_by_governing_body_id(
-            input_dto.governing_body_id, active_only=True
+            input_dto.governing_body_id,
+            active_only=True,
+            chamber=input_dto.chamber if input_dto.chamber else None,
         )
         party_to_groups: dict[int, list[ParliamentaryGroup]] = defaultdict(list)
         for group in groups:

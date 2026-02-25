@@ -27,6 +27,7 @@ class ParliamentaryGroupModel:
     description: str | None
     is_active: bool
     political_party_id: int | None
+    chamber: str
 
     def __init__(self, **kwargs: Any):
         for key, value in kwargs.items():
@@ -47,14 +48,14 @@ class ParliamentaryGroupRepositoryImpl(
             """
             INSERT INTO parliamentary_groups (
                 name, governing_body_id, url, description,
-                is_active, political_party_id
+                is_active, political_party_id, chamber
             )
             VALUES (
                 :name, :governing_body_id, :url, :description,
-                :is_active, :political_party_id
+                :is_active, :political_party_id, :chamber
             )
             RETURNING id, name, governing_body_id, url,
-                description, is_active, political_party_id
+                description, is_active, political_party_id, chamber
         """
         )
 
@@ -67,6 +68,7 @@ class ParliamentaryGroupRepositoryImpl(
                 "description": entity.description,
                 "is_active": entity.is_active,
                 "political_party_id": entity.political_party_id,
+                "chamber": entity.chamber,
             },
         )
         row = result.fetchone()
@@ -87,10 +89,11 @@ class ParliamentaryGroupRepositoryImpl(
                 url = :url,
                 description = :description,
                 is_active = :is_active,
-                political_party_id = :political_party_id
+                political_party_id = :political_party_id,
+                chamber = :chamber
             WHERE id = :id
             RETURNING id, name, governing_body_id, url,
-                description, is_active, political_party_id
+                description, is_active, political_party_id, chamber
         """)
 
         result = await self.session.execute(
@@ -103,6 +106,7 @@ class ParliamentaryGroupRepositoryImpl(
                 "description": entity.description,
                 "is_active": entity.is_active,
                 "political_party_id": entity.political_party_id,
+                "chamber": entity.chamber,
             },
         )
         row = result.fetchone()
@@ -112,17 +116,18 @@ class ParliamentaryGroupRepositoryImpl(
         raise ValueError(f"Parliamentary group with ID {entity.id} not found")
 
     async def get_by_name_and_governing_body(
-        self, name: str, governing_body_id: int
+        self, name: str, governing_body_id: int, chamber: str = ""
     ) -> ParliamentaryGroup | None:
         """Get parliamentary group by name and governing body."""
         query = text("""
             SELECT * FROM parliamentary_groups
             WHERE name = :name AND governing_body_id = :gb_id
+                AND chamber = :chamber
             LIMIT 1
         """)
 
         result = await self.session.execute(
-            query, {"name": name, "gb_id": governing_body_id}
+            query, {"name": name, "gb_id": governing_body_id, "chamber": chamber}
         )
         row = result.fetchone()
 
@@ -131,7 +136,10 @@ class ParliamentaryGroupRepositoryImpl(
         return None
 
     async def get_by_governing_body_id(
-        self, governing_body_id: int, active_only: bool = True
+        self,
+        governing_body_id: int,
+        active_only: bool = True,
+        chamber: str | None = None,
     ) -> list[ParliamentaryGroup]:
         """Get all parliamentary groups for a governing body."""
         conditions = ["governing_body_id = :gb_id"]
@@ -139,6 +147,10 @@ class ParliamentaryGroupRepositoryImpl(
 
         if active_only:
             conditions.append("is_active = TRUE")
+
+        if chamber is not None:
+            conditions.append("chamber = :chamber")
+            params["chamber"] = chamber
 
         query = text(f"""
             SELECT * FROM parliamentary_groups
@@ -268,6 +280,7 @@ class ParliamentaryGroupRepositoryImpl(
             description=getattr(row, "description", None),
             is_active=getattr(row, "is_active", True),
             political_party_id=getattr(row, "political_party_id", None),
+            chamber=getattr(row, "chamber", ""),
         )
 
     def _to_entity(self, model: ParliamentaryGroupModel) -> ParliamentaryGroup:
@@ -280,6 +293,7 @@ class ParliamentaryGroupRepositoryImpl(
             description=model.description,
             is_active=model.is_active,
             political_party_id=getattr(model, "political_party_id", None),
+            chamber=getattr(model, "chamber", ""),
         )
 
     def _to_model(self, entity: ParliamentaryGroup) -> ParliamentaryGroupModel:
@@ -290,6 +304,7 @@ class ParliamentaryGroupRepositoryImpl(
             "description": entity.description,
             "is_active": entity.is_active,
             "political_party_id": entity.political_party_id,
+            "chamber": entity.chamber,
         }
 
         if entity.url is not None:
@@ -308,6 +323,7 @@ class ParliamentaryGroupRepositoryImpl(
         model.description = entity.description
         model.is_active = entity.is_active
         model.political_party_id = entity.political_party_id
+        model.chamber = entity.chamber
 
         if entity.url is not None:
             model.url = entity.url

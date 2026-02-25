@@ -41,6 +41,7 @@ class TestParliamentaryGroupRepositoryImpl:
             description="自由民主党の会派",
             is_active=True,
             political_party_id=5,
+            chamber="衆議院",
         )
 
     @pytest.mark.asyncio
@@ -242,6 +243,32 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_get_by_governing_body_id_with_chamber(
+        self,
+        repository: ParliamentaryGroupRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_governing_body_id with chamber filter."""
+        mock_row = MagicMock()
+        mock_row.id = 1
+        mock_row.name = "公明党"
+        mock_row.governing_body_id = 1
+        mock_row.is_active = True
+        mock_row.chamber = "衆議院"
+
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[mock_row])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_governing_body_id(
+            1, active_only=True, chamber="衆議院"
+        )
+
+        assert len(result) == 1
+        assert result[0].chamber == "衆議院"
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_get_active(
         self,
         repository: ParliamentaryGroupRepositoryImpl,
@@ -411,6 +438,7 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.description = "自由民主党の会派"
         mock_row.is_active = True
         mock_row.political_party_id = 5
+        mock_row.chamber = "衆議院"
 
         entity = repository._row_to_entity(mock_row)
 
@@ -421,6 +449,7 @@ class TestParliamentaryGroupRepositoryImpl:
         assert entity.url == "https://example.com/group"
         assert entity.is_active is True
         assert entity.political_party_id == 5
+        assert entity.chamber == "衆議院"
 
     def test_to_entity(self, repository: ParliamentaryGroupRepositoryImpl) -> None:
         """Test _to_entity converts model to entity correctly."""
@@ -432,6 +461,7 @@ class TestParliamentaryGroupRepositoryImpl:
             description="自由民主党の会派",
             is_active=True,
             political_party_id=5,
+            chamber="参議院",
         )
 
         entity = repository._to_entity(model)
@@ -440,6 +470,7 @@ class TestParliamentaryGroupRepositoryImpl:
         assert entity.id == 1
         assert entity.name == "自民党会派"
         assert entity.political_party_id == 5
+        assert entity.chamber == "参議院"
 
     def test_to_model(
         self,
@@ -455,6 +486,7 @@ class TestParliamentaryGroupRepositoryImpl:
         assert model.governing_body_id == 10
         assert model.is_active is True
         assert model.political_party_id == 5
+        assert model.chamber == "衆議院"
 
     def test_update_model(
         self,
@@ -468,6 +500,7 @@ class TestParliamentaryGroupRepositoryImpl:
             governing_body_id=5,
             description="旧説明",
             is_active=False,
+            chamber="",
         )
 
         repository._update_model(model, sample_group_entity)
@@ -478,6 +511,7 @@ class TestParliamentaryGroupRepositoryImpl:
         assert model.is_active is True
         assert model.url == "https://example.com/group"
         assert model.political_party_id == 5
+        assert model.chamber == "衆議院"
 
     @pytest.mark.asyncio
     async def test_get_by_ids_found(
