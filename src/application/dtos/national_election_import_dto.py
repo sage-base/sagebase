@@ -19,6 +19,8 @@ class ImportNationalElectionInputDto:
     election_number: int
     governing_body_id: int
     dry_run: bool = False
+    election_type: str | None = None
+    """選挙種別（省略時はデフォルト: 衆議院議員総選挙）."""
 
 
 @dataclass
