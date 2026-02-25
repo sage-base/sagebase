@@ -87,5 +87,16 @@ INSERT INTO political_parties (name, members_list_url) VALUES
 ('（議員報酬ゼロを実現する会）', NULL),
 ('（都政を改革する会）', NULL),
 ('ＮＨＫと裁判してる党
-弁護士法７２条違反で', NULL)
+弁護士法７２条違反で', NULL),
+-- 歴史的政党（会派マッピング用に追加 Issue #1231）
+('保守党', NULL),
+('保守新党', NULL),
+('新党さきがけ', NULL),
+('新進党', NULL),
+('太陽党', NULL),
+('自由党', NULL),
+('結いの党', NULL),
+('新党きづな', NULL),
+('たちあがれ日本', NULL),
+('沖縄の風', NULL)
 ON CONFLICT (name) DO NOTHING;
