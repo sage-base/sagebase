@@ -60,6 +60,7 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.description = "自由民主党の会派"
         mock_row.is_active = True
         mock_row.political_party_id = 5
+        mock_row.chamber = "衆議院"
 
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
@@ -71,6 +72,7 @@ class TestParliamentaryGroupRepositoryImpl:
         assert result.name == "自民党会派"
         assert result.governing_body_id == 10
         assert result.political_party_id == 5
+        assert result.chamber == "衆議院"
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
@@ -104,6 +106,7 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.description = "自由民主党の会派"
         mock_row.is_active = True
         mock_row.political_party_id = 5
+        mock_row.chamber = "衆議院"
 
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
@@ -113,6 +116,7 @@ class TestParliamentaryGroupRepositoryImpl:
         result = await repository.update(sample_group_entity)
 
         assert result.name == "自民党会派（更新）"
+        assert result.chamber == "衆議院"
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
@@ -172,6 +176,41 @@ class TestParliamentaryGroupRepositoryImpl:
         assert result.name == "自民党会派"
         assert result.governing_body_id == 10
         mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_name_and_governing_body_with_chamber(
+        self,
+        repository: ParliamentaryGroupRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_name_and_governing_body with chamber parameter."""
+        mock_row = MagicMock()
+        mock_row.id = 1
+        mock_row.name = "公明党"
+        mock_row.governing_body_id = 1
+        mock_row.url = None
+        mock_row.description = None
+        mock_row.is_active = True
+        mock_row.political_party_id = 3
+        mock_row.chamber = "衆議院"
+
+        mock_result = MagicMock()
+        mock_result.fetchone = MagicMock(return_value=mock_row)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_name_and_governing_body(
+            "公明党", 1, chamber="衆議院"
+        )
+
+        assert result is not None
+        assert result.name == "公明党"
+        assert result.chamber == "衆議院"
+        # SQL実行時にchamberパラメータが渡されていること
+        call_args = mock_session.execute.call_args
+        params = (
+            call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("params", {})
+        )
+        assert params["chamber"] == "衆議院"
 
     @pytest.mark.asyncio
     async def test_get_by_name_and_governing_body_not_found(
@@ -560,6 +599,37 @@ class TestParliamentaryGroupRepositoryImpl:
 
         assert result == []
         mock_session.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_count(
+        self,
+        repository: ParliamentaryGroupRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test count returns total number of parliamentary groups."""
+        mock_result = MagicMock()
+        mock_result.scalar = MagicMock(return_value=42)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.count()
+
+        assert result == 42
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_count_empty(
+        self,
+        repository: ParliamentaryGroupRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test count returns 0 when no groups exist."""
+        mock_result = MagicMock()
+        mock_result.scalar = MagicMock(return_value=None)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.count()
+
+        assert result == 0
 
     @pytest.mark.asyncio
     async def test_get_by_ids_not_found(

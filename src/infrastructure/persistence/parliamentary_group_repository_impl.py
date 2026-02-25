@@ -270,6 +270,13 @@ class ParliamentaryGroupRepositoryImpl(
         result = await self.session.execute(query, params)
         return [self._row_to_entity(row) for row in result.fetchall()]
 
+    async def count(self) -> int:
+        """会派の総数を取得する（動的モデルのためraw SQLでオーバーライド）."""
+        query = text("SELECT COUNT(*) FROM parliamentary_groups")
+        result = await self.session.execute(query)
+        count = result.scalar()
+        return count if count is not None else 0
+
     def _row_to_entity(self, row: Any) -> ParliamentaryGroup:
         """Convert database row to domain entity."""
         return ParliamentaryGroup(
