@@ -45,14 +45,15 @@ def render_new_parliamentary_group_tab(presenter: ParliamentaryGroupPresenter) -
     # 開催主体が「国会」かどうかを判定するためのマップ
     gb_type_map = {get_gb_display_name(gb): gb.type for gb in governing_bodies}
 
+    # 開催主体と院の選択はフォーム外（値変更で即リランさせるため）
+    selected_gb = st.selectbox("所属開催主体", gb_options)
+
+    # 国会の場合は院の選択肢を表示
+    chamber = ""
+    if selected_gb and gb_type_map.get(selected_gb) == "国":
+        chamber = st.selectbox("院", ["衆議院", "参議院"])
+
     with st.form("new_parliamentary_group_form", clear_on_submit=False):
-        selected_gb = st.selectbox("所属開催主体", gb_options)
-
-        # 国会の場合は院の選択肢を表示
-        chamber = ""
-        if selected_gb and gb_type_map.get(selected_gb) == "国":
-            chamber = st.selectbox("院", ["衆議院", "参議院"])
-
         # Input fields
         group_name = st.text_input("議員団名", placeholder="例: 自民党市議団")
         selected_party = st.selectbox("政党（任意）", party_options)
