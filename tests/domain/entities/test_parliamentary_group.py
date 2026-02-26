@@ -549,6 +549,84 @@ class TestParliamentaryGroupTemporalManagement:
         assert group.overlaps_with(date(2024, 1, 1), date(2024, 12, 31)) is True
         assert group.overlaps_with(date(2020, 1, 1), date(2020, 12, 31)) is False
 
+    def test_overlaps_with_no_dates_active(self) -> None:
+        """日付未設定・is_active=Trueの場合、overlaps_withはTrueを返す."""
+        group = ParliamentaryGroup(
+            name="現行会派",
+            governing_body_id=1,
+            is_active=True,
+        )
+        assert group.overlaps_with(date(2024, 1, 1), date(2024, 12, 31)) is True
+
+    def test_overlaps_with_no_dates_inactive(self) -> None:
+        """日付未設定・is_active=Falseの場合、overlaps_withはFalseを返す."""
+        group = ParliamentaryGroup(
+            name="歴史的会派",
+            governing_body_id=1,
+            is_active=False,
+        )
+        assert group.overlaps_with(date(2024, 1, 1), date(2024, 12, 31)) is False
+
+    def test_overlaps_with_open_ended_argument(self) -> None:
+        """引数のend_date=Noneの場合（開放区間）の重複判定."""
+        group = ParliamentaryGroup(
+            name="テスト会派",
+            governing_body_id=1,
+            start_date=date(2000, 1, 1),
+            end_date=date(2005, 12, 31),
+        )
+        # 引数start_dateが会派の終了後 → 重複なし
+        assert group.overlaps_with(date(2006, 1, 1)) is False
+        # 引数start_dateが会派の期間中 → 重複あり
+        assert group.overlaps_with(date(2003, 1, 1)) is True
+
+    def test_overlaps_with_start_date_only(self) -> None:
+        """self.start_dateのみ設定・self.end_dateなしの場合."""
+        group = ParliamentaryGroup(
+            name="現行会派",
+            governing_body_id=1,
+            start_date=date(2021, 11, 1),
+        )
+        # 引数end_dateが会派開始前 → 重複なし
+        assert group.overlaps_with(date(2020, 1, 1), date(2021, 10, 31)) is False
+        # 引数がまたがる → 重複あり
+        assert group.overlaps_with(date(2020, 1, 1), date(2022, 12, 31)) is True
+
+    def test_overlaps_with_end_date_only(self) -> None:
+        """self.end_dateのみ設定・self.start_dateなしの場合."""
+        group = ParliamentaryGroup(
+            name="歴史的会派",
+            governing_body_id=1,
+            end_date=date(2005, 12, 31),
+        )
+        # 引数start_dateが会派終了後 → 重複なし
+        assert group.overlaps_with(date(2006, 1, 1), date(2010, 12, 31)) is False
+        # 引数が会派期間にかかる → 重複あり
+        assert group.overlaps_with(date(2004, 1, 1), date(2010, 12, 31)) is True
+
+    def test_update_period_valid(self) -> None:
+        """update_periodで正常に期間を更新できる."""
+        group = create_parliamentary_group()
+        group.update_period(date(2020, 1, 1), date(2024, 12, 31))
+        assert group.start_date == date(2020, 1, 1)
+        assert group.end_date == date(2024, 12, 31)
+
+    def test_update_period_invalid(self) -> None:
+        """update_periodでend_date < start_dateの場合ValueError."""
+        group = create_parliamentary_group()
+        with pytest.raises(ValueError, match="end_date.*start_date.*前"):
+            group.update_period(date(2024, 1, 1), date(2023, 12, 31))
+
+    def test_update_period_clears_dates(self) -> None:
+        """update_periodでNoneを渡すと日付をクリアできる."""
+        group = create_parliamentary_group(
+            start_date=date(2020, 1, 1),
+            end_date=date(2024, 12, 31),
+        )
+        group.update_period(None, None)
+        assert group.start_date is None
+        assert group.end_date is None
+
     def test_factory_with_dates(self) -> None:
         """ファクトリで日付付きエンティティを作成."""
         group = create_parliamentary_group(

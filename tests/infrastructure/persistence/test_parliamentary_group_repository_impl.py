@@ -1,5 +1,6 @@
 """Tests for ParliamentaryGroupRepositoryImpl."""
 
+from datetime import date
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -674,3 +675,76 @@ class TestParliamentaryGroupRepositoryImpl:
 
         assert result == []
         mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_governing_body_id_with_as_of_date(
+        self,
+        repository: ParliamentaryGroupRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """as_of_date指定時に日付条件がSQLに含まれること."""
+        mock_row = MagicMock()
+        mock_row.id = 1
+        mock_row.name = "公明党"
+        mock_row.governing_body_id = 1
+        mock_row.is_active = True
+        mock_row.chamber = "衆議院"
+        mock_row.start_date = date(2000, 1, 1)
+        mock_row.end_date = date(2005, 12, 31)
+
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[mock_row])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_governing_body_id(
+            1, active_only=True, as_of_date=date(2003, 6, 15)
+        )
+
+        assert len(result) == 1
+        # SQL実行時にas_of_dateパラメータが渡されていること
+        call_args = mock_session.execute.call_args
+        sql_text = str(call_args[0][0])
+        params = call_args[0][1] if len(call_args[0]) > 1 else {}
+        assert "start_date" in sql_text
+        assert "end_date" in sql_text
+        assert params["as_of_date"] == date(2003, 6, 15)
+        # as_of_date指定時はis_activeフィルタが使われないこと
+        assert "is_active" not in sql_text
+
+    @pytest.mark.asyncio
+    async def test_get_by_governing_body_id_as_of_date_overrides_active_only(
+        self,
+        repository: ParliamentaryGroupRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """as_of_dateがactive_onlyより優先されること."""
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        await repository.get_by_governing_body_id(
+            1, active_only=True, as_of_date=date(2024, 10, 27)
+        )
+
+        call_args = mock_session.execute.call_args
+        sql_text = str(call_args[0][0])
+        # as_of_date指定時はis_activeではなく日付条件が使われる
+        assert "is_active" not in sql_text
+        assert "as_of_date" in sql_text
+
+    @pytest.mark.asyncio
+    async def test_get_by_governing_body_id_without_as_of_date_uses_is_active(
+        self,
+        repository: ParliamentaryGroupRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """as_of_date未指定時は従来のis_activeフィルタが使われること."""
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        await repository.get_by_governing_body_id(1, active_only=True)
+
+        call_args = mock_session.execute.call_args
+        sql_text = str(call_args[0][0])
+        assert "is_active" in sql_text

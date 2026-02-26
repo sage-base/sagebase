@@ -262,8 +262,7 @@ class ManageParliamentaryGroupsUseCase:
             existing.is_active = input_dto.is_active
             existing.political_party_id = input_dto.political_party_id
             existing.chamber = input_dto.chamber
-            existing.start_date = input_dto.start_date
-            existing.end_date = input_dto.end_date
+            existing.update_period(input_dto.start_date, input_dto.end_date)
 
             await self.parliamentary_group_repository.update(existing)
             return UpdateParliamentaryGroupOutputDto(success=True)

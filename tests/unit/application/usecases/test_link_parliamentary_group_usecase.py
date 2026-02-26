@@ -768,10 +768,40 @@ class TestLinkParliamentaryGroupWithHistory:
     ) -> None:
         """選挙日がas_of_dateとしてリポジトリに渡される."""
         self._setup_election(mock_repos, election)
-        mock_repos["election_member"].get_by_election_id.return_value = []
+        mock_repos["election_member"].get_by_election_id.return_value = [
+            ElectionMember(election_id=1, politician_id=1, result="当選", id=1),
+        ]
+        mock_repos["politician"].get_by_ids.return_value = [
+            Politician(
+                name="自民太郎",
+                prefecture="東京都",
+                district="",
+                id=1,
+            ),
+        ]
+        mock_repos["party_history"].get_current_by_politicians.return_value = {
+            1: PartyMembershipHistory(
+                politician_id=1,
+                political_party_id=10,
+                start_date=date(2024, 1, 1),
+                id=1,
+            ),
+        }
+        mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
+        mock_repos["membership"].get_active_by_group.return_value = []
+        mock_repos[
+            "membership"
+        ].create_membership.return_value = ParliamentaryGroupMembership(
+            politician_id=1,
+            parliamentary_group_id=100,
+            start_date=ELECTION_DATE,
+            id=1,
+        )
 
         input_dto = LinkParliamentaryGroupInputDto(term_number=50)
         await use_case_with_history.execute(input_dto)
 
-        # 当選者0件でも会派取得は呼ばれない（当選者がいないため早期リターン）
-        # ただし、当選者がいる場合はas_of_dateが渡されることをtest_chamberで検証済み
+        # 選挙日がas_of_dateとしてリポジトリに渡されること
+        mock_repos["group"].get_by_governing_body_id.assert_called_once_with(
+            1, active_only=True, chamber=None, as_of_date=ELECTION_DATE
+        )
