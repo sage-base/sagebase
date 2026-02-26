@@ -267,14 +267,13 @@ def parse_seed_parliamentary_groups(seed_path: Path) -> list[dict[str, Any]]:
     """seed_parliamentary_groups_generated.sqlから既存の会派データを解析する.
 
     Returns:
-        [{"name": str, "governing_body": str, "has_party_id": bool,
-          "party_select": str|None, "is_active": bool}, ...]
+        [{"name": str, "governing_body": str, "is_active": bool}, ...]
     """
     result = []
     content = seed_path.read_text(encoding="utf-8")
 
     # VALUES句の各行をパース
-    # ('会派名', (SELECT ...), URL|NULL, desc|NULL, bool, party|NULL)
+    # ('会派名', (SELECT ...), URL|NULL, desc|NULL, bool, 'chamber')
     pattern = re.compile(
         r"\('([^']*)',\s*"  # name
         r"\(SELECT id FROM governing_bodies "
@@ -283,30 +282,18 @@ def parse_seed_parliamentary_groups(seed_path: Path) -> list[dict[str, Any]]:
         r"(?:'[^']*'|NULL),\s*"  # url
         r"(?:'[^']*'|NULL),\s*"  # description
         r"(true|false),\s*"  # is_active
-        r"((?:\(SELECT id FROM political_parties "
-        r"WHERE name = '[^']*'\))|NULL)"  # party_id
+        r"'[^']*'"  # chamber
     )
 
     for match in pattern.finditer(content):
         name = match.group(1)
         governing_body = match.group(2)
         is_active = match.group(3) == "true"
-        party_select = match.group(4)
-        has_party_id = party_select != "NULL"
-
-        # 政党名を抽出
-        party_name = None
-        if has_party_id:
-            party_match = re.search(r"name = '([^']*)'", party_select)
-            if party_match:
-                party_name = party_match.group(1)
 
         result.append(
             {
                 "name": name,
                 "governing_body": governing_body,
-                "has_party_id": has_party_id,
-                "party_name": party_name,
                 "is_active": is_active,
             }
         )

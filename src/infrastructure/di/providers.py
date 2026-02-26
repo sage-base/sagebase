@@ -150,6 +150,9 @@ from src.infrastructure.persistence.minutes_repository_impl import MinutesReposi
 from src.infrastructure.persistence.monitoring_repository_impl import (
     MonitoringRepositoryImpl,
 )
+from src.infrastructure.persistence.parliamentary_group_party_repository_impl import (
+    ParliamentaryGroupPartyRepositoryImpl,
+)
 from src.infrastructure.persistence.parliamentary_group_repository_impl import (
     ParliamentaryGroupMembershipRepositoryImpl,
     ParliamentaryGroupRepositoryImpl,
@@ -423,6 +426,11 @@ class RepositoryContainer(containers.DeclarativeContainer):
 
     parliamentary_group_repository = providers.Factory(
         ParliamentaryGroupRepositoryImpl,
+        session=database.async_session,
+    )
+
+    parliamentary_group_party_repository = providers.Factory(
+        ParliamentaryGroupPartyRepositoryImpl,
         session=database.async_session,
     )
 

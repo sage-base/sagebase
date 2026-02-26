@@ -445,6 +445,10 @@ class TestToDataframe:
         # Arrange
         presenter.political_party_repo = MagicMock()
         presenter.political_party_repo.get_all = AsyncMock(return_value=[])
+        presenter.parliamentary_group_party_repo = MagicMock()
+        presenter.parliamentary_group_party_repo.get_by_parliamentary_group_ids = (
+            AsyncMock(return_value=[])
+        )
 
         # Act
         df = presenter.to_dataframe(

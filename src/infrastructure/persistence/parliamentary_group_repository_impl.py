@@ -27,7 +27,6 @@ class ParliamentaryGroupModel:
     url: str | None
     description: str | None
     is_active: bool
-    political_party_id: int | None
     chamber: str
     start_date: date | None
     end_date: date | None
@@ -51,16 +50,16 @@ class ParliamentaryGroupRepositoryImpl(
             """
             INSERT INTO parliamentary_groups (
                 name, governing_body_id, url, description,
-                is_active, political_party_id, chamber,
+                is_active, chamber,
                 start_date, end_date
             )
             VALUES (
                 :name, :governing_body_id, :url, :description,
-                :is_active, :political_party_id, :chamber,
+                :is_active, :chamber,
                 :start_date, :end_date
             )
             RETURNING id, name, governing_body_id, url,
-                description, is_active, political_party_id, chamber,
+                description, is_active, chamber,
                 start_date, end_date
         """
         )
@@ -73,7 +72,6 @@ class ParliamentaryGroupRepositoryImpl(
                 "url": entity.url,
                 "description": entity.description,
                 "is_active": entity.is_active,
-                "political_party_id": entity.political_party_id,
                 "chamber": entity.chamber,
                 "start_date": entity.start_date,
                 "end_date": entity.end_date,
@@ -97,13 +95,12 @@ class ParliamentaryGroupRepositoryImpl(
                 url = :url,
                 description = :description,
                 is_active = :is_active,
-                political_party_id = :political_party_id,
                 chamber = :chamber,
                 start_date = :start_date,
                 end_date = :end_date
             WHERE id = :id
             RETURNING id, name, governing_body_id, url,
-                description, is_active, political_party_id, chamber,
+                description, is_active, chamber,
                 start_date, end_date
         """)
 
@@ -116,7 +113,6 @@ class ParliamentaryGroupRepositoryImpl(
                 "url": entity.url,
                 "description": entity.description,
                 "is_active": entity.is_active,
-                "political_party_id": entity.political_party_id,
                 "chamber": entity.chamber,
                 "start_date": entity.start_date,
                 "end_date": entity.end_date,
@@ -305,7 +301,6 @@ class ParliamentaryGroupRepositoryImpl(
             url=getattr(row, "url", None),
             description=getattr(row, "description", None),
             is_active=getattr(row, "is_active", True),
-            political_party_id=getattr(row, "political_party_id", None),
             chamber=getattr(row, "chamber", ""),
             start_date=getattr(row, "start_date", None),
             end_date=getattr(row, "end_date", None),
@@ -320,7 +315,6 @@ class ParliamentaryGroupRepositoryImpl(
             url=getattr(model, "url", None),
             description=model.description,
             is_active=model.is_active,
-            political_party_id=getattr(model, "political_party_id", None),
             chamber=getattr(model, "chamber", ""),
             start_date=getattr(model, "start_date", None),
             end_date=getattr(model, "end_date", None),
@@ -333,7 +327,6 @@ class ParliamentaryGroupRepositoryImpl(
             "governing_body_id": entity.governing_body_id,
             "description": entity.description,
             "is_active": entity.is_active,
-            "political_party_id": entity.political_party_id,
             "chamber": entity.chamber,
             "start_date": entity.start_date,
             "end_date": entity.end_date,
@@ -354,7 +347,6 @@ class ParliamentaryGroupRepositoryImpl(
         model.governing_body_id = entity.governing_body_id
         model.description = entity.description
         model.is_active = entity.is_active
-        model.political_party_id = entity.political_party_id
         model.chamber = entity.chamber
         model.start_date = entity.start_date
         model.end_date = entity.end_date

@@ -15,7 +15,6 @@ class ParliamentaryGroup(BaseEntity):
         url: str | None = None,
         description: str | None = None,
         is_active: bool = True,
-        political_party_id: int | None = None,
         chamber: str = "",
         start_date: date | None = None,
         end_date: date | None = None,
@@ -33,7 +32,6 @@ class ParliamentaryGroup(BaseEntity):
         self.url = url
         self.description = description
         self.is_active = is_active
-        self.political_party_id = political_party_id
         self.chamber = chamber
         self.start_date = start_date
         self.end_date = end_date

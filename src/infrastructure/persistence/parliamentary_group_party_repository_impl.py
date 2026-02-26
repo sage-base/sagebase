@@ -37,6 +37,18 @@ class ParliamentaryGroupPartyRepositoryImpl(
         models = result.scalars().all()
         return [self._to_entity(model) for model in models]
 
+    async def get_by_parliamentary_group_ids(
+        self, group_ids: list[int]
+    ) -> list[ParliamentaryGroupParty]:
+        if not group_ids:
+            return []
+        query = select(self.model_class).where(
+            self.model_class.parliamentary_group_id.in_(group_ids)
+        )
+        result = await self.session.execute(query)
+        models = result.scalars().all()
+        return [self._to_entity(model) for model in models]
+
     async def get_by_political_party_id(
         self, party_id: int
     ) -> list[ParliamentaryGroupParty]:

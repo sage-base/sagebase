@@ -55,11 +55,12 @@ def render_edit_delete_tab(presenter: ParliamentaryGroupPresenter) -> None:
     for p in political_parties:
         party_map[p.name] = p.id
 
-    # Determine current party selection index
+    # 中間テーブルから主要政党IDを取得
+    current_primary_party_id = presenter.get_primary_party_id(selected_group.id)
     current_party_index = 0
-    if selected_group.political_party_id:
+    if current_primary_party_id:
         for i, p in enumerate(political_parties):
-            if p.id == selected_group.political_party_id:
+            if p.id == current_primary_party_id:
                 current_party_index = i + 1
                 break
 

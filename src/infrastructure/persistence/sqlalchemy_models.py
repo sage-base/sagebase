@@ -115,9 +115,6 @@ class ParliamentaryGroupModel(Base):
     url: Mapped[str | None] = mapped_column(String(500))
     description: Mapped[str | None] = mapped_column()
     is_active: Mapped[bool] = mapped_column(default=True)
-    political_party_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("political_parties.id", ondelete="SET NULL"), nullable=True
-    )
     chamber: Mapped[str] = mapped_column(String(10), default="", server_default="")
     start_date: Mapped[date | None] = mapped_column(nullable=True)
     end_date: Mapped[date | None] = mapped_column(nullable=True)

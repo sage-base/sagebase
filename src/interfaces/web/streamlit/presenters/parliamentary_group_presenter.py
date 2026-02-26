@@ -38,6 +38,9 @@ from src.infrastructure.persistence.governing_body_repository_impl import (
 from src.infrastructure.persistence.parliamentary_group_membership_repository_impl import (  # noqa: E501
     ParliamentaryGroupMembershipRepositoryImpl,
 )
+from src.infrastructure.persistence.parliamentary_group_party_repository_impl import (
+    ParliamentaryGroupPartyRepositoryImpl,
+)
 from src.infrastructure.persistence.parliamentary_group_repository_impl import (
     ParliamentaryGroupRepositoryImpl,
 )
@@ -68,6 +71,9 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         self.membership_repo = RepositoryAdapter(
             ParliamentaryGroupMembershipRepositoryImpl
         )
+        self.parliamentary_group_party_repo = RepositoryAdapter(
+            ParliamentaryGroupPartyRepositoryImpl
+        )
         self.extracted_member_repo = RepositoryAdapter(
             ExtractedParliamentaryGroupMemberRepositoryImpl
         )
@@ -97,6 +103,7 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
             extracted_member_repository=self.extracted_member_repo,  # type: ignore[arg-type]
             update_usecase=self.update_usecase,  # 抽出ログ記録用UseCase
             membership_repository=self.membership_repo,  # type: ignore[arg-type]
+            parliamentary_group_party_repository=self.parliamentary_group_party_repo,  # type: ignore[arg-type]
         )
         self.session = SessionManager()
         self.form_state = self._get_or_create_form_state()
@@ -412,6 +419,21 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
             self.logger.error(error_msg)
             return False, None, error_msg
 
+    def get_primary_party_id(self, group_id: int) -> int | None:
+        """会派の主要政党IDを中間テーブルから取得する."""
+        import nest_asyncio
+
+        nest_asyncio.apply()
+        import asyncio
+
+        loop = asyncio.get_event_loop()
+        result = loop.run_until_complete(
+            self.parliamentary_group_party_repo.get_primary_party(group_id)
+        )
+        if result is not None:
+            return result.political_party_id
+        return None
+
     def to_dataframe(
         self,
         parliamentary_groups: list[ParliamentaryGroup],
@@ -424,6 +446,25 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
         political_parties = self.get_all_political_parties()
         party_map = {p.id: p.name for p in political_parties}
 
+        # 中間テーブルから各会派の主要政党IDを一括取得
+        group_ids = [g.id for g in parliamentary_groups if g.id is not None]
+        primary_party_map: dict[int, int] = {}
+        if group_ids:
+            import nest_asyncio
+
+            nest_asyncio.apply()
+            import asyncio
+
+            loop = asyncio.get_event_loop()
+            group_parties = loop.run_until_complete(
+                self.parliamentary_group_party_repo.get_by_parliamentary_group_ids(
+                    group_ids
+                )
+            )
+            for gp in group_parties:
+                if gp.is_primary:
+                    primary_party_map[gp.parliamentary_group_id] = gp.political_party_id
+
         df_data = []
         for group in parliamentary_groups:
             # Find governing body name
@@ -432,9 +473,12 @@ class ParliamentaryGroupPresenter(BasePresenter[list[ParliamentaryGroup]]):
             )
             gb_name = f"{gb.name}" if gb else "不明"
 
+            primary_party_id = (
+                primary_party_map.get(group.id) if group.id is not None else None
+            )
             party_name = (
-                party_map.get(group.political_party_id, "未設定")
-                if group.political_party_id
+                party_map.get(primary_party_id, "未設定")
+                if primary_party_id
                 else "未設定"
             )
 

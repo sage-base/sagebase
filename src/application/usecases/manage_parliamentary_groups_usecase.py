@@ -26,6 +26,9 @@ from src.domain.repositories.extracted_parliamentary_group_member_repository imp
 from src.domain.repositories.parliamentary_group_membership_repository import (
     ParliamentaryGroupMembershipRepository,
 )
+from src.domain.repositories.parliamentary_group_party_repository import (
+    ParliamentaryGroupPartyRepository,
+)
 from src.domain.repositories.parliamentary_group_repository import (
     ParliamentaryGroupRepository,
 )
@@ -165,6 +168,8 @@ class ManageParliamentaryGroupsUseCase:
         update_usecase: UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase
         | None = None,
         membership_repository: ParliamentaryGroupMembershipRepository | None = None,
+        parliamentary_group_party_repository: ParliamentaryGroupPartyRepository
+        | None = None,
     ):
         """Initialize the use case.
 
@@ -174,12 +179,14 @@ class ManageParliamentaryGroupsUseCase:
             extracted_member_repository: Extracted member repository instance
             update_usecase: 抽出ログを記録するためのUseCase（オプション）
             membership_repository: メンバーシップリポジトリ（削除時チェック用）
+            parliamentary_group_party_repository: 会派⇔政党中間テーブルリポジトリ
         """
         self.parliamentary_group_repository = parliamentary_group_repository
         self.extractor = member_extractor  # Injected instead of created by Factory
         self.extracted_member_repository = extracted_member_repository
         self._update_usecase = update_usecase
         self.membership_repository = membership_repository
+        self._group_party_repo = parliamentary_group_party_repository
 
     async def list_parliamentary_groups(
         self, input_dto: ParliamentaryGroupListInputDto
@@ -225,7 +232,6 @@ class ManageParliamentaryGroupsUseCase:
                 url=input_dto.url,
                 description=input_dto.description,
                 is_active=input_dto.is_active,
-                political_party_id=input_dto.political_party_id,
                 chamber=input_dto.chamber,
                 start_date=input_dto.start_date,
                 end_date=input_dto.end_date,
@@ -234,6 +240,17 @@ class ManageParliamentaryGroupsUseCase:
             created = await self.parliamentary_group_repository.create(
                 parliamentary_group
             )
+
+            # 中間テーブルに政党関連を保存
+            if (
+                input_dto.political_party_id is not None
+                and self._group_party_repo is not None
+                and created.id is not None
+            ):
+                await self._group_party_repo.add_party(
+                    created.id, input_dto.political_party_id, is_primary=True
+                )
+
             return CreateParliamentaryGroupOutputDto(
                 success=True, parliamentary_group=created
             )
@@ -260,11 +277,21 @@ class ManageParliamentaryGroupsUseCase:
             existing.url = input_dto.url
             existing.description = input_dto.description
             existing.is_active = input_dto.is_active
-            existing.political_party_id = input_dto.political_party_id
             existing.chamber = input_dto.chamber
             existing.update_period(input_dto.start_date, input_dto.end_date)
 
             await self.parliamentary_group_repository.update(existing)
+
+            # 中間テーブルの政党関連を更新
+            if self._group_party_repo is not None:
+                if input_dto.political_party_id is not None:
+                    await self._group_party_repo.add_party(
+                        input_dto.id, input_dto.political_party_id
+                    )
+                    await self._group_party_repo.set_primary(
+                        input_dto.id, input_dto.political_party_id
+                    )
+
             return UpdateParliamentaryGroupOutputDto(success=True)
         except Exception as e:
             logger.error(f"Failed to update parliamentary group: {e}")
@@ -413,7 +440,7 @@ class ManageParliamentaryGroupsUseCase:
             seed_content += (
                 "INSERT INTO parliamentary_groups "
                 "(id, name, governing_body_id, url, description,"
-                " is_active, political_party_id, chamber,"
+                " is_active, chamber,"
                 " start_date, end_date) VALUES\n"
             )
 
@@ -422,18 +449,13 @@ class ManageParliamentaryGroupsUseCase:
                 url = f"'{group.url}'" if group.url else "NULL"
                 description = f"'{group.description}'" if group.description else "NULL"
                 is_active = "true" if group.is_active else "false"
-                pp_id = (
-                    str(group.political_party_id)
-                    if group.political_party_id
-                    else "NULL"
-                )
                 chamber = f"'{group.chamber}'" if group.chamber else "''"
                 sd = f"'{group.start_date}'" if group.start_date else "NULL"
                 ed = f"'{group.end_date}'" if group.end_date else "NULL"
                 values.append(
                     f"    ({group.id}, '{group.name}',"
                     f" {group.governing_body_id}, "
-                    f"{url}, {description}, {is_active}, {pp_id}, {chamber},"
+                    f"{url}, {description}, {is_active}, {chamber},"
                     f" {sd}, {ed})"
                 )
 
@@ -444,7 +466,6 @@ class ManageParliamentaryGroupsUseCase:
             seed_content += "    url = EXCLUDED.url,\n"
             seed_content += "    description = EXCLUDED.description,\n"
             seed_content += "    is_active = EXCLUDED.is_active,\n"
-            seed_content += "    political_party_id = EXCLUDED.political_party_id,\n"
             seed_content += "    chamber = EXCLUDED.chamber,\n"
             seed_content += "    start_date = EXCLUDED.start_date,\n"
             seed_content += "    end_date = EXCLUDED.end_date;\n\n"

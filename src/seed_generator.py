@@ -251,14 +251,11 @@ class SeedGenerator:
                         pg.url,
                         pg.description,
                         pg.is_active,
-                        pg.political_party_id,
                         pg.chamber,
                         gb.name as governing_body_name,
-                        gb.type as governing_body_type,
-                        pp.name as party_name
+                        gb.type as governing_body_type
                     FROM parliamentary_groups pg
                     JOIN governing_bodies gb ON pg.governing_body_id = gb.id
-                    LEFT JOIN political_parties pp ON pg.political_party_id = pp.id
                     ORDER BY gb.name, pg.name
                 """)
             )
@@ -275,7 +272,7 @@ class SeedGenerator:
             (
                 "INSERT INTO parliamentary_groups "
                 "(name, governing_body_id, url, description, is_active, "
-                "political_party_id, chamber) VALUES"
+                "chamber) VALUES"
             ),
         ]
 
@@ -332,16 +329,6 @@ class SeedGenerator:
                     f"AND type = '{body_type_escaped}')"
                 )
 
-                # political_party_idの処理
-                if group.get("party_name"):
-                    party_name_escaped = group["party_name"].replace("'", "''")
-                    party_id_part = (
-                        f"(SELECT id FROM political_parties "
-                        f"WHERE name = '{party_name_escaped}')"
-                    )
-                else:
-                    party_id_part = "NULL"
-
                 # chamber値
                 chamber = group.get("chamber", "")
                 chamber_sql = f"'{chamber}'" if chamber else "''"
@@ -349,7 +336,7 @@ class SeedGenerator:
                 lines.append(
                     f"('{name}', {governing_body_part}, "
                     f"{url}, {description}, {is_active}, "
-                    f"{party_id_part}, {chamber_sql}){comma}"
+                    f"{chamber_sql}){comma}"
                 )
 
             first_group = False
@@ -358,8 +345,7 @@ class SeedGenerator:
             "ON CONFLICT (name, governing_body_id, chamber) DO UPDATE SET "
             "url = EXCLUDED.url, "
             "description = EXCLUDED.description, "
-            "is_active = EXCLUDED.is_active, "
-            "political_party_id = EXCLUDED.political_party_id;"
+            "is_active = EXCLUDED.is_active;"
         )
 
         result = "\n".join(lines) + "\n"

@@ -130,17 +130,15 @@ class TestSeedGenerator:
         """parliamentary_groupsのSEED生成テスト"""
         # モックデータの準備
         mock_rows = [
-            ("自由民主党", None, None, True, None, "", "東京都", "都道府県", None),
+            ("自由民主党", None, None, True, "", "東京都", "都道府県"),
             (
                 "都民ファーストの会",
                 "https://example.com",
                 "都議会第一会派",
                 True,
-                5,
                 "衆議院",
                 "東京都",
                 "都道府県",
-                "都民ファーストの会",
             ),
         ]
 
@@ -151,11 +149,9 @@ class TestSeedGenerator:
             "url",
             "description",
             "is_active",
-            "political_party_id",
             "chamber",
             "governing_body_name",
             "governing_body_type",
-            "party_name",
         ]
 
         mock_conn = MagicMock()
@@ -170,17 +166,12 @@ class TestSeedGenerator:
         # 検証
         assert "INSERT INTO parliamentary_groups " in result
         assert (
-            "(name, governing_body_id, url, description, is_active, "
-            "political_party_id, chamber) VALUES"
+            "(name, governing_body_id, url, description, is_active, chamber) VALUES"
         ) in result
         assert "('自由民主党'," in result
         assert "('都民ファーストの会'," in result
-        assert "NULL, NULL, true, NULL, '')" in result
-        assert (
-            "'https://example.com', '都議会第一会派', true, "
-            "(SELECT id FROM political_parties WHERE name = '都民ファーストの会'), "
-            "'衆議院')"
-        ) in result
+        assert "NULL, NULL, true, '')" in result
+        assert ("'https://example.com', '都議会第一会派', true, '衆議院')") in result
         assert "ON CONFLICT (name, governing_body_id, chamber) DO UPDATE SET" in result
 
     def test_generate_politicians_seed(self, seed_generator):

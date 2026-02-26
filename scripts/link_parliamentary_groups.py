@@ -1,6 +1,6 @@
 """政党所属議員の会派自動紐付けスクリプト.
 
-国会選挙で当選した政党所属議員を、political_party_id に基づいて
+国会選挙で当選した政党所属議員を、中間テーブル（parliamentary_group_parties）に基づいて
 会派（parliamentary_group）に自動紐付けする。
 
 Usage (Docker経由で実行):
@@ -44,6 +44,9 @@ from src.infrastructure.persistence.election_repository_impl import (
 from src.infrastructure.persistence.parliamentary_group_membership_repository_impl import (  # noqa: E501
     ParliamentaryGroupMembershipRepositoryImpl,
 )
+from src.infrastructure.persistence.parliamentary_group_party_repository_impl import (
+    ParliamentaryGroupPartyRepositoryImpl,
+)
 from src.infrastructure.persistence.parliamentary_group_repository_impl import (
     ParliamentaryGroupRepositoryImpl,
 )
@@ -82,6 +85,9 @@ async def run_link(term_number: int, dry_run: bool) -> bool:
                 session
             ),
             party_membership_history_repository=PartyMembershipHistoryRepositoryImpl(
+                session
+            ),
+            parliamentary_group_party_repository=ParliamentaryGroupPartyRepositoryImpl(
                 session
             ),
         )
