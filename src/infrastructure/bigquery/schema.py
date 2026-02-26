@@ -178,7 +178,6 @@ _PARLIAMENTARY_GROUPS = BQTableDef(
         BQColumnDef("id", "INT64", "REQUIRED", "議員団ID"),
         BQColumnDef("name", "STRING", "REQUIRED", "議員団名"),
         BQColumnDef("governing_body_id", "INT64", "REQUIRED", "開催主体ID"),
-        BQColumnDef("political_party_id", "INT64", description="政党ID"),
         BQColumnDef("url", "STRING", description="URL"),
         BQColumnDef("description", "STRING", description="説明"),
         BQColumnDef("is_active", "BOOL", description="有効フラグ"),

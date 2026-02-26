@@ -140,7 +140,6 @@ def create_parliamentary_group(**kwargs: Any) -> ParliamentaryGroup:
         "governing_body_id": 1,
         "description": None,
         "is_active": True,
-        "political_party_id": None,
         "chamber": "",
         "start_date": None,
         "end_date": None,

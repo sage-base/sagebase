@@ -41,7 +41,6 @@ class TestParliamentaryGroupRepositoryImpl:
             url="https://example.com/group",
             description="自由民主党の会派",
             is_active=True,
-            political_party_id=5,
             chamber="衆議院",
         )
 
@@ -60,7 +59,6 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.url = "https://example.com/group"
         mock_row.description = "自由民主党の会派"
         mock_row.is_active = True
-        mock_row.political_party_id = 5
         mock_row.chamber = "衆議院"
         mock_row.start_date = None
         mock_row.end_date = None
@@ -74,7 +72,6 @@ class TestParliamentaryGroupRepositoryImpl:
         assert result.id == 1
         assert result.name == "自民党会派"
         assert result.governing_body_id == 10
-        assert result.political_party_id == 5
         assert result.chamber == "衆議院"
         mock_session.execute.assert_called_once()
 
@@ -108,7 +105,6 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.url = "https://example.com/group"
         mock_row.description = "自由民主党の会派"
         mock_row.is_active = True
-        mock_row.political_party_id = 5
         mock_row.chamber = "衆議院"
         mock_row.start_date = None
         mock_row.end_date = None
@@ -198,7 +194,6 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.url = None
         mock_row.description = None
         mock_row.is_active = True
-        mock_row.political_party_id = 3
         mock_row.chamber = "衆議院"
         mock_row.start_date = None
         mock_row.end_date = None
@@ -499,7 +494,6 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.url = "https://example.com/group"
         mock_row.description = "自由民主党の会派"
         mock_row.is_active = True
-        mock_row.political_party_id = 5
         mock_row.chamber = "衆議院"
         mock_row.start_date = None
         mock_row.end_date = None
@@ -512,7 +506,6 @@ class TestParliamentaryGroupRepositoryImpl:
         assert entity.governing_body_id == 10
         assert entity.url == "https://example.com/group"
         assert entity.is_active is True
-        assert entity.political_party_id == 5
         assert entity.chamber == "衆議院"
 
     def test_to_entity(self, repository: ParliamentaryGroupRepositoryImpl) -> None:
@@ -524,7 +517,6 @@ class TestParliamentaryGroupRepositoryImpl:
             url="https://example.com/group",
             description="自由民主党の会派",
             is_active=True,
-            political_party_id=5,
             chamber="参議院",
         )
 
@@ -533,7 +525,6 @@ class TestParliamentaryGroupRepositoryImpl:
         assert isinstance(entity, ParliamentaryGroup)
         assert entity.id == 1
         assert entity.name == "自民党会派"
-        assert entity.political_party_id == 5
         assert entity.chamber == "参議院"
 
     def test_to_model(
@@ -549,7 +540,6 @@ class TestParliamentaryGroupRepositoryImpl:
         assert model.name == "自民党会派"
         assert model.governing_body_id == 10
         assert model.is_active is True
-        assert model.political_party_id == 5
         assert model.chamber == "衆議院"
 
     def test_update_model(
@@ -574,7 +564,6 @@ class TestParliamentaryGroupRepositoryImpl:
         assert model.description == "自由民主党の会派"
         assert model.is_active is True
         assert model.url == "https://example.com/group"
-        assert model.political_party_id == 5
         assert model.chamber == "衆議院"
 
     @pytest.mark.asyncio

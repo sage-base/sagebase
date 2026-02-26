@@ -7,7 +7,7 @@
     1. 選挙を term_number で検索
     2. 当選者の election_member を取得
     3. 各議員の政党所属を party_membership_history から確認
-    4. parliamentary_groups で political_party_id 一致 + active の会派を検索
+    4. 中間テーブルから political_party_id 一致の会派を検索
     5. 1:1 マッチなら parliamentary_group_memberships を作成
 """
 
@@ -27,6 +27,9 @@ from src.domain.repositories.election_member_repository import ElectionMemberRep
 from src.domain.repositories.election_repository import ElectionRepository
 from src.domain.repositories.parliamentary_group_membership_repository import (
     ParliamentaryGroupMembershipRepository,
+)
+from src.domain.repositories.parliamentary_group_party_repository import (
+    ParliamentaryGroupPartyRepository,
 )
 from src.domain.repositories.parliamentary_group_repository import (
     ParliamentaryGroupRepository,
@@ -55,6 +58,8 @@ class LinkParliamentaryGroupUseCase:
         party_membership_history_repository: (
             PartyMembershipHistoryRepository | None
         ) = None,
+        *,
+        parliamentary_group_party_repository: ParliamentaryGroupPartyRepository,
     ) -> None:
         self._election_repo = election_repository
         self._member_repo = election_member_repository
@@ -62,6 +67,7 @@ class LinkParliamentaryGroupUseCase:
         self._group_repo = parliamentary_group_repository
         self._membership_repo = parliamentary_group_membership_repository
         self._party_history_repo = party_membership_history_repository
+        self._group_party_repo = parliamentary_group_party_repository
 
     async def execute(
         self,
@@ -102,17 +108,24 @@ class LinkParliamentaryGroupUseCase:
                 politician_ids, as_of_date=election.election_date
             )
 
-        # 4. 選挙日時点で有効な会派を取得し、political_party_id → 会派のマッピングを構築
+        # 4. 選挙日時点の会派を取得し、中間テーブルから政党→会派マッピングを構築
         groups = await self._group_repo.get_by_governing_body_id(
             input_dto.governing_body_id,
             active_only=True,
             chamber=input_dto.chamber if input_dto.chamber else None,
             as_of_date=election.election_date,
         )
+        group_map = {g.id: g for g in groups if g.id is not None}
         party_to_groups: dict[int, list[ParliamentaryGroup]] = defaultdict(list)
-        for group in groups:
-            if group.political_party_id is not None:
-                party_to_groups[group.political_party_id].append(group)
+
+        group_ids = [g.id for g in groups if g.id is not None]
+        group_parties = await self._group_party_repo.get_by_parliamentary_group_ids(
+            group_ids
+        )
+        for gp in group_parties:
+            group = group_map.get(gp.parliamentary_group_id)
+            if group is not None:
+                party_to_groups[gp.political_party_id].append(group)
 
         # 5. 既存メンバーシップを一括取得して重複チェック用セットを構築
         existing_keys: set[tuple[int, int, date]] = set()

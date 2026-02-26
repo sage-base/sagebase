@@ -114,6 +114,9 @@ async def run_bulk_with_details(elections: list[int], dry_run: bool) -> BulkResu
     from src.infrastructure.persistence.parliamentary_group_membership_repository_impl import (  # noqa: E501
         ParliamentaryGroupMembershipRepositoryImpl,
     )
+    from src.infrastructure.persistence.parliamentary_group_party_repository_impl import (  # noqa: E501
+        ParliamentaryGroupPartyRepositoryImpl,
+    )
     from src.infrastructure.persistence.parliamentary_group_repository_impl import (
         ParliamentaryGroupRepositoryImpl,
     )
@@ -148,6 +151,9 @@ async def run_bulk_with_details(elections: list[int], dry_run: bool) -> BulkResu
                     ),
                     party_membership_history_repository=(
                         PartyMembershipHistoryRepositoryImpl(session)
+                    ),
+                    parliamentary_group_party_repository=(
+                        ParliamentaryGroupPartyRepositoryImpl(session)
                     ),
                 )
 

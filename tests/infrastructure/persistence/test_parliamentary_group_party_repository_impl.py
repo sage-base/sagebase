@@ -321,6 +321,88 @@ class TestParliamentaryGroupPartyRepositoryImpl:
 
         assert result is None
 
+    @pytest.mark.asyncio
+    async def test_get_by_parliamentary_group_ids(self, repository, mock_session):
+        """複数の会派IDで一括取得できること."""
+        models = [
+            self._make_model(id=1, parliamentary_group_id=10, political_party_id=20),
+            self._make_model(id=2, parliamentary_group_id=11, political_party_id=21),
+            self._make_model(id=3, parliamentary_group_id=10, political_party_id=22),
+        ]
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = models
+
+        async def async_execute(query):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        result = await repository.get_by_parliamentary_group_ids([10, 11])
+
+        assert len(result) == 3
+        assert all(isinstance(e, ParliamentaryGroupParty) for e in result)
+
+    @pytest.mark.asyncio
+    async def test_get_by_parliamentary_group_ids_empty_input(
+        self, repository, mock_session
+    ):
+        """空リスト入力で空リストが返ること."""
+        result = await repository.get_by_parliamentary_group_ids([])
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_get_by_parliamentary_group_ids_no_match(
+        self, repository, mock_session
+    ):
+        """該当なしで空リストが返ること."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+
+        async def async_execute(query):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        result = await repository.get_by_parliamentary_group_ids([999])
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_clear_primary(self, repository, mock_session):
+        """primaryフラグがクリアされること."""
+        primary_model = self._make_model(
+            id=1, parliamentary_group_id=10, political_party_id=20, is_primary=True
+        )
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.first.return_value = primary_model
+
+        async def async_execute(query):
+            return mock_result
+
+        mock_session.execute = async_execute
+        mock_session.flush = AsyncMock()
+
+        await repository.clear_primary(10)
+
+        assert primary_model.is_primary is False
+
+    @pytest.mark.asyncio
+    async def test_clear_primary_no_primary(self, repository, mock_session):
+        """primaryが存在しない場合でも正常終了すること."""
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.first.return_value = None
+
+        async def async_execute(query):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        await repository.clear_primary(10)
+        # 例外が発生しないこと
+
     def test_to_entity(self, repository):
         ts = datetime(2024, 6, 15, 12, 0)
         model = self._make_model(

@@ -203,10 +203,17 @@ class TestParseSeedParliamentaryGroups:
 
     def test_基本的な解析(self, tmp_path: Path) -> None:
         """seedファイルから会派データを正しく解析できること."""
-        sql = """INSERT INTO parliamentary_groups (name, governing_body_id, url, description, is_active, political_party_id) VALUES
-('自由民主党', (SELECT id FROM governing_bodies WHERE name = '国会' AND type = '国'), NULL, NULL, true, (SELECT id FROM political_parties WHERE name = '自由民主党')),
-('無所属の会', (SELECT id FROM governing_bodies WHERE name = '国会' AND type = '国'), NULL, NULL, false, NULL)
-ON CONFLICT (name, governing_body_id) DO UPDATE SET url = EXCLUDED.url;"""
+        sql = (
+            "INSERT INTO parliamentary_groups"
+            " (name, governing_body_id, url, description, is_active,"
+            " chamber) VALUES\n"
+            "('自由民主党', (SELECT id FROM governing_bodies"
+            " WHERE name = '国会' AND type = '国'), NULL, NULL, true, ''),\n"
+            "('無所属の会', (SELECT id FROM governing_bodies"
+            " WHERE name = '国会' AND type = '国'), NULL, NULL, false, '')\n"
+            "ON CONFLICT (name, governing_body_id, chamber)"
+            " DO UPDATE SET url = EXCLUDED.url;"
+        )
         seed_file = tmp_path / "seed.sql"
         seed_file.write_text(sql, encoding="utf-8")
 
@@ -214,12 +221,8 @@ ON CONFLICT (name, governing_body_id) DO UPDATE SET url = EXCLUDED.url;"""
         assert len(result) == 2
         assert result[0]["name"] == "自由民主党"
         assert result[0]["governing_body"] == "国会"
-        assert result[0]["has_party_id"] is True
-        assert result[0]["party_name"] == "自由民主党"
         assert result[0]["is_active"] is True
         assert result[1]["name"] == "無所属の会"
-        assert result[1]["has_party_id"] is False
-        assert result[1]["party_name"] is None
         assert result[1]["is_active"] is False
 
 

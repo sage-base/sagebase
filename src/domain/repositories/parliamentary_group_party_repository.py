@@ -79,6 +79,29 @@ class ParliamentaryGroupPartyRepository(BaseRepository[ParliamentaryGroupParty])
         pass
 
     @abstractmethod
+    async def get_by_parliamentary_group_ids(
+        self, group_ids: list[int]
+    ) -> list[ParliamentaryGroupParty]:
+        """複数の会派IDで関連政党を一括取得する.
+
+        Args:
+            group_ids: 会派IDのリスト
+
+        Returns:
+            該当会派に紐づく関連エンティティのリスト
+        """
+        pass
+
+    @abstractmethod
+    async def clear_primary(self, group_id: int) -> None:
+        """会派の主要政党フラグをクリアする.
+
+        Args:
+            group_id: 会派ID
+        """
+        pass
+
+    @abstractmethod
     async def set_primary(
         self, group_id: int, party_id: int
     ) -> ParliamentaryGroupParty | None:
