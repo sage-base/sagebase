@@ -118,6 +118,7 @@ class ParliamentaryGroupModel(Base):
     political_party_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("political_parties.id", ondelete="SET NULL"), nullable=True
     )
+    chamber: Mapped[str] = mapped_column(String(10), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )
@@ -131,6 +132,49 @@ class ParliamentaryGroupModel(Base):
             f"id={self.id}, "
             f"name={self.name}, "
             f"governing_body_id={self.governing_body_id}"
+            f")>"
+        )
+
+
+class ParliamentaryGroupPartyModel(Base):
+    """SQLAlchemy model for parliamentary_group_parties table."""
+
+    __tablename__ = "parliamentary_group_parties"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    parliamentary_group_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(
+            "parliamentary_groups.id",
+            ondelete="CASCADE",
+            use_alter=True,
+            name="fk_pgp_group",
+        ),
+    )
+    political_party_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(
+            "political_parties.id",
+            ondelete="RESTRICT",
+            use_alter=True,
+            name="fk_pgp_party",
+        ),
+    )
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ParliamentaryGroupPartyModel("
+            f"id={self.id}, "
+            f"parliamentary_group_id={self.parliamentary_group_id}, "
+            f"political_party_id={self.political_party_id}, "
+            f"is_primary={self.is_primary}"
             f")>"
         )
 
