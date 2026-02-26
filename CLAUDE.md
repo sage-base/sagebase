@@ -137,6 +137,7 @@ src/
   - [0005-extraction-layer-gold-layer-separation.md](docs/ADR/0005-extraction-layer-gold-layer-separation.md): 抽出層とGold Layer分離
   - [0006-alembic-migration-unification.md](docs/ADR/0006-alembic-migration-unification.md): Alembic統一マイグレーション
   - [0007-repository-model-pattern-standardization.md](docs/ADR/0007-repository-model-pattern-standardization.md): リポジトリモデルパターン標準化
+  - [0009-parliamentary-groups-temporal-management.md](docs/ADR/0009-parliamentary-groups-temporal-management.md): 会派の時代管理（start_date/end_date）
 
 **📁 Layer Guides** - `docs/architecture/`:
 Clean Architectureの各層の詳細な実装ガイドを保管（責務、実装例、落とし穴、チェックリスト）

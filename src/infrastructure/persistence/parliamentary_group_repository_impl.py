@@ -1,5 +1,6 @@
 """ParliamentaryGroup repository implementation using SQLAlchemy."""
 
+from datetime import date
 from typing import Any
 
 from sqlalchemy import text
@@ -28,6 +29,8 @@ class ParliamentaryGroupModel:
     is_active: bool
     political_party_id: int | None
     chamber: str
+    start_date: date | None
+    end_date: date | None
 
     def __init__(self, **kwargs: Any):
         for key, value in kwargs.items():
@@ -48,14 +51,17 @@ class ParliamentaryGroupRepositoryImpl(
             """
             INSERT INTO parliamentary_groups (
                 name, governing_body_id, url, description,
-                is_active, political_party_id, chamber
+                is_active, political_party_id, chamber,
+                start_date, end_date
             )
             VALUES (
                 :name, :governing_body_id, :url, :description,
-                :is_active, :political_party_id, :chamber
+                :is_active, :political_party_id, :chamber,
+                :start_date, :end_date
             )
             RETURNING id, name, governing_body_id, url,
-                description, is_active, political_party_id, chamber
+                description, is_active, political_party_id, chamber,
+                start_date, end_date
         """
         )
 
@@ -69,6 +75,8 @@ class ParliamentaryGroupRepositoryImpl(
                 "is_active": entity.is_active,
                 "political_party_id": entity.political_party_id,
                 "chamber": entity.chamber,
+                "start_date": entity.start_date,
+                "end_date": entity.end_date,
             },
         )
         row = result.fetchone()
@@ -90,10 +98,13 @@ class ParliamentaryGroupRepositoryImpl(
                 description = :description,
                 is_active = :is_active,
                 political_party_id = :political_party_id,
-                chamber = :chamber
+                chamber = :chamber,
+                start_date = :start_date,
+                end_date = :end_date
             WHERE id = :id
             RETURNING id, name, governing_body_id, url,
-                description, is_active, political_party_id, chamber
+                description, is_active, political_party_id, chamber,
+                start_date, end_date
         """)
 
         result = await self.session.execute(
@@ -107,6 +118,8 @@ class ParliamentaryGroupRepositoryImpl(
                 "is_active": entity.is_active,
                 "political_party_id": entity.political_party_id,
                 "chamber": entity.chamber,
+                "start_date": entity.start_date,
+                "end_date": entity.end_date,
             },
         )
         row = result.fetchone()
@@ -140,12 +153,18 @@ class ParliamentaryGroupRepositoryImpl(
         governing_body_id: int,
         active_only: bool = True,
         chamber: str | None = None,
+        as_of_date: date | None = None,
     ) -> list[ParliamentaryGroup]:
         """Get all parliamentary groups for a governing body."""
         conditions = ["governing_body_id = :gb_id"]
         params: dict[str, Any] = {"gb_id": governing_body_id}
 
-        if active_only:
+        if as_of_date is not None:
+            # as_of_dateが指定された場合、日付ベースでフィルタ（active_onlyより優先）
+            conditions.append("(start_date IS NULL OR start_date <= :as_of_date)")
+            conditions.append("(end_date IS NULL OR end_date >= :as_of_date)")
+            params["as_of_date"] = as_of_date
+        elif active_only:
             conditions.append("is_active = TRUE")
 
         if chamber is not None:
@@ -288,6 +307,8 @@ class ParliamentaryGroupRepositoryImpl(
             is_active=getattr(row, "is_active", True),
             political_party_id=getattr(row, "political_party_id", None),
             chamber=getattr(row, "chamber", ""),
+            start_date=getattr(row, "start_date", None),
+            end_date=getattr(row, "end_date", None),
         )
 
     def _to_entity(self, model: ParliamentaryGroupModel) -> ParliamentaryGroup:
@@ -301,6 +322,8 @@ class ParliamentaryGroupRepositoryImpl(
             is_active=model.is_active,
             political_party_id=getattr(model, "political_party_id", None),
             chamber=getattr(model, "chamber", ""),
+            start_date=getattr(model, "start_date", None),
+            end_date=getattr(model, "end_date", None),
         )
 
     def _to_model(self, entity: ParliamentaryGroup) -> ParliamentaryGroupModel:
@@ -312,6 +335,8 @@ class ParliamentaryGroupRepositoryImpl(
             "is_active": entity.is_active,
             "political_party_id": entity.political_party_id,
             "chamber": entity.chamber,
+            "start_date": entity.start_date,
+            "end_date": entity.end_date,
         }
 
         if entity.url is not None:
@@ -331,6 +356,8 @@ class ParliamentaryGroupRepositoryImpl(
         model.is_active = entity.is_active
         model.political_party_id = entity.political_party_id
         model.chamber = entity.chamber
+        model.start_date = entity.start_date
+        model.end_date = entity.end_date
 
         if entity.url is not None:
             model.url = entity.url

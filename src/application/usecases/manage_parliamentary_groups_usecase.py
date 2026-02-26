@@ -66,6 +66,8 @@ class CreateParliamentaryGroupInputDto:
     is_active: bool = True
     political_party_id: int | None = None
     chamber: str = ""
+    start_date: date | None = None
+    end_date: date | None = None
 
 
 @dataclass
@@ -88,6 +90,8 @@ class UpdateParliamentaryGroupInputDto:
     is_active: bool = True
     political_party_id: int | None = None
     chamber: str = ""
+    start_date: date | None = None
+    end_date: date | None = None
 
 
 @dataclass
@@ -223,6 +227,8 @@ class ManageParliamentaryGroupsUseCase:
                 is_active=input_dto.is_active,
                 political_party_id=input_dto.political_party_id,
                 chamber=input_dto.chamber,
+                start_date=input_dto.start_date,
+                end_date=input_dto.end_date,
             )
 
             created = await self.parliamentary_group_repository.create(
@@ -256,6 +262,7 @@ class ManageParliamentaryGroupsUseCase:
             existing.is_active = input_dto.is_active
             existing.political_party_id = input_dto.political_party_id
             existing.chamber = input_dto.chamber
+            existing.update_period(input_dto.start_date, input_dto.end_date)
 
             await self.parliamentary_group_repository.update(existing)
             return UpdateParliamentaryGroupOutputDto(success=True)
@@ -406,7 +413,8 @@ class ManageParliamentaryGroupsUseCase:
             seed_content += (
                 "INSERT INTO parliamentary_groups "
                 "(id, name, governing_body_id, url, description,"
-                " is_active, political_party_id, chamber) VALUES\n"
+                " is_active, political_party_id, chamber,"
+                " start_date, end_date) VALUES\n"
             )
 
             values: list[str] = []
@@ -420,10 +428,13 @@ class ManageParliamentaryGroupsUseCase:
                     else "NULL"
                 )
                 chamber = f"'{group.chamber}'" if group.chamber else "''"
+                sd = f"'{group.start_date}'" if group.start_date else "NULL"
+                ed = f"'{group.end_date}'" if group.end_date else "NULL"
                 values.append(
                     f"    ({group.id}, '{group.name}',"
                     f" {group.governing_body_id}, "
-                    f"{url}, {description}, {is_active}, {pp_id}, {chamber})"
+                    f"{url}, {description}, {is_active}, {pp_id}, {chamber},"
+                    f" {sd}, {ed})"
                 )
 
             seed_content += ",\n".join(values) + "\n"
@@ -434,7 +445,9 @@ class ManageParliamentaryGroupsUseCase:
             seed_content += "    description = EXCLUDED.description,\n"
             seed_content += "    is_active = EXCLUDED.is_active,\n"
             seed_content += "    political_party_id = EXCLUDED.political_party_id,\n"
-            seed_content += "    chamber = EXCLUDED.chamber;\n\n"
+            seed_content += "    chamber = EXCLUDED.chamber,\n"
+            seed_content += "    start_date = EXCLUDED.start_date,\n"
+            seed_content += "    end_date = EXCLUDED.end_date;\n\n"
 
             # Issue #1036: シーケンスリセットを追加（ID衝突防止）
             seed_content += "-- Reset sequence to max id + 1 (Issue #1036)\n"
