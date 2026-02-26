@@ -1,5 +1,6 @@
-"""Tests for ParliamentaryGroupPartyRepositoryImpl."""
+"""ParliamentaryGroupPartyRepositoryImplのテスト."""
 
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -31,12 +32,16 @@ class TestParliamentaryGroupPartyRepositoryImpl:
         parliamentary_group_id: int = 10,
         political_party_id: int = 20,
         is_primary: bool = False,
+        created_at: datetime | None = None,
+        updated_at: datetime | None = None,
     ) -> MagicMock:
         model = MagicMock(spec=ParliamentaryGroupPartyModel)
         model.id = id
         model.parliamentary_group_id = parliamentary_group_id
         model.political_party_id = political_party_id
         model.is_primary = is_primary
+        model.created_at = created_at or datetime(2024, 1, 1, 10, 0)
+        model.updated_at = updated_at or datetime(2024, 1, 1, 10, 0)
         return model
 
     @pytest.mark.asyncio
@@ -63,6 +68,20 @@ class TestParliamentaryGroupPartyRepositoryImpl:
         assert result[1].political_party_id == 21
 
     @pytest.mark.asyncio
+    async def test_get_by_parliamentary_group_id_empty(self, repository, mock_session):
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+
+        async def async_execute(query):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        result = await repository.get_by_parliamentary_group_id(999)
+
+        assert result == []
+
+    @pytest.mark.asyncio
     async def test_get_by_political_party_id(self, repository, mock_session):
         models = [
             self._make_model(id=1, parliamentary_group_id=10, political_party_id=20),
@@ -82,6 +101,20 @@ class TestParliamentaryGroupPartyRepositoryImpl:
         assert len(result) == 2
         assert result[0].political_party_id == 20
         assert result[1].political_party_id == 20
+
+    @pytest.mark.asyncio
+    async def test_get_by_political_party_id_empty(self, repository, mock_session):
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+
+        async def async_execute(query):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        result = await repository.get_by_political_party_id(999)
+
+        assert result == []
 
     @pytest.mark.asyncio
     async def test_get_primary_party_found(self, repository, mock_session):
@@ -138,6 +171,8 @@ class TestParliamentaryGroupPartyRepositoryImpl:
             model.parliamentary_group_id = new_model.parliamentary_group_id
             model.political_party_id = new_model.political_party_id
             model.is_primary = new_model.is_primary
+            model.created_at = new_model.created_at
+            model.updated_at = new_model.updated_at
 
         mock_session.refresh = async_refresh
 
@@ -147,7 +182,7 @@ class TestParliamentaryGroupPartyRepositoryImpl:
         mock_session.add.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_add_party_existing(self, repository, mock_session):
+    async def test_add_party_existing_does_not_create(self, repository, mock_session):
         existing_model = self._make_model(
             id=1, parliamentary_group_id=10, political_party_id=20
         )
@@ -159,12 +194,14 @@ class TestParliamentaryGroupPartyRepositoryImpl:
             return mock_result
 
         mock_session.execute = async_execute
+        mock_session.add = MagicMock()
 
         result = await repository.add_party(10, 20)
 
         assert result.id == 1
         assert result.parliamentary_group_id == 10
         assert result.political_party_id == 20
+        mock_session.add.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_remove_party_exists(self, repository, mock_session):
@@ -237,6 +274,40 @@ class TestParliamentaryGroupPartyRepositoryImpl:
         assert target_model.is_primary is True
 
     @pytest.mark.asyncio
+    async def test_set_primary_already_primary_is_idempotent(
+        self, repository, mock_session
+    ):
+        """既にprimaryのレコードを再度primaryに設定する冪等性テスト."""
+        target_model = self._make_model(
+            id=1, parliamentary_group_id=10, political_party_id=20, is_primary=True
+        )
+
+        call_count = 0
+
+        async def async_execute(query):
+            nonlocal call_count
+            call_count += 1
+            mock_result = MagicMock()
+            if call_count == 1:
+                mock_result.scalars.return_value.first.return_value = target_model
+            elif call_count == 2:
+                mock_result.scalars.return_value.first.return_value = target_model
+            return mock_result
+
+        mock_session.execute = async_execute
+        mock_session.flush = AsyncMock()
+
+        async def async_refresh(model):
+            pass
+
+        mock_session.refresh = async_refresh
+
+        result = await repository.set_primary(10, 20)
+
+        assert result is not None
+        assert target_model.is_primary is True
+
+    @pytest.mark.asyncio
     async def test_set_primary_not_found(self, repository, mock_session):
         mock_result = MagicMock()
         mock_result.scalars.return_value.first.return_value = None
@@ -251,8 +322,14 @@ class TestParliamentaryGroupPartyRepositoryImpl:
         assert result is None
 
     def test_to_entity(self, repository):
+        ts = datetime(2024, 6, 15, 12, 0)
         model = self._make_model(
-            id=1, parliamentary_group_id=10, political_party_id=20, is_primary=True
+            id=1,
+            parliamentary_group_id=10,
+            political_party_id=20,
+            is_primary=True,
+            created_at=ts,
+            updated_at=ts,
         )
 
         entity = repository._to_entity(model)
@@ -262,3 +339,49 @@ class TestParliamentaryGroupPartyRepositoryImpl:
         assert entity.parliamentary_group_id == 10
         assert entity.political_party_id == 20
         assert entity.is_primary is True
+        assert entity.created_at == ts
+        assert entity.updated_at == ts
+
+    def test_to_model_new_entity(self, repository):
+        entity = ParliamentaryGroupParty(
+            parliamentary_group_id=10,
+            political_party_id=20,
+            is_primary=True,
+        )
+
+        model = repository._to_model(entity)
+
+        assert model.id == 0
+        assert model.parliamentary_group_id == 10
+        assert model.political_party_id == 20
+        assert model.is_primary is True
+
+    def test_to_model_existing_entity(self, repository):
+        entity = ParliamentaryGroupParty(
+            id=5,
+            parliamentary_group_id=10,
+            political_party_id=20,
+            is_primary=False,
+        )
+
+        model = repository._to_model(entity)
+
+        assert model.id == 5
+
+    def test_update_model(self, repository):
+        model = self._make_model(
+            id=1, parliamentary_group_id=10, political_party_id=20, is_primary=False
+        )
+
+        entity = ParliamentaryGroupParty(
+            id=1,
+            parliamentary_group_id=11,
+            political_party_id=21,
+            is_primary=True,
+        )
+
+        repository._update_model(model, entity)
+
+        assert model.parliamentary_group_id == 11
+        assert model.political_party_id == 21
+        assert model.is_primary is True

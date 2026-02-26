@@ -1,7 +1,5 @@
 """会派⇔政党の多対多関連リポジトリ実装."""
 
-from datetime import datetime
-
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -135,23 +133,24 @@ class ParliamentaryGroupPartyRepositoryImpl(
     def _to_entity(
         self, model: ParliamentaryGroupPartyModel
     ) -> ParliamentaryGroupParty:
-        return ParliamentaryGroupParty(
+        entity = ParliamentaryGroupParty(
             id=model.id,
             parliamentary_group_id=model.parliamentary_group_id,
             political_party_id=model.political_party_id,
             is_primary=model.is_primary,
         )
+        entity.created_at = model.created_at
+        entity.updated_at = model.updated_at
+        return entity
 
     def _to_model(
         self, entity: ParliamentaryGroupParty
     ) -> ParliamentaryGroupPartyModel:
         return ParliamentaryGroupPartyModel(
-            id=entity.id or 0,
+            id=entity.id if entity.id is not None else 0,
             parliamentary_group_id=entity.parliamentary_group_id,
             political_party_id=entity.political_party_id,
             is_primary=entity.is_primary,
-            created_at=datetime.now() if not entity.id else None,
-            updated_at=datetime.now(),
         )
 
     def _update_model(
