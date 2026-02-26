@@ -1,5 +1,6 @@
 """ParliamentaryGroupPresenterのテスト"""
 
+from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
@@ -303,6 +304,57 @@ class TestCreate:
         call_args = mock_use_case.create_parliamentary_group.call_args[0][0]
         assert call_args.political_party_id == 3
 
+    async def test_create_with_dates(self, presenter, mock_use_case):
+        """start_date/end_dateを指定して議員団を作成できることを確認"""
+        # Arrange
+        created_group = ParliamentaryGroup(
+            id=2,
+            name="期間付き会派",
+            governing_body_id=100,
+            start_date=date(2024, 1, 1),
+            end_date=date(2025, 12, 31),
+        )
+        mock_use_case.create_parliamentary_group.return_value = (
+            CreateParliamentaryGroupOutputDto(
+                success=True, parliamentary_group=created_group, error_message=None
+            )
+        )
+
+        # Act
+        success, group, error_message = await presenter._create_async(
+            name="期間付き会派",
+            governing_body_id=100,
+            start_date=date(2024, 1, 1),
+            end_date=date(2025, 12, 31),
+        )
+
+        # Assert
+        assert success is True
+        assert group is not None
+        call_args = mock_use_case.create_parliamentary_group.call_args[0][0]
+        assert call_args.start_date == date(2024, 1, 1)
+        assert call_args.end_date == date(2025, 12, 31)
+
+    async def test_create_with_invalid_date_range(self, presenter, mock_use_case):
+        """end_date < start_dateの場合にエラーが返ることを確認"""
+        # Arrange
+        mock_use_case.create_parliamentary_group.side_effect = ValueError(
+            "end_date (2023-12-31) は start_date (2024-01-01) より前にはできません"
+        )
+
+        # Act
+        success, group, error_message = await presenter._create_async(
+            name="不正な期間の会派",
+            governing_body_id=100,
+            start_date=date(2024, 1, 1),
+            end_date=date(2023, 12, 31),
+        )
+
+        # Assert
+        assert success is False
+        assert group is None
+        assert error_message is not None
+
     async def test_create_failure(self, presenter, mock_use_case):
         """議員団の作成が失敗した場合のエラーを確認"""
         # Arrange
@@ -343,6 +395,46 @@ class TestUpdate:
         assert success is True
         call_args = mock_use_case.update_parliamentary_group.call_args[0][0]
         assert call_args.political_party_id == 7
+
+    async def test_update_with_dates(self, presenter, mock_use_case):
+        """start_date/end_dateを指定して議員団を更新できることを確認"""
+        # Arrange
+        mock_use_case.update_parliamentary_group.return_value = (
+            UpdateParliamentaryGroupOutputDto(success=True, error_message=None)
+        )
+
+        # Act
+        success, error_message = await presenter._update_async(
+            id=1,
+            name="更新された会派",
+            start_date=date(2024, 4, 1),
+            end_date=date(2025, 3, 31),
+        )
+
+        # Assert
+        assert success is True
+        call_args = mock_use_case.update_parliamentary_group.call_args[0][0]
+        assert call_args.start_date == date(2024, 4, 1)
+        assert call_args.end_date == date(2025, 3, 31)
+
+    async def test_update_with_invalid_date_range(self, presenter, mock_use_case):
+        """end_date < start_dateの場合にエラーが返ることを確認"""
+        # Arrange
+        mock_use_case.update_parliamentary_group.side_effect = ValueError(
+            "end_date (2023-12-31) は start_date (2024-01-01) より前にはできません"
+        )
+
+        # Act
+        success, error_message = await presenter._update_async(
+            id=1,
+            name="不正な期間の会派",
+            start_date=date(2024, 1, 1),
+            end_date=date(2023, 12, 31),
+        )
+
+        # Assert
+        assert success is False
+        assert error_message is not None
 
     async def test_update_failure(self, presenter, mock_use_case):
         """議員団の更新が失敗した場合のエラーを確認"""
@@ -457,6 +549,8 @@ class TestToDataframe:
         assert "ID" in df.columns
         assert "議員団名" in df.columns
         assert "政党" in df.columns
+        assert "開始日" in df.columns
+        assert "終了日" in df.columns
 
     def test_to_dataframe_empty(self, presenter, sample_governing_bodies):
         """空のリストを処理できることを確認"""
@@ -480,6 +574,60 @@ class TestHandleAction:
 
         # Assert
         presenter.load_parliamentary_groups_with_filters.assert_called_once()
+
+    def test_handle_action_create_with_dates(self, presenter):
+        """createアクションでstart_date/end_dateが渡されることを確認"""
+        # Arrange
+        presenter.create = MagicMock(return_value=(True, None, None))
+
+        # Act
+        presenter.handle_action(
+            "create",
+            name="テスト会派",
+            governing_body_id=100,
+            start_date=date(2024, 1, 1),
+            end_date=date(2025, 12, 31),
+        )
+
+        # Assert
+        presenter.create.assert_called_once_with(
+            "テスト会派",
+            100,
+            None,
+            None,
+            True,
+            None,
+            "",
+            date(2024, 1, 1),
+            date(2025, 12, 31),
+        )
+
+    def test_handle_action_update_with_dates(self, presenter):
+        """updateアクションでstart_date/end_dateが渡されることを確認"""
+        # Arrange
+        presenter.update = MagicMock(return_value=(True, None))
+
+        # Act
+        presenter.handle_action(
+            "update",
+            id=1,
+            name="更新会派",
+            start_date=date(2024, 4, 1),
+            end_date=date(2025, 3, 31),
+        )
+
+        # Assert
+        presenter.update.assert_called_once_with(
+            1,
+            "更新会派",
+            None,
+            None,
+            True,
+            None,
+            "",
+            date(2024, 4, 1),
+            date(2025, 3, 31),
+        )
 
     def test_handle_action_unknown_raises_error(self, presenter):
         """不明なアクションでエラーが発生することを確認"""
@@ -641,13 +789,22 @@ class TestCreatedGroupsManagement:
         """作成した議員団を追加できることを確認"""
         # Arrange
         presenter._save_form_state = MagicMock()
-        group = ParliamentaryGroup(id=1, name="新規会派", governing_body_id=100)
+        group = ParliamentaryGroup(
+            id=1,
+            name="新規会派",
+            governing_body_id=100,
+            start_date=date(2024, 4, 1),
+            end_date=date(2025, 3, 31),
+        )
 
         # Act
         presenter.add_created_group(group, "東京都議会")
 
         # Assert
-        assert len(presenter.form_state["created_parliamentary_groups"]) == 1
+        created = presenter.form_state["created_parliamentary_groups"]
+        assert len(created) == 1
+        assert created[0]["start_date"] == date(2024, 4, 1)
+        assert created[0]["end_date"] == date(2025, 3, 31)
         presenter._save_form_state.assert_called_once()
 
     def test_remove_created_group(self, presenter):

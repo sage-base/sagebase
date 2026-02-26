@@ -3,6 +3,7 @@
 議員団の編集・削除タブのUI実装を提供します。
 """
 
+from datetime import date
 from typing import Any
 
 import pandas as pd
@@ -79,11 +80,24 @@ def render_edit_delete_tab(presenter: ParliamentaryGroupPresenter) -> None:
             )
             new_is_active = st.checkbox("活動中", value=selected_group.is_active)
 
+            new_start_date: date | None = st.date_input(
+                "開始日（任意）",
+                value=selected_group.start_date,
+                help="会派の活動開始日",
+            )
+            new_end_date: date | None = st.date_input(
+                "終了日（任意）",
+                value=selected_group.end_date,
+                help="会派の活動終了日",
+            )
+
             submitted = st.form_submit_button("更新")
 
             if submitted:
                 if not new_name:
                     st.error("議員団名を入力してください")
+                elif new_start_date and new_end_date and new_end_date < new_start_date:
+                    st.error("終了日は開始日より後に設定してください")
                 else:
                     new_political_party_id = party_map.get(new_party)
                     success, error = presenter.update(
@@ -94,6 +108,8 @@ def render_edit_delete_tab(presenter: ParliamentaryGroupPresenter) -> None:
                         new_is_active,
                         political_party_id=new_political_party_id,
                         chamber=selected_group.chamber,
+                        start_date=new_start_date,
+                        end_date=new_end_date,
                     )
                     if success:
                         st.success("議員団を更新しました")

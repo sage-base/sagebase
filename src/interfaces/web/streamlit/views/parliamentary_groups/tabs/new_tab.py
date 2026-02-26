@@ -3,6 +3,7 @@
 議員団新規登録タブのUI実装を提供します。
 """
 
+from datetime import date
 from typing import Any
 
 import streamlit as st
@@ -67,6 +68,17 @@ def render_new_parliamentary_group_tab(presenter: ParliamentaryGroupPresenter) -
         )
         is_active = st.checkbox("活動中", value=True)
 
+        start_date: date | None = st.date_input(
+            "開始日（任意）",
+            value=None,
+            help="会派の活動開始日",
+        )
+        end_date: date | None = st.date_input(
+            "終了日（任意）",
+            value=None,
+            help="会派の活動終了日",
+        )
+
         submitted = st.form_submit_button("登録")
 
     if submitted:
@@ -76,6 +88,8 @@ def render_new_parliamentary_group_tab(presenter: ParliamentaryGroupPresenter) -
             st.error("議員団名を入力してください")
         elif gb_id is None:
             st.error("開催主体を選択してください")
+        elif start_date and end_date and end_date < start_date:
+            st.error("終了日は開始日より後に設定してください")
         else:
             success, group, error = presenter.create(
                 group_name,
@@ -85,6 +99,8 @@ def render_new_parliamentary_group_tab(presenter: ParliamentaryGroupPresenter) -
                 is_active,
                 political_party_id=political_party_id,
                 chamber=chamber,
+                start_date=start_date,
+                end_date=end_date,
             )
             if success and group:
                 presenter.add_created_group(group, selected_gb)
@@ -111,6 +127,10 @@ def render_new_parliamentary_group_tab(presenter: ParliamentaryGroupPresenter) -
                         st.write(f"**説明**: {group['description']}")
                     active_status = "活動中" if group["is_active"] else "非活動"
                     st.write(f"**活動状態**: {active_status}")
+                    if group.get("start_date"):
+                        st.write(f"**開始日**: {group['start_date']}")
+                    if group.get("end_date"):
+                        st.write(f"**終了日**: {group['end_date']}")
                     if group["created_at"]:
                         st.write(f"**作成日時**: {group['created_at']}")
                 with col2:
