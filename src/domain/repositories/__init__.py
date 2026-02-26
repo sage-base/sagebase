@@ -13,6 +13,9 @@ from src.domain.repositories.llm_processing_history_repository import (
 )
 from src.domain.repositories.meeting_repository import MeetingRepository
 from src.domain.repositories.minutes_repository import MinutesRepository
+from src.domain.repositories.parliamentary_group_party_repository import (
+    ParliamentaryGroupPartyRepository,
+)
 from src.domain.repositories.parliamentary_group_repository import (
     ParliamentaryGroupRepository,
 )
@@ -44,6 +47,7 @@ __all__ = [
     "LLMProcessingHistoryRepository",
     "MeetingRepository",
     "MinutesRepository",
+    "ParliamentaryGroupPartyRepository",
     "ParliamentaryGroupRepository",
     "PartyMembershipHistoryRepository",
     "PoliticalPartyRepository",

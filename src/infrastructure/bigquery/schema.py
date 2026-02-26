@@ -187,6 +187,19 @@ _PARLIAMENTARY_GROUPS = BQTableDef(
     ),
 )
 
+_PARLIAMENTARY_GROUP_PARTIES = BQTableDef(
+    table_id="parliamentary_group_parties",
+    description="会派と政党の多対多中間テーブル",
+    columns=(
+        BQColumnDef("id", "INT64", "REQUIRED", "中間テーブルID"),
+        BQColumnDef("parliamentary_group_id", "INT64", "REQUIRED", "会派ID"),
+        BQColumnDef("political_party_id", "INT64", "REQUIRED", "政党ID"),
+        BQColumnDef("is_primary", "BOOL", "REQUIRED", "主要政党フラグ"),
+        BQColumnDef("created_at", "TIMESTAMP", description="作成日時"),
+        BQColumnDef("updated_at", "TIMESTAMP", description="更新日時"),
+    ),
+)
+
 _PARLIAMENTARY_GROUP_MEMBERSHIPS = BQTableDef(
     table_id="parliamentary_group_memberships",
     description="議員団所属履歴",
@@ -380,7 +393,7 @@ _PROPOSAL_JUDGE_POLITICIANS = BQTableDef(
     ),
 )
 
-# 全20テーブルのリスト
+# 全21テーブルのリスト
 GOLD_LAYER_TABLES: list[BQTableDef] = [
     _POLITICIANS,
     _POLITICAL_PARTIES,
@@ -390,6 +403,7 @@ GOLD_LAYER_TABLES: list[BQTableDef] = [
     _CONFERENCES,
     _CONFERENCE_MEMBERS,
     _PARLIAMENTARY_GROUPS,
+    _PARLIAMENTARY_GROUP_PARTIES,
     _PARLIAMENTARY_GROUP_MEMBERSHIPS,
     _MEETINGS,
     _MINUTES,

@@ -37,6 +37,7 @@ TABLE_INSERT_ORDER = [
     "election_members",
     "meetings",
     "parliamentary_groups",
+    "parliamentary_group_parties",
     "pledges",
     "party_membership_history",
     # 4. 第3レベルFK依存
