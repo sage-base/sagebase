@@ -88,6 +88,8 @@ def render_new_parliamentary_group_tab(presenter: ParliamentaryGroupPresenter) -
             st.error("議員団名を入力してください")
         elif gb_id is None:
             st.error("開催主体を選択してください")
+        elif start_date and end_date and end_date < start_date:
+            st.error("終了日は開始日より後に設定してください")
         else:
             success, group, error = presenter.create(
                 group_name,

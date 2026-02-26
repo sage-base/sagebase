@@ -96,6 +96,8 @@ def render_edit_delete_tab(presenter: ParliamentaryGroupPresenter) -> None:
             if submitted:
                 if not new_name:
                     st.error("議員団名を入力してください")
+                elif new_start_date and new_end_date and new_end_date < new_start_date:
+                    st.error("終了日は開始日より後に設定してください")
                 else:
                     new_political_party_id = party_map.get(new_party)
                     success, error = presenter.update(
