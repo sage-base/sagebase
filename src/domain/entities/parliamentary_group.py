@@ -14,6 +14,7 @@ class ParliamentaryGroup(BaseEntity):
         description: str | None = None,
         is_active: bool = True,
         political_party_id: int | None = None,
+        chamber: str = "",
         id: int | None = None,
     ) -> None:
         super().__init__(id)
@@ -23,6 +24,7 @@ class ParliamentaryGroup(BaseEntity):
         self.description = description
         self.is_active = is_active
         self.political_party_id = political_party_id
+        self.chamber = chamber
 
     def __str__(self) -> str:
         return self.name

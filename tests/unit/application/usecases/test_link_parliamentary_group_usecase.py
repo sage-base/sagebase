@@ -625,6 +625,100 @@ class TestLinkParliamentaryGroupWithHistory:
         assert result.skipped_no_group == 1
         assert result.linked_count == 0
 
+    async def test_chamber_filter_passed_to_repository(
+        self,
+        use_case_with_history: LinkParliamentaryGroupUseCase,
+        mock_repos: dict[str, AsyncMock],
+        election: Election,
+        ldp_group: ParliamentaryGroup,
+    ) -> None:
+        """chamber指定時にget_by_governing_body_idへchamberが正しく渡される."""
+        self._setup_election(mock_repos, election)
+        mock_repos["election_member"].get_by_election_id.return_value = [
+            ElectionMember(election_id=1, politician_id=1, result="当選", id=1),
+        ]
+        mock_repos["politician"].get_by_ids.return_value = [
+            Politician(
+                name="自民太郎",
+                prefecture="東京都",
+                district="",
+                id=1,
+            ),
+        ]
+        mock_repos["party_history"].get_current_by_politicians.return_value = {
+            1: PartyMembershipHistory(
+                politician_id=1,
+                political_party_id=10,
+                start_date=date(2024, 1, 1),
+                id=1,
+            ),
+        }
+        mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
+        mock_repos["membership"].get_active_by_group.return_value = []
+        mock_repos[
+            "membership"
+        ].create_membership.return_value = ParliamentaryGroupMembership(
+            politician_id=1,
+            parliamentary_group_id=100,
+            start_date=ELECTION_DATE,
+            id=1,
+        )
+
+        input_dto = LinkParliamentaryGroupInputDto(term_number=50, chamber="衆議院")
+        await use_case_with_history.execute(input_dto)
+
+        # chamberが正しくリポジトリに渡されていること
+        mock_repos["group"].get_by_governing_body_id.assert_called_once_with(
+            1, active_only=True, chamber="衆議院"
+        )
+
+    async def test_empty_chamber_passes_none_to_repository(
+        self,
+        use_case_with_history: LinkParliamentaryGroupUseCase,
+        mock_repos: dict[str, AsyncMock],
+        election: Election,
+        ldp_group: ParliamentaryGroup,
+    ) -> None:
+        """chamber未指定時にNoneがget_by_governing_body_idへ渡される."""
+        self._setup_election(mock_repos, election)
+        mock_repos["election_member"].get_by_election_id.return_value = [
+            ElectionMember(election_id=1, politician_id=1, result="当選", id=1),
+        ]
+        mock_repos["politician"].get_by_ids.return_value = [
+            Politician(
+                name="自民太郎",
+                prefecture="東京都",
+                district="",
+                id=1,
+            ),
+        ]
+        mock_repos["party_history"].get_current_by_politicians.return_value = {
+            1: PartyMembershipHistory(
+                politician_id=1,
+                political_party_id=10,
+                start_date=date(2024, 1, 1),
+                id=1,
+            ),
+        }
+        mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
+        mock_repos["membership"].get_active_by_group.return_value = []
+        mock_repos[
+            "membership"
+        ].create_membership.return_value = ParliamentaryGroupMembership(
+            politician_id=1,
+            parliamentary_group_id=100,
+            start_date=ELECTION_DATE,
+            id=1,
+        )
+
+        input_dto = LinkParliamentaryGroupInputDto(term_number=50)
+        await use_case_with_history.execute(input_dto)
+
+        # chamber未指定なのでNoneが渡される
+        mock_repos["group"].get_by_governing_body_id.assert_called_once_with(
+            1, active_only=True, chamber=None
+        )
+
     async def test_history_no_party_at_election_date(
         self,
         use_case_with_history: LinkParliamentaryGroupUseCase,

@@ -485,6 +485,66 @@ class TestManageParliamentaryGroupsUseCase:
         mock_parliamentary_group_repository.delete.assert_called_once_with(1)
 
     @pytest.mark.asyncio
+    async def test_create_parliamentary_group_with_chamber(
+        self, use_case, mock_parliamentary_group_repository
+    ):
+        """chamber指定時に重複チェックへchamberが渡されること."""
+        # Arrange
+        mock_repo = mock_parliamentary_group_repository
+        mock_repo.get_by_name_and_governing_body.return_value = None
+        created_group = ParliamentaryGroup(
+            id=1,
+            name="公明党",
+            governing_body_id=1,
+            is_active=True,
+            chamber="衆議院",
+        )
+        mock_repo.create.return_value = created_group
+
+        input_dto = CreateParliamentaryGroupInputDto(
+            name="公明党",
+            governing_body_id=1,
+            is_active=True,
+            chamber="衆議院",
+        )
+
+        # Act
+        result = await use_case.create_parliamentary_group(input_dto)
+
+        # Assert
+        assert result.success is True
+        # 重複チェックにchamberが渡されていること
+        mock_repo.get_by_name_and_governing_body.assert_called_once_with(
+            "公明党", 1, "衆議院"
+        )
+        # エンティティにchamberが設定されていること
+        created_entity = mock_repo.create.call_args[0][0]
+        assert created_entity.chamber == "衆議院"
+
+    @pytest.mark.asyncio
+    async def test_create_parliamentary_group_duplicate_with_same_chamber(
+        self, use_case, mock_parliamentary_group_repository
+    ):
+        """Test that duplicate check considers chamber."""
+        # Arrange
+        existing_group = ParliamentaryGroup(
+            id=1, name="公明党", governing_body_id=1, is_active=True, chamber="衆議院"
+        )
+        mock_repo = mock_parliamentary_group_repository
+        mock_repo.get_by_name_and_governing_body.return_value = existing_group
+
+        input_dto = CreateParliamentaryGroupInputDto(
+            name="公明党", governing_body_id=1, chamber="衆議院"
+        )
+
+        # Act
+        result = await use_case.create_parliamentary_group(input_dto)
+
+        # Assert
+        assert result.success is False
+        assert "既に存在します" in result.error_message
+
+    @pytest.mark.asyncio
     async def test_create_parliamentary_group_with_none_id(
         self, use_case, mock_parliamentary_group_repository
     ):

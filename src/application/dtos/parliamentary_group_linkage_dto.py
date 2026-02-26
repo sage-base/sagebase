@@ -9,6 +9,7 @@ class LinkParliamentaryGroupInputDto:
 
     term_number: int
     governing_body_id: int = 1
+    chamber: str = ""
     dry_run: bool = False
 
 

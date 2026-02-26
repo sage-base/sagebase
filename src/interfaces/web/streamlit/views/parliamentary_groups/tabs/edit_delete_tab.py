@@ -93,6 +93,7 @@ def render_edit_delete_tab(presenter: ParliamentaryGroupPresenter) -> None:
                         new_description if new_description else None,
                         new_is_active,
                         political_party_id=new_political_party_id,
+                        chamber=selected_group.chamber,
                     )
                     if success:
                         st.success("議員団を更新しました")

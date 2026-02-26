@@ -11,14 +11,17 @@ class ParliamentaryGroupRepository(BaseRepository[ParliamentaryGroup]):
 
     @abstractmethod
     async def get_by_name_and_governing_body(
-        self, name: str, governing_body_id: int
+        self, name: str, governing_body_id: int, chamber: str = ""
     ) -> ParliamentaryGroup | None:
         """Get parliamentary group by name and governing body."""
         pass
 
     @abstractmethod
     async def get_by_governing_body_id(
-        self, governing_body_id: int, active_only: bool = True
+        self,
+        governing_body_id: int,
+        active_only: bool = True,
+        chamber: str | None = None,
     ) -> list[ParliamentaryGroup]:
         """Get all parliamentary groups for a governing body."""
         pass
