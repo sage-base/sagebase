@@ -21,6 +21,8 @@ description: エンティティに新しいフィールドを追加する際の�
 
 ### Domain層
 - [ ] **エンティティ**: `__init__`にフィールドを追加
+- [ ] **バリデーション付きフィールドの場合**: update経路でもバリデーションが通るか確認（下記「見落としやすいポイント4」参照）
+- [ ] **複数メソッド追加時**: 同じデータを扱うメソッド間でフォールバック動作が一貫しているか確認
 - [ ] **リポジトリIF**: 必要に応じてインターフェースメソッドのシグネチャを更新
 
 ### Infrastructure層
@@ -90,6 +92,36 @@ seed_content += (
 ### 3. 動的モデルリポジトリのCRUDメソッド
 
 Pydantic/動的モデル系リポジトリではraw SQLを使っているため、INSERT/UPDATE/SELECT文のカラムリストを手動で管理しています。新フィールドの追加時に**すべてのSQL文**を更新してください。
+
+### 4. UseCase update経路のバリデーションバイパス
+
+`__init__`にバリデーション（例: `end_date < start_date` チェック）を追加しても、UseCaseの`update_*()`メソッドが既存エンティティの属性を直接代入している場合、バリデーションがバイパスされます。
+
+#### ❌ 悪い例
+```python
+# update_parliamentary_group() で属性を直接代入 → __init__のバリデーションが通らない
+existing.start_date = input_dto.start_date
+existing.end_date = input_dto.end_date  # end_date < start_date でもエラーにならない
+```
+
+#### ✅ 良い例
+```python
+# エンティティにバリデーション付きの更新メソッドを定義
+class ParliamentaryGroup(BaseEntity):
+    def update_period(self, start_date, end_date):
+        if end_date is not None and start_date is not None and end_date < start_date:
+            raise ValueError(...)
+        self.start_date = start_date
+        self.end_date = end_date
+
+# UseCase側で更新メソッドを使用
+existing.update_period(input_dto.start_date, input_dto.end_date)
+```
+
+### 5. 複数ドメインメソッド追加時の一貫性
+
+同じデータを扱う複数のドメインメソッドを追加する場合、フォールバック動作を一貫させてください。
+例えば`is_active_as_of()`と`overlaps_with()`が両方とも日付未設定時に`is_active`フラグにフォールバックするべきなのに、片方だけにフォールバックを入れ忘れるとバグになります。
 
 ## 作業フロー
 

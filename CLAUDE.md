@@ -129,6 +129,7 @@ src/
 アーキテクチャに関する重要な意思決定の記録を保管
 
 - ADR作成ルール: `NNNN-kebab-case-title.md`形式、必須セクション（Status, Context, Decision, Consequences）
+- **ADR作成時の必須アクション**: 新しいADRを作成したら、**このファイル（CLAUDE.md）の既存ADR一覧にも追記すること**
 - 既存のADR:
   - [0001-clean-architecture-adoption.md](docs/ADR/0001-clean-architecture-adoption.md): Clean Architecture採用の経緯
   - [0002-baml-for-llm-outputs.md](docs/ADR/0002-baml-for-llm-outputs.md): BAML採用の経緯
