@@ -119,6 +119,8 @@ class ParliamentaryGroupModel(Base):
         Integer, ForeignKey("political_parties.id", ondelete="SET NULL"), nullable=True
     )
     chamber: Mapped[str] = mapped_column(String(10), default="", server_default="")
+    start_date: Mapped[date | None] = mapped_column(nullable=True)
+    end_date: Mapped[date | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )

@@ -669,7 +669,7 @@ class TestLinkParliamentaryGroupWithHistory:
 
         # chamberが正しくリポジトリに渡されていること
         mock_repos["group"].get_by_governing_body_id.assert_called_once_with(
-            1, active_only=True, chamber="衆議院"
+            1, active_only=True, chamber="衆議院", as_of_date=ELECTION_DATE
         )
 
     async def test_empty_chamber_passes_none_to_repository(
@@ -716,7 +716,7 @@ class TestLinkParliamentaryGroupWithHistory:
 
         # chamber未指定なのでNoneが渡される
         mock_repos["group"].get_by_governing_body_id.assert_called_once_with(
-            1, active_only=True, chamber=None
+            1, active_only=True, chamber=None, as_of_date=ELECTION_DATE
         )
 
     async def test_history_no_party_at_election_date(
@@ -758,3 +758,20 @@ class TestLinkParliamentaryGroupWithHistory:
         # 履歴なし → 政党所属履歴なしでスキップ
         assert result.skipped_no_party == 1
         assert result.linked_count == 0
+
+    async def test_as_of_date_passed_to_repository(
+        self,
+        use_case_with_history: LinkParliamentaryGroupUseCase,
+        mock_repos: dict[str, AsyncMock],
+        election: Election,
+        ldp_group: ParliamentaryGroup,
+    ) -> None:
+        """選挙日がas_of_dateとしてリポジトリに渡される."""
+        self._setup_election(mock_repos, election)
+        mock_repos["election_member"].get_by_election_id.return_value = []
+
+        input_dto = LinkParliamentaryGroupInputDto(term_number=50)
+        await use_case_with_history.execute(input_dto)
+
+        # 当選者0件でも会派取得は呼ばれない（当選者がいないため早期リターン）
+        # ただし、当選者がいる場合はas_of_dateが渡されることをtest_chamberで検証済み

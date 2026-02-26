@@ -1,6 +1,7 @@
 """Parliamentary group repository interface."""
 
 from abc import abstractmethod
+from datetime import date
 
 from src.domain.entities.parliamentary_group import ParliamentaryGroup
 from src.domain.repositories.base import BaseRepository
@@ -22,8 +23,16 @@ class ParliamentaryGroupRepository(BaseRepository[ParliamentaryGroup]):
         governing_body_id: int,
         active_only: bool = True,
         chamber: str | None = None,
+        as_of_date: date | None = None,
     ) -> list[ParliamentaryGroup]:
-        """Get all parliamentary groups for a governing body."""
+        """Get all parliamentary groups for a governing body.
+
+        Args:
+            governing_body_id: 開催主体ID
+            active_only: Trueの場合、is_active=Trueの会派のみ返す
+            chamber: 院の指定（衆議院/参議院）
+            as_of_date: 指定日時点で有効な会派のみ返す（active_onlyより優先）
+        """
         pass
 
     @abstractmethod

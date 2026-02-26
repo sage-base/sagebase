@@ -1,5 +1,9 @@
 """Tests for ParliamentaryGroup entity."""
 
+from datetime import date
+
+import pytest
+
 from tests.fixtures.entity_factories import create_parliamentary_group
 
 from src.domain.entities.parliamentary_group import ParliamentaryGroup
@@ -389,3 +393,167 @@ class TestParliamentaryGroup:
             is_active=True,
         )
         assert reform.name == "改革ネット"
+
+
+class TestParliamentaryGroupTemporalManagement:
+    """時代管理（start_date/end_date）のテスト."""
+
+    def test_initialization_with_dates(self) -> None:
+        """日付付きでエンティティを作成できる."""
+        group = ParliamentaryGroup(
+            name="公明党・改革クラブ",
+            governing_body_id=1,
+            start_date=date(1999, 10, 1),
+            end_date=date(2003, 11, 18),
+            is_active=False,
+        )
+        assert group.start_date == date(1999, 10, 1)
+        assert group.end_date == date(2003, 11, 18)
+
+    def test_initialization_without_dates(self) -> None:
+        """日付なしのデフォルト値はNone."""
+        group = ParliamentaryGroup(
+            name="自民党議員団",
+            governing_body_id=1,
+        )
+        assert group.start_date is None
+        assert group.end_date is None
+
+    def test_validation_end_date_before_start_date(self) -> None:
+        """end_dateがstart_dateより前の場合ValueError."""
+        with pytest.raises(ValueError, match="end_date.*start_date.*前"):
+            ParliamentaryGroup(
+                name="テスト会派",
+                governing_body_id=1,
+                start_date=date(2020, 1, 1),
+                end_date=date(2019, 12, 31),
+            )
+
+    def test_validation_same_start_and_end_date(self) -> None:
+        """start_dateとend_dateが同日は許容される."""
+        group = ParliamentaryGroup(
+            name="テスト会派",
+            governing_body_id=1,
+            start_date=date(2020, 1, 1),
+            end_date=date(2020, 1, 1),
+        )
+        assert group.start_date == group.end_date
+
+    def test_validation_end_date_only(self) -> None:
+        """end_dateのみ指定（start_dateなし）はバリデーションスキップ."""
+        group = ParliamentaryGroup(
+            name="テスト会派",
+            governing_body_id=1,
+            end_date=date(2020, 1, 1),
+        )
+        assert group.start_date is None
+        assert group.end_date == date(2020, 1, 1)
+
+    def test_is_active_as_of_with_dates(self) -> None:
+        """日付が設定されている場合、日付で判定する."""
+        group = ParliamentaryGroup(
+            name="公明党・改革クラブ",
+            governing_body_id=1,
+            start_date=date(1999, 10, 1),
+            end_date=date(2003, 11, 18),
+            is_active=False,
+        )
+        # 開始前
+        assert group.is_active_as_of(date(1999, 9, 30)) is False
+        # 開始日
+        assert group.is_active_as_of(date(1999, 10, 1)) is True
+        # 期間中
+        assert group.is_active_as_of(date(2001, 5, 15)) is True
+        # 終了日
+        assert group.is_active_as_of(date(2003, 11, 18)) is True
+        # 終了後
+        assert group.is_active_as_of(date(2003, 11, 19)) is False
+
+    def test_is_active_as_of_without_dates_fallback(self) -> None:
+        """日付未設定の場合、is_activeフラグにフォールバック."""
+        active_group = ParliamentaryGroup(
+            name="現行会派",
+            governing_body_id=1,
+            is_active=True,
+        )
+        assert active_group.is_active_as_of(date(2024, 10, 27)) is True
+
+        inactive_group = ParliamentaryGroup(
+            name="歴史的会派",
+            governing_body_id=1,
+            is_active=False,
+        )
+        assert inactive_group.is_active_as_of(date(2024, 10, 27)) is False
+
+    def test_is_active_as_of_with_start_date_only(self) -> None:
+        """start_dateのみ設定（end_dateなし）の場合."""
+        group = ParliamentaryGroup(
+            name="現行会派",
+            governing_body_id=1,
+            start_date=date(2021, 11, 1),
+        )
+        # 開始前
+        assert group.is_active_as_of(date(2021, 10, 31)) is False
+        # 開始後
+        assert group.is_active_as_of(date(2024, 10, 27)) is True
+
+    def test_is_active_as_of_with_end_date_only(self) -> None:
+        """end_dateのみ設定（start_dateなし）の場合."""
+        group = ParliamentaryGroup(
+            name="歴史的会派",
+            governing_body_id=1,
+            end_date=date(2003, 11, 18),
+        )
+        # 終了前
+        assert group.is_active_as_of(date(2001, 5, 15)) is True
+        # 終了後
+        assert group.is_active_as_of(date(2003, 11, 19)) is False
+
+    def test_overlaps_with_full_overlap(self) -> None:
+        """完全に重複する期間."""
+        group = ParliamentaryGroup(
+            name="テスト会派",
+            governing_body_id=1,
+            start_date=date(2000, 1, 1),
+            end_date=date(2005, 12, 31),
+        )
+        assert group.overlaps_with(date(2002, 1, 1), date(2003, 12, 31)) is True
+
+    def test_overlaps_with_no_overlap(self) -> None:
+        """重複しない期間."""
+        group = ParliamentaryGroup(
+            name="テスト会派",
+            governing_body_id=1,
+            start_date=date(2000, 1, 1),
+            end_date=date(2005, 12, 31),
+        )
+        assert group.overlaps_with(date(2006, 1, 1), date(2010, 12, 31)) is False
+
+    def test_overlaps_with_partial_overlap(self) -> None:
+        """部分的に重複する期間."""
+        group = ParliamentaryGroup(
+            name="テスト会派",
+            governing_body_id=1,
+            start_date=date(2000, 1, 1),
+            end_date=date(2005, 12, 31),
+        )
+        assert group.overlaps_with(date(2004, 1, 1), date(2010, 12, 31)) is True
+
+    def test_overlaps_with_open_ended(self) -> None:
+        """end_dateなし（現在も有効）の場合."""
+        group = ParliamentaryGroup(
+            name="現行会派",
+            governing_body_id=1,
+            start_date=date(2021, 11, 1),
+        )
+        assert group.overlaps_with(date(2024, 1, 1), date(2024, 12, 31)) is True
+        assert group.overlaps_with(date(2020, 1, 1), date(2020, 12, 31)) is False
+
+    def test_factory_with_dates(self) -> None:
+        """ファクトリで日付付きエンティティを作成."""
+        group = create_parliamentary_group(
+            start_date=date(2021, 11, 1),
+            end_date=date(2024, 10, 26),
+        )
+        assert group.start_date == date(2021, 11, 1)
+        assert group.end_date == date(2024, 10, 26)

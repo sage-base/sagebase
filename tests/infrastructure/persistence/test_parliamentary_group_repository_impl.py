@@ -61,6 +61,8 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.is_active = True
         mock_row.political_party_id = 5
         mock_row.chamber = "衆議院"
+        mock_row.start_date = None
+        mock_row.end_date = None
 
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
@@ -107,6 +109,8 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.is_active = True
         mock_row.political_party_id = 5
         mock_row.chamber = "衆議院"
+        mock_row.start_date = None
+        mock_row.end_date = None
 
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
@@ -164,6 +168,8 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.url = "https://example.com/group"
         mock_row.description = "自由民主党の会派"
         mock_row.is_active = True
+        mock_row.start_date = None
+        mock_row.end_date = None
 
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
@@ -193,6 +199,8 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.is_active = True
         mock_row.political_party_id = 3
         mock_row.chamber = "衆議院"
+        mock_row.start_date = None
+        mock_row.end_date = None
 
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
@@ -242,6 +250,8 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.url = "https://example.com/group"
         mock_row.description = "自由民主党の会派"
         mock_row.is_active = True
+        mock_row.start_date = None
+        mock_row.end_date = None
 
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
@@ -265,12 +275,16 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row1.name = "自民党会派"
         mock_row1.governing_body_id = 10
         mock_row1.is_active = True
+        mock_row1.start_date = None
+        mock_row1.end_date = None
 
         mock_row2 = MagicMock()
         mock_row2.id = 2
         mock_row2.name = "民主党会派"
         mock_row2.governing_body_id = 10
         mock_row2.is_active = False
+        mock_row2.start_date = None
+        mock_row2.end_date = None
 
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
@@ -294,6 +308,8 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.governing_body_id = 1
         mock_row.is_active = True
         mock_row.chamber = "衆議院"
+        mock_row.start_date = None
+        mock_row.end_date = None
 
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
@@ -319,6 +335,8 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.name = "自民党会派"
         mock_row.governing_body_id = 10
         mock_row.is_active = True
+        mock_row.start_date = None
+        mock_row.end_date = None
 
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
@@ -342,6 +360,8 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.name = "自民党会派"
         mock_row.governing_body_id = 10
         mock_row.is_active = True
+        mock_row.start_date = None
+        mock_row.end_date = None
 
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
@@ -439,6 +459,8 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.name = "自民党会派"
         mock_row.governing_body_id = 10
         mock_row.is_active = True
+        mock_row.start_date = None
+        mock_row.end_date = None
 
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
@@ -478,6 +500,8 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.is_active = True
         mock_row.political_party_id = 5
         mock_row.chamber = "衆議院"
+        mock_row.start_date = None
+        mock_row.end_date = None
 
         entity = repository._row_to_entity(mock_row)
 
@@ -566,6 +590,8 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row1.url = "https://example.com/group"
         mock_row1.description = "自由民主党の会派"
         mock_row1.is_active = True
+        mock_row1.start_date = None
+        mock_row1.end_date = None
 
         mock_row2 = MagicMock()
         mock_row2.id = 2
@@ -574,6 +600,8 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row2.url = None
         mock_row2.description = "民主党の会派"
         mock_row2.is_active = True
+        mock_row2.start_date = None
+        mock_row2.end_date = None
 
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
