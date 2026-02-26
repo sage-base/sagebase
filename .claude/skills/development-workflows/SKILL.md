@@ -125,11 +125,15 @@ Clean Architectureに従って、内側から外側へ実装します：
 src/domain/entities/new_entity.py
 
 # Repository Interface定義
-src/domain/repositories/i_new_entity_repository.py
+src/domain/repositories/new_entity_repository.py
 
 # Domain Service（必要な場合）
 src/domain/services/new_entity_domain_service.py
 ```
+
+**⚠️ `__init__.py`の更新を忘れないこと:**
+- `src/domain/entities/__init__.py` にエンティティのimport + `__all__`追加
+- `src/domain/repositories/__init__.py` にリポジトリIFのimport + `__all__`追加
 
 #### ステップ2: Application層
 ```bash
