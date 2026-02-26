@@ -98,5 +98,6 @@ INSERT INTO political_parties (name, members_list_url) VALUES
 ('結いの党', NULL),
 ('新党きづな', NULL),
 ('たちあがれ日本', NULL),
-('沖縄の風', NULL)
+('沖縄の風', NULL),
+('チームみらい', 'https://team-mir.ai/')
 ON CONFLICT (name) DO NOTHING;
