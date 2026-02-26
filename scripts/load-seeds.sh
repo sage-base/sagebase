@@ -38,6 +38,7 @@ if [ "$GOVERNING_BODIES_COUNT" = "0" ]; then
         "database/seed_political_parties_generated.sql"
         "database/seed_conferences_generated.sql"
         "database/seed_parliamentary_groups_generated.sql"
+        "database/seed_parliamentary_group_parties_generated.sql"
         "database/seed_meetings_generated.sql"
         "database/seed_politicians_generated.sql"
         "database/seed_election_members_generated.sql"
@@ -74,5 +75,13 @@ else
         echo "  📦 Parliamentary group memberships data missing, loading..."
         load_seed "database/seed_parliamentary_group_memberships_generated.sql"
         echo "  ✅ Parliamentary group memberships data loaded!"
+    fi
+
+    # parliamentary_group_parties は後から追加されたSEEDのため、個別にチェック
+    PGP_COUNT=$(psql_count "SELECT COUNT(*) FROM parliamentary_group_parties;")
+    if [ "$PGP_COUNT" = "0" ]; then
+        echo "  📦 Parliamentary group parties data missing, loading..."
+        load_seed "database/seed_parliamentary_group_parties_generated.sql"
+        echo "  ✅ Parliamentary group parties data loaded!"
     fi
 fi
