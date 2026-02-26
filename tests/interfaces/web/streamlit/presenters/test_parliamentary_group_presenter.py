@@ -16,6 +16,8 @@ from src.application.usecases.manage_parliamentary_groups_usecase import (
 )
 from src.domain.entities import ParliamentaryGroup
 from src.domain.entities.governing_body import GoverningBody
+from src.domain.entities.parliamentary_group_party import ParliamentaryGroupParty
+from src.domain.entities.political_party import PoliticalParty
 
 
 @pytest.fixture
@@ -462,6 +464,42 @@ class TestToDataframe:
         assert "議員団名" in df.columns
         assert "政党" in df.columns
 
+    def test_to_dataframe_with_party_mapping(
+        self, presenter, sample_parliamentary_groups, sample_governing_bodies
+    ):
+        """中間テーブルにデータがある場合に政党名が正しく表示されること."""
+        # Arrange
+        parties = [PoliticalParty(id=10, name="自由民主党")]
+        presenter.political_party_repo = MagicMock()
+        presenter.political_party_repo.get_all = AsyncMock(return_value=parties)
+
+        group_parties = [
+            ParliamentaryGroupParty(
+                id=1,
+                parliamentary_group_id=1,
+                political_party_id=10,
+                is_primary=True,
+            ),
+        ]
+        presenter.parliamentary_group_party_repo = MagicMock()
+        presenter.parliamentary_group_party_repo.get_by_parliamentary_group_ids = (
+            AsyncMock(return_value=group_parties)
+        )
+
+        # Act
+        df = presenter.to_dataframe(
+            sample_parliamentary_groups, sample_governing_bodies
+        )
+
+        # Assert
+        assert isinstance(df, pd.DataFrame)
+        # id=1 の会派に「自由民主党」が表示される
+        row_1 = df[df["ID"] == 1].iloc[0]
+        assert row_1["政党"] == "自由民主党"
+        # id=2 の会派は政党なし
+        row_2 = df[df["ID"] == 2].iloc[0]
+        assert row_2["政党"] == "未設定"
+
     def test_to_dataframe_empty(self, presenter, sample_governing_bodies):
         """空のリストを処理できることを確認"""
         # Act
@@ -469,6 +507,38 @@ class TestToDataframe:
 
         # Assert
         assert df is None
+
+
+class TestGetPrimaryPartyId:
+    """get_primary_party_idメソッドのテスト"""
+
+    def test_returns_party_id_when_exists(self, presenter):
+        """主要政党が存在する場合に正しいIDが返ること."""
+        primary = ParliamentaryGroupParty(
+            id=1,
+            parliamentary_group_id=10,
+            political_party_id=20,
+            is_primary=True,
+        )
+        presenter.parliamentary_group_party_repo = MagicMock()
+        presenter.parliamentary_group_party_repo.get_primary_party = AsyncMock(
+            return_value=primary
+        )
+
+        result = presenter.get_primary_party_id(10)
+
+        assert result == 20
+
+    def test_returns_none_when_no_primary(self, presenter):
+        """主要政党が存在しない場合にNoneが返ること."""
+        presenter.parliamentary_group_party_repo = MagicMock()
+        presenter.parliamentary_group_party_repo.get_primary_party = AsyncMock(
+            return_value=None
+        )
+
+        result = presenter.get_primary_party_id(10)
+
+        assert result is None
 
 
 class TestHandleAction:

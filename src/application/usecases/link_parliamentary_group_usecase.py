@@ -58,9 +58,8 @@ class LinkParliamentaryGroupUseCase:
         party_membership_history_repository: (
             PartyMembershipHistoryRepository | None
         ) = None,
-        parliamentary_group_party_repository: (
-            ParliamentaryGroupPartyRepository | None
-        ) = None,
+        *,
+        parliamentary_group_party_repository: ParliamentaryGroupPartyRepository,
     ) -> None:
         self._election_repo = election_repository
         self._member_repo = election_member_repository
@@ -119,15 +118,14 @@ class LinkParliamentaryGroupUseCase:
         group_map = {g.id: g for g in groups if g.id is not None}
         party_to_groups: dict[int, list[ParliamentaryGroup]] = defaultdict(list)
 
-        if self._group_party_repo is not None:
-            group_ids = [g.id for g in groups if g.id is not None]
-            group_parties = await self._group_party_repo.get_by_parliamentary_group_ids(
-                group_ids
-            )
-            for gp in group_parties:
-                group = group_map.get(gp.parliamentary_group_id)
-                if group is not None:
-                    party_to_groups[gp.political_party_id].append(group)
+        group_ids = [g.id for g in groups if g.id is not None]
+        group_parties = await self._group_party_repo.get_by_parliamentary_group_ids(
+            group_ids
+        )
+        for gp in group_parties:
+            group = group_map.get(gp.parliamentary_group_id)
+            if group is not None:
+                party_to_groups[gp.political_party_id].append(group)
 
         # 5. 既存メンバーシップを一括取得して重複チェック用セットを構築
         existing_keys: set[tuple[int, int, date]] = set()

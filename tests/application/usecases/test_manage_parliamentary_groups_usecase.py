@@ -34,10 +34,28 @@ class TestManageParliamentaryGroupsUseCase:
         return repo
 
     @pytest.fixture
+    def mock_group_party_repository(self):
+        """Create mock group party repository."""
+        repo = AsyncMock()
+        return repo
+
+    @pytest.fixture
     def use_case(self, mock_parliamentary_group_repository):
         """Create ManageParliamentaryGroupsUseCase instance."""
         return ManageParliamentaryGroupsUseCase(
             parliamentary_group_repository=mock_parliamentary_group_repository
+        )
+
+    @pytest.fixture
+    def use_case_with_group_party_repo(
+        self,
+        mock_parliamentary_group_repository,
+        mock_group_party_repository,
+    ):
+        """Create UseCase instance with group party repository."""
+        return ManageParliamentaryGroupsUseCase(
+            parliamentary_group_repository=mock_parliamentary_group_repository,
+            parliamentary_group_party_repository=mock_group_party_repository,
         )
 
     @pytest.fixture
@@ -618,3 +636,111 @@ class TestManageParliamentaryGroupsUseCase:
 
         # 3回呼び出されたことを確認
         assert mock_parliamentary_group_repository.create.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_create_with_party_saves_to_intermediate_table(
+        self,
+        use_case_with_group_party_repo,
+        mock_parliamentary_group_repository,
+        mock_group_party_repository,
+    ):
+        """create時にpolitical_party_idがあれば中間テーブルにadd_partyが呼ばれること."""
+        mock_repo = mock_parliamentary_group_repository
+        mock_repo.get_by_name_and_governing_body.return_value = None
+        created_group = ParliamentaryGroup(
+            id=1, name="新しい会派", governing_body_id=1, is_active=True
+        )
+        mock_repo.create.return_value = created_group
+
+        input_dto = CreateParliamentaryGroupInputDto(
+            name="新しい会派",
+            governing_body_id=1,
+            is_active=True,
+            political_party_id=3,
+        )
+
+        result = await use_case_with_group_party_repo.create_parliamentary_group(
+            input_dto
+        )
+
+        assert result.success is True
+        mock_group_party_repository.add_party.assert_called_once_with(
+            1, 3, is_primary=True
+        )
+
+    @pytest.mark.asyncio
+    async def test_create_without_party_does_not_call_add_party(
+        self,
+        use_case_with_group_party_repo,
+        mock_parliamentary_group_repository,
+        mock_group_party_repository,
+    ):
+        """create時にpolitical_party_id=Noneなら中間テーブル操作しないこと."""
+        mock_repo = mock_parliamentary_group_repository
+        mock_repo.get_by_name_and_governing_body.return_value = None
+        created_group = ParliamentaryGroup(
+            id=1, name="新しい会派", governing_body_id=1, is_active=True
+        )
+        mock_repo.create.return_value = created_group
+
+        input_dto = CreateParliamentaryGroupInputDto(
+            name="新しい会派", governing_body_id=1, is_active=True
+        )
+
+        result = await use_case_with_group_party_repo.create_parliamentary_group(
+            input_dto
+        )
+
+        assert result.success is True
+        mock_group_party_repository.add_party.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_update_with_party_saves_to_intermediate_table(
+        self,
+        use_case_with_group_party_repo,
+        mock_parliamentary_group_repository,
+        mock_group_party_repository,
+    ):
+        """update時にpolitical_party_idがあればadd_partyとset_primaryが呼ばれること."""
+        existing_group = ParliamentaryGroup(
+            id=1, name="自由民主党", governing_body_id=1, is_active=True
+        )
+        mock_parliamentary_group_repository.get_by_id.return_value = existing_group
+
+        input_dto = UpdateParliamentaryGroupInputDto(
+            id=1, name="自由民主党", is_active=True, political_party_id=7
+        )
+
+        result = await use_case_with_group_party_repo.update_parliamentary_group(
+            input_dto
+        )
+
+        assert result.success is True
+        mock_group_party_repository.add_party.assert_called_once_with(1, 7)
+        mock_group_party_repository.set_primary.assert_called_once_with(1, 7)
+
+    @pytest.mark.asyncio
+    async def test_update_with_none_party_clears_primary(
+        self,
+        use_case_with_group_party_repo,
+        mock_parliamentary_group_repository,
+        mock_group_party_repository,
+    ):
+        """update時にpolitical_party_id=Noneならclear_primaryが呼ばれること."""
+        existing_group = ParliamentaryGroup(
+            id=1, name="自由民主党", governing_body_id=1, is_active=True
+        )
+        mock_parliamentary_group_repository.get_by_id.return_value = existing_group
+
+        input_dto = UpdateParliamentaryGroupInputDto(
+            id=1, name="自由民主党", is_active=True, political_party_id=None
+        )
+
+        result = await use_case_with_group_party_repo.update_parliamentary_group(
+            input_dto
+        )
+
+        assert result.success is True
+        mock_group_party_repository.add_party.assert_not_called()
+        mock_group_party_repository.set_primary.assert_not_called()
+        mock_group_party_repository.clear_primary.assert_called_once_with(1)

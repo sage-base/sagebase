@@ -112,6 +112,19 @@ class ParliamentaryGroupPartyRepositoryImpl(
         await self.session.flush()
         return True
 
+    async def clear_primary(self, group_id: int) -> None:
+        query = select(self.model_class).where(
+            and_(
+                self.model_class.parliamentary_group_id == group_id,
+                self.model_class.is_primary.is_(True),
+            )
+        )
+        result = await self.session.execute(query)
+        current_primary = result.scalars().first()
+        if current_primary:
+            current_primary.is_primary = False
+            await self.session.flush()
+
     async def set_primary(
         self, group_id: int, party_id: int
     ) -> ParliamentaryGroupParty | None:

@@ -4,23 +4,62 @@
 
 -- ============================================================
 -- セクション1: Primary政党（is_primary=true）
--- 既存 parliamentary_groups.political_party_id からの一括移行
+-- 会派名と政党名の対応で直接INSERT
 -- ============================================================
 
+-- 京都府京都市
 INSERT INTO parliamentary_group_parties (parliamentary_group_id, political_party_id, is_primary)
-SELECT pg.id, pg.political_party_id, true
+SELECT pg.id, pp.id, true
 FROM parliamentary_groups pg
-WHERE pg.political_party_id IS NOT NULL
+JOIN governing_bodies gb ON pg.governing_body_id = gb.id
+CROSS JOIN political_parties pp
+WHERE gb.name = '京都府京都市' AND gb.type = '市町村'
+AND (pg.name, pp.name) IN (
+    (' 日本共産党京都市会議員団', '日本共産党'),
+    ('公明党京都市会議員団', '公明党'),
+    ('自由民主党京都市会議員団', '自由民主党')
+)
 ON CONFLICT (parliamentary_group_id, political_party_id) DO UPDATE SET is_primary = EXCLUDED.is_primary;
 
--- 減税保守こども → 減税日本（シードではpolitical_party_id=NULLだが、Primary政党として登録）
+-- 国会・衆議院
 INSERT INTO parliamentary_group_parties (parliamentary_group_id, political_party_id, is_primary)
-SELECT
-    (SELECT pg.id FROM parliamentary_groups pg
-     JOIN governing_bodies gb ON pg.governing_body_id = gb.id
-     WHERE pg.name = '減税保守こども' AND gb.name = '国会' AND gb.type = '国' AND pg.chamber = '衆議院'),
-    (SELECT id FROM political_parties WHERE name = '減税日本'),
-    true
+SELECT pg.id, pp.id, true
+FROM parliamentary_groups pg
+JOIN governing_bodies gb ON pg.governing_body_id = gb.id
+CROSS JOIN political_parties pp
+WHERE gb.name = '国会' AND gb.type = '国' AND pg.chamber = '衆議院'
+AND (pg.name, pp.name) IN (
+    ('自由民主党・無所属の会', '自由民主党'),
+    ('立憲民主党・無所属', '立憲民主党'),
+    ('日本維新の会・教育無償化を実現する会', '日本維新の会'),
+    ('国民民主党・無所属クラブ', '国民民主党'),
+    ('日本共産党', '日本共産党'),
+    ('有志の会', '有志の会'),
+    ('れいわ新選組', 'れいわ新選組'),
+    ('公明党', '公明党'),
+    ('参政党', '参政党'),
+    ('社会民主党・護憲連合', '社会民主党'),
+    ('減税保守こども', '減税日本')
+)
+ON CONFLICT (parliamentary_group_id, political_party_id) DO UPDATE SET is_primary = EXCLUDED.is_primary;
+
+-- 国会・参議院
+INSERT INTO parliamentary_group_parties (parliamentary_group_id, political_party_id, is_primary)
+SELECT pg.id, pp.id, true
+FROM parliamentary_groups pg
+JOIN governing_bodies gb ON pg.governing_body_id = gb.id
+CROSS JOIN political_parties pp
+WHERE gb.name = '国会' AND gb.type = '国' AND pg.chamber = '参議院'
+AND (pg.name, pp.name) IN (
+    ('自由民主党', '自由民主党'),
+    ('公明党', '公明党'),
+    ('日本共産党', '日本共産党'),
+    ('れいわ新選組', 'れいわ新選組'),
+    ('日本維新の会', '日本維新の会'),
+    ('参政党', '参政党'),
+    ('日本保守党', '日本保守党'),
+    ('無所属', '無所属')
+)
 ON CONFLICT (parliamentary_group_id, political_party_id) DO UPDATE SET is_primary = EXCLUDED.is_primary;
 
 -- ============================================================

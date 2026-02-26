@@ -93,6 +93,15 @@ class ParliamentaryGroupPartyRepository(BaseRepository[ParliamentaryGroupParty])
         pass
 
     @abstractmethod
+    async def clear_primary(self, group_id: int) -> None:
+        """会派の主要政党フラグをクリアする.
+
+        Args:
+            group_id: 会派ID
+        """
+        pass
+
+    @abstractmethod
     async def set_primary(
         self, group_id: int, party_id: int
     ) -> ParliamentaryGroupParty | None:

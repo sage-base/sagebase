@@ -40,6 +40,29 @@ from src.domain.repositories.politician_repository import PoliticianRepository
 ELECTION_DATE = date(2024, 10, 27)
 
 
+def setup_group_party_mapping(
+    mock_repos: dict[str, AsyncMock],
+    mappings: list[tuple[int, int]],
+) -> None:
+    """中間テーブルのモックを設定する.
+
+    Args:
+        mock_repos: モックリポジトリ辞書
+        mappings: (parliamentary_group_id, political_party_id) のリスト
+    """
+    group_parties = [
+        ParliamentaryGroupParty(
+            parliamentary_group_id=gid,
+            political_party_id=pid,
+            id=i + 1,
+        )
+        for i, (gid, pid) in enumerate(mappings)
+    ]
+    mock_repos[
+        "group_party"
+    ].get_by_parliamentary_group_ids.return_value = group_parties
+
+
 class TestLinkParliamentaryGroupUseCase:
     """会派自動紐付けユースケースのテスト."""
 
@@ -104,29 +127,6 @@ class TestLinkParliamentaryGroupUseCase:
     ) -> None:
         mock_repos["election"].get_by_governing_body_and_term.return_value = election
 
-    def _setup_group_party_mapping(
-        self,
-        mock_repos: dict[str, AsyncMock],
-        mappings: list[tuple[int, int]],
-    ) -> None:
-        """中間テーブルのモックを設定する.
-
-        Args:
-            mock_repos: モックリポジトリ辞書
-            mappings: (parliamentary_group_id, political_party_id) のリスト
-        """
-        group_parties = [
-            ParliamentaryGroupParty(
-                parliamentary_group_id=gid,
-                political_party_id=pid,
-                id=i + 1,
-            )
-            for i, (gid, pid) in enumerate(mappings)
-        ]
-        mock_repos[
-            "group_party"
-        ].get_by_parliamentary_group_ids.return_value = group_parties
-
     async def test_election_not_found(
         self,
         use_case: LinkParliamentaryGroupUseCase,
@@ -178,7 +178,7 @@ class TestLinkParliamentaryGroupUseCase:
         mock_repos["party_history"].get_current_by_politicians.return_value = {}
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         # 中間テーブル: ldp_group(100) → 政党10
-        self._setup_group_party_mapping(mock_repos, [(100, 10)])
+        setup_group_party_mapping(mock_repos, [(100, 10)])
         mock_repos["membership"].get_active_by_group.return_value = []
 
         input_dto = LinkParliamentaryGroupInputDto(term_number=50)
@@ -219,7 +219,7 @@ class TestLinkParliamentaryGroupUseCase:
         }
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         # 中間テーブル: ldp_group(100) → 政党10
-        self._setup_group_party_mapping(mock_repos, [(100, 10)])
+        setup_group_party_mapping(mock_repos, [(100, 10)])
         mock_repos["membership"].get_active_by_group.return_value = []
 
         input_dto = LinkParliamentaryGroupInputDto(term_number=50)
@@ -270,7 +270,7 @@ class TestLinkParliamentaryGroupUseCase:
         }
         mock_repos["group"].get_by_governing_body_id.return_value = [group_a, group_b]
         # 中間テーブル: 両グループとも政党30
-        self._setup_group_party_mapping(mock_repos, [(301, 30), (302, 30)])
+        setup_group_party_mapping(mock_repos, [(301, 30), (302, 30)])
         mock_repos["membership"].get_active_by_group.return_value = []
 
         input_dto = LinkParliamentaryGroupInputDto(term_number=50)
@@ -309,7 +309,7 @@ class TestLinkParliamentaryGroupUseCase:
         }
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         # 中間テーブル: ldp_group(100) → 政党10
-        self._setup_group_party_mapping(mock_repos, [(100, 10)])
+        setup_group_party_mapping(mock_repos, [(100, 10)])
         mock_repos["membership"].get_active_by_group.return_value = []
         mock_repos[
             "membership"
@@ -366,7 +366,7 @@ class TestLinkParliamentaryGroupUseCase:
         }
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         # 中間テーブル: ldp_group(100) → 政党10
-        self._setup_group_party_mapping(mock_repos, [(100, 10)])
+        setup_group_party_mapping(mock_repos, [(100, 10)])
         mock_repos["membership"].get_active_by_group.return_value = [
             ParliamentaryGroupMembership(
                 politician_id=1,
@@ -414,7 +414,7 @@ class TestLinkParliamentaryGroupUseCase:
         }
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         # 中間テーブル: ldp_group(100) → 政党10
-        self._setup_group_party_mapping(mock_repos, [(100, 10)])
+        setup_group_party_mapping(mock_repos, [(100, 10)])
         mock_repos["membership"].get_active_by_group.return_value = []
 
         input_dto = LinkParliamentaryGroupInputDto(term_number=50, dry_run=True)
@@ -478,7 +478,7 @@ class TestLinkParliamentaryGroupUseCase:
             cdp_group,
         ]
         # 中間テーブル: ldp_group(100) → 政党10, cdp_group(200) → 政党20
-        self._setup_group_party_mapping(mock_repos, [(100, 10), (200, 20)])
+        setup_group_party_mapping(mock_repos, [(100, 10), (200, 20)])
         mock_repos["membership"].get_active_by_group.return_value = []
         mock_repos[
             "membership"
@@ -514,7 +514,7 @@ class TestLinkParliamentaryGroupUseCase:
         mock_repos["party_history"].get_current_by_politicians.return_value = {}
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         # 中間テーブル: ldp_group(100) → 政党10
-        self._setup_group_party_mapping(mock_repos, [(100, 10)])
+        setup_group_party_mapping(mock_repos, [(100, 10)])
         mock_repos["membership"].get_active_by_group.return_value = []
 
         input_dto = LinkParliamentaryGroupInputDto(term_number=50)
@@ -579,24 +579,6 @@ class TestLinkParliamentaryGroupWithHistory:
     ) -> None:
         mock_repos["election"].get_by_governing_body_and_term.return_value = election
 
-    def _setup_group_party_mapping(
-        self,
-        mock_repos: dict[str, AsyncMock],
-        mappings: list[tuple[int, int]],
-    ) -> None:
-        """中間テーブルのモックを設定する."""
-        group_parties = [
-            ParliamentaryGroupParty(
-                parliamentary_group_id=gid,
-                political_party_id=pid,
-                id=i + 1,
-            )
-            for i, (gid, pid) in enumerate(mappings)
-        ]
-        mock_repos[
-            "group_party"
-        ].get_by_parliamentary_group_ids.return_value = group_parties
-
     async def test_uses_party_history_when_available(
         self,
         use_case_with_history: LinkParliamentaryGroupUseCase,
@@ -628,7 +610,7 @@ class TestLinkParliamentaryGroupWithHistory:
         }
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         # 中間テーブル: ldp_group(100) → 政党10
-        self._setup_group_party_mapping(mock_repos, [(100, 10)])
+        setup_group_party_mapping(mock_repos, [(100, 10)])
         mock_repos["membership"].get_active_by_group.return_value = []
         mock_repos[
             "membership"
@@ -679,7 +661,7 @@ class TestLinkParliamentaryGroupWithHistory:
         }
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         # 中間テーブル: ldp_group(100) → 政党10
-        self._setup_group_party_mapping(mock_repos, [(100, 10)])
+        setup_group_party_mapping(mock_repos, [(100, 10)])
         mock_repos["membership"].get_active_by_group.return_value = []
 
         input_dto = LinkParliamentaryGroupInputDto(term_number=50)
@@ -719,7 +701,7 @@ class TestLinkParliamentaryGroupWithHistory:
         }
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         # 中間テーブル: ldp_group(100) → 政党10
-        self._setup_group_party_mapping(mock_repos, [(100, 10)])
+        setup_group_party_mapping(mock_repos, [(100, 10)])
         mock_repos["membership"].get_active_by_group.return_value = []
         mock_repos[
             "membership"
@@ -768,7 +750,7 @@ class TestLinkParliamentaryGroupWithHistory:
         }
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         # 中間テーブル: ldp_group(100) → 政党10
-        self._setup_group_party_mapping(mock_repos, [(100, 10)])
+        setup_group_party_mapping(mock_repos, [(100, 10)])
         mock_repos["membership"].get_active_by_group.return_value = []
         mock_repos[
             "membership"
@@ -811,7 +793,7 @@ class TestLinkParliamentaryGroupWithHistory:
         mock_repos["party_history"].get_current_by_politicians.return_value = {}
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         # 中間テーブル: ldp_group(100) → 政党10
-        self._setup_group_party_mapping(mock_repos, [(100, 10)])
+        setup_group_party_mapping(mock_repos, [(100, 10)])
         mock_repos["membership"].get_active_by_group.return_value = []
         mock_repos[
             "membership"
@@ -859,7 +841,7 @@ class TestLinkParliamentaryGroupWithHistory:
         }
         mock_repos["group"].get_by_governing_body_id.return_value = [ldp_group]
         # 中間テーブル: ldp_group(100) → 政党10
-        self._setup_group_party_mapping(mock_repos, [(100, 10)])
+        setup_group_party_mapping(mock_repos, [(100, 10)])
         mock_repos["membership"].get_active_by_group.return_value = []
         mock_repos[
             "membership"

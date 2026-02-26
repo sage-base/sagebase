@@ -291,6 +291,9 @@ class ManageParliamentaryGroupsUseCase:
                     await self._group_party_repo.set_primary(
                         input_dto.id, input_dto.political_party_id
                     )
+                else:
+                    # 政党関連が解除された場合、primaryフラグをクリア
+                    await self._group_party_repo.clear_primary(input_dto.id)
 
             return UpdateParliamentaryGroupOutputDto(success=True)
         except Exception as e:
