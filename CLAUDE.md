@@ -182,6 +182,7 @@ Clean Architectureの各層の詳細な実装ガイドを保管（責務、実�
 - **Docker-first**: All commands run through Docker containers
 - **Unified CLI**: `sagebase` command provides single entry point
 - **GCS URI Format**: Always use `gs://` format, not HTTPS URLs
+- **Worktree作業時**: `Read`/`Write`/`Edit`等のファイル操作は**必ずworktreeのパス**（カレントディレクトリ配下）を使用すること。親リポジトリのパスを参照してはならない
 
 **📖 For detailed conventions**: See [.claude/skills/project-conventions/](.claude/skills/project-conventions/)
 

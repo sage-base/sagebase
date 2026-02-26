@@ -33,7 +33,10 @@ Before approving code, verify:
 - [ ] **BaseRepositoryImplのオーバーライド**: Raw SQLリポジトリで `count()`, `get_by_ids()` 等のORMベースメソッドが正しく動作するか確認（Pydanticモデル系では必ずraw SQLでオーバーライド）
 - [ ] **新規リポジトリ作成方針（ADR 0007）**: 新規リポジトリはSQLAlchemy ORM第一選択、Pydanticは既存拡張時のみ許容、動的モデルは新規禁止。変換メソッドは`_to_entity()`のみ使用
 - [ ] **オーバーライドのシグネチャ一致**: BaseRepository IFのデフォルト値（`offset: int | None = None`等）と実装のシグネチャが一致しているか
+- [ ] **`_to_entity`で`created_at`/`updated_at`をコピーしているか**: `BaseEntity`の`created_at`/`updated_at`はコンストラクタで`None`初期化されるため、`_to_entity()`内で明示的に`entity.created_at = model.created_at`のように設定しないと常に`None`になる
 - [ ] **`_to_entity`/`_dict_to_entity`の一貫性**: 両メソッドで`created_at`/`updated_at`の設定が一致しているか
+- [ ] **`_to_model`でタイムスタンプをDB委譲しているか**: `_to_model()`内で`datetime.now()`を直接設定せず、SQLAlchemyモデルの`default`/`server_default`に委譲する。Pythonコード側の`datetime.now()`とモデル定義の`datetime.utcnow`が混在するとタイムゾーン不整合が起きる
+- [ ] **`_to_model`の`entity.id or 0`を使っていないか**: `int | None`型で`or`演算子を使うと`id=0`がfalsyで誤動作する。`entity.id if entity.id is not None else 0`を使うこと
 - [ ] **DTO構築ロジックの一元化**: 同じDTOを複数の層（UseCase層とUI層等）で構築する場合、ファクトリメソッド（`@classmethod`）をDTOに定義して重複を防ぐ
 
 ## Core Principles
@@ -288,6 +291,26 @@ def _to_entity(self, model: XxxModel) -> Xxx:
     entity.created_at = model.created_at
     entity.updated_at = model.updated_at
     return entity
+```
+
+#### `_to_model`のアンチパターン
+
+```python
+# ❌ id=0がfalsyで誤動作する（id or 0 はid=0のときTrue側に入らない）
+def _to_model(self, entity: Xxx) -> XxxModel:
+    return XxxModel(
+        id=entity.id or 0,  # id=0でもfalsyで0になるが意図と異なる分岐
+        created_at=datetime.now() if not entity.id else None,  # TZ不整合 + falsy罠
+        updated_at=datetime.now(),  # SQLAlchemy defaultと不整合
+    )
+
+# ✅ is not Noneで判定、タイムスタンプはDB/SQLAlchemyのdefaultに委譲
+def _to_model(self, entity: Xxx) -> XxxModel:
+    return XxxModel(
+        id=entity.id if entity.id is not None else 0,
+        name=entity.name,
+        # created_at/updated_at はSQLAlchemyモデルのdefaultに任せる
+    )
 ```
 
 ## 既知の技術的負債

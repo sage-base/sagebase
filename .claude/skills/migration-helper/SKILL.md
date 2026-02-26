@@ -264,6 +264,15 @@ def upgrade() -> None:
 - [ ] 複合UNIQUE制約を追加（NULLableカラムがある場合は`COALESCE`で対応）
 - [ ] downgradeでUNIQUEインデックスもDROPすること
 
+## テーブル追加時の下流影響チェックリスト
+
+新規テーブル作成時は、マイグレーション以外にも以下のファイルの更新が必要：
+
+- [ ] **SQLAlchemyモデル**: `src/infrastructure/persistence/sqlalchemy_models.py` にモデル追加
+- [ ] **dump_restore.py**: `src/interfaces/cli/commands/database/dump_restore.py` の `TABLE_INSERT_ORDER` にFK依存順序で追加
+- [ ] **BigQueryスキーマ**: `src/infrastructure/bigquery/schema.py` にテーブル定義追加 + `GOLD_LAYER_TABLES` リストに追加
+- [ ] **BQスキーマテスト**: `tests/infrastructure/bigquery/test_schema.py` のテーブル数と期待テーブルIDセットを更新
+
 ## 詳細リファレンス
 
 - [examples.md](examples.md) - 実践的なマイグレーション例
