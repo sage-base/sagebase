@@ -1,12 +1,23 @@
-"""第45-50回衆議院選挙の会派自動紐付け一括実行スクリプト.
+"""国政選挙の会派自動紐付け一括実行スクリプト.
 
 政党所属議員の会派自動紐付け（link_parliamentary_groups.py）を
-第45〜50回選挙に対して順次実行し、結果サマリーとスキップ議員リストを出力する。
+DBに登録された国政選挙（衆議院・参議院）に対して順次実行し、
+結果サマリーとスキップ議員リストを出力する。
 実行後にSEEDファイルを自動生成する。
+
+対象選挙はDBから動的に検出される（ハードコードなし）。
 
 Usage (Docker経由で実行):
     docker compose -f docker/docker-compose.yml exec sagebase \
         uv run python scripts/link_parliamentary_groups_bulk.py
+
+    # 衆議院のみ実行
+    docker compose -f docker/docker-compose.yml exec sagebase \
+        uv run python scripts/link_parliamentary_groups_bulk.py --chamber 衆議院
+
+    # 特定回次のみ実行
+    docker compose -f docker/docker-compose.yml exec sagebase \
+        uv run python scripts/link_parliamentary_groups_bulk.py --term 49 50
 
     # ドライラン（DB書き込みなし）
     docker compose -f docker/docker-compose.yml exec sagebase \
@@ -20,7 +31,7 @@ Usage (Docker経由で実行):
     - Docker環境が起動済み（just up-detached）
     - マスターデータ（開催主体「国会」ID=1）がロード済み
     - Alembicマイグレーション適用済み
-    - 第45-50回選挙データ・当選者データがインポート済み
+    - 選挙データ・当選者データがインポート済み
 """
 
 from __future__ import annotations
@@ -44,6 +55,7 @@ if TYPE_CHECKING:
     from src.application.dtos.parliamentary_group_linkage_dto import (
         LinkParliamentaryGroupOutputDto,
     )
+    from src.domain.entities.election import Election
 
 
 logging.basicConfig(
@@ -52,24 +64,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# 対象選挙回次
-TARGET_ELECTIONS = list(range(45, 51))  # 45, 46, 47, 48, 49, 50
-
 
 @dataclass
 class ElectionResult:
-    """各選挙の紐付け結果"""
+    """各選挙の紐付け結果."""
 
     term_number: int
+    election_type: str = ""
+    chamber: str = ""
     output: LinkParliamentaryGroupOutputDto | None = None
     error: str | None = None
 
 
 @dataclass
 class BulkResult:
-    """一括実行の全体結果"""
+    """一括実行の全体結果."""
 
-    results: list[ElectionResult] = field(default_factory=list)
+    results: list[ElectionResult] = field(default_factory=lambda: [])
 
     @property
     def total_elected(self) -> int:
@@ -95,8 +106,41 @@ class BulkResult:
             if r.output
         )
 
+    def results_by_chamber(self, chamber: str) -> list[ElectionResult]:
+        """指定院の結果のみフィルタする."""
+        return [r for r in self.results if r.chamber == chamber]
 
-async def run_bulk_with_details(elections: list[int], dry_run: bool) -> BulkResult:
+
+async def detect_national_elections(
+    governing_body_id: int = 1,
+) -> dict[str, list[Election]]:
+    """国政選挙をDBから動的に検出し、衆議院・参議院に分類する."""
+    from src.domain.entities.election import Election as ElectionEntity
+    from src.infrastructure.config.async_database import get_async_session
+    from src.infrastructure.persistence.election_repository_impl import (
+        ElectionRepositoryImpl,
+    )
+
+    async with get_async_session() as session:
+        repo = ElectionRepositoryImpl(session)
+        all_elections = await repo.get_by_governing_body(governing_body_id)
+
+    result: dict[str, list[Election]] = {"衆議院": [], "参議院": []}
+
+    for election in all_elections:
+        if election.election_type == ElectionEntity.ELECTION_TYPE_GENERAL:
+            result["衆議院"].append(election)
+        elif election.election_type == ElectionEntity.ELECTION_TYPE_SANGIIN:
+            result["参議院"].append(election)
+
+    # term_number 昇順ソート
+    for chamber_elections in result.values():
+        chamber_elections.sort(key=lambda e: e.term_number)
+
+    return result
+
+
+async def run_bulk_with_details(elections: list[Election], dry_run: bool) -> BulkResult:
     """複数選挙に対して会派紐付けを順次実行し、詳細結果を記録する."""
     from src.application.dtos.parliamentary_group_linkage_dto import (
         LinkParliamentaryGroupInputDto,
@@ -128,13 +172,17 @@ async def run_bulk_with_details(elections: list[int], dry_run: bool) -> BulkResu
     )
 
     bulk_result = BulkResult()
-    governing_body_id = 1  # 国会
 
-    for term_number in elections:
-        election_result = ElectionResult(term_number=term_number)
+    for election in elections:
+        election_result = ElectionResult(
+            term_number=election.term_number,
+            election_type=election.election_type or "",
+            chamber=election.chamber,
+        )
         logger.info(
-            "=== 第%d回選挙 会派自動紐付け開始 %s===",
-            term_number,
+            "=== 第%d回 %s 会派自動紐付け開始 %s===",
+            election.term_number,
+            election.chamber or "（院名不明）",
             "(ドライラン) " if dry_run else "",
         )
         try:
@@ -158,15 +206,16 @@ async def run_bulk_with_details(elections: list[int], dry_run: bool) -> BulkResu
                 )
 
                 input_dto = LinkParliamentaryGroupInputDto(
-                    term_number=term_number,
-                    governing_body_id=governing_body_id,
+                    term_number=election.term_number,
+                    governing_body_id=election.governing_body_id,
+                    chamber=election.chamber,
                     dry_run=dry_run,
                 )
 
                 output = await use_case.execute(input_dto)
                 election_result.output = output
 
-                logger.info("--- 第%d回 結果 ---", term_number)
+                logger.info("--- 第%d回 結果 ---", election.term_number)
                 logger.info(
                     "当選者: %d, 紐付け: %d, 既存: %d, "
                     "政党未設定: %d, 会派なし: %d, 複数会派: %d, エラー: %d",
@@ -179,7 +228,7 @@ async def run_bulk_with_details(elections: list[int], dry_run: bool) -> BulkResu
                     output.errors,
                 )
         except Exception as e:
-            logger.exception("第%d回選挙の処理でエラー発生", term_number)
+            logger.exception("第%d回選挙の処理でエラー発生", election.term_number)
             election_result.error = str(e)
 
         bulk_result.results.append(election_result)
@@ -190,24 +239,33 @@ async def run_bulk_with_details(elections: list[int], dry_run: bool) -> BulkResu
 def write_result_report(bulk_result: BulkResult, output_path: str) -> None:
     """結果レポートをファイルに出力する."""
     lines: list[str] = []
-    lines.append("=== 第45-50回 会派自動紐付け一括実行結果 ===")
+    lines.append("=== 国政選挙 会派自動紐付け一括実行結果 ===")
     lines.append("")
 
-    for er in bulk_result.results:
-        lines.append(f"--- 第{er.term_number}回 ---")
-        if er.error:
-            lines.append(f"  エラー: {er.error}")
-        elif er.output:
-            o = er.output
-            lines.append(
-                f"  当選者数: {o.total_elected}, "
-                f"紐付け成功: {o.linked_count}, "
-                f"既存: {o.already_existed_count}, "
-                f"政党未設定: {o.skipped_no_party}, "
-                f"会派なし: {o.skipped_no_group}, "
-                f"複数会派: {o.skipped_multiple_groups}"
-            )
+    # 院別にセクションを出力
+    for chamber in ["衆議院", "参議院"]:
+        chamber_results = bulk_result.results_by_chamber(chamber)
+        if not chamber_results:
+            continue
+
+        lines.append(f"=== {chamber} ===")
         lines.append("")
+
+        for er in chamber_results:
+            lines.append(f"--- 第{er.term_number}回 ---")
+            if er.error:
+                lines.append(f"  エラー: {er.error}")
+            elif er.output:
+                o = er.output
+                lines.append(
+                    f"  当選者数: {o.total_elected}, "
+                    f"紐付け成功: {o.linked_count}, "
+                    f"既存: {o.already_existed_count}, "
+                    f"政党未設定: {o.skipped_no_party}, "
+                    f"会派なし: {o.skipped_no_group}, "
+                    f"複数会派: {o.skipped_multiple_groups}"
+                )
+            lines.append("")
 
     lines.append("=== 全体サマリー ===")
     lines.append(f"総当選者: {bulk_result.total_elected}")
@@ -220,7 +278,8 @@ def write_result_report(bulk_result: BulkResult, output_path: str) -> None:
     lines.append("=== スキップ議員一覧 ===")
     for er in bulk_result.results:
         if er.output and er.output.skipped_members:
-            lines.append(f"--- 第{er.term_number}回 ---")
+            chamber_label = f" ({er.chamber})" if er.chamber else ""
+            lines.append(f"--- 第{er.term_number}回{chamber_label} ---")
             for s in er.output.skipped_members:
                 lines.append(f"  {s.politician_name}: {s.reason}")
             lines.append("")
@@ -244,11 +303,24 @@ def generate_seed_file() -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="第45-50回衆議院選挙の会派自動紐付け一括実行",
+        description="国政選挙の会派自動紐付け一括実行",
         epilog=(
             "例: docker compose -f docker/docker-compose.yml exec sagebase "
             "uv run python scripts/link_parliamentary_groups_bulk.py"
         ),
+    )
+    parser.add_argument(
+        "--chamber",
+        type=str,
+        choices=["all", "衆議院", "参議院"],
+        default="all",
+        help="対象の院（デフォルト: all）",
+    )
+    parser.add_argument(
+        "--term",
+        type=int,
+        nargs="*",
+        help="特定の回次のみ実行（例: --term 49 50）",
     )
     parser.add_argument(
         "--dry-run",
@@ -262,10 +334,37 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    bulk_result = asyncio.run(run_bulk_with_details(TARGET_ELECTIONS, args.dry_run))
+    # 選挙を動的検出
+    elections_by_chamber = asyncio.run(detect_national_elections())
+
+    # chamber フィルタ
+    target_chambers = ["衆議院", "参議院"] if args.chamber == "all" else [args.chamber]
+
+    # 対象選挙を収集（衆議院→参議院の順）
+    from src.domain.entities.election import Election
+
+    target_elections: list[Election] = []
+    for chamber in target_chambers:
+        chamber_elections = elections_by_chamber.get(chamber, [])
+        if args.term:
+            chamber_elections = [
+                e for e in chamber_elections if e.term_number in args.term
+            ]
+        target_elections.extend(chamber_elections)
+
+    if not target_elections:
+        logger.warning("対象の選挙が見つかりません")
+        sys.exit(0)
+
+    logger.info(
+        "対象選挙: %s",
+        ", ".join(f"第{e.term_number}回({e.chamber})" for e in target_elections),
+    )
+
+    bulk_result = asyncio.run(run_bulk_with_details(target_elections, args.dry_run))
 
     # 結果レポート出力
-    write_result_report(bulk_result, "tmp/link_results_45_50.txt")
+    write_result_report(bulk_result, "tmp/link_results_national.txt")
 
     # SEED生成
     if not args.dry_run and not args.skip_seed:

@@ -7,6 +7,11 @@ Usage (Docker経由で実行):
     docker compose -f docker/docker-compose.yml exec sagebase \
         uv run python scripts/link_parliamentary_groups.py --election 50
 
+    # 院名を指定して実行
+    docker compose -f docker/docker-compose.yml exec sagebase \
+        uv run python scripts/link_parliamentary_groups.py \
+        --election 50 --chamber 衆議院
+
     # ドライラン（DB書き込みなし）
     docker compose -f docker/docker-compose.yml exec sagebase \
         uv run python scripts/link_parliamentary_groups.py --election 50 --dry-run
@@ -67,7 +72,7 @@ logger = logging.getLogger(__name__)
 GOVERNING_BODY_ID = 1  # 国会
 
 
-async def run_link(term_number: int, dry_run: bool) -> bool:
+async def run_link(term_number: int, dry_run: bool, chamber: str = "") -> bool:
     """会派紐付けを実行する."""
     logger.info(
         "=== 第%d回選挙 会派自動紐付け開始 %s===",
@@ -95,6 +100,7 @@ async def run_link(term_number: int, dry_run: bool) -> bool:
         input_dto = LinkParliamentaryGroupInputDto(
             term_number=term_number,
             governing_body_id=GOVERNING_BODY_ID,
+            chamber=chamber,
             dry_run=dry_run,
         )
 
@@ -147,12 +153,19 @@ if __name__ == "__main__":
         help="選挙回次（例: 50）",
     )
     parser.add_argument(
+        "--chamber",
+        type=str,
+        choices=["衆議院", "参議院"],
+        default="",
+        help="院名でフィルタ（省略時は全会派を対象）",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="ドライラン（DB書き込みなし、紐付け結果のみ表示）",
     )
     args = parser.parse_args()
 
-    success = asyncio.run(run_link(args.election, args.dry_run))
+    success = asyncio.run(run_link(args.election, args.dry_run, args.chamber))
     if not success:
         sys.exit(1)
