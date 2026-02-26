@@ -1,4 +1,4 @@
-"""Tests for Election entity."""
+"""Electionエンティティのテスト."""
 
 from datetime import date
 

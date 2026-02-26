@@ -115,7 +115,6 @@ async def detect_national_elections(
     governing_body_id: int = 1,
 ) -> dict[str, list[Election]]:
     """国政選挙をDBから動的に検出し、衆議院・参議院に分類する."""
-    from src.domain.entities.election import Election as ElectionEntity
     from src.infrastructure.config.async_database import get_async_session
     from src.infrastructure.persistence.election_repository_impl import (
         ElectionRepositoryImpl,
@@ -128,10 +127,9 @@ async def detect_national_elections(
     result: dict[str, list[Election]] = {"衆議院": [], "参議院": []}
 
     for election in all_elections:
-        if election.election_type == ElectionEntity.ELECTION_TYPE_GENERAL:
-            result["衆議院"].append(election)
-        elif election.election_type == ElectionEntity.ELECTION_TYPE_SANGIIN:
-            result["参議院"].append(election)
+        chamber = election.chamber
+        if chamber in result:
+            result[chamber].append(election)
 
     # term_number 昇順ソート
     for chamber_elections in result.values():
