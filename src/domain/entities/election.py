@@ -42,3 +42,12 @@ class Election(BaseEntity):
     def __str__(self) -> str:
         """文字列表現を返す."""
         return f"第{self.term_number}期 ({self.election_date})"
+
+    @property
+    def chamber(self) -> str:
+        """選挙種別から院名を導出する."""
+        if self.election_type == self.ELECTION_TYPE_GENERAL:
+            return "衆議院"
+        if self.election_type == self.ELECTION_TYPE_SANGIIN:
+            return "参議院"
+        return ""
