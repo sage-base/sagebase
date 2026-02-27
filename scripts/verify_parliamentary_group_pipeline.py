@@ -45,12 +45,16 @@ import sys
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+if TYPE_CHECKING:
+    from scripts.link_parliamentary_groups_bulk import BulkResult
 
 logging.basicConfig(
     level=logging.INFO,
@@ -62,6 +66,8 @@ DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql://sagebase_user:sagebase_password@postgres:5432/sagebase_db",
 )
+
+MAX_DISPLAY_REVIEW_CASES = 20
 
 # --- データクラス ---
 
@@ -106,6 +112,7 @@ class SkipStats:
     skipped_no_party: int
     skipped_no_group: int
     skipped_multiple_groups: int
+    is_estimated: bool = False
 
     @property
     def skip_rate_excluding_no_party(self) -> float:
@@ -256,9 +263,11 @@ async def calculate_coverage(
     chamber_filter: str | None = None,
 ) -> dict[str, CoverageStat]:
     """各選挙について当選者数 vs メンバーシップ保持者数を算出する."""
+    params: dict[str, str] = {}
     chamber_clause = ""
     if chamber_filter and chamber_filter != "all":
-        chamber_clause = f"AND e.chamber = '{chamber_filter}'"
+        chamber_clause = "AND e.chamber = :chamber"
+        params["chamber"] = chamber_filter
 
     result = await session.execute(
         text(f"""
@@ -278,7 +287,8 @@ async def calculate_coverage(
                 {chamber_clause}
             GROUP BY e.term_number, e.election_type, e.chamber
             ORDER BY e.chamber, e.term_number
-        """)
+        """),
+        params if params else None,
     )
 
     stats_by_chamber: dict[str, list[ElectionCoverage]] = {}
@@ -315,7 +325,7 @@ async def calculate_coverage(
 
 async def calculate_skip_rate(
     session: AsyncSession,
-    bulk_result: object | None = None,
+    bulk_result: BulkResult | None = None,
 ) -> SkipStats:
     """スキップ率を計算する.
 
@@ -343,6 +353,7 @@ async def calculate_skip_rate(
                 skipped_no_party=total_no_party,
                 skipped_no_group=total_no_group,
                 skipped_multiple_groups=total_multiple,
+                is_estimated=False,
             )
 
     # DB状態から推定
@@ -398,6 +409,7 @@ async def calculate_skip_rate(
         skipped_no_party=no_party,
         skipped_no_group=skipped_with_party,
         skipped_multiple_groups=0,
+        is_estimated=True,
     )
 
 
@@ -509,17 +521,22 @@ def print_verification_report(result: VerificationResult) -> None:
     print(f"  対応会派なし: {ss.skipped_no_group}")
     print(f"  複数会派マッチ: {ss.skipped_multiple_groups}")
     print(f"  スキップ率（政党未設定除外）: {ss.skip_rate_excluding_no_party:.1%}")
+    if ss.is_estimated:
+        print(
+            "  ※ DB推定のため複数会派マッチは区別不可（mode=fullで正確な値を取得可能）"
+        )
 
     # 手動レビューケース
     if result.manual_review_cases:
         print(f"\n[手動レビュー対象（{len(result.manual_review_cases)}件）]")
-        for case in result.manual_review_cases[:20]:
+        for case in result.manual_review_cases[:MAX_DISPLAY_REVIEW_CASES]:
             print(
                 f"  - {case.politician_name} (ID:{case.politician_id}) "
                 f"第{case.term_number}回 {case.chamber} - {case.reason}"
             )
-        if len(result.manual_review_cases) > 20:
-            print(f"  ... 他 {len(result.manual_review_cases) - 20}件")
+        if len(result.manual_review_cases) > MAX_DISPLAY_REVIEW_CASES:
+            remaining = len(result.manual_review_cases) - MAX_DISPLAY_REVIEW_CASES
+            print(f"  ... 他 {remaining}件")
 
     # 成功指標判定
     print("\n[成功指標]")
@@ -551,6 +568,7 @@ def save_json_report(result: VerificationResult, output_path: Path) -> None:
             "skip_rate_excluding_no_party": (
                 result.skip_stats.skip_rate_excluding_no_party
             ),
+            "is_estimated": result.skip_stats.is_estimated,
         },
         "manual_review_cases": [asdict(c) for c in result.manual_review_cases],
         "criteria_results": [asdict(cr) for cr in result.criteria_results],
@@ -599,7 +617,7 @@ async def run_baseline(session: AsyncSession) -> BaselineMetrics:
 async def run_verify(
     session: AsyncSession,
     chamber_filter: str | None = None,
-    bulk_result: object | None = None,
+    bulk_result: BulkResult | None = None,
     baseline: BaselineMetrics | None = None,
 ) -> VerificationResult:
     """結果検証を実行する."""

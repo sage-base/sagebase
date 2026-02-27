@@ -5,14 +5,18 @@ from __future__ import annotations
 import json
 import sys
 
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
+from scripts.link_parliamentary_groups_bulk import BulkResult, ElectionResult
 from scripts.verify_parliamentary_group_pipeline import (
     BaselineMetrics,
     CoverageStat,
@@ -30,6 +34,10 @@ from scripts.verify_parliamentary_group_pipeline import (
     save_json_report,
 )
 
+from src.application.dtos.parliamentary_group_linkage_dto import (
+    LinkParliamentaryGroupOutputDto,
+)
+
 
 # --- evaluate_criteria テスト ---
 
@@ -39,6 +47,7 @@ class TestEvaluateCriteria:
 
     def test_all_pass(self) -> None:
         """全指標がパスするケース."""
+        # Given: 全選挙にメンバーシップがあり、スキップ率も低い
         coverage = {
             "衆議院": CoverageStat(
                 chamber="衆議院",
@@ -62,13 +71,16 @@ class TestEvaluateCriteria:
             skipped_multiple_groups=2,
         )
 
+        # When: 成功指標を評価
         results = evaluate_criteria(coverage, skip_stats)
 
+        # Then: 全3指標がパス
         assert len(results) == 3
         assert all(cr.passed for cr in results)
 
     def test_house_of_representatives_coverage_fail(self) -> None:
         """衆議院カバー率が不足するケース."""
+        # Given: 衆議院が3選挙中2選挙のみ
         coverage = {
             "衆議院": CoverageStat(
                 chamber="衆議院",
@@ -92,8 +104,10 @@ class TestEvaluateCriteria:
             skipped_multiple_groups=2,
         )
 
+        # When
         results = evaluate_criteria(coverage, skip_stats)
 
+        # Then: 衆議院のみFAIL
         hr = next(cr for cr in results if cr.name == "衆議院カバー率")
         hc = next(cr for cr in results if cr.name == "参議院カバー率")
         assert not hr.passed
@@ -101,6 +115,7 @@ class TestEvaluateCriteria:
 
     def test_house_of_councillors_coverage_fail(self) -> None:
         """参議院カバー率が不足するケース."""
+        # Given: 参議院が2選挙中1選挙のみ
         coverage = {
             "衆議院": CoverageStat(
                 chamber="衆議院",
@@ -258,7 +273,7 @@ class TestMeasureBaseline:
     @pytest.mark.asyncio
     async def test_measure_baseline_returns_metrics(self) -> None:
         """ベースライン計測結果がBaselineMetricsを返す."""
-        session = AsyncMock(spec=AsyncMock)
+        session = AsyncMock(spec=AsyncSession)
 
         # 総レコード数
         total_result = MagicMock()
@@ -289,7 +304,7 @@ class TestMeasureBaseline:
         assert baseline.memberships_by_chamber == {"衆議院": 100, "参議院": 50}
         assert len(baseline.memberships_by_group) == 3
         assert baseline.memberships_by_group[0] == ("自由民主党", 80)
-        assert baseline.measured_at  # 空でないこと
+        datetime.fromisoformat(baseline.measured_at)  # ISO 8601形式であること
 
 
 # --- calculate_coverage テスト ---
@@ -301,7 +316,7 @@ class TestCalculateCoverage:
     @pytest.mark.asyncio
     async def test_all_elections_have_members(self) -> None:
         """全選挙にメンバーシップがあるケース."""
-        session = AsyncMock(spec=AsyncMock)
+        session = AsyncMock(spec=AsyncSession)
 
         result_mock = MagicMock()
         result_mock.fetchall.return_value = [
@@ -321,7 +336,7 @@ class TestCalculateCoverage:
     @pytest.mark.asyncio
     async def test_partial_coverage(self) -> None:
         """一部の選挙のみメンバーシップがあるケース."""
-        session = AsyncMock(spec=AsyncMock)
+        session = AsyncMock(spec=AsyncSession)
 
         result_mock = MagicMock()
         result_mock.fetchall.return_value = [
@@ -340,7 +355,7 @@ class TestCalculateCoverage:
     @pytest.mark.asyncio
     async def test_empty_data(self) -> None:
         """データなしのケース."""
-        session = AsyncMock(spec=AsyncMock)
+        session = AsyncMock(spec=AsyncSession)
 
         result_mock = MagicMock()
         result_mock.fetchall.return_value = []
@@ -352,8 +367,9 @@ class TestCalculateCoverage:
 
     @pytest.mark.asyncio
     async def test_chamber_filter(self) -> None:
-        """院フィルタが適用されること."""
-        session = AsyncMock(spec=AsyncMock)
+        """院フィルタがバインドパラメータとして適用されること."""
+        # Given: 衆議院フィルタ指定
+        session = AsyncMock(spec=AsyncSession)
 
         result_mock = MagicMock()
         result_mock.fetchall.return_value = [
@@ -361,11 +377,15 @@ class TestCalculateCoverage:
         ]
         session.execute = AsyncMock(return_value=result_mock)
 
+        # When: 院フィルタ付きで呼び出し
         await calculate_coverage(session, chamber_filter="衆議院")
 
-        # SQLにフィルタが含まれることを確認
-        call_args = session.execute.call_args[0][0]
-        assert "衆議院" in str(call_args)
+        # Then: バインドパラメータとしてchamberが渡される
+        call_args = session.execute.call_args
+        sql_text = str(call_args[0][0])
+        assert ":chamber" in sql_text
+        params = call_args[0][1]  # 第2位置引数がパラメータ辞書
+        assert params["chamber"] == "衆議院"
 
 
 # --- calculate_skip_rate テスト ---
@@ -377,7 +397,8 @@ class TestCalculateSkipRate:
     @pytest.mark.asyncio
     async def test_from_db_estimation(self) -> None:
         """DB状態から推定するケース."""
-        session = AsyncMock(spec=AsyncMock)
+        # Given: DB応答をモック
+        session = AsyncMock(spec=AsyncSession)
 
         total_result = MagicMock()
         total_result.scalar_one.return_value = 500
@@ -392,12 +413,57 @@ class TestCalculateSkipRate:
             side_effect=[total_result, no_party_result, skipped_result]
         )
 
+        # When: BulkResult なしで呼び出し
         stats = await calculate_skip_rate(session)
 
+        # Then: DB推定値が返り、is_estimated=True
         assert stats.total_processed == 500
         assert stats.skipped_no_party == 50
         assert stats.skipped_no_group == 30
         assert stats.skipped_multiple_groups == 0
+        assert stats.is_estimated is True
+
+    @pytest.mark.asyncio
+    async def test_from_bulk_result(self) -> None:
+        """BulkResultから直接取得するケース."""
+        # Given: BulkResult に2つの選挙結果
+        session = AsyncMock(spec=AsyncSession)
+
+        output1 = LinkParliamentaryGroupOutputDto(
+            total_elected=100,
+            linked_count=80,
+            already_existed_count=5,
+            skipped_no_party=5,
+            skipped_no_group=3,
+            skipped_multiple_groups=2,
+            errors=0,
+        )
+        output2 = LinkParliamentaryGroupOutputDto(
+            total_elected=200,
+            linked_count=170,
+            already_existed_count=10,
+            skipped_no_party=10,
+            skipped_no_group=7,
+            skipped_multiple_groups=3,
+            errors=0,
+        )
+
+        bulk = BulkResult(
+            results=[
+                ElectionResult(term_number=49, chamber="衆議院", output=output1),
+                ElectionResult(term_number=50, chamber="衆議院", output=output2),
+            ]
+        )
+
+        # When: BulkResult 付きで呼び出し
+        stats = await calculate_skip_rate(session, bulk_result=bulk)
+
+        # Then: BulkResult から正確な値が取得され、is_estimated=False
+        assert stats.total_processed == 300
+        assert stats.skipped_no_party == 15
+        assert stats.skipped_no_group == 10
+        assert stats.skipped_multiple_groups == 5
+        assert stats.is_estimated is False
 
 
 # --- extract_manual_review_cases テスト ---
@@ -409,7 +475,7 @@ class TestExtractManualReviewCases:
     @pytest.mark.asyncio
     async def test_returns_cases(self) -> None:
         """手動レビューケースを返すこと."""
-        session = AsyncMock(spec=AsyncMock)
+        session = AsyncMock(spec=AsyncSession)
 
         result_mock = MagicMock()
         result_mock.fetchall.return_value = [
@@ -430,7 +496,7 @@ class TestExtractManualReviewCases:
     @pytest.mark.asyncio
     async def test_empty_result(self) -> None:
         """レビューケースなしの場合."""
-        session = AsyncMock(spec=AsyncMock)
+        session = AsyncMock(spec=AsyncSession)
 
         result_mock = MagicMock()
         result_mock.fetchall.return_value = []
@@ -444,8 +510,8 @@ class TestExtractManualReviewCases:
 # --- JSON出力テスト ---
 
 
-class TestJsonReport:
-    """JSON出力のテスト."""
+class TestSaveJsonReport:
+    """save_json_report のテスト."""
 
     def test_save_json_report_creates_valid_json(self, tmp_path: Path) -> None:
         """有効なJSONが出力されること."""
