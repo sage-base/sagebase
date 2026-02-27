@@ -1,5 +1,7 @@
 """CLI commands for processing meeting minutes"""
 
+import asyncio
+
 import click
 
 from ..base import BaseCommand, with_error_handling
@@ -88,6 +90,33 @@ class MinutesCommands(BaseCommand):
             f"Processed {total} speakers, matched {matched} ({success_rate:.1f}%)"
         )
         MinutesCommands.success("Speaker links updated successfully")
+
+    @staticmethod
+    @click.command()
+    @with_error_handling
+    def classify_speakers():
+        """Classify speakers as politician or non-politician (発言者分類)
+
+        全Speakerのis_politicianフラグを非政治家パターン
+        （役職のみ・参考人・証人等）に基づいて一括分類する。
+        """
+        from src.infrastructure.di.container import get_container, init_container
+
+        MinutesCommands.show_progress("Speaker is_politicianフラグを分類中...")
+
+        try:
+            container = get_container()
+        except RuntimeError:
+            container = init_container()
+
+        usecase = container.use_cases.classify_speakers_politician_usecase()
+        result = asyncio.run(usecase.execute())
+
+        MinutesCommands.show_progress(
+            f"政治家に設定: {result['total_updated_to_politician']}件, "
+            f"非政治家に設定: {result['total_kept_non_politician']}件"
+        )
+        MinutesCommands.success("Speaker分類が完了しました")
 
 
 def get_minutes_commands():

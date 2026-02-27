@@ -175,3 +175,22 @@ class SpeakerRepository(BaseRepository[Speaker]):
             解除された発言者の数
         """
         pass
+
+    @abstractmethod
+    async def classify_is_politician_bulk(
+        self, non_politician_names: frozenset[str]
+    ) -> dict[str, int]:
+        """全Speakerのis_politicianフラグを一括分類設定する.
+
+        1. 全件をis_politician=Trueに設定
+        2. non_politician_namesに該当し、politician_idがNULLかつ
+           is_manually_verified=FalseのものをFalseに戻す
+
+        Args:
+            non_politician_names: 非政治家として扱う名前パターンの集合
+
+        Returns:
+            {"total_updated_to_politician": int,
+             "total_kept_non_politician": int}
+        """
+        pass

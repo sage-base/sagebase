@@ -761,3 +761,41 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         await self.session.commit()
 
         return result.rowcount
+
+    async def classify_is_politician_bulk(
+        self, non_politician_names: frozenset[str]
+    ) -> dict[str, int]:
+        """全Speakerのis_politicianフラグを一括分類設定する."""
+        # Step 1: is_manually_verified=Falseかつ未リンクのSpeakerを全て政治家に設定
+        update_to_politician_query = text("""
+            UPDATE speakers
+            SET is_politician = TRUE
+            WHERE is_politician = FALSE
+              AND is_manually_verified = FALSE
+        """)
+        result1 = await self.session.execute(update_to_politician_query)
+        total_updated_to_politician = result1.rowcount
+
+        # Step 2: 非政治家パターンに該当しpolitician_idがNULLのものをFalseに戻す
+        if non_politician_names:
+            update_to_non_politician_query = text("""
+                UPDATE speakers
+                SET is_politician = FALSE
+                WHERE name = ANY(:names)
+                  AND politician_id IS NULL
+                  AND is_manually_verified = FALSE
+            """)
+            names_list = list(non_politician_names)
+            result2 = await self.session.execute(
+                update_to_non_politician_query, {"names": names_list}
+            )
+            total_kept_non_politician = result2.rowcount
+        else:
+            total_kept_non_politician = 0
+
+        await self.session.commit()
+
+        return {
+            "total_updated_to_politician": total_updated_to_politician,
+            "total_kept_non_politician": total_kept_non_politician,
+        }

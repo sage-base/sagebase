@@ -54,27 +54,10 @@ class BAMLPoliticianMatchingService:
         self.politician_repository = politician_repository
         logger.info("BAMLPoliticianMatchingService 初期化完了")
 
-    # 役職のみの発言者名パターン（個人を特定できないためマッチ対象外）
-    # frozensetで不変性を明示
-    TITLE_ONLY_PATTERNS: frozenset[str] = frozenset(
-        {
-            "委員長",
-            "副委員長",
-            "議長",
-            "副議長",
-            "事務局長",
-            "事務局次長",
-            "参考人",
-            "証人",
-            "説明員",
-            "政府委員",
-            "幹事",
-            "書記",
-        }
-    )
-
     def _is_title_only_speaker(self, speaker_name: str) -> bool:
         """役職のみの発言者名かどうかを判定する。
+
+        Domain層のNON_POLITICIAN_EXACT_NAMESを使用して判定する。
 
         Args:
             speaker_name: 発言者名
@@ -82,8 +65,9 @@ class BAMLPoliticianMatchingService:
         Returns:
             bool: 役職のみの場合はTrue
         """
-        cleaned = speaker_name.strip()
-        return cleaned in self.TITLE_ONLY_PATTERNS
+        from src.domain.services.speaker_classifier import is_non_politician_name
+
+        return is_non_politician_name(speaker_name)
 
     async def find_best_match(
         self,

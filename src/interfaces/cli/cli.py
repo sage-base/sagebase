@@ -91,6 +91,7 @@ def register_clean_architecture_commands(cli_group: click.Group) -> None:
 
     cli_group.add_command(MinutesCommands.process_minutes, "process-minutes")
     cli_group.add_command(MinutesCommands.update_speakers, "update-speakers")
+    cli_group.add_command(MinutesCommands.classify_speakers, "classify-speakers")
     cli_group.add_command(ScrapingCommands.scrape_minutes, "scrape-minutes")
     cli_group.add_command(ScrapingCommands.batch_scrape, "batch-scrape")
     cli_group.add_command(UICommands.streamlit, "streamlit")
