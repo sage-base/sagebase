@@ -720,3 +720,41 @@ class TestMeetingRepositoryImpl:
 
         assert result == []
         mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_chamber_and_date_range(
+        self,
+        repository: MeetingRepositoryImpl,
+        mock_session: MagicMock,
+        sample_meeting_dict: dict[str, Any],
+    ) -> None:
+        """院名と日付範囲で会議を取得できる."""
+        mock_row = MagicMock()
+        mock_row._mapping = sample_meeting_dict
+        mock_result = MagicMock()
+        mock_result.__iter__ = MagicMock(return_value=iter([mock_row]))
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_chamber_and_date_range(
+            "衆議院", date(2024, 1, 1), date(2024, 12, 31)
+        )
+
+        assert len(result) == 1
+        assert result[0].id == 1
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_chamber_and_date_range_empty(
+        self, repository: MeetingRepositoryImpl, mock_session: MagicMock
+    ) -> None:
+        """該当なしで空リストを返す."""
+        mock_result = MagicMock()
+        mock_result.__iter__ = MagicMock(return_value=iter([]))
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_chamber_and_date_range(
+            "参議院", date(2024, 1, 1), date(2024, 12, 31)
+        )
+
+        assert result == []
+        mock_session.execute.assert_called_once()
