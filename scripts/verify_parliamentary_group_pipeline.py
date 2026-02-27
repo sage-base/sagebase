@@ -266,27 +266,41 @@ async def calculate_coverage(
     params: dict[str, str] = {}
     chamber_clause = ""
     if chamber_filter and chamber_filter != "all":
-        chamber_clause = "AND e.chamber = :chamber"
+        chamber_clause = "AND chamber = :chamber"
         params["chamber"] = chamber_filter
 
     result = await session.execute(
         text(f"""
             SELECT
-                e.term_number,
-                COALESCE(e.election_type, '') AS election_type,
-                e.chamber,
-                COUNT(DISTINCT em.politician_id) AS total_elected,
-                COUNT(DISTINCT pgm.politician_id) AS has_membership
-            FROM elections e
-            JOIN election_members em ON em.election_id = e.id
-            LEFT JOIN parliamentary_group_memberships pgm
-                ON pgm.politician_id = em.politician_id
-                AND e.election_date >= pgm.start_date
-                AND (pgm.end_date IS NULL OR e.election_date <= pgm.end_date)
-            WHERE em.result IN ('当選', '繰上当選', '無投票当選')
+                term_number,
+                election_type,
+                chamber,
+                total_elected,
+                has_membership
+            FROM (
+                SELECT
+                    e.term_number,
+                    COALESCE(e.election_type, '') AS election_type,
+                    CASE
+                        WHEN e.election_type = '衆議院議員総選挙' THEN '衆議院'
+                        WHEN e.election_type = '参議院議員通常選挙' THEN '参議院'
+                        ELSE ''
+                    END AS chamber,
+                    COUNT(DISTINCT em.politician_id) AS total_elected,
+                    COUNT(DISTINCT pgm.politician_id) AS has_membership
+                FROM elections e
+                JOIN election_members em ON em.election_id = e.id
+                LEFT JOIN parliamentary_group_memberships pgm
+                    ON pgm.politician_id = em.politician_id
+                    AND e.election_date >= pgm.start_date
+                    AND (pgm.end_date IS NULL
+                         OR e.election_date <= pgm.end_date)
+                WHERE em.result IN ('当選', '繰上当選', '無投票当選')
+                GROUP BY e.term_number, e.election_type
+            ) sub
+            WHERE chamber != ''
                 {chamber_clause}
-            GROUP BY e.term_number, e.election_type, e.chamber
-            ORDER BY e.chamber, e.term_number
+            ORDER BY chamber, term_number
         """),
         params if params else None,
     )
@@ -426,7 +440,11 @@ async def extract_manual_review_cases(
                 p.id AS politician_id,
                 p.name AS politician_name,
                 e.term_number,
-                e.chamber
+                CASE
+                    WHEN e.election_type = '衆議院議員総選挙' THEN '衆議院'
+                    WHEN e.election_type = '参議院議員通常選挙' THEN '参議院'
+                    ELSE ''
+                END AS chamber
             FROM election_members em
             JOIN elections e ON e.id = em.election_id
             JOIN politicians p ON p.id = em.politician_id
@@ -442,7 +460,7 @@ async def extract_manual_review_cases(
                   FROM parliamentary_group_memberships pgm
                   WHERE pgm.politician_id = em.politician_id
               )
-            ORDER BY e.chamber, e.term_number, p.id
+            ORDER BY chamber, e.term_number, p.id
             LIMIT 100
         """)
     )
