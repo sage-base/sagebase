@@ -17,6 +17,9 @@ from src.application.usecases.backfill_role_name_mappings_usecase import (
 from src.application.usecases.batch_import_kokkai_speeches_usecase import (
     BatchImportKokkaiSpeechesUseCase,
 )
+from src.application.usecases.classify_speakers_politician_usecase import (
+    ClassifySpeakersPoliticianUseCase,
+)
 from src.application.usecases.execute_minutes_processing_usecase import (
     ExecuteMinutesProcessingUseCase,
 )
@@ -836,4 +839,11 @@ class UseCaseContainer(containers.DeclarativeContainer):
     manage_party_membership_history_usecase = providers.Factory(
         ManagePartyMembershipHistoryUseCase,
         repository=repositories.party_membership_history_repository,
+    )
+
+    # Classify Speakers Politician UseCase (Issue #1256)
+    # Speaker is_politicianフラグ一括分類ユースケース
+    classify_speakers_politician_usecase = providers.Factory(
+        ClassifySpeakersPoliticianUseCase,
+        speaker_repository=repositories.speaker_repository,
     )
