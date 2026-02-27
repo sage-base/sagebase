@@ -110,7 +110,7 @@ class MinutesCommands(BaseCommand):
             container = init_container()
 
         usecase = container.use_cases.classify_speakers_politician_usecase()
-        result = asyncio.get_event_loop().run_until_complete(usecase.execute())
+        result = asyncio.run(usecase.execute())
 
         MinutesCommands.show_progress(
             f"政治家に設定: {result['total_updated_to_politician']}件, "

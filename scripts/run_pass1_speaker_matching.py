@@ -227,50 +227,30 @@ async def run_baseline(session: AsyncSession) -> SpeakerStats:
     return stats
 
 
-async def run_classify(session: AsyncSession) -> ClassifyResult:
-    """is_politicianフラグ分類を実行する."""
-    from src.domain.services.speaker_classifier import NON_POLITICIAN_EXACT_NAMES
+async def run_classify() -> ClassifyResult:
+    """is_politicianフラグ分類を実行する（ClassifySpeakersPoliticianUseCase経由）."""
+    from src.infrastructure.di.container import init_container
 
     logger.info("is_politicianフラグ分類を開始...")
 
-    # Step 1: 全件を政治家に設定（is_manually_verified=Falseのみ）
-    q1 = text("""
-        UPDATE speakers
-        SET is_politician = TRUE
-        WHERE is_politician = FALSE
-          AND is_manually_verified = FALSE
-    """)
-    result1 = await session.execute(q1)
-    total_updated = result1.rowcount
-
-    # Step 2: 非政治家パターンに該当しpolitician_idがNULLのものをFalseに戻す
-    names_list = list(NON_POLITICIAN_EXACT_NAMES)
-    q2 = text("""
-        UPDATE speakers
-        SET is_politician = FALSE
-        WHERE name = ANY(:names)
-          AND politician_id IS NULL
-          AND is_manually_verified = FALSE
-    """)
-    result2 = await session.execute(q2, {"names": names_list})
-    total_non_politician = result2.rowcount
-
-    await session.commit()
+    container = init_container()
+    usecase = container.use_cases.classify_speakers_politician_usecase()
+    result = await usecase.execute()
 
     classify_result = ClassifyResult(
-        total_updated_to_politician=total_updated,
-        total_kept_non_politician=total_non_politician,
+        total_updated_to_politician=result["total_updated_to_politician"],
+        total_kept_non_politician=result["total_kept_non_politician"],
     )
 
     logger.info(
         "分類完了: 政治家に設定=%d件, 非政治家に設定=%d件",
-        total_updated,
-        total_non_politician,
+        result["total_updated_to_politician"],
+        result["total_kept_non_politician"],
     )
     return classify_result
 
 
-async def run_match(session: AsyncSession) -> MatchResult:
+async def run_match() -> MatchResult:
     """ルールベースマッチングを実行する（MatchSpeakersUseCase経由）."""
     from src.infrastructure.di.container import init_container
 
@@ -279,7 +259,7 @@ async def run_match(session: AsyncSession) -> MatchResult:
     container = init_container()
     match_speakers_usecase = container.use_cases.match_speakers_usecase()
 
-    results = match_speakers_usecase.execute(use_llm=False)
+    results = await match_speakers_usecase.execute(use_llm=False)
 
     matched = sum(1 for r in results if r.matched_politician_id is not None)
     total = len(results)
@@ -417,10 +397,11 @@ async def main() -> None:
                     await run_baseline(session)
 
         elif args.mode == "classify":
+            # 分類（DIコンテナ経由）
+            pipeline.classify = await run_classify()
             async with engine.connect() as conn:
                 async with conn.begin():
                     session = AsyncSession(bind=conn)
-                    pipeline.classify = await run_classify(session)
                     pipeline.after_classify = await measure_speaker_stats(session)
                     print_stats("分類後", pipeline.after_classify)
 
@@ -430,7 +411,7 @@ async def main() -> None:
                     session = AsyncSession(bind=conn)
                     pipeline.before = await measure_speaker_stats(session)
             # マッチングはDIコンテナ経由（独自セッション管理）
-            pipeline.match = await run_match(session)
+            pipeline.match = await run_match()
             async with engine.connect() as conn:
                 async with conn.begin():
                     session = AsyncSession(bind=conn)
@@ -451,15 +432,15 @@ async def main() -> None:
                     session = AsyncSession(bind=conn)
                     pipeline.before = await run_baseline(session)
 
-            # Step 2: 分類
+            # Step 2: 分類（DIコンテナ経由）
+            pipeline.classify = await run_classify()
             async with engine.connect() as conn:
                 async with conn.begin():
                     session = AsyncSession(bind=conn)
-                    pipeline.classify = await run_classify(session)
                     pipeline.after_classify = await measure_speaker_stats(session)
 
             # Step 3: マッチング（DIコンテナ経由）
-            pipeline.match = await run_match(session)
+            pipeline.match = await run_match()
 
             # Step 4: レポート
             async with engine.connect() as conn:
