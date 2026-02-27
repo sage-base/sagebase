@@ -1,13 +1,16 @@
 """選挙当選者→ConferenceMember一括生成ユースケース.
 
-衆議院選挙の当選者（election_members, is_elected=true）を
+選挙の当選者（election_members, is_elected=true）を
 ConferenceMember（politician_affiliations）に一括変換する。
+衆議院・参議院の両方に対応。
 
 処理フロー:
     1. 指定回次の選挙を取得
     2. 当選者一覧を取得
     3. 対象会議体を取得
     4. 全選挙から次回選挙日を算出し end_date を決定
+       - 衆議院: 同一院の次回選挙日-1
+       - 参議院: 半数改選のため同じパリティ（奇偶）の次回選挙日-1
     5. 各当選者に対して conference_member を upsert
 """
 
@@ -91,24 +94,48 @@ class PopulateConferenceMembersUseCase:
         all_elections = await self._election_repo.get_by_governing_body(
             input_dto.governing_body_id
         )
-        # 同一院の選挙のみフィルタし、election_date昇順でソート
         same_chamber_elections = sorted(
             [e for e in all_elections if e.chamber == election.chamber],
             key=lambda e: e.election_date,
         )
-        current_idx = next(
-            (
-                i
-                for i, e in enumerate(same_chamber_elections)
-                if e.term_number == input_dto.term_number
-            ),
-            None,
-        )
-        end_date = None
-        if current_idx is not None and current_idx + 1 < len(same_chamber_elections):
-            end_date = same_chamber_elections[
-                current_idx + 1
-            ].election_date - timedelta(days=1)
+
+        end_date: date | None = None
+        if election.chamber == "参議院":
+            # 参議院: 半数改選のため同じパリティ（奇偶）の次回選挙をend_dateに
+            same_parity = sorted(
+                [
+                    e
+                    for e in same_chamber_elections
+                    if e.term_number % 2 == election.term_number % 2
+                ],
+                key=lambda e: e.election_date,
+            )
+            idx = next(
+                (
+                    i
+                    for i, e in enumerate(same_parity)
+                    if e.term_number == input_dto.term_number
+                ),
+                None,
+            )
+            if idx is not None and idx + 1 < len(same_parity):
+                end_date = same_parity[idx + 1].election_date - timedelta(days=1)
+        else:
+            # 衆議院: 同一院の次回選挙日-1
+            current_idx = next(
+                (
+                    i
+                    for i, e in enumerate(same_chamber_elections)
+                    if e.term_number == input_dto.term_number
+                ),
+                None,
+            )
+            if current_idx is not None and current_idx + 1 < len(
+                same_chamber_elections
+            ):
+                end_date = same_chamber_elections[
+                    current_idx + 1
+                ].election_date - timedelta(days=1)
 
         # 5. 政治家情報を一括取得
         politician_ids = [m.politician_id for m in elected_members]

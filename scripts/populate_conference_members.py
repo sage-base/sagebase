@@ -1,13 +1,18 @@
-"""衆議院選挙当選者→ConferenceMember一括生成スクリプト.
+"""選挙当選者→ConferenceMember一括生成スクリプト.
 
-衆議院第45-50回の選挙当選者（election_members, is_elected=true）を
+衆議院・参議院の選挙当選者（election_members, is_elected=true）を
 ConferenceMember（politician_affiliations）に一括変換する。
 
 対象選挙はDBから動的に検出される（ハードコードなし）。
 
 Usage (Docker経由で実行):
+    # 衆議院（デフォルト）
     docker compose -f docker/docker-compose.yml exec sagebase \
         uv run python scripts/populate_conference_members.py
+
+    # 参議院
+    docker compose -f docker/docker-compose.yml exec sagebase \
+        uv run python scripts/populate_conference_members.py --chamber 参議院
 
     # 特定回次のみ実行
     docker compose -f docker/docker-compose.yml exec sagebase \
@@ -56,6 +61,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+CHAMBER_CONFERENCE_MAP: dict[str, str] = {
+    "衆議院": "衆議院本会議",
+    "参議院": "参議院本会議",
+}
+
 
 @dataclass
 class ElectionResult:
@@ -91,10 +101,11 @@ class BulkResult:
         return usecase_errors + exception_errors
 
 
-async def detect_house_elections(
+async def detect_elections(
+    chamber: str,
     governing_body_id: int = 1,
 ) -> list[Election]:
-    """衆議院選挙をDBから動的に検出する."""
+    """指定院の選挙をDBから動的に検出する."""
     from src.infrastructure.config.async_database import get_async_session
     from src.infrastructure.persistence.election_repository_impl import (
         ElectionRepositoryImpl,
@@ -104,13 +115,13 @@ async def detect_house_elections(
         repo = ElectionRepositoryImpl(session)
         all_elections = await repo.get_by_governing_body(governing_body_id)
 
-    house_elections = [e for e in all_elections if e.chamber == "衆議院"]
-    house_elections.sort(key=lambda e: e.term_number)
-    return house_elections
+    elections = [e for e in all_elections if e.chamber == chamber]
+    elections.sort(key=lambda e: e.term_number)
+    return elections
 
 
 async def run_bulk(
-    elections: list[Election], dry_run: bool, conference_name: str
+    elections: list[Election], dry_run: bool, conference_name: str, chamber: str
 ) -> BulkResult:
     """複数選挙に対してConferenceMember生成を順次実行する."""
     from src.application.dtos.conference_member_population_dto import (
@@ -141,8 +152,9 @@ async def run_bulk(
     for election in elections:
         election_result = ElectionResult(term_number=election.term_number)
         logger.info(
-            "=== 第%d回 衆議院 ConferenceMember生成開始 %s===",
+            "=== 第%d回 %s ConferenceMember生成開始 %s===",
             election.term_number,
+            chamber,
             "(ドライラン) " if dry_run else "",
         )
         try:
@@ -184,10 +196,12 @@ async def run_bulk(
     return bulk_result
 
 
-def write_result_report(bulk_result: BulkResult, output_path: str) -> None:
+def write_result_report(
+    bulk_result: BulkResult, output_path: str, chamber: str
+) -> None:
     """結果レポートをファイルに出力する."""
     lines: list[str] = []
-    lines.append("=== 衆議院選挙 ConferenceMember一括生成結果 ===")
+    lines.append(f"=== {chamber}選挙 ConferenceMember一括生成結果 ===")
     lines.append("")
 
     for er in bulk_result.results:
@@ -224,9 +238,10 @@ def generate_seed_file() -> None:
 
     from sqlalchemy import create_engine, text
 
-    from src.infrastructure.config.database import get_database_url
+    from src.infrastructure.config.settings import Settings
 
-    engine = create_engine(get_database_url())
+    settings = Settings()
+    engine = create_engine(settings.get_database_url())
     with engine.connect() as conn:
         result = conn.execute(
             text("""
@@ -323,11 +338,18 @@ def _write_seed_content(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="衆議院選挙当選者→ConferenceMember一括生成",
+        description="選挙当選者→ConferenceMember一括生成",
         epilog=(
             "例: docker compose -f docker/docker-compose.yml exec sagebase "
-            "uv run python scripts/populate_conference_members.py"
+            "uv run python scripts/populate_conference_members.py --chamber 参議院"
         ),
+    )
+    parser.add_argument(
+        "--chamber",
+        type=str,
+        choices=["衆議院", "参議院"],
+        default="衆議院",
+        help="対象の院（デフォルト: 衆議院）",
     )
     parser.add_argument(
         "--term",
@@ -338,8 +360,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--conference-name",
         type=str,
-        default="衆議院本会議",
-        help="紐付け先会議体名（デフォルト: 衆議院本会議）",
+        default=None,
+        help="紐付け先会議体名（省略時: chamberに応じて自動決定）",
     )
     parser.add_argument(
         "--dry-run",
@@ -353,26 +375,36 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    # 衆議院選挙を動的検出
-    elections = asyncio.run(detect_house_elections())
+    chamber: str = args.chamber
+    conference_name: str = args.conference_name or CHAMBER_CONFERENCE_MAP[chamber]
+
+    # 選挙を動的検出
+    elections = asyncio.run(detect_elections(chamber))
 
     # 回次フィルタ
     if args.term:
         elections = [e for e in elections if e.term_number in args.term]
 
     if not elections:
-        logger.warning("対象の選挙が見つかりません")
+        logger.warning("対象の%s選挙が見つかりません", chamber)
         sys.exit(0)
 
     logger.info(
-        "対象選挙: %s",
+        "対象選挙（%s）: %s",
+        chamber,
         ", ".join(f"第{e.term_number}回" for e in elections),
     )
 
-    bulk_result = asyncio.run(run_bulk(elections, args.dry_run, args.conference_name))
+    bulk_result = asyncio.run(
+        run_bulk(elections, args.dry_run, conference_name, chamber)
+    )
 
     # 結果レポート出力
-    write_result_report(bulk_result, "tmp/populate_conference_members_results.txt")
+    write_result_report(
+        bulk_result,
+        f"tmp/populate_conference_members_{chamber}_results.txt",
+        chamber,
+    )
 
     # SEED生成
     if not args.dry_run and not args.skip_seed:
