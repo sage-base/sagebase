@@ -46,21 +46,6 @@ def _clean_cell(value: object) -> str:
     return zen_to_han(s)
 
 
-def _parse_int(value: object) -> int:
-    """セル値をintに変換する."""
-    if value is None:
-        return 0
-    if isinstance(value, float):
-        return int(value)
-    if isinstance(value, int):
-        return value
-    s = str(value).strip().replace(",", "")
-    try:
-        return int(float(s))
-    except (ValueError, TypeError):
-        return 0
-
-
 def _clean_name(raw: str) -> str:
     """候補者名をクリーンアップする."""
     name = _NAME_CLEANUP.sub("", raw).strip()

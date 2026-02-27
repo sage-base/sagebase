@@ -9,6 +9,9 @@ import logging
 
 from pathlib import Path
 
+from src.domain.services.interfaces.proportional_election_data_source_service import (
+    IProportionalElectionDataSourceService,
+)
 from src.domain.value_objects.proportional_candidate import (
     ProportionalCandidateRecord,
     ProportionalElectionInfo,
@@ -28,7 +31,7 @@ from src.infrastructure.importers.soumu_sangiin_proportional_xls_parser import (
 logger = logging.getLogger(__name__)
 
 
-class SoumuSangiinProportionalDataSource:
+class SoumuSangiinProportionalDataSource(IProportionalElectionDataSourceService):
     """総務省参議院比例代表XLSから候補者データを取得するデータソース."""
 
     async def fetch_proportional_candidates(

@@ -41,6 +41,7 @@ import logging
 import sys
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any
 
@@ -234,8 +235,6 @@ def write_result_report(
 
 def generate_seed_file() -> None:
     """politician_affiliationsのSEEDファイルを生成する."""
-    from datetime import datetime
-
     from sqlalchemy import create_engine, text
 
     from src.infrastructure.config.settings import Settings
@@ -282,7 +281,7 @@ def _escape_sql(value: str) -> str:
 
 
 def _write_seed_content(
-    f: IO[str], affiliations: list[dict[str, Any]], now: Any
+    f: IO[str], affiliations: list[dict[str, Any]], now: datetime
 ) -> None:
     """SEEDファイルの内容を書き出す."""
     f.write(f"-- Generated from database on {now.strftime('%Y-%m-%d %H:%M:%S')}\n")

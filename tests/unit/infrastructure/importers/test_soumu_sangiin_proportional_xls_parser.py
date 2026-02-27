@@ -8,7 +8,6 @@ from src.infrastructure.importers.soumu_sangiin_proportional_xls_parser import (
     _is_elected,
     _is_meibo_torokusha_file,
     _parse_fallback,
-    _parse_int,
     _parse_meibo_torokusha,
     _parse_with_header,
 )
@@ -31,25 +30,6 @@ class TestCleanCell:
 
     def test_full_width_numbers(self) -> None:
         assert _clean_cell("１２３") == "123"
-
-
-class TestParseInt:
-    """int変換のテスト."""
-
-    def test_none(self) -> None:
-        assert _parse_int(None) == 0
-
-    def test_int_value(self) -> None:
-        assert _parse_int(3) == 3
-
-    def test_float_value(self) -> None:
-        assert _parse_int(3.0) == 3
-
-    def test_string_with_comma(self) -> None:
-        assert _parse_int("1,234") == 1234
-
-    def test_invalid_string(self) -> None:
-        assert _parse_int("abc") == 0
 
 
 class TestCleanName:
@@ -376,3 +356,144 @@ class TestParseFallback:
         assert len(candidates) == 2
         assert candidates[0].party_name == "自由民主党"
         assert candidates[1].party_name == "立憲民主党"
+
+
+class TestParseMeiboTorokusha_EdgeCases:  # noqa: N801 - テスト可読性のためアンダースコア使用
+    """名簿登載者別パーサーのエッジケーステスト."""
+
+    def _make_section_rows(
+        self,
+        parties: list[tuple[str, list[tuple[str, bool]]]],
+    ) -> list[tuple[object, ...]]:
+        """セクション行データを生成するヘルパー.
+
+        Args:
+            parties: [(政党名, [(候補者名, is_elected), ...]), ...]
+                     最大4政党まで
+        """
+        ncols = len(parties) * 6
+        empty = tuple("" for _ in range(ncols))
+
+        rows: list[tuple[object, ...]] = []
+        # セクション開始行
+        section_start = list(empty)
+        for i in range(len(parties)):
+            section_start[i * 6] = "政党等の名称"
+        rows.append(tuple(section_start))
+
+        # +1: 政党名行（offset+3列）
+        party_row = list(empty)
+        for i, (pname, _) in enumerate(parties):
+            party_row[i * 6 + 3] = pname
+        rows.append(tuple(party_row))
+
+        # +2〜+8: メタ行7行
+        for _ in range(7):
+            rows.append(empty)
+
+        # +9: ヘッダー行（「得票順位」行）
+        header = list(empty)
+        for i in range(len(parties)):
+            header[i * 6] = "得票順位"
+            header[i * 6 + 1] = "当落"
+            header[i * 6 + 2] = "名簿登載者名"
+        rows.append(tuple(header))
+
+        # +10: 空行
+        rows.append(empty)
+
+        # +11〜: データ行
+        max_candidates = max(len(cs) for _, cs in parties) if parties else 0
+        for c_idx in range(max_candidates):
+            data = list(empty)
+            for p_idx, (_, candidates) in enumerate(parties):
+                if c_idx < len(candidates):
+                    name, elected = candidates[c_idx]
+                    offset = p_idx * 6
+                    data[offset] = str(c_idx + 1)
+                    data[offset + 1] = "当" if elected else ""
+                    data[offset + 2] = name
+            rows.append(tuple(data))
+
+        return rows
+
+    def test_four_parties_horizontal(self) -> None:
+        """4政党が横並びのケース."""
+        rows = self._make_section_rows(
+            [
+                ("自由民主党", [("山田太郎", True)]),
+                ("立憲民主党", [("鈴木花子", True)]),
+                ("公明党", [("佐藤次郎", False)]),
+                ("日本維新の会", [("田中三郎", True)]),
+            ]
+        )
+        candidates = _parse_meibo_torokusha(rows)
+        assert len(candidates) == 4
+        assert candidates[0].party_name == "自由民主党"
+        assert candidates[0].is_elected is True
+        assert candidates[1].party_name == "立憲民主党"
+        assert candidates[2].party_name == "公明党"
+        assert candidates[2].is_elected is False
+        assert candidates[3].party_name == "日本維新の会"
+        assert candidates[3].is_elected is True
+
+    def test_single_party(self) -> None:
+        """1政党のみのケース."""
+        rows = self._make_section_rows(
+            [
+                ("れいわ新選組", [("候補一郎", True), ("候補二郎", False)]),
+            ]
+        )
+        candidates = _parse_meibo_torokusha(rows)
+        assert len(candidates) == 2
+        assert all(c.party_name == "れいわ新選組" for c in candidates)
+        assert candidates[0].is_elected is True
+        assert candidates[1].is_elected is False
+
+    def test_no_candidates_in_section(self) -> None:
+        """候補者データが0件のセクション."""
+        rows = self._make_section_rows(
+            [
+                ("空の党", []),
+            ]
+        )
+        candidates = _parse_meibo_torokusha(rows)
+        assert len(candidates) == 0
+
+    def test_multiple_sections(self) -> None:
+        """複数セクション（各セクション2政党）."""
+        section1 = self._make_section_rows(
+            [
+                ("自由民主党", [("山田太郎", True)]),
+                ("立憲民主党", [("鈴木花子", True)]),
+            ]
+        )
+        section2 = self._make_section_rows(
+            [
+                ("公明党", [("佐藤次郎", False)]),
+                ("日本共産党", [("高橋四郎", True)]),
+            ]
+        )
+        rows = section1 + section2
+        candidates = _parse_meibo_torokusha(rows)
+        assert len(candidates) == 4
+        parties = [c.party_name for c in candidates]
+        assert "自由民主党" in parties
+        assert "立憲民主党" in parties
+        assert "公明党" in parties
+        assert "日本共産党" in parties
+
+    def test_uneven_candidate_counts(self) -> None:
+        """政党ごとに候補者数が異なるケース."""
+        rows = self._make_section_rows(
+            [
+                ("自由民主党", [("A太郎", True), ("B次郎", True), ("C三郎", False)]),
+                ("立憲民主党", [("D花子", True)]),
+            ]
+        )
+        candidates = _parse_meibo_torokusha(rows)
+        assert len(candidates) == 4
+        ldp = [c for c in candidates if c.party_name == "自由民主党"]
+        cdp = [c for c in candidates if c.party_name == "立憲民主党"]
+        assert len(ldp) == 3
+        assert len(cdp) == 1

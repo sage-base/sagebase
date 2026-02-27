@@ -51,3 +51,8 @@ class Election(BaseEntity):
         if self.election_type == self.ELECTION_TYPE_SANGIIN:
             return "参議院"
         return ""
+
+    @property
+    def is_sangiin(self) -> bool:
+        """参議院選挙かどうかを判定する."""
+        return self.chamber == "参議院"
