@@ -66,3 +66,10 @@ class MeetingRepository(BaseRepository[Meeting]):
     async def get_by_url(self, url: str) -> Meeting | None:
         """Get meeting by URL."""
         pass
+
+    @abstractmethod
+    async def get_by_chamber_and_date_range(
+        self, chamber: str, date_from: date, date_to: date
+    ) -> list[Meeting]:
+        """院名と日付範囲で会議を取得する."""
+        pass

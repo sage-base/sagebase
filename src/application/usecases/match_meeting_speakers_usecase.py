@@ -12,10 +12,12 @@ from src.application.dtos.match_meeting_speakers_dto import (
     SpeakerMatchResultDTO,
 )
 from src.common.logging import get_logger
+from src.domain.entities.conference_member import ConferenceMember
 from src.domain.entities.speaker import Speaker
 from src.domain.repositories.conference_member_repository import (
     ConferenceMemberRepository,
 )
+from src.domain.repositories.conference_repository import ConferenceRepository
 from src.domain.repositories.conversation_repository import ConversationRepository
 from src.domain.repositories.meeting_repository import MeetingRepository
 from src.domain.repositories.minutes_repository import MinutesRepository
@@ -41,6 +43,7 @@ class MatchMeetingSpeakersUseCase:
         conference_member_repository: ConferenceMemberRepository,
         politician_repository: PoliticianRepository,
         matching_service: SpeakerPoliticianMatchingService,
+        conference_repository: ConferenceRepository | None = None,
     ) -> None:
         self._meeting_repo = meeting_repository
         self._minutes_repo = minutes_repository
@@ -49,6 +52,7 @@ class MatchMeetingSpeakersUseCase:
         self._conference_member_repo = conference_member_repository
         self._politician_repo = politician_repository
         self._matching_service = matching_service
+        self._conference_repo = conference_repository
         self._logger = get_logger(self.__class__.__name__)
 
     async def execute(
@@ -205,6 +209,12 @@ class MatchMeetingSpeakersUseCase:
         members = await self._conference_member_repo.get_by_conference_at_date(
             conference_id, meeting_date
         )
+
+        if not members:
+            members = await self._fallback_to_plenary_session(
+                conference_id, meeting_date
+            )
+
         if not members:
             return []
 
@@ -220,3 +230,29 @@ class MatchMeetingSpeakersUseCase:
             for p in politicians
             if p.id is not None
         ]
+
+    async def _fallback_to_plenary_session(
+        self, conference_id: int, meeting_date: date
+    ) -> list[ConferenceMember]:
+        """同じ院の本会議の ConferenceMember にフォールバックする."""
+        if not self._conference_repo:
+            return []
+
+        conference = await self._conference_repo.get_by_id(conference_id)
+        if not conference or not conference.plenary_session_name:
+            return []
+
+        plenary = await self._conference_repo.get_by_name_and_governing_body(
+            conference.plenary_session_name, conference.governing_body_id
+        )
+        if not plenary or not plenary.id:
+            return []
+
+        self._logger.info(
+            "フォールバック: %s → %s の ConferenceMember を使用",
+            conference.name,
+            plenary.name,
+        )
+        return await self._conference_member_repo.get_by_conference_at_date(
+            plenary.id, meeting_date
+        )

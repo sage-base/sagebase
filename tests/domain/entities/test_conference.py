@@ -1,8 +1,10 @@
 """Tests for Conference entity."""
 
+import pytest
+
 from tests.fixtures.entity_factories import create_conference
 
-from src.domain.entities.conference import Conference
+from src.domain.entities.conference import CHAMBER_HOUSE, CHAMBER_SENATE, Conference
 
 
 class TestConference:
@@ -192,3 +194,54 @@ class TestConference:
         # ID can be any integer
         conference3 = Conference(name="Test 3", governing_body_id=1, id=999999)
         assert conference3.id == 999999
+
+
+class TestConferenceChamber:
+    """Conference.chamber / plenary_session_name プロパティのテスト."""
+
+    @pytest.mark.parametrize(
+        ("name", "expected_chamber"),
+        [
+            ("衆議院本会議", CHAMBER_HOUSE),
+            ("衆議院予算委員会", CHAMBER_HOUSE),
+            ("衆議院厚生労働委員会", CHAMBER_HOUSE),
+            ("参議院本会議", CHAMBER_SENATE),
+            ("参議院予算委員会", CHAMBER_SENATE),
+            ("参議院内閣委員会", CHAMBER_SENATE),
+        ],
+    )
+    def test_chamber_returns_correct_value(
+        self, name: str, expected_chamber: str
+    ) -> None:
+        """国会の会議体は正しい院名を返す."""
+        conference = Conference(name=name, governing_body_id=1)
+        assert conference.chamber == expected_chamber
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "東京都議会",
+            "大阪市議会",
+            "総務委員会",
+            "予算特別委員会",
+        ],
+    )
+    def test_chamber_returns_none_for_non_kokkai(self, name: str) -> None:
+        """国会以外の会議体はNoneを返す."""
+        conference = Conference(name=name, governing_body_id=1)
+        assert conference.chamber is None
+
+    def test_plenary_session_name_house(self) -> None:
+        """衆議院系の会議体は "衆議院本会議" を返す."""
+        conference = Conference(name="衆議院予算委員会", governing_body_id=1)
+        assert conference.plenary_session_name == "衆議院本会議"
+
+    def test_plenary_session_name_senate(self) -> None:
+        """参議院系の会議体は "参議院本会議" を返す."""
+        conference = Conference(name="参議院内閣委員会", governing_body_id=1)
+        assert conference.plenary_session_name == "参議院本会議"
+
+    def test_plenary_session_name_none_for_non_kokkai(self) -> None:
+        """国会以外の会議体はNoneを返す."""
+        conference = Conference(name="東京都議会", governing_body_id=1)
+        assert conference.plenary_session_name is None

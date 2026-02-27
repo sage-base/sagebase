@@ -480,6 +480,28 @@ class MeetingRepositoryImpl(BaseRepositoryImpl[Meeting], MeetingRepository):
                 return self._dict_to_entity(dict(row._mapping))  # type: ignore
         return None
 
+    async def get_by_chamber_and_date_range(
+        self, chamber: str, date_from: date, date_to: date
+    ) -> list[Meeting]:
+        """院名と日付範囲で会議を取得する."""
+        sql = text(
+            "SELECT m.* FROM meetings m "
+            "JOIN conferences c ON m.conference_id = c.id "
+            "WHERE c.name LIKE :chamber_prefix "
+            "AND m.date BETWEEN :date_from AND :date_to "
+            "ORDER BY m.date ASC"
+        )
+        params = {
+            "chamber_prefix": f"{chamber}%",
+            "date_from": date_from,
+            "date_to": date_to,
+        }
+        async_executor = self._get_async_executor()
+        if async_executor:
+            result = await async_executor.execute(sql, params)
+            return [self._dict_to_entity(dict(row._mapping)) for row in result]  # type: ignore
+        return []
+
     # Override base methods to handle both async and sync
     async def create(self, entity: Meeting) -> Meeting:
         """Create a new meeting."""

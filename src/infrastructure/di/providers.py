@@ -60,6 +60,9 @@ from src.application.usecases.manage_political_parties_usecase import (
 from src.application.usecases.manage_proposal_deliberations_usecase import (
     ManageProposalDeliberationsUseCase,
 )
+from src.application.usecases.match_meeting_speakers_usecase import (
+    MatchMeetingSpeakersUseCase,
+)
 from src.application.usecases.match_speakers_usecase import MatchSpeakersUseCase
 from src.application.usecases.override_individual_judge_usecase import (
     OverrideIndividualJudgeUseCase,
@@ -89,6 +92,9 @@ from src.domain.services.interfaces.minutes_processing_service import (
 from src.domain.services.interfaces.storage_service import IStorageService
 from src.domain.services.politician_domain_service import PoliticianDomainService
 from src.domain.services.speaker_domain_service import SpeakerDomainService
+from src.domain.services.speaker_politician_matching_service import (
+    SpeakerPoliticianMatchingService,
+)
 from src.infrastructure.external.gcs_storage_service import GCSStorageService
 from src.infrastructure.external.kokkai_api.client import KokkaiApiClient
 from src.infrastructure.external.kokkai_api.service import KokkaiSpeechServiceImpl
@@ -846,4 +852,18 @@ class UseCaseContainer(containers.DeclarativeContainer):
     classify_speakers_politician_usecase = providers.Factory(
         ClassifySpeakersPoliticianUseCase,
         speaker_repository=repositories.speaker_repository,
+    )
+
+    # Match Meeting Speakers UseCase (Issue #1259)
+    # 会議発言者→政治家ルールベースマッチングユースケース
+    match_meeting_speakers_usecase = providers.Factory(
+        MatchMeetingSpeakersUseCase,
+        meeting_repository=repositories.meeting_repository,
+        minutes_repository=repositories.minutes_repository,
+        conversation_repository=repositories.conversation_repository,
+        speaker_repository=repositories.speaker_repository,
+        conference_member_repository=repositories.conference_member_repository,
+        politician_repository=repositories.politician_repository,
+        matching_service=providers.Factory(SpeakerPoliticianMatchingService),
+        conference_repository=repositories.conference_repository,
     )
