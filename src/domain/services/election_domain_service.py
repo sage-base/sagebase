@@ -26,12 +26,13 @@ class ElectionDomainService:
     「その日時点で有効な選挙」を特定するロジックを提供する。
     """
 
+    # PBI-2（発言者-政治家の全量紐付け）で国会回次から選挙特定に使用予定
     SHUGIIN_DIET_SESSION_MAPPINGS: ClassVar[list[ShugiinDietSessionMapping]] = [
         ShugiinDietSessionMapping(45, date(2009, 8, 30), 172, 181),
-        ShugiinDietSessionMapping(46, date(2012, 12, 16), 182, 189),
-        ShugiinDietSessionMapping(47, date(2014, 12, 14), 190, 194),
-        ShugiinDietSessionMapping(48, date(2017, 10, 22), 195, 200),
-        ShugiinDietSessionMapping(49, date(2021, 10, 31), 206, 213),
+        ShugiinDietSessionMapping(46, date(2012, 12, 16), 182, 187),
+        ShugiinDietSessionMapping(47, date(2014, 12, 14), 188, 194),
+        ShugiinDietSessionMapping(48, date(2017, 10, 22), 195, 205),
+        ShugiinDietSessionMapping(49, date(2021, 10, 31), 206, 214),
         ShugiinDietSessionMapping(50, date(2024, 10, 27), 215, 215),
     ]
 
@@ -52,7 +53,9 @@ class ElectionDomainService:
             有効な選挙エンティティ。該当なしの場合はNone。
         """
         filtered = (
-            [e for e in elections if e.chamber == chamber] if chamber else elections
+            [e for e in elections if e.chamber == chamber]
+            if chamber is not None
+            else elections
         )
         applicable = [e for e in filtered if e.election_date <= target_date]
         if not applicable:
