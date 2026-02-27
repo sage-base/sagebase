@@ -1,4 +1,4 @@
-"""kokkai bulk-match コマンドのテスト."""
+"""kokkai bulk-match-speakers コマンドのテスト."""
 
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -28,13 +28,15 @@ def _make_meetings(count: int = 3) -> list[Meeting]:
     ]
 
 
-def _make_output(matched: int = 2, total: int = 5) -> MatchMeetingSpeakersOutputDTO:
+def _make_output(
+    matched: int = 2, total: int = 5, skipped: int = 1
+) -> MatchMeetingSpeakersOutputDTO:
     return MatchMeetingSpeakersOutputDTO(
         success=True,
         message=f"{total}件の発言者を分析し、{matched}件をマッチングしました",
         total_speakers=total,
         matched_count=matched,
-        skipped_count=1,
+        skipped_count=skipped,
     )
 
 
@@ -149,6 +151,8 @@ class TestBulkMatchSpeakersCommand:
         assert result.exit_code == 0
         assert "バルクマッチング開始" in result.output
         assert "結果サマリー" in result.output
+        assert "回次別マッチ率" in result.output
+        assert "第49回" in result.output
         assert mock_usecase.execute.call_count == 2
 
     @patch(f"{_DI_PATH}.get_container")
@@ -209,3 +213,64 @@ class TestBulkMatchSpeakersCommand:
 
         assert result.exit_code == 0
         mock_init.assert_called_once()
+
+    @patch(f"{_DI_PATH}.get_container")
+    def test_confidence_threshold_option(self, mock_get_container: MagicMock) -> None:
+        """--confidence-threshold が DTO に渡される."""
+        mock_container = MagicMock()
+        mock_get_container.return_value = mock_container
+        meetings = _make_meetings(1)
+        _, mock_usecase = _setup_mocks(
+            mock_container, meetings=meetings, output=_make_output()
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(
+            bulk_match_speakers,
+            [
+                "--chamber",
+                "衆議院",
+                "--date-from",
+                "2024-01-01",
+                "--date-to",
+                "2024-12-31",
+                "--confidence-threshold",
+                "0.95",
+            ],
+        )
+
+        assert result.exit_code == 0
+        call_args = mock_usecase.execute.call_args
+        assert call_args[0][0].confidence_threshold == 0.95
+
+    @patch(f"{_DI_PATH}.get_container")
+    def test_usecase_exception_continues_processing(
+        self, mock_get_container: MagicMock
+    ) -> None:
+        """1会議で例外が発生しても処理が継続される."""
+        mock_container = MagicMock()
+        mock_get_container.return_value = mock_container
+        meetings = _make_meetings(2)
+        _, mock_usecase = _setup_mocks(mock_container, meetings=meetings)
+        # 1回目は例外、2回目は正常
+        mock_usecase.execute = AsyncMock(
+            side_effect=[RuntimeError("DB接続エラー"), _make_output()]
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(
+            bulk_match_speakers,
+            [
+                "--chamber",
+                "衆議院",
+                "--date-from",
+                "2024-01-01",
+                "--date-to",
+                "2024-12-31",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "エラー" in result.output
+        assert "結果サマリー" in result.output
+        assert mock_usecase.execute.call_count == 2

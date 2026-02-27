@@ -17,4 +17,4 @@ def kokkai():
 kokkai.add_command(survey)
 kokkai.add_command(import_speeches, "import")
 kokkai.add_command(stats)
-kokkai.add_command(bulk_match_speakers, "bulk-match")
+kokkai.add_command(bulk_match_speakers, "bulk-match-speakers")

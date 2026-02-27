@@ -54,6 +54,10 @@ class MatchMeetingSpeakersUseCase:
         self._matching_service = matching_service
         self._conference_repo = conference_repository
         self._logger = get_logger(self.__class__.__name__)
+        if conference_repository is None:
+            self._logger.warning(
+                "conference_repository未注入: 本会議フォールバックは無効です"
+            )
 
     async def execute(
         self, input_dto: MatchMeetingSpeakersInputDTO
@@ -240,6 +244,10 @@ class MatchMeetingSpeakersUseCase:
 
         conference = await self._conference_repo.get_by_id(conference_id)
         if not conference or not conference.plenary_session_name:
+            return []
+
+        # 本会議自身に対するフォールバックは不要（無限ループ防止）
+        if conference.name == conference.plenary_session_name:
             return []
 
         plenary = await self._conference_repo.get_by_name_and_governing_body(

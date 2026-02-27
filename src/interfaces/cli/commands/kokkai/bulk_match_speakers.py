@@ -13,6 +13,10 @@ import click
 from src.interfaces.cli.base import with_error_handling
 
 
+# 国会の governing_body_id
+_KOKKAI_GOVERNING_BODY_ID = 1
+
+
 @dataclass
 class TermStats:
     """回次別の集計データ."""
@@ -20,6 +24,7 @@ class TermStats:
     label: str
     matched: int = 0
     total: int = 0
+    skipped: int = 0
 
 
 @dataclass
@@ -34,7 +39,7 @@ class BulkMatchSummary:
     term_stats: dict[str, TermStats] = field(default_factory=dict)
 
 
-@click.command("bulk-match")
+@click.command("bulk-match-speakers")
 @click.option(
     "--chamber",
     required=True,
@@ -132,8 +137,7 @@ async def _run_bulk_match(
     summary = BulkMatchSummary()
 
     # 選挙一覧を取得（回次レポート用）
-    governing_body_id = 1  # 国会
-    elections = await election_repo.get_by_governing_body(governing_body_id)
+    elections = await election_repo.get_by_governing_body(_KOKKAI_GOVERNING_BODY_ID)
     election_service = ElectionDomainService()
 
     for i, meeting in enumerate(meetings, 1):
@@ -145,7 +149,15 @@ async def _run_bulk_match(
             confidence_threshold=confidence_threshold,
         )
 
-        result = await usecase.execute(input_dto)
+        try:
+            result = await usecase.execute(input_dto)
+        except Exception as e:
+            summary.errors.append(f"{meeting.name} ({meeting.date}): {e!s}")
+            click.echo(
+                f"  [{i}/{len(meetings)}] {meeting.name} {meeting.date} → エラー: {e!s}"
+            )
+            continue
+
         summary.total_meetings += 1
 
         matched = result.matched_count
@@ -167,11 +179,12 @@ async def _run_bulk_match(
         election = election_service.get_active_election_at_date(
             elections, meeting.date, chamber
         )
-        term_label = f"第{election.term_number}期" if election else "不明"
+        term_label = f"第{election.term_number}回" if election else "不明"
         if term_label not in summary.term_stats:
             summary.term_stats[term_label] = TermStats(label=term_label)
         summary.term_stats[term_label].matched += matched
         summary.term_stats[term_label].total += total
+        summary.term_stats[term_label].skipped += skipped
 
     elapsed = time.monotonic() - start_time
     _show_summary(summary, elapsed)
@@ -195,7 +208,7 @@ def _show_summary(summary: BulkMatchSummary, elapsed: float) -> None:
         click.echo("\n  --- 回次別マッチ率 ---")
         for term_label in sorted(summary.term_stats):
             stats = summary.term_stats[term_label]
-            active = stats.total
+            active = stats.total - stats.skipped
             rate = (stats.matched / active * 100) if active > 0 else 0.0
             click.echo(
                 f"    {stats.label}: {stats.matched}マッチ / {active}対象 ({rate:.1f}%)"

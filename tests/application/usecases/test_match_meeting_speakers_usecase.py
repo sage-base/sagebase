@@ -346,14 +346,26 @@ class TestMatchMeetingSpeakersUseCase:
             mock_repos,
             [Speaker(name="岸田文雄", id=1)],
         )
+        # 当該 conference も本会議も ConferenceMember が空
+        committee = Conference(name="衆議院予算委員会", governing_body_id=1, id=10)
+        plenary = Conference(name="衆議院本会議", governing_body_id=1, id=20)
+        mock_repos["conference_repository"].get_by_id.return_value = committee
+        mock_repos[
+            "conference_repository"
+        ].get_by_name_and_governing_body.return_value = plenary
         mock_repos[
             "conference_member_repository"
-        ].get_by_conference_at_date.return_value = []
+        ].get_by_conference_at_date.side_effect = [
+            [],  # 当該 conference → 空
+            [],  # 本会議 → 空
+        ]
 
         result = await usecase.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
 
         assert result.success is True
         assert "候補" in result.message
+        # フォールバックが発動したことを確認
+        mock_repos["conference_repository"].get_by_id.assert_called_once_with(10)
 
     @pytest.mark.asyncio
     async def test_multiple_speakers_mixed_results(
@@ -613,6 +625,79 @@ class TestMatchMeetingSpeakersUseCase:
             [],  # 当該conference → 空
             [],  # 本会議 → 空
         ]
+
+        result = await usecase.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
+
+        assert result.success is True
+        assert "候補" in result.message
+
+    @pytest.mark.asyncio
+    async def test_no_fallback_without_conference_repository(
+        self, mock_repos: dict[str, AsyncMock]
+    ) -> None:
+        """conference_repository=None の場合、フォールバックは無効."""
+        del mock_repos["conference_repository"]
+        uc = MatchMeetingSpeakersUseCase(
+            **mock_repos,
+            matching_service=SpeakerPoliticianMatchingService(),
+        )
+        _setup_meeting(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1])
+        _setup_speakers(mock_repos, [Speaker(name="岸田文雄", id=1)])
+        mock_repos[
+            "conference_member_repository"
+        ].get_by_conference_at_date.return_value = []
+
+        result = await uc.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
+
+        assert result.success is True
+        assert "候補" in result.message
+
+    @pytest.mark.asyncio
+    async def test_no_fallback_for_plenary_itself(
+        self, usecase: MatchMeetingSpeakersUseCase, mock_repos: dict[str, AsyncMock]
+    ) -> None:
+        """本会議自身では、フォールバックしない."""
+        _setup_meeting(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1])
+        _setup_speakers(mock_repos, [Speaker(name="岸田文雄", id=1)])
+
+        # conference が本会議自身
+        plenary = Conference(name="衆議院本会議", governing_body_id=1, id=10)
+        mock_repos["conference_repository"].get_by_id.return_value = plenary
+        mock_repos[
+            "conference_member_repository"
+        ].get_by_conference_at_date.return_value = []
+
+        result = await usecase.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
+
+        assert result.success is True
+        assert "候補" in result.message
+        # get_by_name_and_governing_body は呼ばれない（自分自身へのフォールバック防止）
+        mock_repos[
+            "conference_repository"
+        ].get_by_name_and_governing_body.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_fallback_plenary_not_found(
+        self, usecase: MatchMeetingSpeakersUseCase, mock_repos: dict[str, AsyncMock]
+    ) -> None:
+        """本会議が見つからない場合、候補なしメッセージを返す."""
+        _setup_meeting(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1])
+        _setup_speakers(mock_repos, [Speaker(name="岸田文雄", id=1)])
+
+        committee = Conference(name="衆議院予算委員会", governing_body_id=1, id=10)
+        mock_repos["conference_repository"].get_by_id.return_value = committee
+        mock_repos[
+            "conference_repository"
+        ].get_by_name_and_governing_body.return_value = None
+        mock_repos[
+            "conference_member_repository"
+        ].get_by_conference_at_date.return_value = []
 
         result = await usecase.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
 
