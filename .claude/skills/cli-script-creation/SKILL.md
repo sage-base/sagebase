@@ -21,6 +21,8 @@ Docker-first環境であること、外部データへの依存があること�
 - [ ] **docstringのUsage例とargparse定義が一致している**（存在しないオプションを例に書いていないか）
 - [ ] **外部データに依存する場合、取得方法（URL・コマンド）が記載されている**
 - [ ] **外部JSON/CSVデータを解析する場合、実データの構造を事前に確認している**
+- [ ] **raw SQLを使う場合、`\d tablename`で実際のDBスキーマを確認している**（エンティティのプロパティ ≠ DBカラム）
+- [ ] **raw SQLの`text()`では値の埋め込みにバインドパラメータ（`:param`）を使用している**（f-stringで直接埋め込まない）
 - [ ] **argparseのhelpが充実している**（引数の意味、デフォルト値、具体例）
 - [ ] **実行前提条件が明記されている**（必要なマスターデータ、環境変数など）
 
@@ -146,7 +148,54 @@ parser.add_argument("--dry-run", action="store_true")
 **❌ 悪いアプローチ:**
 - 既存のimporter等のインデックス定数を「多分こうだろう」と転用して、実データ確認せずにパース処理を書く
 
-### 6. 実行前提条件を明記する
+### 6. raw SQLのDBスキーマ検証とバインドパラメータ
+
+raw SQLを使うスクリプトでは、**実際のDBスキーマを確認してからクエリを書く**こと。
+ドメインエンティティのプロパティは、必ずしもDBカラムに対応していません。
+
+**よくある落とし穴:**
+- エンティティの計算プロパティ（例: `Election.chamber`）をDBカラムだと思い `e.chamber` と参照 → `UndefinedColumnError`
+- テーブルAには存在するカラム名が、テーブルBには存在しない（例: `parliamentary_groups.chamber` はあるが `elections.chamber` はない）
+
+**✅ 良い例:**
+```python
+# 事前に `\d elections` でスキーマを確認し、chamberがないと判明
+# → CASE WHEN で導出
+result = await session.execute(text("""
+    SELECT
+        CASE
+            WHEN e.election_type = '衆議院議員総選挙' THEN '衆議院'
+            WHEN e.election_type = '参議院議員通常選挙' THEN '参議院'
+            ELSE ''
+        END AS chamber
+    FROM elections e
+"""))
+```
+
+**❌ 悪い例:**
+```python
+# エンティティに .chamber プロパティがあるからDBにもあると仮定
+result = await session.execute(text("SELECT e.chamber FROM elections e"))
+# → UndefinedColumnError
+```
+
+また、`text()` でSQLを組み立てる際は**バインドパラメータ**を必ず使用してください。
+
+**✅ 良い例:**
+```python
+chamber_clause = "AND e.chamber = :chamber"
+params = {"chamber": chamber_filter}
+result = await session.execute(text(f"SELECT ... WHERE ... {chamber_clause}"), params)
+```
+
+**❌ 悪い例:**
+```python
+# f-stringで値を直接埋め込み → SQLインジェクションリスク
+chamber_clause = f"AND e.chamber = '{chamber_filter}'"
+result = await session.execute(text(f"SELECT ... WHERE ... {chamber_clause}"))
+```
+
+### 7. 実行前提条件を明記する
 
 マスターデータの存在、環境変数、DB接続など、スクリプト実行に必要な前提条件がある場合は明記してください。
 
