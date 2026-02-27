@@ -322,7 +322,15 @@ assert processed_ids == [1, 2, 3]
 8. **❌ ドメインエンティティのコンストラクタ引数ミス**: テストデータ作成時に存在しないキーワード引数を使用 → 必ず`find_symbol`等でコンストラクタを確認する
 9. **❌ bulk操作の引数未検証**: `bulk_create.assert_called_once()` だけで、渡されたエンティティの中身を検証していない
 10. **❌ ローカルインポートのパッチパス誤り**: 関数内でローカルインポートされたシンボルは、モジュール属性にならないため `patch("module.symbol")` でパッチできない → インポート元モジュールでパッチする
-11. **❌ `spec=` なしの `AsyncMock`/`MagicMock`**: 存在しないメソッド名のタイプミスが検出されず偽陽性テストになる → **常に `spec=` を付ける**
+11. **❌ `spec=` の誤用・未指定**: `spec=` なし、または `spec=AsyncMock` のようにモック自身をspec指定すると、存在しないメソッド名のタイプミスが検出されず偽陽性テストになる → **常に `spec=` にモック対象の実クラスを指定する**
+    ```python
+    # ❌ spec未指定
+    session = AsyncMock()
+    # ❌ specにモック自身を指定（実メソッドが検証されない）
+    session = AsyncMock(spec=AsyncMock)
+    # ✅ specに実クラスを指定
+    session = AsyncMock(spec=AsyncSession)
+    ```
 12. **❌ 検証対象コードパスに到達しないテスト**: モックのセットアップ（例: 空リスト返却）で早期リターンされ、テスト名が示す対象コード（例: `as_of_date`がリポジトリに渡される）に実際には到達しない → テストデータをセットアップして対象コードパスまで到達させること
 
 See [reference.md](reference.md) for detailed explanations and fixes.
