@@ -13,7 +13,7 @@ ConferenceMember（politician_affiliations）に一括変換する。
 
 import logging
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 from src.application.dtos.conference_member_population_dto import (
     PopulateConferenceMembersInputDto,
@@ -116,11 +116,13 @@ class PopulateConferenceMembersUseCase:
         politician_map = {p.id: p for p in politicians if p.id is not None}
 
         # 6. 既存メンバーを取得して重複チェック用セットを構築
+        # (politician_id, conference_id, start_date) の3つ組で判定
+        # （upsertの一意性キーと一致させる）
         existing_members = await self._conference_member_repo.get_by_conference(
             conference.id, active_only=False
         )
-        existing_keys: set[tuple[int, int]] = {
-            (m.politician_id, m.conference_id) for m in existing_members
+        existing_keys: set[tuple[int, int, date]] = {
+            (m.politician_id, m.conference_id, m.start_date) for m in existing_members
         }
 
         # 7. 各当選者に対して upsert
@@ -130,7 +132,11 @@ class PopulateConferenceMembersUseCase:
                 politician.name if politician else f"ID:{member.politician_id}"
             )
 
-            was_existing = (member.politician_id, conference.id) in existing_keys
+            was_existing = (
+                member.politician_id,
+                conference.id,
+                election.election_date,
+            ) in existing_keys
 
             if was_existing:
                 output.already_existed_count += 1

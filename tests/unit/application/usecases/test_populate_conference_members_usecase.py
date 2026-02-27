@@ -132,6 +132,20 @@ class TestPopulateConferenceMembersUseCase:
         assert result.errors == 0
         assert mock_repos["conference_member"].upsert.call_count == 2
 
+        # upsertに渡された引数の中身を検証
+        calls = mock_repos["conference_member"].upsert.call_args_list
+        assert calls[0].kwargs["politician_id"] == 1
+        assert calls[0].kwargs["conference_id"] == 10
+        assert calls[0].kwargs["start_date"] == ELECTION_DATE_50
+        assert calls[1].kwargs["politician_id"] == 2
+        assert calls[1].kwargs["conference_id"] == 10
+
+        # populated_membersの中身を検証
+        assert len(result.populated_members) == 2
+        assert result.populated_members[0].politician_name == "議員太郎"
+        assert result.populated_members[0].was_existing is False
+        assert result.populated_members[1].politician_name == "議員花子"
+
     async def test_idempotency_no_duplicates(
         self,
         use_case: PopulateConferenceMembersUseCase,
@@ -361,3 +375,109 @@ class TestPopulateConferenceMembersUseCase:
         call_kwargs = mock_repos["conference_member"].upsert.call_args
         assert call_kwargs.kwargs["end_date"] is None
         assert result.populated_members[0].end_date is None
+
+    async def test_politician_not_found_uses_fallback_name(
+        self,
+        use_case: PopulateConferenceMembersUseCase,
+        mock_repos: dict[str, AsyncMock],
+        election_50: Election,
+        conference: Conference,
+    ) -> None:
+        """政治家情報が取得できない場合、IDをフォールバック名として使用する."""
+        self._setup_basic_mocks(mock_repos, election_50, conference)
+        mock_repos["election_member"].get_by_election_id.return_value = [
+            ElectionMember(election_id=2, politician_id=999, result="当選", id=1),
+        ]
+        mock_repos["politician"].get_by_ids.return_value = []
+        mock_repos["conference_member"].get_by_conference.return_value = []
+        mock_repos["conference_member"].upsert.return_value = ConferenceMember(
+            politician_id=999,
+            conference_id=10,
+            start_date=ELECTION_DATE_50,
+            id=1,
+        )
+
+        input_dto = PopulateConferenceMembersInputDto(term_number=50)
+        result = await use_case.execute(input_dto)
+
+        assert result.populated_members[0].politician_name == "ID:999"
+        assert result.created_count == 1
+
+    @pytest.mark.parametrize(
+        "result_value",
+        ["当選", "繰上当選", "無投票当選", "比例当選", "比例復活"],
+    )
+    async def test_all_elected_result_types_are_recognized(
+        self,
+        use_case: PopulateConferenceMembersUseCase,
+        mock_repos: dict[str, AsyncMock],
+        election_50: Election,
+        conference: Conference,
+        result_value: str,
+    ) -> None:
+        """全当選種別がConferenceMemberに変換される."""
+        self._setup_basic_mocks(mock_repos, election_50, conference)
+        mock_repos["election_member"].get_by_election_id.return_value = [
+            ElectionMember(election_id=2, politician_id=1, result=result_value, id=1),
+        ]
+        mock_repos["politician"].get_by_ids.return_value = [
+            Politician(name="議員太郎", prefecture="東京都", district="", id=1),
+        ]
+        mock_repos["conference_member"].get_by_conference.return_value = []
+        mock_repos["conference_member"].upsert.return_value = ConferenceMember(
+            politician_id=1,
+            conference_id=10,
+            start_date=ELECTION_DATE_50,
+            id=1,
+        )
+
+        input_dto = PopulateConferenceMembersInputDto(term_number=50)
+        result = await use_case.execute(input_dto)
+
+        assert result.total_elected == 1
+        assert result.created_count == 1
+
+    async def test_same_politician_different_terms_not_skipped(
+        self,
+        use_case: PopulateConferenceMembersUseCase,
+        mock_repos: dict[str, AsyncMock],
+        election_49: Election,
+        election_50: Election,
+        conference: Conference,
+    ) -> None:
+        """同一政治家が別回次で当選済みでも、異なるstart_dateなら新規作成される."""
+        self._setup_basic_mocks(
+            mock_repos,
+            election_49,
+            conference,
+            all_elections=[election_49, election_50],
+        )
+        mock_repos["election_member"].get_by_election_id.return_value = [
+            ElectionMember(election_id=1, politician_id=1, result="当選", id=1),
+        ]
+        mock_repos["politician"].get_by_ids.return_value = [
+            Politician(name="議員太郎", prefecture="東京都", district="", id=1),
+        ]
+        # 第50回で既に登録済みのメンバー（start_dateが異なる）
+        mock_repos["conference_member"].get_by_conference.return_value = [
+            ConferenceMember(
+                politician_id=1,
+                conference_id=10,
+                start_date=ELECTION_DATE_50,
+                id=100,
+            ),
+        ]
+        mock_repos["conference_member"].upsert.return_value = ConferenceMember(
+            politician_id=1,
+            conference_id=10,
+            start_date=ELECTION_DATE_49,
+            id=101,
+        )
+
+        input_dto = PopulateConferenceMembersInputDto(term_number=49)
+        result = await use_case.execute(input_dto)
+
+        # start_dateが異なるので新規作成される（既存扱いにならない）
+        assert result.created_count == 1
+        assert result.already_existed_count == 0
+        mock_repos["conference_member"].upsert.assert_called_once()

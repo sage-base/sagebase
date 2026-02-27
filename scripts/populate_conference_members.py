@@ -86,7 +86,9 @@ class BulkResult:
 
     @property
     def total_errors(self) -> int:
-        return sum(r.output.errors for r in self.results if r.output)
+        usecase_errors = sum(r.output.errors for r in self.results if r.output)
+        exception_errors = sum(1 for r in self.results if r.error)
+        return usecase_errors + exception_errors
 
 
 async def detect_house_elections(
