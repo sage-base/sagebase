@@ -15,11 +15,11 @@ from sqlalchemy import Engine, create_engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.infrastructure.config.settings import find_env_file
+from src.infrastructure.config.settings import ENV_FILE_PATH
 from src.infrastructure.exceptions import ConnectionError, DatabaseError
 
 
-load_dotenv(find_env_file())
+load_dotenv(ENV_FILE_PATH)
 
 # Set up logging
 logger = logging.getLogger(__name__)

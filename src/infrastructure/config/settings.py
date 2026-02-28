@@ -239,9 +239,7 @@ class Settings:
         .envから読み込んだ設定値をos.environに反映する。
         """
         env_vars: dict[str, str | None] = {
-            "LANGCHAIN_TRACING_V2": str(self.langchain_tracing_v2).lower()
-            if self.langchain_tracing_v2
-            else None,
+            "LANGCHAIN_TRACING_V2": "true" if self.langchain_tracing_v2 else "false",
             "LANGCHAIN_ENDPOINT": self.langchain_endpoint or None,
             "LANGCHAIN_API_KEY": self.langchain_api_key or None,
             "LANGCHAIN_PROJECT": self.langchain_project or None,
