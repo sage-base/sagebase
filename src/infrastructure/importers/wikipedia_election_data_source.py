@@ -92,7 +92,7 @@ def _fetch_wikitext(election_number: int) -> str:
     url = f"{_WIKIPEDIA_API_URL}?{params}"
 
     req = Request(url, headers={"User-Agent": _USER_AGENT})
-    with urlopen(req, timeout=30) as response:
+    with urlopen(req, timeout=30) as response:  # nosec B310 — URLはhttpsハードコード
         data = json.loads(response.read().decode("utf-8"))
 
     if "error" in data:
