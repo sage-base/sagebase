@@ -1,4 +1,4 @@
--- Generated from database on 2026-02-28 02:26:01
+-- Generated from database on 2026-02-28 04:10:56
 -- politicians seed data
 
 INSERT INTO politicians (name, prefecture, furigana, district, profile_page_url) VALUES

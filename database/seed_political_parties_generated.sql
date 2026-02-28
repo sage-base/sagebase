@@ -1,4 +1,4 @@
--- Generated from database on 2026-02-28 02:26:00
+-- Generated from database on 2026-02-28 04:10:54
 -- political_parties seed data
 
 INSERT INTO political_parties (name, members_list_url) VALUES
