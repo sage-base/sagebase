@@ -53,6 +53,10 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
             model_class=ConferenceModel,
         )
 
+    @property
+    def _table_name(self) -> str:
+        return "conferences"
+
     async def get_by_name_and_governing_body(
         self, name: str, governing_body_id: int, term: str | None = None
     ) -> Conference | None:
