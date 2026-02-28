@@ -46,6 +46,10 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
 
         super().__init__(session, Politician, model_class)
 
+    @property
+    def _table_name(self) -> str:
+        return "politicians"
+
     async def get_by_name(self, name: str) -> Politician | None:
         """Get politician by name."""
         query = text("""

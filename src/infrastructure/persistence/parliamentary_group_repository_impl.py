@@ -44,6 +44,10 @@ class ParliamentaryGroupRepositoryImpl(
     def __init__(self, session: AsyncSession | ISessionAdapter):
         super().__init__(session, ParliamentaryGroup, ParliamentaryGroupModel)
 
+    @property
+    def _table_name(self) -> str:
+        return "parliamentary_groups"
+
     async def create(self, entity: ParliamentaryGroup) -> ParliamentaryGroup:
         """Create a new parliamentary group using raw SQL."""
         query = text(
