@@ -116,10 +116,23 @@ NON_POLITICIAN_PREFIX_PATTERNS: frozenset[str] = (
     | _OTHER_NON_POLITICIAN_PREFIXES
 )
 
-
-def _matches_prefix(name: str, prefixes: frozenset[str]) -> bool:
-    """指定されたプレフィックスのいずれかで始まるかを判定する."""
-    return any(name.startswith(prefix) for prefix in prefixes)
+# カテゴリとパターンの対応テーブル
+# 新カテゴリ追加時はここに1行追加するだけでよい。
+# 議長・委員長はROLE_ONLYに完全一致のみ（括弧付き形式は政治家）。
+_SKIP_REASON_PATTERNS: list[tuple[SkipReason, frozenset[str], frozenset[str]]] = [
+    (SkipReason.ROLE_ONLY, _ROLE_ONLY_NAMES, frozenset()),
+    (SkipReason.REFERENCE_PERSON, _REFERENCE_PERSON_NAMES, _REFERENCE_PERSON_PREFIXES),
+    (
+        SkipReason.GOVERNMENT_OFFICIAL,
+        _GOVERNMENT_OFFICIAL_NAMES,
+        _GOVERNMENT_OFFICIAL_PREFIXES,
+    ),
+    (
+        SkipReason.OTHER_NON_POLITICIAN,
+        _OTHER_NON_POLITICIAN_NAMES,
+        _OTHER_NON_POLITICIAN_PREFIXES,
+    ),
+]
 
 
 def is_non_politician_name(name: str) -> bool:
@@ -136,7 +149,7 @@ def is_non_politician_name(name: str) -> bool:
     stripped = name.strip()
     if stripped in NON_POLITICIAN_EXACT_NAMES:
         return True
-    return _matches_prefix(stripped, NON_POLITICIAN_PREFIX_PATTERNS)
+    return any(stripped.startswith(prefix) for prefix in NON_POLITICIAN_PREFIX_PATTERNS)
 
 
 def classify_speaker_skip_reason(name: str) -> SkipReason | None:
@@ -151,23 +164,9 @@ def classify_speaker_skip_reason(name: str) -> SkipReason | None:
         SkipReason Enum値。政治家の可能性がある場合はNone。
     """
     stripped = name.strip()
-
-    # 完全一致チェック
-    if stripped in _ROLE_ONLY_NAMES:
-        return SkipReason.ROLE_ONLY
-    if stripped in _REFERENCE_PERSON_NAMES:
-        return SkipReason.REFERENCE_PERSON
-    if stripped in _GOVERNMENT_OFFICIAL_NAMES:
-        return SkipReason.GOVERNMENT_OFFICIAL
-    if stripped in _OTHER_NON_POLITICIAN_NAMES:
-        return SkipReason.OTHER_NON_POLITICIAN
-
-    # プレフィックスマッチ
-    if _matches_prefix(stripped, _REFERENCE_PERSON_PREFIXES):
-        return SkipReason.REFERENCE_PERSON
-    if _matches_prefix(stripped, _GOVERNMENT_OFFICIAL_PREFIXES):
-        return SkipReason.GOVERNMENT_OFFICIAL
-    if _matches_prefix(stripped, _OTHER_NON_POLITICIAN_PREFIXES):
-        return SkipReason.OTHER_NON_POLITICIAN
-
+    for reason, exact_names, prefixes in _SKIP_REASON_PATTERNS:
+        if stripped in exact_names:
+            return reason
+        if prefixes and any(stripped.startswith(p) for p in prefixes):
+            return reason
     return None

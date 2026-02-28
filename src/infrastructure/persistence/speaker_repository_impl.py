@@ -783,21 +783,18 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         total_updated_to_politician = result1.rowcount
 
         # Step 2: 非政治家パターンに該当しpolitician_idがNULLのものをFalseに戻す
-        # 完全一致とプレフィックスマッチの複合条件を構築
+        # 完全一致（ANY）とプレフィックスマッチ（LIKE ANY）の複合条件
         conditions: list[str] = []
         params: dict[str, object] = {}
 
         if non_politician_names:
             conditions.append("name = ANY(:exact_names)")
+            # SQLAlchemy/psycopg2はlist型をPostgreSQL配列パラメータとして渡す
             params["exact_names"] = list(non_politician_names)
 
         if non_politician_prefixes:
-            prefix_conditions = []
-            for i, prefix in enumerate(sorted(non_politician_prefixes)):
-                key = f"prefix_{i}"
-                prefix_conditions.append(f"name LIKE :{key}")
-                params[key] = f"{prefix}%"
-            conditions.append(f"({' OR '.join(prefix_conditions)})")
+            conditions.append("name LIKE ANY(:prefix_patterns)")
+            params["prefix_patterns"] = [f"{p}%" for p in non_politician_prefixes]
 
         if conditions:
             where_clause = " OR ".join(conditions)
