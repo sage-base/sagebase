@@ -10,6 +10,7 @@ class MatchMethod(Enum):
     EXACT_NAME = "exact_name"
     YOMI = "yomi"
     SURNAME_ONLY = "surname_only"
+    BAML = "baml"
     NONE = "none"
 
 
@@ -20,6 +21,7 @@ class PoliticianCandidate:
     politician_id: int
     name: str
     furigana: str | None = None
+    party_name: str | None = None
 
 
 @dataclass(frozen=True)

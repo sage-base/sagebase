@@ -854,8 +854,8 @@ class UseCaseContainer(containers.DeclarativeContainer):
         speaker_repository=repositories.speaker_repository,
     )
 
-    # Match Meeting Speakers UseCase (Issue #1259)
-    # 会議発言者→政治家ルールベースマッチングユースケース
+    # Match Meeting Speakers UseCase (Issue #1259, #1262)
+    # 会議発言者→政治家マッチングユースケース（ルールベース + BAMLフォールバック）
     match_meeting_speakers_usecase = providers.Factory(
         MatchMeetingSpeakersUseCase,
         meeting_repository=repositories.meeting_repository,
@@ -866,4 +866,5 @@ class UseCaseContainer(containers.DeclarativeContainer):
         politician_repository=repositories.politician_repository,
         matching_service=providers.Factory(SpeakerPoliticianMatchingService),
         conference_repository=repositories.conference_repository,
+        baml_matching_service=baml_politician_matching_service,
     )

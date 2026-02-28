@@ -35,6 +35,8 @@ class BulkMatchSummary:
     total_speakers: int = 0
     total_matched: int = 0
     total_skipped: int = 0
+    total_baml_matched: int = 0
+    total_non_politician: int = 0
     errors: list[str] = field(default_factory=list)
     term_stats: dict[str, TermStats] = field(default_factory=dict)
 
@@ -65,6 +67,12 @@ class BulkMatchSummary:
     help="マッチング閾値",
 )
 @click.option("--dry-run", is_flag=True, help="対象会議一覧のみ表示")
+@click.option(
+    "--enable-baml-fallback",
+    is_flag=True,
+    default=False,
+    help="ルールベース未マッチ時にBAML(LLM)フォールバックを有効にする",
+)
 @with_error_handling
 def bulk_match_speakers(
     chamber: str,
@@ -72,6 +80,7 @@ def bulk_match_speakers(
     date_to: click.DateTime,
     confidence_threshold: float,
     dry_run: bool,
+    enable_baml_fallback: bool,
 ) -> None:
     """全会議の発言者を一括マッチングする."""
     asyncio.run(
@@ -81,6 +90,7 @@ def bulk_match_speakers(
             date_to.date(),  # type: ignore[union-attr]
             confidence_threshold,
             dry_run,
+            enable_baml_fallback,
         )
     )
 
@@ -91,6 +101,7 @@ async def _run_bulk_match(
     date_to: date,
     confidence_threshold: float,
     dry_run: bool,
+    enable_baml_fallback: bool = False,
 ) -> None:
     from src.application.dtos.match_meeting_speakers_dto import (
         MatchMeetingSpeakersInputDTO,
@@ -130,6 +141,7 @@ async def _run_bulk_match(
     click.echo(f"  院: {chamber}")
     click.echo(f"  期間: {date_from} 〜 {date_to}")
     click.echo(f"  閾値: {confidence_threshold}")
+    click.echo(f"  BAMLフォールバック: {'有効' if enable_baml_fallback else '無効'}")
     click.echo(f"  対象会議数: {len(meetings)}")
     click.echo()
 
@@ -147,6 +159,7 @@ async def _run_bulk_match(
         input_dto = MatchMeetingSpeakersInputDTO(
             meeting_id=meeting.id,
             confidence_threshold=confidence_threshold,
+            enable_baml_fallback=enable_baml_fallback,
         )
 
         try:
@@ -166,6 +179,8 @@ async def _run_bulk_match(
         summary.total_speakers += total
         summary.total_matched += matched
         summary.total_skipped += skipped
+        summary.total_baml_matched += result.baml_matched_count
+        summary.total_non_politician += result.non_politician_count
 
         click.echo(
             f"  [{i}/{len(meetings)}] {meeting.name} {meeting.date}"
@@ -200,6 +215,9 @@ def _show_summary(summary: BulkMatchSummary, elapsed: float) -> None:
     click.echo(f"  処理会議数: {summary.total_meetings}")
     click.echo(f"  総Speaker数: {summary.total_speakers}")
     click.echo(f"  マッチ数: {summary.total_matched}")
+    if summary.total_baml_matched > 0:
+        click.echo(f"    うちBAMLマッチ: {summary.total_baml_matched}")
+    click.echo(f"  非政治家数: {summary.total_non_politician}")
     click.echo(f"  スキップ数: {summary.total_skipped} (既マッチ)")
     click.echo(f"  マッチ率: {match_rate:.1f}%")
     click.echo(f"  所要時間: {elapsed:.1f}s")

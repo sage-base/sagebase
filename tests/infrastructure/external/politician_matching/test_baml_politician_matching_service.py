@@ -7,6 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.domain.value_objects.speaker_politician_match_result import (
+    PoliticianCandidate,
+)
 from src.infrastructure.external.politician_matching import (
     BAMLPoliticianMatchingService,
 )
@@ -264,26 +267,158 @@ class TestBAMLPoliticianMatchingService:
         assert result.confidence == 0.0
         assert "LLMが構造化出力を返せませんでした" in result.reason
 
+
+class TestFindBestMatchFromCandidates:
+    """find_best_match_from_candidates メソッドのテスト."""
+
     @pytest.mark.asyncio
-    async def test_is_title_only_speaker_method(
+    async def test_rule_based_exact_match_from_candidates(
         self,
         mock_llm_service,
         mock_politician_repository,
     ):
-        """_is_title_only_speakerメソッドのテスト"""
+        """候補リストから完全一致でマッチする."""
+        service = BAMLPoliticianMatchingService(
+            mock_llm_service, mock_politician_repository
+        )
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1, name="山田太郎", party_name="自由民主党"
+            ),
+            PoliticianCandidate(
+                politician_id=2, name="佐藤花子", party_name="立憲民主党"
+            ),
+        ]
+
+        result = await service.find_best_match_from_candidates(
+            speaker_name="山田太郎",
+            candidates=candidates,
+            speaker_party="自由民主党",
+        )
+
+        assert result.matched is True
+        assert result.politician_id == 1
+        assert result.confidence == 1.0
+        # politician_repositoryは呼ばれない（候補リストを直接使用）
+        mock_politician_repository.get_all_for_matching.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_empty_candidates_returns_no_match(
+        self,
+        mock_llm_service,
+        mock_politician_repository,
+    ):
+        """候補リストが空の場合はマッチなし."""
         service = BAMLPoliticianMatchingService(
             mock_llm_service, mock_politician_repository
         )
 
-        # 役職のみの発言者
-        assert service._is_title_only_speaker("委員長") is True
-        assert service._is_title_only_speaker("  議長  ") is True  # 空白はトリム
+        result = await service.find_best_match_from_candidates(
+            speaker_name="山田太郎",
+            candidates=[],
+        )
 
-        # 通常の発言者名
-        assert service._is_title_only_speaker("山田太郎") is False
-        assert service._is_title_only_speaker("山田委員長") is False  # 名前+役職
-        assert service._is_title_only_speaker("委員長山田") is False  # 役職+名前
+        assert result.matched is False
+        assert "空" in result.reason
 
-        # 空文字・空白のみ（エッジケース）
-        assert service._is_title_only_speaker("") is False  # 空文字
-        assert service._is_title_only_speaker("   ") is False  # 空白のみ
+    @pytest.mark.asyncio
+    async def test_title_only_with_mapping_resolves_name(
+        self,
+        mock_llm_service,
+        mock_politician_repository,
+    ):
+        """役職のみ発言者でマッピングがある場合、実名に解決してマッチする."""
+        service = BAMLPoliticianMatchingService(
+            mock_llm_service, mock_politician_repository
+        )
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="大島理森"),
+        ]
+
+        result = await service.find_best_match_from_candidates(
+            speaker_name="議長",
+            candidates=candidates,
+            role_name_mappings={"議長": "大島理森"},
+        )
+
+        assert result.matched is True
+        assert result.politician_id == 1
+        assert result.politician_name == "大島理森"
+
+    @pytest.mark.asyncio
+    async def test_title_only_without_mapping_returns_no_match(
+        self,
+        mock_llm_service,
+        mock_politician_repository,
+    ):
+        """役職のみ発言者でマッピングがない場合はマッチなし."""
+        service = BAMLPoliticianMatchingService(
+            mock_llm_service, mock_politician_repository
+        )
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="岸田文雄"),
+        ]
+
+        result = await service.find_best_match_from_candidates(
+            speaker_name="議長",
+            candidates=candidates,
+        )
+
+        assert result.matched is False
+        assert "役職名のみ" in result.reason
+
+    @pytest.mark.asyncio
+    async def test_baml_called_when_rule_based_fails(
+        self,
+        mock_llm_service,
+        mock_politician_repository,
+        mock_baml_client,
+    ):
+        """候補リスト版でもルールベース失敗時にBAMLが呼ばれる."""
+        mock_baml_client.MatchPolitician.return_value = MagicMock(
+            matched=True,
+            politician_id=1,
+            politician_name="山田太郎",
+            political_party_name=None,
+            confidence=0.85,
+            reason="BAMLマッチ",
+        )
+
+        service = BAMLPoliticianMatchingService(
+            mock_llm_service, mock_politician_repository
+        )
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="山田太郎"),
+        ]
+
+        result = await service.find_best_match_from_candidates(
+            speaker_name="ヤマダタロウ",
+            candidates=candidates,
+        )
+
+        assert result.matched is True
+        assert result.politician_id == 1
+        mock_baml_client.MatchPolitician.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_candidates_with_none_party_name(
+        self,
+        mock_llm_service,
+        mock_politician_repository,
+    ):
+        """party_name=Noneの候補でも安全に動作する."""
+        service = BAMLPoliticianMatchingService(
+            mock_llm_service, mock_politician_repository
+        )
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="佐藤花子"),
+        ]
+
+        result = await service.find_best_match_from_candidates(
+            speaker_name="佐藤花子",
+            candidates=candidates,
+        )
+
+        assert result.matched is True
+        assert result.politician_id == 1
+        assert result.confidence == 0.9
