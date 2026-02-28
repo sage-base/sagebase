@@ -36,6 +36,10 @@ class GoverningBodyRepositoryImpl(
     def __init__(self, session: AsyncSession | ISessionAdapter):
         super().__init__(session, GoverningBody, GoverningBodyModel)
 
+    @property
+    def _table_name(self) -> str:
+        return "governing_bodies"
+
     async def get_all(
         self, limit: int | None = None, offset: int | None = None
     ) -> list[GoverningBody]:

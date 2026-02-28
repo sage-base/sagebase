@@ -50,6 +50,10 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         """Initialize repository with async session or session adapter."""
         super().__init__(session, Speaker, SpeakerModel)
 
+    @property
+    def _table_name(self) -> str:
+        return "speakers"
+
     async def get_by_name_party_position(
         self,
         name: str,

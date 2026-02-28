@@ -89,6 +89,10 @@ class MeetingRepositoryImpl(BaseRepositoryImpl[Meeting], MeetingRepository):
             self.entity_class = Meeting
             self.model_class = model_class
 
+    @property
+    def _table_name(self) -> str:
+        return "meetings"
+
     def _get_async_executor(self) -> AsyncSession | ISessionAdapter | None:
         """Get the async executor (either AsyncSession or ISessionAdapter)."""
         return self.async_session or self.session_adapter
