@@ -100,7 +100,7 @@ CREATE TABLE extraction_logs (
 - `conversations` (Statement)
 - `politicians`
 - `speakers`
-- `politician_affiliations` (ConferenceMember)
+- `conference_members` (ConferenceMember)
 - `parliamentary_group_memberships`
 
 ### 3. 更新ロジック

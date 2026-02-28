@@ -110,7 +110,7 @@ class MonitoringRepositoryImpl:
                     (SELECT COUNT(*) FROM politicians) as total_politicians,
                     (SELECT COUNT(DISTINCT p.id)
                      FROM politicians p
-                     JOIN politician_affiliations pa ON p.id = pa.politician_id)
+                     JOIN conference_members pa ON p.id = pa.politician_id)
                         as active_politicians,
                     (SELECT COUNT(*) FROM political_parties) as total_parties,
                     (SELECT COUNT(DISTINCT pmh.political_party_id)
@@ -288,7 +288,7 @@ class MonitoringRepositoryImpl:
             FROM conferences c
             JOIN governing_bodies gb ON c.governing_body_id = gb.id
             LEFT JOIN meetings m ON c.id = m.conference_id
-            LEFT JOIN politician_affiliations pa ON c.id = pa.conference_id
+            LEFT JOIN conference_members pa ON c.id = pa.conference_id
             LEFT JOIN minutes min ON m.id = min.meeting_id
             LEFT JOIN conversations conv ON min.id = conv.minutes_id
             GROUP BY c.id, c.name, gb.name
@@ -498,7 +498,7 @@ class MonitoringRepositoryImpl:
                 FROM governing_bodies gb
                 LEFT JOIN conferences c ON gb.id = c.governing_body_id
                 LEFT JOIN meetings m ON c.id = m.conference_id
-                LEFT JOIN politician_affiliations pa ON c.id = pa.conference_id
+                LEFT JOIN conference_members pa ON c.id = pa.conference_id
                 LEFT JOIN minutes min ON m.id = min.meeting_id
                 LEFT JOIN conversations conv ON min.id = conv.minutes_id
                 WHERE gb.type IN ('都道府県', '市町村')

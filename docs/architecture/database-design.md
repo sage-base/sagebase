@@ -37,7 +37,7 @@ erDiagram
     }
 
     conferences ||--o{ meetings : hosts
-    conferences ||--o{ politician_affiliations : includes
+    conferences ||--o{ conference_members : includes
     conferences ||--o{ parliamentary_groups : has
     conferences {
         int id PK
@@ -100,7 +100,7 @@ erDiagram
     politicians ||--o{ pledges : makes
     politicians ||--o{ proposal_judges : votes
     politicians ||--o{ party_membership_history : has
-    politicians ||--o{ politician_affiliations : belongs_to
+    politicians ||--o{ conference_members : belongs_to
     politicians ||--o{ parliamentary_group_memberships : joins
     politicians {
         int id PK
@@ -199,7 +199,7 @@ erDiagram
     extraction_logs ||--o{ conversations : "tracks"
     extraction_logs ||--o{ politicians : "tracks"
     extraction_logs ||--o{ speakers : "tracks"
-    extraction_logs ||--o{ politician_affiliations : "tracks"
+    extraction_logs ||--o{ conference_members : "tracks"
     extraction_logs ||--o{ parliamentary_group_memberships : "tracks"
     extraction_logs {
         int id PK
@@ -515,7 +515,7 @@ LLM抽出結果の履歴を保持するBronze Layerテーブル。
 | conversations | ✅ | ✅ |
 | politicians | ✅ | ✅ |
 | speakers | ✅ | ✅ |
-| politician_affiliations | ✅ | ✅ |
+| conference_members | ✅ | ✅ |
 | parliamentary_group_memberships | ✅ | ✅ |
 | extracted_conference_members | ✅ | ✅ |
 | extracted_parliamentary_group_members | ✅ | ✅ |
@@ -553,7 +553,7 @@ CREATE INDEX idx_governing_bodies_org_code ON governing_bodies(organization_code
 -- 日付範囲検索用
 CREATE INDEX idx_meetings_date ON meetings(date);
 CREATE INDEX idx_party_membership_dates ON party_membership_history(start_date, end_date);
-CREATE INDEX idx_politician_affiliations_dates ON politician_affiliations(start_date, end_date);
+CREATE INDEX idx_conference_members_dates ON conference_members(start_date, end_date);
 
 -- ステータス検索用
 CREATE INDEX idx_proposals_status ON proposals(status);
@@ -600,7 +600,7 @@ ALTER TABLE party_membership_history
     ADD CONSTRAINT check_membership_dates
     CHECK (end_date IS NULL OR end_date >= start_date);
 
-ALTER TABLE politician_affiliations
+ALTER TABLE conference_members
     ADD CONSTRAINT check_affiliation_dates
     CHECK (end_date IS NULL OR end_date >= start_date);
 
@@ -624,7 +624,7 @@ database/
     ├── 003_add_politician_details.sql
     ├── 004_add_gcs_uri_to_meetings.sql
     ├── 005_add_members_introduction_url_to_conferences.sql
-    ├── 006_add_role_to_politician_affiliations.sql
+    ├── 006_add_role_to_conference_members.sql
     ├── 007_create_extracted_conference_members_table.sql
     ├── 008_create_parliamentary_groups_tables.sql
     ├── 009_add_processed_at_to_minutes.sql

@@ -203,7 +203,7 @@ just exec uv run sagebase create-affiliations --conference-id 185
 just db
 # Query:
 SELECT p.name, pa.role, pa.start_date
-FROM politician_affiliations pa
+FROM conference_members pa
 JOIN politicians p ON pa.politician_id = p.id
 WHERE pa.conference_id = 185
 ORDER BY p.name;

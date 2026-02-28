@@ -103,7 +103,7 @@ async def async_session() -> AsyncGenerator[AsyncSession]:
         )
         await conn.execute(
             text("""
-            CREATE TABLE politician_affiliations (
+            CREATE TABLE conference_members (
                 id INTEGER PRIMARY KEY,
                 politician_id INTEGER,
                 conference_id INTEGER

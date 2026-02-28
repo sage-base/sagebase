@@ -363,7 +363,7 @@ class TestManagePoliticiansUseCase:
             "pledges": 0,
             "party_membership_history": 0,
             "proposal_judges": 0,
-            "politician_affiliations": 0,
+            "conference_members": 0,
             "extracted_parliamentary_group_members": 0,
             "extracted_proposal_judges": 0,
         }

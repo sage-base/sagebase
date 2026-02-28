@@ -410,7 +410,7 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             ("pledges", "politician_id"),
             ("party_membership_history", "politician_id"),
             ("proposal_judges", "politician_id"),
-            ("politician_affiliations", "politician_id"),
+            ("conference_members", "politician_id"),
         ]
 
         tables_with_matched_politician_id = [
@@ -454,7 +454,7 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             "pledges",
             "party_membership_history",
             "proposal_judges",
-            "politician_affiliations",
+            "conference_members",
         ]
 
         for table in not_null_tables:

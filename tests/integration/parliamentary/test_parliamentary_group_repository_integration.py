@@ -129,7 +129,7 @@ def db_session():
         session.execute(
             text("DELETE FROM parliamentary_group_memberships WHERE id > 0")
         )
-        session.execute(text("DELETE FROM politician_affiliations WHERE id > 0"))
+        session.execute(text("DELETE FROM conference_members WHERE id > 0"))
 
         # Delete parliamentary groups
         session.execute(text("DELETE FROM parliamentary_groups WHERE id > 0"))

@@ -1,7 +1,7 @@
 """選挙当選者→ConferenceMember一括生成ユースケース.
 
 選挙の当選者（election_members, is_elected=true）を
-ConferenceMember（politician_affiliations）に一括変換する。
+ConferenceMember（conference_members）に一括変換する。
 衆議院・参議院の両方に対応。
 
 処理フロー:

@@ -44,7 +44,7 @@ TABLE_INSERT_ORDER = [
     "minutes",
     "proposals",
     "speakers",
-    "politician_affiliations",
+    "conference_members",
     # 5. 第4レベルFK依存
     "conversations",
     "proposal_submitters",

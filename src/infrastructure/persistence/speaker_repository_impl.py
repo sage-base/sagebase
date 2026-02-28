@@ -506,7 +506,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 p.id as politician_id,
                 p.name as politician_name,
                 pa.role as role
-            FROM politician_affiliations pa
+            FROM conference_members pa
             JOIN politicians p ON pa.politician_id = p.id
             JOIN speakers s ON p.speaker_id = s.id
             WHERE pa.conference_id = :conference_id
