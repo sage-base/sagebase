@@ -323,6 +323,13 @@ class TestBaseRepositoryImplNonOrm:
         assert repository._is_orm is False
 
     @pytest.mark.asyncio
+    async def test_is_orm_is_cached(self, repository):
+        """_is_ormがcached_propertyでキャッシュされることを確認."""
+        result1 = repository._is_orm
+        result2 = repository._is_orm
+        assert result1 is result2
+
+    @pytest.mark.asyncio
     async def test_table_name_override(self, repository):
         """_table_nameプロパティのオーバーライドからテーブル名を取得できることを確認."""
         assert repository._table_name == "mock_entities"
@@ -459,11 +466,11 @@ class TestBaseRepositoryImplNonOrm:
         assert params["offset"] == 20
 
 
-# --- _raw_row_to_entity委譲テスト ---
+# --- _row_converter委譲テスト ---
 
 
-class TestRawRowToEntity:
-    """_raw_row_to_entityの委譲ロジックのテスト."""
+class TestRowConverter:
+    """_row_converterの委譲ロジックのテスト."""
 
     @pytest.fixture
     def mock_session(self):
@@ -479,7 +486,7 @@ class TestRawRowToEntity:
         mock_row._mapping = None
         del mock_row._mapping
 
-        result = repo._raw_row_to_entity(mock_row)
+        result = repo._row_converter(mock_row)
 
         assert result.id == 5
         assert result.name == "Test"
@@ -508,7 +515,7 @@ class TestRawRowToEntity:
         mock_row = MagicMock()
         mock_row._mapping = {"id": 10, "name": "DictTest"}
 
-        result = repo._raw_row_to_entity(mock_row)
+        result = repo._row_converter(mock_row)
 
         assert result.id == 10
         assert result.name == "DictTest"
@@ -535,7 +542,14 @@ class TestRawRowToEntity:
         mock_row.id = 7
         mock_row.name = "Fallback"
 
-        result = repo._raw_row_to_entity(mock_row)
+        result = repo._row_converter(mock_row)
 
         assert result.id == 7
         assert result.name == "Fallback"
+
+    def test_converter_is_cached(self, mock_session):
+        """_row_converterが初回アクセス後にキャッシュされることを確認."""
+        repo = NonOrmMockRepositoryImpl(mock_session, MockEntity, NonOrmMockModel)
+        converter1 = repo._row_converter
+        converter2 = repo._row_converter
+        assert converter1 is converter2

@@ -1,5 +1,7 @@
 """Base repository implementation for infrastructure layer."""
 
+from collections.abc import Callable
+from functools import cached_property
 from typing import Any
 
 from sqlalchemy import func, text
@@ -50,9 +52,9 @@ class BaseRepositoryImpl[T: BaseEntity](BaseRepository[T]):
         self.entity_class = entity_class
         self.model_class = model_class
 
-    @property
+    @cached_property
     def _is_orm(self) -> bool:
-        """model_classがSQLAlchemy ORMマッピング済みかどうかを判定."""
+        """model_classがSQLAlchemy ORMマッピング済みか判定."""
         return hasattr(self.model_class, "__table__")
 
     @property
@@ -65,8 +67,9 @@ class BaseRepositoryImpl[T: BaseEntity](BaseRepository[T]):
             f"_table_nameプロパティをオーバーライドしてください"
         )
 
-    def _raw_row_to_entity(self, row: Any) -> T:
-        """text() SQLの結果行からエンティティに変換（非ORMフォールバック用）.
+    @cached_property
+    def _row_converter(self) -> Callable[[Any], T]:
+        """非ORMフォールバック用の行変換関数を解決（初回アクセス時にキャッシュ）.
 
         サブクラスの既存メソッドに以下の優先順位で委譲する:
         1. _row_to_entity(row) — Rowオブジェクトを直接処理
@@ -74,14 +77,18 @@ class BaseRepositoryImpl[T: BaseEntity](BaseRepository[T]):
         3. _to_entity(row) — 最終フォールバック
         """
         if hasattr(self, "_row_to_entity"):
-            return self._row_to_entity(row)
+            return self._row_to_entity
         if hasattr(self, "_dict_to_entity"):
-            if hasattr(row, "_mapping"):
-                return self._dict_to_entity(dict(row._mapping))
-            elif hasattr(row, "_asdict"):
-                return self._dict_to_entity(row._asdict())
-            return self._dict_to_entity(dict(row))
-        return self._to_entity(row)
+            return self._convert_row_via_dict
+        return self._to_entity
+
+    def _convert_row_via_dict(self, row: Any) -> T:
+        """Rowをdict化して_dict_to_entityに委譲する変換アダプタ."""
+        if hasattr(row, "_mapping"):
+            return self._dict_to_entity(dict(row._mapping))
+        elif hasattr(row, "_asdict"):
+            return self._dict_to_entity(row._asdict())
+        return self._dict_to_entity(dict(row))
 
     async def get_by_id(self, entity_id: int) -> T | None:
         """Get entity by ID."""
@@ -115,7 +122,7 @@ class BaseRepositoryImpl[T: BaseEntity](BaseRepository[T]):
                 sql += " OFFSET :offset"
                 params["offset"] = offset
             result = await self.session.execute(text(sql), params if params else None)
-            return [self._raw_row_to_entity(row) for row in result.fetchall()]
+            return [self._row_converter(row) for row in result.fetchall()]
 
     async def get_by_ids(self, entity_ids: list[int]) -> list[T]:
         """Get entities by their IDs."""
@@ -133,7 +140,7 @@ class BaseRepositoryImpl[T: BaseEntity](BaseRepository[T]):
             )
             params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
             result = await self.session.execute(query, params)
-            return [self._raw_row_to_entity(row) for row in result.fetchall()]
+            return [self._row_converter(row) for row in result.fetchall()]
 
     async def create(self, entity: T) -> T:
         """Create a new entity."""
