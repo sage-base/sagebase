@@ -10,6 +10,7 @@ class LinkParliamentaryGroupInputDto:
     term_number: int
     governing_body_id: int = 1
     chamber: str = ""
+    election_type: str | None = None
     dry_run: bool = False
 
 

@@ -152,6 +152,191 @@ class TestListAllElections:
         assert "Connection lost" in (result.error_message or "")
 
 
+class TestCreateElection:
+    """create_electionメソッドのテスト."""
+
+    @pytest.fixture
+    def mock_election_repository(self):
+        return AsyncMock()
+
+    @pytest.fixture
+    def use_case(self, mock_election_repository):
+        return ManageElectionsUseCase(
+            election_repository=mock_election_repository,
+        )
+
+    @pytest.mark.asyncio
+    async def test_create_election_passes_election_type_to_duplicate_check(
+        self, use_case, mock_election_repository
+    ):
+        """重複チェックでelection_typeが渡されることを確認."""
+        mock_election_repository.get_by_governing_body_and_term.return_value = None
+        created = Election(
+            id=1,
+            governing_body_id=1,
+            term_number=49,
+            election_date=date(2021, 10, 31),
+            election_type="衆議院議員総選挙",
+        )
+        mock_election_repository.create.return_value = created
+
+        from src.application.dtos.election_dto import CreateElectionInputDto
+
+        result = await use_case.create_election(
+            CreateElectionInputDto(
+                governing_body_id=1,
+                term_number=49,
+                election_date=date(2021, 10, 31),
+                election_type="衆議院議員総選挙",
+            )
+        )
+
+        assert result.success is True
+        mock_election_repository.get_by_governing_body_and_term.assert_called_once_with(
+            1, 49, election_type="衆議院議員総選挙"
+        )
+
+    @pytest.mark.asyncio
+    async def test_create_election_allows_same_term_different_type(
+        self, use_case, mock_election_repository
+    ):
+        """同じterm_numberでもelection_typeが異なれば作成可能であることを確認."""
+        mock_election_repository.get_by_governing_body_and_term.return_value = None
+        created = Election(
+            id=2,
+            governing_body_id=1,
+            term_number=25,
+            election_date=date(2019, 7, 21),
+            election_type="参議院議員通常選挙",
+        )
+        mock_election_repository.create.return_value = created
+
+        from src.application.dtos.election_dto import CreateElectionInputDto
+
+        result = await use_case.create_election(
+            CreateElectionInputDto(
+                governing_body_id=1,
+                term_number=25,
+                election_date=date(2019, 7, 21),
+                election_type="参議院議員通常選挙",
+            )
+        )
+
+        assert result.success is True
+        assert result.election_id == 2
+
+    @pytest.mark.asyncio
+    async def test_create_election_duplicate_with_same_type(
+        self, use_case, mock_election_repository
+    ):
+        """同じterm_number・election_typeの組み合わせが既存の場合エラーになることを確認."""
+        existing = Election(
+            id=1,
+            governing_body_id=1,
+            term_number=49,
+            election_date=date(2021, 10, 31),
+            election_type="衆議院議員総選挙",
+        )
+        mock_election_repository.get_by_governing_body_and_term.return_value = existing
+
+        from src.application.dtos.election_dto import CreateElectionInputDto
+
+        result = await use_case.create_election(
+            CreateElectionInputDto(
+                governing_body_id=1,
+                term_number=49,
+                election_date=date(2021, 10, 31),
+                election_type="衆議院議員総選挙",
+            )
+        )
+
+        assert result.success is False
+        assert "既に存在します" in (result.error_message or "")
+
+
+class TestUpdateElection:
+    """update_electionメソッドのテスト."""
+
+    @pytest.fixture
+    def mock_election_repository(self):
+        return AsyncMock()
+
+    @pytest.fixture
+    def use_case(self, mock_election_repository):
+        return ManageElectionsUseCase(
+            election_repository=mock_election_repository,
+        )
+
+    @pytest.mark.asyncio
+    async def test_update_election_passes_election_type_to_duplicate_check(
+        self, use_case, mock_election_repository
+    ):
+        """更新時の重複チェックでelection_typeが渡されることを確認."""
+        existing = Election(
+            id=1,
+            governing_body_id=1,
+            term_number=49,
+            election_date=date(2021, 10, 31),
+            election_type="衆議院議員総選挙",
+        )
+        mock_election_repository.get_by_id.return_value = existing
+        mock_election_repository.get_by_governing_body_and_term.return_value = existing
+
+        from src.application.dtos.election_dto import UpdateElectionInputDto
+
+        result = await use_case.update_election(
+            UpdateElectionInputDto(
+                id=1,
+                governing_body_id=1,
+                term_number=49,
+                election_date=date(2021, 11, 1),
+                election_type="衆議院議員総選挙",
+            )
+        )
+
+        assert result.success is True
+        mock_election_repository.get_by_governing_body_and_term.assert_called_once_with(
+            1, 49, election_type="衆議院議員総選挙"
+        )
+
+    @pytest.mark.asyncio
+    async def test_update_election_detects_duplicate_with_different_id(
+        self, use_case, mock_election_repository
+    ):
+        """更新時に別IDで同一キーのレコードが存在する場合エラーになることを確認."""
+        existing = Election(
+            id=1,
+            governing_body_id=1,
+            term_number=49,
+            election_date=date(2021, 10, 31),
+            election_type="衆議院議員総選挙",
+        )
+        duplicate = Election(
+            id=2,
+            governing_body_id=1,
+            term_number=49,
+            election_date=date(2021, 10, 31),
+            election_type="衆議院議員総選挙",
+        )
+        mock_election_repository.get_by_id.return_value = existing
+        mock_election_repository.get_by_governing_body_and_term.return_value = duplicate
+
+        from src.application.dtos.election_dto import UpdateElectionInputDto
+
+        result = await use_case.update_election(
+            UpdateElectionInputDto(
+                id=1,
+                governing_body_id=1,
+                term_number=49,
+                election_date=date(2021, 11, 1),
+                election_type="衆議院議員総選挙",
+            )
+        )
+
+        assert result.success is False
+        assert "既に存在します" in (result.error_message or "")
+
+
 class TestGenerateSeedFile:
     """generate_seed_fileメソッドのテスト."""
 

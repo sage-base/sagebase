@@ -72,7 +72,12 @@ logger = logging.getLogger(__name__)
 GOVERNING_BODY_ID = 1  # 国会
 
 
-async def run_link(term_number: int, dry_run: bool, chamber: str = "") -> bool:
+async def run_link(
+    term_number: int,
+    dry_run: bool,
+    chamber: str = "",
+    election_type: str | None = None,
+) -> bool:
     """会派紐付けを実行する."""
     logger.info(
         "=== 第%d回選挙 会派自動紐付け開始 %s===",
@@ -101,6 +106,7 @@ async def run_link(term_number: int, dry_run: bool, chamber: str = "") -> bool:
             term_number=term_number,
             governing_body_id=GOVERNING_BODY_ID,
             chamber=chamber,
+            election_type=election_type,
             dry_run=dry_run,
         )
 
@@ -160,12 +166,20 @@ if __name__ == "__main__":
         help="院名でフィルタ（省略時は全会派を対象）",
     )
     parser.add_argument(
+        "--election-type",
+        type=str,
+        default=None,
+        help="選挙種別（例: 衆議院議員総選挙, 参議院議員通常選挙）",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="ドライラン（DB書き込みなし、紐付け結果のみ表示）",
     )
     args = parser.parse_args()
 
-    success = asyncio.run(run_link(args.election, args.dry_run, args.chamber))
+    success = asyncio.run(
+        run_link(args.election, args.dry_run, args.chamber, args.election_type)
+    )
     if not success:
         sys.exit(1)

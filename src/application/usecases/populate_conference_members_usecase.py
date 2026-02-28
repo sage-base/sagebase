@@ -64,7 +64,9 @@ class PopulateConferenceMembersUseCase:
 
         # 1. 選挙を取得
         election = await self._election_repo.get_by_governing_body_and_term(
-            input_dto.governing_body_id, input_dto.term_number
+            input_dto.governing_body_id,
+            input_dto.term_number,
+            election_type=input_dto.election_type,
         )
         if election is None or election.id is None:
             output.errors = 1

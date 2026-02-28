@@ -14,6 +14,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Uuid,
@@ -252,6 +253,15 @@ class ElectionModel(Base):
     """SQLAlchemy model for elections table."""
 
     __tablename__ = "elections"
+    __table_args__ = (
+        Index(
+            "idx_elections_governing_body_term_type",
+            "governing_body_id",
+            "term_number",
+            "election_type",
+            unique=True,
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     governing_body_id: Mapped[int] = mapped_column(

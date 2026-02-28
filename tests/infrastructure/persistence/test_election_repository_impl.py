@@ -133,6 +133,84 @@ class TestElectionRepositoryImpl:
         assert result is None
         mock_session.execute.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_get_by_governing_body_and_term_with_election_type(
+        self,
+        repository: ElectionRepositoryImpl,
+        mock_session: MagicMock,
+        sample_model: MagicMock,
+    ) -> None:
+        """election_type指定時にWHERE句にelection_type条件が含まれることを確認."""
+        mock_scalars = MagicMock()
+        mock_scalars.first.return_value = sample_model
+        mock_result = MagicMock()
+        mock_result.scalars.return_value = mock_scalars
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_governing_body_and_term(
+            88, 21, election_type="衆議院議員総選挙"
+        )
+
+        assert result is not None
+        assert result.governing_body_id == 88
+        assert result.term_number == 21
+        mock_session.execute.assert_called_once()
+        # WHERE句にelection_typeのバインドパラメータが含まれていることを検証
+        call_args = mock_session.execute.call_args
+        query_str = str(call_args[0][0])
+        where_clause = query_str.split("WHERE")[1] if "WHERE" in query_str else ""
+        assert "election_type" in where_clause
+
+    @pytest.mark.asyncio
+    async def test_get_by_governing_body_and_term_without_election_type(
+        self,
+        repository: ElectionRepositoryImpl,
+        mock_session: MagicMock,
+        sample_model: MagicMock,
+    ) -> None:
+        """election_type=Noneの場合にWHERE句にelection_type条件が含まれないことを確認."""
+        mock_scalars = MagicMock()
+        mock_scalars.first.return_value = sample_model
+        mock_result = MagicMock()
+        mock_result.scalars.return_value = mock_scalars
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_governing_body_and_term(
+            88, 21, election_type=None
+        )
+
+        assert result is not None
+        mock_session.execute.assert_called_once()
+        # WHERE句にelection_type条件が含まれていないことを検証
+        call_args = mock_session.execute.call_args
+        query_str = str(call_args[0][0])
+        where_clause = query_str.split("WHERE")[1] if "WHERE" in query_str else ""
+        assert "election_type" not in where_clause
+
+    @pytest.mark.asyncio
+    async def test_get_by_governing_body_and_term_with_election_type_not_found(
+        self,
+        repository: ElectionRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """election_type指定時にマッチしない場合Noneを返すことを確認."""
+        mock_scalars = MagicMock()
+        mock_scalars.first.return_value = None
+        mock_result = MagicMock()
+        mock_result.scalars.return_value = mock_scalars
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_governing_body_and_term(
+            88, 21, election_type="参議院議員通常選挙"
+        )
+
+        assert result is None
+        # WHERE句にelection_type条件が含まれていることを検証
+        call_args = mock_session.execute.call_args
+        query_str = str(call_args[0][0])
+        where_clause = query_str.split("WHERE")[1] if "WHERE" in query_str else ""
+        assert "election_type" in where_clause
+
     # --- BaseRepositoryImpl inherited CRUD ---
 
     @pytest.mark.asyncio

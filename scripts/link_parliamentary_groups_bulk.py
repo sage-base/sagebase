@@ -207,6 +207,7 @@ async def run_bulk_with_details(elections: list[Election], dry_run: bool) -> Bul
                     term_number=election.term_number,
                     governing_body_id=election.governing_body_id,
                     chamber=election.chamber,
+                    election_type=election.election_type,
                     dry_run=dry_run,
                 )
 
