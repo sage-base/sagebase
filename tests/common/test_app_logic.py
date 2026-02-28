@@ -25,22 +25,27 @@ from src.infrastructure.exceptions import (
 class TestSetupEnvironment:
     """Test cases for setup_environment function."""
 
-    @patch("src.common.app_logic.config.validate_config")
-    @patch("src.common.app_logic.config.set_env")
-    def test_setup_environment_success(self, mock_set_env, mock_validate):
+    @patch("src.common.app_logic.get_settings")
+    def test_setup_environment_success(self, mock_get_settings):
         """Test successful environment setup."""
+        # Setup
+        mock_settings = MagicMock()
+        mock_get_settings.return_value = mock_settings
+
         # Execute
         setup_environment()
 
         # Verify
-        mock_set_env.assert_called_once()
-        mock_validate.assert_called_once()
+        mock_settings.set_env.assert_called_once()
+        mock_settings.validate.assert_called_once()
 
-    @patch("src.common.app_logic.config.set_env")
-    def test_setup_environment_failure(self, mock_set_env):
+    @patch("src.common.app_logic.get_settings")
+    def test_setup_environment_failure(self, mock_get_settings):
         """Test environment setup failure."""
         # Setup
-        mock_set_env.side_effect = Exception("Config error")
+        mock_settings = MagicMock()
+        mock_settings.set_env.side_effect = Exception("Config error")
+        mock_get_settings.return_value = mock_settings
 
         # Execute and verify
         with pytest.raises(ConfigurationError) as exc_info:

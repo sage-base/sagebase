@@ -12,7 +12,7 @@ from .base_scraper import BaseScraper
 from .kaigiroku_net_scraper import KaigirokuNetScraper
 from .models import MinutesData
 
-from src.infrastructure.config import config
+from src.infrastructure.config.settings import get_settings
 from src.infrastructure.storage.gcs_client import GCSStorage
 
 
@@ -27,16 +27,20 @@ class ScraperService:
         self.logger = get_logger(__name__)
 
         # GCS設定
+        _settings = get_settings()
         self.enable_gcs = (
-            enable_gcs if enable_gcs is not None else config.GCS_UPLOAD_ENABLED
+            enable_gcs if enable_gcs is not None else _settings.gcs_upload_enabled
         )
         self.gcs_storage = None
         if self.enable_gcs:
             try:
                 self.gcs_storage = GCSStorage(
-                    bucket_name=config.GCS_BUCKET_NAME, project_id=config.GCS_PROJECT_ID
+                    bucket_name=_settings.gcs_bucket_name,
+                    project_id=_settings.gcs_project_id,
                 )
-                self.logger.info("GCS storage enabled", bucket=config.GCS_BUCKET_NAME)
+                self.logger.info(
+                    "GCS storage enabled", bucket=_settings.gcs_bucket_name
+                )
             except Exception as e:
                 self.logger.error(
                     "Failed to initialize GCS storage", error=str(e), exc_info=True
