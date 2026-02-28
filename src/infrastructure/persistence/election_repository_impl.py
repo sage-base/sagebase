@@ -39,13 +39,18 @@ class ElectionRepositoryImpl(BaseRepositoryImpl[Election], ElectionRepository):
         return [self._to_entity(model) for model in models]
 
     async def get_by_governing_body_and_term(
-        self, governing_body_id: int, term_number: int
+        self,
+        governing_body_id: int,
+        term_number: int,
+        election_type: str | None = None,
     ) -> Election | None:
         """開催主体と期番号で選挙を取得."""
         query = select(self.model_class).where(
             self.model_class.governing_body_id == governing_body_id,
             self.model_class.term_number == term_number,
         )
+        if election_type is not None:
+            query = query.where(self.model_class.election_type == election_type)
         result = await self.session.execute(query)
         model = result.scalars().first()
         if model:

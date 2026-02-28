@@ -11,6 +11,7 @@ class PopulateConferenceMembersInputDto:
     term_number: int
     governing_body_id: int = 1
     conference_name: str = "衆議院本会議"
+    election_type: str | None = None
     dry_run: bool = False
 
 

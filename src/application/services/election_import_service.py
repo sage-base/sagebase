@@ -204,7 +204,7 @@ class ElectionImportService:
             raise RuntimeError("election_repository is not set")
 
         existing = await self._election_repo.get_by_governing_body_and_term(
-            governing_body_id, term_number
+            governing_body_id, term_number, election_type=election_type
         )
         if existing:
             logger.info("既存のElectionを使用: %s (ID=%d)", existing, existing.id)

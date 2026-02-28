@@ -23,13 +23,17 @@ class ElectionRepository(BaseRepository[Election]):
 
     @abstractmethod
     async def get_by_governing_body_and_term(
-        self, governing_body_id: int, term_number: int
+        self,
+        governing_body_id: int,
+        term_number: int,
+        election_type: str | None = None,
     ) -> Election | None:
         """開催主体と期番号で選挙を取得.
 
         Args:
             governing_body_id: 開催主体ID
             term_number: 期番号
+            election_type: 選挙種別（指定時はさらに絞り込む）
 
         Returns:
             選挙エンティティ、見つからない場合はNone

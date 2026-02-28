@@ -75,9 +75,11 @@ class ManageElectionsUseCase:
     ) -> CreateElectionOutputDto:
         """選挙を作成する."""
         try:
-            # 重複チェック（同じ開催主体・期番号の組み合わせ）
+            # 重複チェック（同じ開催主体・期番号・選挙種別の組み合わせ）
             existing = await self.election_repository.get_by_governing_body_and_term(
-                input_dto.governing_body_id, input_dto.term_number
+                input_dto.governing_body_id,
+                input_dto.term_number,
+                election_type=input_dto.election_type,
             )
             if existing:
                 return CreateElectionOutputDto(
@@ -120,7 +122,9 @@ class ManageElectionsUseCase:
 
             # 重複チェック（自身を除く）
             duplicate = await self.election_repository.get_by_governing_body_and_term(
-                input_dto.governing_body_id, input_dto.term_number
+                input_dto.governing_body_id,
+                input_dto.term_number,
+                election_type=input_dto.election_type,
             )
             if duplicate and duplicate.id != input_dto.id:
                 return UpdateElectionOutputDto(

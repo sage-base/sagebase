@@ -133,6 +133,28 @@ class TestElectionRepositoryImpl:
         assert result is None
         mock_session.execute.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_get_by_governing_body_and_term_with_election_type(
+        self,
+        repository: ElectionRepositoryImpl,
+        mock_session: MagicMock,
+        sample_model: MagicMock,
+    ) -> None:
+        mock_scalars = MagicMock()
+        mock_scalars.first.return_value = sample_model
+        mock_result = MagicMock()
+        mock_result.scalars.return_value = mock_scalars
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_governing_body_and_term(
+            88, 21, election_type="衆議院議員総選挙"
+        )
+
+        assert result is not None
+        assert result.governing_body_id == 88
+        assert result.term_number == 21
+        mock_session.execute.assert_called_once()
+
     # --- BaseRepositoryImpl inherited CRUD ---
 
     @pytest.mark.asyncio

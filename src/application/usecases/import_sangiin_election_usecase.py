@@ -273,7 +273,9 @@ class ImportSangiinElectionUseCase:
 
         # 新規作成かどうかを判定するため、事前に既存レコードを確認
         existing = await self._election_repo.get_by_governing_body_and_term(
-            governing_body_id, term_number
+            governing_body_id,
+            term_number,
+            election_type=Election.ELECTION_TYPE_SANGIIN,
         )
         is_new = existing is None
 
