@@ -11,6 +11,7 @@ class MatchMeetingSpeakersInputDTO:
 
     meeting_id: int
     confidence_threshold: float = 0.8
+    enable_baml_fallback: bool = False
 
 
 @dataclass
@@ -24,6 +25,7 @@ class SpeakerMatchResultDTO:
     confidence: float
     match_method: MatchMethod
     updated: bool
+    skip_reason: str | None = None
 
 
 @dataclass
@@ -35,4 +37,6 @@ class MatchMeetingSpeakersOutputDTO:
     total_speakers: int = 0
     matched_count: int = 0
     skipped_count: int = 0
+    baml_matched_count: int = 0
+    non_politician_count: int = 0
     results: list[SpeakerMatchResultDTO] = field(default_factory=list)
