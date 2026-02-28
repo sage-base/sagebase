@@ -78,7 +78,7 @@ COPY baml_src/ baml_src/
 RUN uv run baml-cli generate
 
 # 実行権限を設定
-RUN chmod +x scripts/docker-uv-wrapper.sh scripts/docker-entrypoint.sh && \
+RUN chmod +x scripts/docker-uv-wrapper.sh scripts/docker-entrypoint.sh scripts/load-seeds-internal.sh && \
     ln -sf /app/scripts/docker-uv-wrapper.sh /usr/local/bin/uv-wrapper
 
 # エントリーポイントを設定
