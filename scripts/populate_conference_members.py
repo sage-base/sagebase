@@ -1,7 +1,7 @@
 """選挙当選者→ConferenceMember一括生成スクリプト.
 
 衆議院・参議院の選挙当選者（election_members, is_elected=true）を
-ConferenceMember（politician_affiliations）に一括変換する。
+ConferenceMember（conference_members）に一括変換する。
 
 対象選挙はDBから動的に検出される（ハードコードなし）。
 
@@ -235,7 +235,7 @@ def write_result_report(
 
 
 def generate_seed_file() -> None:
-    """politician_affiliationsのSEEDファイルを生成する."""
+    """conference_membersのSEEDファイルを生成する."""
     from sqlalchemy import create_engine, text
 
     from src.infrastructure.config.settings import Settings
@@ -246,21 +246,21 @@ def generate_seed_file() -> None:
         result = conn.execute(
             text("""
                 SELECT
-                    pa.politician_id,
-                    pa.conference_id,
-                    pa.start_date,
-                    pa.end_date,
-                    pa.role,
+                    cm.politician_id,
+                    cm.conference_id,
+                    cm.start_date,
+                    cm.end_date,
+                    cm.role,
                     p.name AS politician_name,
                     c.name AS conference_name,
                     gb.name AS governing_body_name,
                     gb.type AS governing_body_type
-                FROM politician_affiliations pa
-                JOIN politicians p ON pa.politician_id = p.id
-                JOIN conferences c ON pa.conference_id = c.id
+                FROM conference_members cm
+                JOIN politicians p ON cm.politician_id = p.id
+                JOIN conferences c ON cm.conference_id = c.id
                 JOIN governing_bodies gb ON c.governing_body_id = gb.id
                 ORDER BY
-                    pa.start_date,
+                    cm.start_date,
                     gb.name,
                     c.name,
                     p.name
@@ -269,7 +269,7 @@ def generate_seed_file() -> None:
         columns = result.keys()
         affiliations = [dict(zip(columns, row, strict=False)) for row in result]
 
-    output_path = "database/seed_politician_affiliations_generated.sql"
+    output_path = "database/seed_conference_members_generated.sql"
     with open(output_path, "w") as f:
         _write_seed_content(f, affiliations, datetime.now())
     engine.dispose()
@@ -286,7 +286,7 @@ def _write_seed_content(
 ) -> None:
     """SEEDファイルの内容を書き出す."""
     f.write(f"-- Generated from database on {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
-    f.write("-- politician_affiliations seed data\n")
+    f.write("-- conference_members seed data\n")
     f.write("-- ユニーク制約がないため、個別INSERT + WHERE NOT EXISTSで冪等性を確保\n")
     f.write("\n")
 
@@ -317,7 +317,7 @@ def _write_seed_content(
         )
 
         f.write(
-            "INSERT INTO politician_affiliations "
+            "INSERT INTO conference_members "
             "(politician_id, conference_id, start_date, end_date, role)\n"
         )
         f.write(
@@ -326,7 +326,7 @@ def _write_seed_content(
         )
         f.write(
             f"WHERE NOT EXISTS ("
-            f"SELECT 1 FROM politician_affiliations "
+            f"SELECT 1 FROM conference_members "
             f"WHERE politician_id = {politician_sub} "
             f"AND conference_id = {conference_sub} "
             f"AND start_date = '{start_date_str}'"

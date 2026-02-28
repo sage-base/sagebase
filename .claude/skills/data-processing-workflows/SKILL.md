@@ -166,7 +166,7 @@ Staging Table (status='matched'/'needs_review'/'no_match')
   ↓
 [3] Create Affiliations
   ↓ status='matched' のみ処理
-politician_affiliations
+conference_members
 ```
 
 #### ステップ1: Extract Conference Members
@@ -201,10 +201,10 @@ politician_affiliations
 **処理内容:**
 - 最終的な政治家-会議の関係を作成
 - `matched` ステータスのレコードのみ処理
-- 役職付きで `politician_affiliations` にエントリを作成
+- 役職付きで `conference_members` にエントリを作成
 
 **入力:** `extracted_conference_members` (status='matched')
-**出力:** `politician_affiliations`
+**出力:** `conference_members`
 
 ## 処理順序のチェックリスト
 

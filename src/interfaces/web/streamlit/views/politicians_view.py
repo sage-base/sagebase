@@ -545,7 +545,7 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
                 "pledges": "公約",
                 "party_membership_history": "政党所属履歴",
                 "proposal_judges": "議案賛否",
-                "politician_affiliations": "会議体所属",
+                "conference_members": "会議体所属",
                 "extracted_parliamentary_group_members": "抽出済み議員団メンバー",
                 "extracted_proposal_judges": "抽出済み議案賛否",
             }

@@ -509,14 +509,14 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 s.name as speaker_name,
                 p.id as politician_id,
                 p.name as politician_name,
-                pa.role as role
-            FROM politician_affiliations pa
-            JOIN politicians p ON pa.politician_id = p.id
+                cm.role as role
+            FROM conference_members cm
+            JOIN politicians p ON cm.politician_id = p.id
             JOIN speakers s ON p.speaker_id = s.id
-            WHERE pa.conference_id = :conference_id
-                AND pa.start_date <= CAST(:meeting_date AS date)
-                AND (pa.end_date IS NULL OR
-                     pa.end_date >= CAST(:meeting_date AS date))
+            WHERE cm.conference_id = :conference_id
+                AND cm.start_date <= CAST(:meeting_date AS date)
+                AND (cm.end_date IS NULL OR
+                     cm.end_date >= CAST(:meeting_date AS date))
             ORDER BY s.name
         """)
 

@@ -42,7 +42,7 @@ class ConferenceMemberRepositoryImpl(
     async def get_by_id(self, entity_id: int) -> ConferenceMember | None:
         """Get a conference member by ID using raw SQL."""
         query = text("""
-            SELECT * FROM politician_affiliations
+            SELECT * FROM conference_members
             WHERE id = :id
         """)
         result = await self.session.execute(query, {"id": entity_id})
@@ -54,7 +54,7 @@ class ConferenceMemberRepositoryImpl(
     async def create(self, entity: ConferenceMember) -> ConferenceMember:
         """Create a new conference member using raw SQL."""
         query = text("""
-            INSERT INTO politician_affiliations (
+            INSERT INTO conference_members (
                 politician_id, conference_id, start_date, end_date, role,
                 is_manually_verified, latest_extraction_log_id
             ) VALUES (
@@ -83,7 +83,7 @@ class ConferenceMemberRepositoryImpl(
     async def delete(self, entity_id: int) -> bool:
         """Delete a conference member by ID using raw SQL."""
         query = text("""
-            DELETE FROM politician_affiliations
+            DELETE FROM conference_members
             WHERE id = :id
         """)
         result = await self.session.execute(query, {"id": entity_id})
@@ -101,7 +101,7 @@ class ConferenceMemberRepositoryImpl(
             conditions.append("end_date IS NULL")
 
         query = text(f"""
-            SELECT * FROM politician_affiliations
+            SELECT * FROM conference_members
             WHERE {" AND ".join(conditions)}
             ORDER BY start_date DESC
         """)
@@ -122,7 +122,7 @@ class ConferenceMemberRepositoryImpl(
             conditions.append("end_date IS NULL")
 
         query = text(f"""
-            SELECT * FROM politician_affiliations
+            SELECT * FROM conference_members
             WHERE {" AND ".join(conditions)}
             ORDER BY start_date DESC
         """)
@@ -143,7 +143,7 @@ class ConferenceMemberRepositoryImpl(
             conditions.append("end_date IS NULL")
 
         query = text(f"""
-            SELECT * FROM politician_affiliations
+            SELECT * FROM conference_members
             WHERE {" AND ".join(conditions)}
             ORDER BY start_date DESC
         """)
@@ -158,7 +158,7 @@ class ConferenceMemberRepositoryImpl(
     ) -> list[ConferenceMember]:
         """指定日時点で会議体に所属するメンバーを取得する."""
         query = text("""
-            SELECT * FROM politician_affiliations
+            SELECT * FROM conference_members
             WHERE conference_id = :conf_id
               AND start_date <= :target_date
               AND (end_date IS NULL OR end_date >= :target_date)
@@ -181,7 +181,7 @@ class ConferenceMemberRepositoryImpl(
         """Create or update a membership."""
         # Check if membership already exists
         query = text("""
-            SELECT * FROM politician_affiliations
+            SELECT * FROM conference_members
             WHERE politician_id = :pol_id
               AND conference_id = :conf_id
               AND start_date = :start_date
@@ -201,7 +201,7 @@ class ConferenceMemberRepositoryImpl(
         if existing_row:
             # Update existing
             update_stmt = text("""
-                UPDATE politician_affiliations
+                UPDATE conference_members
                 SET end_date = :end_date, role = :role
                 WHERE id = :id
             """)
@@ -226,7 +226,7 @@ class ConferenceMemberRepositoryImpl(
     ) -> ConferenceMember | None:
         """End a membership by setting the end date."""
         query = text("""
-            UPDATE politician_affiliations
+            UPDATE conference_members
             SET end_date = :end_date
             WHERE id = :id
         """)

@@ -410,7 +410,7 @@ graph TB
         CONVERSATION["conversations"]
         POLITICIAN["politicians"]
         SPEAKER["speakers"]
-        AFFILIATION["politician_affiliations"]
+        AFFILIATION["conference_members"]
         PG_MEMBER["parliamentary_group_memberships"]
     end
 
@@ -972,7 +972,7 @@ External Websites
    → Vertex AI (メンバー情報抽出)
    → Database (extracted_conference_members テーブル)
    → Vertex AI (政治家マッチング)
-   → Database (politician_affiliations テーブル)
+   → Database (conference_members テーブル)
 ```
 
 ### ローカル環境との違い

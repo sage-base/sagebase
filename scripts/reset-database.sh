@@ -73,7 +73,7 @@ echo ""
 echo "🔍 データベース初期化状態を確認中..."
 echo ""
 echo "📋 テーブル一覧:"
-docker exec docker-postgres-1 psql -U sagebase_user -d sagebase_db -c "\dt" | grep -E "public|meetings|conferences|politicians|speakers|conversations|proposals|governing_bodies|political_parties|parliamentary_groups|extracted_conference_members|politician_affiliations"
+docker exec docker-postgres-1 psql -U sagebase_user -d sagebase_db -c "\dt" | grep -E "public|meetings|conferences|politicians|speakers|conversations|proposals|governing_bodies|political_parties|parliamentary_groups|extracted_conference_members|conference_members"
 
 echo ""
 echo "🔄 マイグレーション実行状況を確認中..."
