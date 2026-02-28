@@ -9,7 +9,6 @@ LLMによる精密判定を実行する。
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
 
 from src.application.dtos.match_meeting_speakers_dto import (
     MatchMeetingSpeakersInputDTO,
@@ -240,7 +239,6 @@ class MatchMeetingSpeakersUseCase:
                 and baml_pending_speakers
             ):
                 role_name_mappings = minutes.role_name_mappings
-                candidate_dicts = self._candidates_to_dicts(candidates)
 
                 for speaker in baml_pending_speakers:
                     if not speaker.id:
@@ -249,7 +247,7 @@ class MatchMeetingSpeakersUseCase:
                         baml_svc = self._baml_matching_service
                         baml_result = await baml_svc.find_best_match_from_candidates(
                             speaker_name=speaker.name,
-                            candidates=candidate_dicts,
+                            candidates=candidates,
                             speaker_type=speaker.type,
                             speaker_party=speaker.political_party_name,
                             role_name_mappings=role_name_mappings,
@@ -404,17 +402,3 @@ class MatchMeetingSpeakersUseCase:
         return await self._conference_member_repo.get_by_conference_at_date(
             plenary.id, meeting_date
         )
-
-    @staticmethod
-    def _candidates_to_dicts(
-        candidates: list[PoliticianCandidate],
-    ) -> list[dict[str, Any]]:
-        """PoliticianCandidate を BAMLサービスが期待する dict 形式に変換する."""
-        return [
-            {
-                "id": c.politician_id,
-                "name": c.name,
-                "party_name": None,
-            }
-            for c in candidates
-        ]

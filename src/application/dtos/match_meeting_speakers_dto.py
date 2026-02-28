@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 
+from src.domain.services.speaker_classifier import SkipReason
 from src.domain.value_objects.speaker_politician_match_result import MatchMethod
 
 
@@ -25,7 +26,7 @@ class SpeakerMatchResultDTO:
     confidence: float
     match_method: MatchMethod
     updated: bool
-    skip_reason: str | None = None
+    skip_reason: SkipReason | None = None
 
 
 @dataclass

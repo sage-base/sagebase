@@ -21,6 +21,7 @@ class PoliticianCandidate:
     politician_id: int
     name: str
     furigana: str | None = None
+    party_name: str | None = None
 
 
 @dataclass(frozen=True)

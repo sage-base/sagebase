@@ -7,6 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.domain.value_objects.speaker_politician_match_result import (
+    PoliticianCandidate,
+)
 from src.infrastructure.external.politician_matching import (
     BAMLPoliticianMatchingService,
 )
@@ -303,8 +306,12 @@ class TestFindBestMatchFromCandidates:
             mock_llm_service, mock_politician_repository
         )
         candidates = [
-            {"id": 1, "name": "山田太郎", "party_name": "自由民主党"},
-            {"id": 2, "name": "佐藤花子", "party_name": "立憲民主党"},
+            PoliticianCandidate(
+                politician_id=1, name="山田太郎", party_name="自由民主党"
+            ),
+            PoliticianCandidate(
+                politician_id=2, name="佐藤花子", party_name="立憲民主党"
+            ),
         ]
 
         result = await service.find_best_match_from_candidates(
@@ -349,7 +356,7 @@ class TestFindBestMatchFromCandidates:
             mock_llm_service, mock_politician_repository
         )
         candidates = [
-            {"id": 1, "name": "大島理森", "party_name": None},
+            PoliticianCandidate(politician_id=1, name="大島理森"),
         ]
 
         result = await service.find_best_match_from_candidates(
@@ -373,7 +380,7 @@ class TestFindBestMatchFromCandidates:
             mock_llm_service, mock_politician_repository
         )
         candidates = [
-            {"id": 1, "name": "岸田文雄", "party_name": None},
+            PoliticianCandidate(politician_id=1, name="岸田文雄"),
         ]
 
         result = await service.find_best_match_from_candidates(
@@ -405,7 +412,7 @@ class TestFindBestMatchFromCandidates:
             mock_llm_service, mock_politician_repository
         )
         candidates = [
-            {"id": 1, "name": "山田太郎", "party_name": None},
+            PoliticianCandidate(politician_id=1, name="山田太郎"),
         ]
 
         result = await service.find_best_match_from_candidates(
@@ -428,7 +435,7 @@ class TestFindBestMatchFromCandidates:
             mock_llm_service, mock_politician_repository
         )
         candidates = [
-            {"id": 1, "name": "佐藤花子", "party_name": None},
+            PoliticianCandidate(politician_id=1, name="佐藤花子"),
         ]
 
         result = await service.find_best_match_from_candidates(

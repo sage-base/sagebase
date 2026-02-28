@@ -32,6 +32,7 @@ from src.domain.repositories.speaker_repository import SpeakerRepository
 from src.domain.services.interfaces.politician_matching_service import (
     IPoliticianMatchingService,
 )
+from src.domain.services.speaker_classifier import SkipReason
 from src.domain.services.speaker_politician_matching_service import (
     SpeakerPoliticianMatchingService,
 )
@@ -946,12 +947,14 @@ class TestBAMLFallback:
             )
         )
 
-        await usecase_with_baml.execute(
+        result = await usecase_with_baml.execute(
             MatchMeetingSpeakersInputDTO(meeting_id=1, enable_baml_fallback=True)
         )
 
         call_kwargs = mock_baml_service.find_best_match_from_candidates.call_args
         assert call_kwargs.kwargs["role_name_mappings"] == {"議長": "大島理森"}
+        assert result.matched_count == 1
+        assert result.baml_matched_count == 1
 
 
 class TestNonPoliticianClassification:
@@ -987,7 +990,7 @@ class TestNonPoliticianClassification:
         assert result.success is True
         assert result.matched_count == 0
         assert result.non_politician_count == 1
-        assert result.results[0].skip_reason == "role_only"
+        assert result.results[0].skip_reason == SkipReason.ROLE_ONLY
 
     @pytest.mark.asyncio
     async def test_reference_person_classified(
@@ -1017,7 +1020,7 @@ class TestNonPoliticianClassification:
         result = await usecase.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
 
         assert result.non_politician_count == 1
-        assert result.results[0].skip_reason == "reference_person"
+        assert result.results[0].skip_reason == SkipReason.REFERENCE_PERSON
 
     @pytest.mark.asyncio
     async def test_government_official_classified(
@@ -1047,7 +1050,7 @@ class TestNonPoliticianClassification:
         result = await usecase.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
 
         assert result.non_politician_count == 1
-        assert result.results[0].skip_reason == "government_official"
+        assert result.results[0].skip_reason == SkipReason.GOVERNMENT_OFFICIAL
 
     @pytest.mark.asyncio
     async def test_non_politician_is_politician_flag_set_false(
@@ -1078,6 +1081,39 @@ class TestNonPoliticianClassification:
 
         assert result.non_politician_count == 1
         mock_repos["speaker_repository"].update.assert_called_once()
+        call_args = mock_repos["speaker_repository"].update.call_args
+        updated_speaker = call_args[0][0]
+        assert updated_speaker.is_politician is False
+
+    @pytest.mark.asyncio
+    async def test_non_politician_already_false_no_update(
+        self, usecase: MatchMeetingSpeakersUseCase, mock_repos: dict[str, AsyncMock]
+    ) -> None:
+        """is_politician=Falseの非政治家はupdateが呼ばれない."""
+        _setup_meeting(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1])
+        _setup_speakers(
+            mock_repos,
+            [Speaker(name="委員長", is_politician=False, id=1)],
+        )
+        _setup_candidates(
+            mock_repos,
+            [
+                ConferenceMember(
+                    politician_id=100,
+                    conference_id=10,
+                    start_date=date(2024, 1, 1),
+                    id=1,
+                )
+            ],
+            [Politician(name="岸田文雄", prefecture="", district="", id=100)],
+        )
+
+        result = await usecase.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
+
+        assert result.non_politician_count == 1
+        mock_repos["speaker_repository"].update.assert_not_called()
 
 
 class TestIsPoliticianFlag:
@@ -1157,3 +1193,159 @@ class TestIsPoliticianFlag:
         updated_speaker = call_args[0][0]
         assert updated_speaker.is_politician is True
         assert updated_speaker.politician_id == 100
+
+
+class TestMixedScenarios:
+    """混合シナリオのテスト."""
+
+    @pytest.mark.asyncio
+    async def test_mixed_rule_based_non_politician_and_baml(
+        self,
+        usecase_with_baml: MatchMeetingSpeakersUseCase,
+        mock_repos: dict[str, AsyncMock],
+        mock_baml_service: AsyncMock,
+    ) -> None:
+        """ルールベースマッチ + 非政治家分類 + BAMLフォールバックの混合."""
+        _setup_meeting(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1, 2, 3])
+        _setup_speakers(
+            mock_repos,
+            [
+                Speaker(name="岸田文雄", id=1),  # ルールベースマッチ
+                Speaker(name="議長", id=2),  # 非政治家（role_only）
+                Speaker(name="あいまい名前", id=3),  # BAMLフォールバック対象
+            ],
+        )
+        _setup_candidates(
+            mock_repos,
+            [
+                ConferenceMember(
+                    politician_id=100,
+                    conference_id=10,
+                    start_date=date(2024, 1, 1),
+                    id=1,
+                )
+            ],
+            [Politician(name="岸田文雄", prefecture="", district="", id=100)],
+        )
+
+        mock_baml_service.find_best_match_from_candidates.return_value = (
+            PoliticianMatch(
+                matched=True,
+                politician_id=100,
+                politician_name="岸田文雄",
+                confidence=0.85,
+                reason="BAML判定",
+            )
+        )
+
+        result = await usecase_with_baml.execute(
+            MatchMeetingSpeakersInputDTO(meeting_id=1, enable_baml_fallback=True)
+        )
+
+        assert result.success is True
+        assert result.matched_count == 2  # ルールベース1 + BAML1
+        assert result.baml_matched_count == 1
+        assert result.non_politician_count == 1
+        # BAMLは1回だけ呼ばれる（非政治家はBAMLに渡されない）
+        assert mock_baml_service.find_best_match_from_candidates.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_baml_batch_mixed_success_and_failure(
+        self,
+        usecase_with_baml: MatchMeetingSpeakersUseCase,
+        mock_repos: dict[str, AsyncMock],
+        mock_baml_service: AsyncMock,
+    ) -> None:
+        """複数BAMLフォールバック: 1人成功、1人エラーでバッチ継続."""
+        _setup_meeting(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1, 2])
+        _setup_speakers(
+            mock_repos,
+            [
+                Speaker(name="不明太郎", id=1),
+                Speaker(name="不明次郎", id=2),
+            ],
+        )
+        _setup_candidates(
+            mock_repos,
+            [
+                ConferenceMember(
+                    politician_id=100,
+                    conference_id=10,
+                    start_date=date(2024, 1, 1),
+                    id=1,
+                )
+            ],
+            [Politician(name="岸田文雄", prefecture="", district="", id=100)],
+        )
+
+        # 1人目: BAML成功、2人目: BAMLエラー
+        mock_baml_service.find_best_match_from_candidates.side_effect = [
+            PoliticianMatch(
+                matched=True,
+                politician_id=100,
+                politician_name="岸田文雄",
+                confidence=0.9,
+                reason="BAML判定",
+            ),
+            RuntimeError("LLMエラー"),
+        ]
+
+        result = await usecase_with_baml.execute(
+            MatchMeetingSpeakersInputDTO(meeting_id=1, enable_baml_fallback=True)
+        )
+
+        assert result.success is True
+        assert result.matched_count == 1
+        assert result.baml_matched_count == 1
+        assert len(result.results) == 2
+        # 1人目: マッチ成功
+        assert result.results[0].updated is True
+        assert result.results[0].match_method == MatchMethod.BAML
+        # 2人目: エラーだが結果に記録される
+        assert result.results[1].updated is False
+        assert result.results[1].match_method == MatchMethod.NONE
+
+    @pytest.mark.asyncio
+    async def test_all_non_politician_no_baml_called(
+        self,
+        usecase_with_baml: MatchMeetingSpeakersUseCase,
+        mock_repos: dict[str, AsyncMock],
+        mock_baml_service: AsyncMock,
+    ) -> None:
+        """全員が非政治家分類された場合、BAMLは呼ばれない."""
+        _setup_meeting(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1, 2])
+        _setup_speakers(
+            mock_repos,
+            [
+                Speaker(name="議長", id=1),
+                Speaker(name="参考人", id=2),
+            ],
+        )
+        _setup_candidates(
+            mock_repos,
+            [
+                ConferenceMember(
+                    politician_id=100,
+                    conference_id=10,
+                    start_date=date(2024, 1, 1),
+                    id=1,
+                )
+            ],
+            [Politician(name="岸田文雄", prefecture="", district="", id=100)],
+        )
+
+        result = await usecase_with_baml.execute(
+            MatchMeetingSpeakersInputDTO(meeting_id=1, enable_baml_fallback=True)
+        )
+
+        assert result.success is True
+        assert result.non_politician_count == 2
+        assert result.matched_count == 0
+        assert result.baml_matched_count == 0
+        mock_baml_service.find_best_match_from_candidates.assert_not_called()

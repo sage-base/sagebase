@@ -21,7 +21,11 @@ from baml_client.async_client import b
 from src.domain.exceptions import ExternalServiceException
 from src.domain.repositories.politician_repository import PoliticianRepository
 from src.domain.services.interfaces.llm_service import ILLMService
+from src.domain.services.speaker_classifier import is_non_politician_name
 from src.domain.value_objects.politician_match import PoliticianMatch
+from src.domain.value_objects.speaker_politician_match_result import (
+    PoliticianCandidate,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -65,8 +69,6 @@ class BAMLPoliticianMatchingService:
         Returns:
             bool: 役職のみの場合はTrue
         """
-        from src.domain.services.speaker_classifier import is_non_politician_name
-
         return is_non_politician_name(speaker_name)
 
     async def find_best_match(
@@ -197,7 +199,7 @@ class BAMLPoliticianMatchingService:
     async def find_best_match_from_candidates(
         self,
         speaker_name: str,
-        candidates: list[dict[str, Any]],
+        candidates: list[PoliticianCandidate],
         speaker_type: str | None = None,
         speaker_party: str | None = None,
         role_name_mappings: dict[str, str] | None = None,
@@ -210,7 +212,7 @@ class BAMLPoliticianMatchingService:
 
         Args:
             speaker_name: マッチングする発言者名
-            candidates: 候補政治家リスト（各dictは "id", "name" を含む）
+            candidates: 候補政治家リスト
             speaker_type: 発言者の種別
             speaker_party: 発言者の所属政党
             role_name_mappings: 役職-人名マッピング辞書
@@ -227,7 +229,8 @@ class BAMLPoliticianMatchingService:
                 )
             else:
                 logger.debug(
-                    "役職のみの発言者をスキップ（マッピングなし）: '%s'", speaker_name
+                    "役職のみの発言者をスキップ（マッピングなし）: '%s'",
+                    speaker_name,
                 )
                 return PoliticianMatch(
                     matched=False,
@@ -237,30 +240,36 @@ class BAMLPoliticianMatchingService:
 
         if not candidates:
             return PoliticianMatch(
-                matched=False, confidence=0.0, reason="候補政治家リストが空です"
+                matched=False,
+                confidence=0.0,
+                reason="候補政治家リストが空です",
             )
+
+        # PoliticianCandidate → dict に変換（内部ルールベース互換）
+        candidate_dicts = self._candidates_to_dicts(candidates)
 
         # ルールベースマッチング（高速パス）
         rule_based_match = self._rule_based_matching(
-            resolved_name, speaker_party, candidates
+            resolved_name, speaker_party, candidate_dicts
         )
         if rule_based_match.matched and rule_based_match.confidence >= 0.9:
-            logger.info("ルールベースマッチング成功（候補リスト）: '%s'", resolved_name)
+            logger.info(
+                "ルールベースマッチング成功（候補リスト）: '%s'",
+                resolved_name,
+            )
             return rule_based_match
 
         # BAMLによる高度なマッチング
         try:
-            filtered_politicians = self._filter_candidates(
-                resolved_name, speaker_party, candidates
+            filtered = self._filter_candidates(
+                resolved_name, speaker_party, candidate_dicts
             )
 
             baml_result = await b.MatchPolitician(
                 speaker_name=resolved_name,
                 speaker_type=speaker_type or "不明",
                 speaker_party=speaker_party or "不明",
-                available_politicians=self._format_politicians_for_llm(
-                    filtered_politicians
-                ),
+                available_politicians=self._format_politicians_for_llm(filtered),
             )
 
             match_result = PoliticianMatch(
@@ -299,7 +308,7 @@ class BAMLPoliticianMatchingService:
             return PoliticianMatch(
                 matched=False,
                 confidence=0.0,
-                reason=f"LLMが構造化出力を返せませんでした: {resolved_name}",
+                reason=(f"LLMが構造化出力を返せませんでした: {resolved_name}"),
             )
         except Exception as e:
             logger.error(
@@ -313,6 +322,20 @@ class BAMLPoliticianMatchingService:
                 operation="politician_matching_from_candidates",
                 reason=f"政治家マッチング中にエラーが発生しました: {e}",
             ) from e
+
+    @staticmethod
+    def _candidates_to_dicts(
+        candidates: list[PoliticianCandidate],
+    ) -> list[dict[str, Any]]:
+        """PoliticianCandidate → dict変換（内部ルールベース互換用）."""
+        return [
+            {
+                "id": c.politician_id,
+                "name": c.name,
+                "party_name": c.party_name,
+            }
+            for c in candidates
+        ]
 
     def _rule_based_matching(
         self,

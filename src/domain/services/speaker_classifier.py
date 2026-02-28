@@ -4,6 +4,18 @@
 名前パターンに基づいて判定する。
 """
 
+from enum import Enum
+
+
+class SkipReason(Enum):
+    """非政治家分類の理由."""
+
+    ROLE_ONLY = "role_only"
+    REFERENCE_PERSON = "reference_person"
+    GOVERNMENT_OFFICIAL = "government_official"
+    OTHER_NON_POLITICIAN = "other_non_politician"
+
+
 # カテゴリ別の非政治家名パターン
 # 議会役職（個人を特定できない役職名のみの発言者）
 _ROLE_ONLY_NAMES: frozenset[str] = frozenset(
@@ -70,26 +82,22 @@ def is_non_politician_name(name: str) -> bool:
     return name.strip() in NON_POLITICIAN_EXACT_NAMES
 
 
-def classify_speaker_skip_reason(name: str) -> str | None:
+def classify_speaker_skip_reason(name: str) -> SkipReason | None:
     """発言者名を分類し、非政治家カテゴリを返す.
 
     Args:
         name: 発言者名
 
     Returns:
-        分類理由文字列。政治家の可能性がある場合はNone。
-        - "role_only": 役職のみ（議長、委員長等）
-        - "reference_person": 参考人・証人等
-        - "government_official": 政府側出席者
-        - "other_non_politician": その他の非政治家
+        SkipReason Enum値。政治家の可能性がある場合はNone。
     """
     stripped = name.strip()
     if stripped in _ROLE_ONLY_NAMES:
-        return "role_only"
+        return SkipReason.ROLE_ONLY
     if stripped in _REFERENCE_PERSON_NAMES:
-        return "reference_person"
+        return SkipReason.REFERENCE_PERSON
     if stripped in _GOVERNMENT_OFFICIAL_NAMES:
-        return "government_official"
+        return SkipReason.GOVERNMENT_OFFICIAL
     if stripped in _OTHER_NON_POLITICIAN_NAMES:
-        return "other_non_politician"
+        return SkipReason.OTHER_NON_POLITICIAN
     return None

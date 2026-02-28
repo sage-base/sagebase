@@ -4,6 +4,7 @@ import pytest
 
 from src.domain.services.speaker_classifier import (
     NON_POLITICIAN_EXACT_NAMES,
+    SkipReason,
     classify_speaker_skip_reason,
     is_non_politician_name,
 )
@@ -78,54 +79,60 @@ class TestClassifySpeakerSkipReason:
     @pytest.mark.parametrize(
         ("name", "expected"),
         [
-            ("議長", "role_only"),
-            ("副議長", "role_only"),
-            ("委員長", "role_only"),
-            ("副委員長", "role_only"),
-            ("仮議長", "role_only"),
+            ("議長", SkipReason.ROLE_ONLY),
+            ("副議長", SkipReason.ROLE_ONLY),
+            ("委員長", SkipReason.ROLE_ONLY),
+            ("副委員長", SkipReason.ROLE_ONLY),
+            ("仮議長", SkipReason.ROLE_ONLY),
         ],
     )
-    def test_role_only_classification(self, name: str, expected: str) -> None:
-        """議会役職名がrole_onlyに分類される."""
+    def test_role_only_classification(self, name: str, expected: SkipReason) -> None:
+        """議会役職名がROLE_ONLYに分類される."""
         assert classify_speaker_skip_reason(name) == expected
 
     @pytest.mark.parametrize(
         ("name", "expected"),
         [
-            ("参考人", "reference_person"),
-            ("証人", "reference_person"),
-            ("公述人", "reference_person"),
+            ("参考人", SkipReason.REFERENCE_PERSON),
+            ("証人", SkipReason.REFERENCE_PERSON),
+            ("公述人", SkipReason.REFERENCE_PERSON),
         ],
     )
-    def test_reference_person_classification(self, name: str, expected: str) -> None:
-        """参考人等がreference_personに分類される."""
+    def test_reference_person_classification(
+        self, name: str, expected: SkipReason
+    ) -> None:
+        """参考人等がREFERENCE_PERSONに分類される."""
         assert classify_speaker_skip_reason(name) == expected
 
     @pytest.mark.parametrize(
         ("name", "expected"),
         [
-            ("説明員", "government_official"),
-            ("政府委員", "government_official"),
-            ("政府参考人", "government_official"),
+            ("説明員", SkipReason.GOVERNMENT_OFFICIAL),
+            ("政府委員", SkipReason.GOVERNMENT_OFFICIAL),
+            ("政府参考人", SkipReason.GOVERNMENT_OFFICIAL),
         ],
     )
-    def test_government_official_classification(self, name: str, expected: str) -> None:
-        """政府側出席者がgovernment_officialに分類される."""
+    def test_government_official_classification(
+        self, name: str, expected: SkipReason
+    ) -> None:
+        """政府側出席者がGOVERNMENT_OFFICIALに分類される."""
         assert classify_speaker_skip_reason(name) == expected
 
     @pytest.mark.parametrize(
         ("name", "expected"),
         [
-            ("事務局長", "other_non_politician"),
-            ("書記", "other_non_politician"),
-            ("幹事", "other_non_politician"),
-            ("会議録情報", "other_non_politician"),
+            ("事務局長", SkipReason.OTHER_NON_POLITICIAN),
+            ("事務局次長", SkipReason.OTHER_NON_POLITICIAN),
+            ("書記", SkipReason.OTHER_NON_POLITICIAN),
+            ("速記者", SkipReason.OTHER_NON_POLITICIAN),
+            ("幹事", SkipReason.OTHER_NON_POLITICIAN),
+            ("会議録情報", SkipReason.OTHER_NON_POLITICIAN),
         ],
     )
     def test_other_non_politician_classification(
-        self, name: str, expected: str
+        self, name: str, expected: SkipReason
     ) -> None:
-        """その他の非政治家がother_non_politicianに分類される."""
+        """その他の非政治家がOTHER_NON_POLITICIANに分類される."""
         assert classify_speaker_skip_reason(name) == expected
 
     def test_normal_name_returns_none(self) -> None:
@@ -135,4 +142,4 @@ class TestClassifySpeakerSkipReason:
 
     def test_strips_whitespace(self) -> None:
         """前後空白をstripして判定する."""
-        assert classify_speaker_skip_reason(" 議長 ") == "role_only"
+        assert classify_speaker_skip_reason(" 議長 ") == SkipReason.ROLE_ONLY

@@ -4,9 +4,14 @@
 Domain層に配置され、Infrastructure層の実装から実装されます。
 """
 
-from typing import Any, Protocol
+from __future__ import annotations
+
+from typing import Protocol
 
 from src.domain.value_objects.politician_match import PoliticianMatch
+from src.domain.value_objects.speaker_politician_match_result import (
+    PoliticianCandidate,
+)
 
 
 class IPoliticianMatchingService(Protocol):
@@ -47,7 +52,7 @@ class IPoliticianMatchingService(Protocol):
     async def find_best_match_from_candidates(
         self,
         speaker_name: str,
-        candidates: list[dict[str, Any]],
+        candidates: list[PoliticianCandidate],
         speaker_type: str | None = None,
         speaker_party: str | None = None,
         role_name_mappings: dict[str, str] | None = None,
@@ -60,8 +65,7 @@ class IPoliticianMatchingService(Protocol):
 
         Args:
             speaker_name: マッチングする発言者名
-            candidates: 候補政治家のリスト。各dictは少なくとも
-                "id", "name" を含む。"party_name" はオプション。
+            candidates: 候補政治家のリスト
             speaker_type: 発言者の種別
             speaker_party: 発言者の所属政党
             role_name_mappings: 役職-人名マッピング辞書
