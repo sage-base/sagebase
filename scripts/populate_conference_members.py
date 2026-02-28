@@ -174,6 +174,7 @@ async def run_bulk(
                     term_number=election.term_number,
                     governing_body_id=election.governing_body_id,
                     conference_name=conference_name,
+                    election_type=election.election_type,
                     dry_run=dry_run,
                 )
 

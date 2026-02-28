@@ -223,6 +223,27 @@ class TestGetOrCreateElection:
         assert result == existing
         mock_election_repo.create.assert_not_called()
 
+    async def test_passes_election_type_to_repository(
+        self, service: ElectionImportService, mock_election_repo: AsyncMock
+    ) -> None:
+        """election_typeがリポジトリの検索に渡されることを確認."""
+        existing = Election(
+            governing_body_id=1,
+            term_number=25,
+            election_date=date(2019, 7, 21),
+            election_type=Election.ELECTION_TYPE_SANGIIN,
+            id=1,
+        )
+        mock_election_repo.get_by_governing_body_and_term.return_value = existing
+
+        result = await service.get_or_create_election(
+            1, 25, date(2019, 7, 21), election_type=Election.ELECTION_TYPE_SANGIIN
+        )
+        assert result == existing
+        mock_election_repo.get_by_governing_body_and_term.assert_called_once_with(
+            1, 25, election_type=Election.ELECTION_TYPE_SANGIIN
+        )
+
     async def test_creates_new_election(
         self, service: ElectionImportService, mock_election_repo: AsyncMock
     ) -> None:

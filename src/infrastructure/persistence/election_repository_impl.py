@@ -77,13 +77,16 @@ class ElectionRepositoryImpl(BaseRepositoryImpl[Election], ElectionRepository):
         return True
 
     def _to_entity(self, model: ElectionModel) -> Election:
-        return Election(
+        entity = Election(
             id=model.id,
             governing_body_id=model.governing_body_id,
             term_number=model.term_number,
             election_date=model.election_date,
             election_type=model.election_type,
         )
+        entity.created_at = model.created_at
+        entity.updated_at = model.updated_at
+        return entity
 
     def _to_model(self, entity: Election) -> ElectionModel:
         return ElectionModel(

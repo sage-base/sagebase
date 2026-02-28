@@ -84,7 +84,7 @@ class ManageElectionsUseCase:
             if existing:
                 return CreateElectionOutputDto(
                     success=False,
-                    error_message="同じ開催主体と期番号の選挙が既に存在します。",
+                    error_message="同じ開催主体・期番号・選挙種別の選挙が既に存在します。",
                 )
 
             # 期番号のバリデーション
@@ -129,7 +129,7 @@ class ManageElectionsUseCase:
             if duplicate and duplicate.id != input_dto.id:
                 return UpdateElectionOutputDto(
                     success=False,
-                    error_message="同じ開催主体と期番号の選挙が既に存在します。",
+                    error_message="同じ開催主体・期番号・選挙種別の選挙が既に存在します。",
                 )
 
             # 期番号のバリデーション

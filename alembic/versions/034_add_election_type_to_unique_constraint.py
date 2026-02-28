@@ -30,7 +30,7 @@ def upgrade() -> None:
     # 重複とみなされないため、同じ (governing_body_id, term_number) で
     # election_type が NULL のレコードは複数存在しうる。
     op.create_index(
-        "idx_elections_governing_body_term",
+        "idx_elections_governing_body_term_type",
         "elections",
         ["governing_body_id", "term_number", "election_type"],
         unique=True,
@@ -39,7 +39,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # 3カラムUNIQUEインデックスを削除
-    op.execute("DROP INDEX IF EXISTS idx_elections_governing_body_term")
+    op.execute("DROP INDEX IF EXISTS idx_elections_governing_body_term_type")
 
     # 元の2カラムUNIQUEインデックスを再作成
     op.create_index(
