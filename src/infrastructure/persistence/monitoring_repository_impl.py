@@ -110,7 +110,7 @@ class MonitoringRepositoryImpl:
                     (SELECT COUNT(*) FROM politicians) as total_politicians,
                     (SELECT COUNT(DISTINCT p.id)
                      FROM politicians p
-                     JOIN conference_members pa ON p.id = pa.politician_id)
+                     JOIN conference_members cm ON p.id = cm.politician_id)
                         as active_politicians,
                     (SELECT COUNT(*) FROM political_parties) as total_parties,
                     (SELECT COUNT(DISTINCT pmh.political_party_id)
@@ -281,14 +281,14 @@ class MonitoringRepositoryImpl:
                 c.name,
                 gb.name as governing_body_name,
                 COUNT(DISTINCT m.id) as meeting_count,
-                COUNT(DISTINCT pa.politician_id) as politician_count,
+                COUNT(DISTINCT cm.politician_id) as politician_count,
                 COUNT(DISTINCT conv.id) as conversation_count,
                 MIN(m.date) as first_meeting_date,
                 MAX(m.date) as last_meeting_date
             FROM conferences c
             JOIN governing_bodies gb ON c.governing_body_id = gb.id
             LEFT JOIN meetings m ON c.id = m.conference_id
-            LEFT JOIN conference_members pa ON c.id = pa.conference_id
+            LEFT JOIN conference_members cm ON c.id = cm.conference_id
             LEFT JOIN minutes min ON m.id = min.meeting_id
             LEFT JOIN conversations conv ON min.id = conv.minutes_id
             GROUP BY c.id, c.name, gb.name
@@ -491,14 +491,14 @@ class MonitoringRepositoryImpl:
                     gb.organization_type,
                     COUNT(DISTINCT c.id) as conference_count,
                     COUNT(DISTINCT m.id) as meeting_count,
-                    COUNT(DISTINCT pa.politician_id) as politician_count,
+                    COUNT(DISTINCT cm.politician_id) as politician_count,
                     COUNT(DISTINCT conv.id) as conversation_count,
                     MIN(m.date) as first_meeting_date,
                     MAX(m.date) as last_meeting_date
                 FROM governing_bodies gb
                 LEFT JOIN conferences c ON gb.id = c.governing_body_id
                 LEFT JOIN meetings m ON c.id = m.conference_id
-                LEFT JOIN conference_members pa ON c.id = pa.conference_id
+                LEFT JOIN conference_members cm ON c.id = cm.conference_id
                 LEFT JOIN minutes min ON m.id = min.meeting_id
                 LEFT JOIN conversations conv ON min.id = conv.minutes_id
                 WHERE gb.type IN ('都道府県', '市町村')

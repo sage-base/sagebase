@@ -246,21 +246,21 @@ def generate_seed_file() -> None:
         result = conn.execute(
             text("""
                 SELECT
-                    pa.politician_id,
-                    pa.conference_id,
-                    pa.start_date,
-                    pa.end_date,
-                    pa.role,
+                    cm.politician_id,
+                    cm.conference_id,
+                    cm.start_date,
+                    cm.end_date,
+                    cm.role,
                     p.name AS politician_name,
                     c.name AS conference_name,
                     gb.name AS governing_body_name,
                     gb.type AS governing_body_type
-                FROM conference_members pa
-                JOIN politicians p ON pa.politician_id = p.id
-                JOIN conferences c ON pa.conference_id = c.id
+                FROM conference_members cm
+                JOIN politicians p ON cm.politician_id = p.id
+                JOIN conferences c ON cm.conference_id = c.id
                 JOIN governing_bodies gb ON c.governing_body_id = gb.id
                 ORDER BY
-                    pa.start_date,
+                    cm.start_date,
                     gb.name,
                     c.name,
                     p.name

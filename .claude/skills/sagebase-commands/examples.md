@@ -202,10 +202,10 @@ just exec uv run sagebase create-affiliations --conference-id 185
 # 8. Verify in database
 just db
 # Query:
-SELECT p.name, pa.role, pa.start_date
-FROM conference_members pa
-JOIN politicians p ON pa.politician_id = p.id
-WHERE pa.conference_id = 185
+SELECT p.name, cm.role, cm.start_date
+FROM conference_members cm
+JOIN politicians p ON cm.politician_id = p.id
+WHERE cm.conference_id = 185
 ORDER BY p.name;
 ```
 
