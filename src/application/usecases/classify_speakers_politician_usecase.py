@@ -7,7 +7,10 @@ SpeakerのisPoliticianフラグを一括で分類する。
 import logging
 
 from src.domain.repositories.speaker_repository import SpeakerRepository
-from src.domain.services.speaker_classifier import NON_POLITICIAN_EXACT_NAMES
+from src.domain.services.speaker_classifier import (
+    NON_POLITICIAN_EXACT_NAMES,
+    NON_POLITICIAN_PREFIX_PATTERNS,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -31,7 +34,8 @@ class ClassifySpeakersPoliticianUseCase:
             分類結果の統計情報
         """
         result = await self.speaker_repository.classify_is_politician_bulk(
-            NON_POLITICIAN_EXACT_NAMES
+            NON_POLITICIAN_EXACT_NAMES,
+            non_politician_prefixes=NON_POLITICIAN_PREFIX_PATTERNS,
         )
         logger.info(
             "Speaker分類完了: 政治家に設定=%d件, 非政治家に設定=%d件",
