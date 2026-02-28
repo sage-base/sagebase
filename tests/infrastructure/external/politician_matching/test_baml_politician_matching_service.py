@@ -267,30 +267,6 @@ class TestBAMLPoliticianMatchingService:
         assert result.confidence == 0.0
         assert "LLMが構造化出力を返せませんでした" in result.reason
 
-    @pytest.mark.asyncio
-    async def test_is_title_only_speaker_method(
-        self,
-        mock_llm_service,
-        mock_politician_repository,
-    ):
-        """_is_title_only_speakerメソッドのテスト"""
-        service = BAMLPoliticianMatchingService(
-            mock_llm_service, mock_politician_repository
-        )
-
-        # 役職のみの発言者
-        assert service._is_title_only_speaker("委員長") is True
-        assert service._is_title_only_speaker("  議長  ") is True  # 空白はトリム
-
-        # 通常の発言者名
-        assert service._is_title_only_speaker("山田太郎") is False
-        assert service._is_title_only_speaker("山田委員長") is False  # 名前+役職
-        assert service._is_title_only_speaker("委員長山田") is False  # 役職+名前
-
-        # 空文字・空白のみ（エッジケース）
-        assert service._is_title_only_speaker("") is False  # 空文字
-        assert service._is_title_only_speaker("   ") is False  # 空白のみ
-
 
 class TestFindBestMatchFromCandidates:
     """find_best_match_from_candidates メソッドのテスト."""

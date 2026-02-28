@@ -43,6 +43,19 @@ from src.domain.value_objects.speaker_politician_match_result import (
 class MatchMeetingSpeakersUseCase:
     """会議発言者→政治家自動マッチングユースケース."""
 
+    @staticmethod
+    def _unmatched_dto(speaker: Speaker) -> SpeakerMatchResultDTO:
+        """未マッチSpeaker用のDTO生成ファクトリ."""
+        return SpeakerMatchResultDTO(
+            speaker_id=speaker.id,  # type: ignore[arg-type]
+            speaker_name=speaker.name,
+            politician_id=None,
+            politician_name=None,
+            confidence=0.0,
+            match_method=MatchMethod.NONE,
+            updated=False,
+        )
+
     def __init__(
         self,
         meeting_repository: MeetingRepository,
@@ -215,18 +228,9 @@ class MatchMeetingSpeakersUseCase:
                     self._logger.debug(
                         "非政治家分類: %s → %s", speaker.name, skip_reason
                     )
-                    results.append(
-                        SpeakerMatchResultDTO(
-                            speaker_id=speaker.id,
-                            speaker_name=speaker.name,
-                            politician_id=None,
-                            politician_name=None,
-                            confidence=0.0,
-                            match_method=MatchMethod.NONE,
-                            updated=False,
-                            skip_reason=skip_reason,
-                        )
-                    )
+                    dto = self._unmatched_dto(speaker)
+                    dto.skip_reason = skip_reason
+                    results.append(dto)
                     continue
 
                 # BAMLフォールバック対象として保留
@@ -295,33 +299,13 @@ class MatchMeetingSpeakersUseCase:
                             speaker.name,
                             exc_info=True,
                         )
-                        results.append(
-                            SpeakerMatchResultDTO(
-                                speaker_id=speaker.id,
-                                speaker_name=speaker.name,
-                                politician_id=None,
-                                politician_name=None,
-                                confidence=0.0,
-                                match_method=MatchMethod.NONE,
-                                updated=False,
-                            )
-                        )
+                        results.append(self._unmatched_dto(speaker))
             else:
                 # BAMLフォールバック無効時、残りの未マッチSpeakerを結果に追加
                 for speaker in baml_pending_speakers:
                     if not speaker.id:
                         continue
-                    results.append(
-                        SpeakerMatchResultDTO(
-                            speaker_id=speaker.id,
-                            speaker_name=speaker.name,
-                            politician_id=None,
-                            politician_name=None,
-                            confidence=0.0,
-                            match_method=MatchMethod.NONE,
-                            updated=False,
-                        )
-                    )
+                    results.append(self._unmatched_dto(speaker))
 
             return MatchMeetingSpeakersOutputDTO(
                 success=True,
