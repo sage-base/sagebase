@@ -704,7 +704,6 @@ class TestMatchMeetingSpeakersUseCase:
         ].get_by_name_and_governing_body.assert_not_called()
 
     @pytest.mark.asyncio
-    @pytest.mark.asyncio
     async def test_fallback_plenary_not_found(
         self, usecase: MatchMeetingSpeakersUseCase, mock_repos: dict[str, AsyncMock]
     ) -> None:

@@ -239,7 +239,7 @@ class MatchMeetingSpeakersUseCase:
                 and self._baml_matching_service is not None
                 and baml_pending_speakers
             ):
-                role_name_mappings = getattr(minutes, "role_name_mappings", None)
+                role_name_mappings = minutes.role_name_mappings
                 candidate_dicts = self._candidates_to_dicts(candidates)
 
                 for speaker in baml_pending_speakers:

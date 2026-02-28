@@ -866,5 +866,5 @@ class UseCaseContainer(containers.DeclarativeContainer):
         politician_repository=repositories.politician_repository,
         matching_service=providers.Factory(SpeakerPoliticianMatchingService),
         conference_repository=repositories.conference_repository,
-        baml_matching_service=services.baml_politician_matching_service,
+        baml_matching_service=baml_politician_matching_service,
     )
