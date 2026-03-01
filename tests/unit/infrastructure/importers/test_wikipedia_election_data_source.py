@@ -47,7 +47,7 @@ class TestWikipediaElectionDataSource:
     async def test_fetch_candidates_success(self) -> None:
         ds = WikipediaElectionDataSource()
         with patch(
-            "src.infrastructure.importers.wikipedia_election_data_source._fetch_wikitext",
+            "src.infrastructure.importers.wikipedia_election_data_source.fetch_wikipedia_wikitext",
             return_value=MOCK_WIKITEXT_42,
         ):
             info, candidates = await ds.fetch_candidates(42)
@@ -84,7 +84,7 @@ class TestWikipediaElectionDataSource:
         for n in SUPPORTED_ELECTIONS:
             mock_data = MOCK_WIKITEXT_OLD if n <= 40 else MOCK_WIKITEXT_42
             with patch(
-                "src.infrastructure.importers.wikipedia_election_data_source._fetch_wikitext",
+                "src.infrastructure.importers.wikipedia_election_data_source.fetch_wikipedia_wikitext",
                 return_value=mock_data,
             ):
                 info, _ = await ds.fetch_candidates(n)
@@ -96,7 +96,7 @@ class TestWikipediaElectionDataSource:
         """中選挙区制（第40回以前）のfetch_candidates."""
         ds = WikipediaElectionDataSource()
         with patch(
-            "src.infrastructure.importers.wikipedia_election_data_source._fetch_wikitext",
+            "src.infrastructure.importers.wikipedia_election_data_source.fetch_wikipedia_wikitext",
             return_value=MOCK_WIKITEXT_OLD,
         ):
             info, candidates = await ds.fetch_candidates(40)
