@@ -30,7 +30,10 @@ from src.domain.repositories.speaker_repository import SpeakerRepository
 from src.domain.services.interfaces.politician_matching_service import (
     IPoliticianMatchingService,
 )
-from src.domain.services.speaker_classifier import classify_speaker_skip_reason
+from src.domain.services.speaker_classifier import (
+    SkipReason,
+    classify_speaker_skip_reason,
+)
 from src.domain.services.speaker_politician_matching_service import (
     SpeakerPoliticianMatchingService,
 )
@@ -162,6 +165,7 @@ class MatchMeetingSpeakersUseCase:
             baml_matched_count = 0
             non_politician_count = 0
             baml_pending_speakers: list[Speaker] = []
+            homonym_speaker_ids: set[int] = set()
 
             for speaker in unmatched_speakers:
                 if not speaker.id:
@@ -220,6 +224,14 @@ class MatchMeetingSpeakersUseCase:
                     results.append(dto)
                     continue
 
+                # 6.5. 同姓候補が複数存在する場合のhomonym判定
+                if self._matching_service.has_surname_ambiguity(
+                    speaker.name, candidates
+                ):
+                    if speaker.id:
+                        homonym_speaker_ids.add(speaker.id)
+                    self._logger.debug("同姓候補複数: %s", speaker.name)
+
                 # BAMLフォールバック対象として保留
                 baml_pending_speakers.append(speaker)
 
@@ -263,36 +275,44 @@ class MatchMeetingSpeakersUseCase:
                                 baml_result.confidence,
                             )
 
-                        results.append(
-                            SpeakerMatchResultDTO(
-                                speaker_id=speaker.id,
-                                speaker_name=speaker.name,
-                                politician_id=baml_result.politician_id
-                                if baml_result.matched
-                                else None,
-                                politician_name=baml_result.politician_name
-                                if baml_result.matched
-                                else None,
-                                confidence=baml_result.confidence,
-                                match_method=MatchMethod.BAML
-                                if updated
-                                else MatchMethod.NONE,
-                                updated=updated,
-                            )
+                        dto = SpeakerMatchResultDTO(
+                            speaker_id=speaker.id,
+                            speaker_name=speaker.name,
+                            politician_id=baml_result.politician_id
+                            if baml_result.matched
+                            else None,
+                            politician_name=baml_result.politician_name
+                            if baml_result.matched
+                            else None,
+                            confidence=baml_result.confidence,
+                            match_method=MatchMethod.BAML
+                            if updated
+                            else MatchMethod.NONE,
+                            updated=updated,
                         )
+                        # BAMLでも解決できなかったhomonymケースにskip_reasonを設定
+                        if not updated and speaker.id in homonym_speaker_ids:
+                            dto.skip_reason = SkipReason.HOMONYM
+                        results.append(dto)
                     except Exception:
                         self._logger.warning(
                             "BAMLフォールバック失敗（スキップ）: %s",
                             speaker.name,
                             exc_info=True,
                         )
-                        results.append(SpeakerMatchResultDTO.unmatched(speaker))
+                        dto = SpeakerMatchResultDTO.unmatched(speaker)
+                        if speaker.id and speaker.id in homonym_speaker_ids:
+                            dto.skip_reason = SkipReason.HOMONYM
+                        results.append(dto)
             else:
                 # BAMLフォールバック無効時、残りの未マッチSpeakerを結果に追加
                 for speaker in baml_pending_speakers:
                     if not speaker.id:
                         continue
-                    results.append(SpeakerMatchResultDTO.unmatched(speaker))
+                    dto = SpeakerMatchResultDTO.unmatched(speaker)
+                    if speaker.id in homonym_speaker_ids:
+                        dto.skip_reason = SkipReason.HOMONYM
+                    results.append(dto)
 
             return MatchMeetingSpeakersOutputDTO(
                 success=True,

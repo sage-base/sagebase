@@ -17,6 +17,7 @@ class SkipReason(Enum):
     REFERENCE_PERSON = "reference_person"
     GOVERNMENT_OFFICIAL = "government_official"
     OTHER_NON_POLITICIAN = "other_non_politician"
+    HOMONYM = "homonym"
 
 
 # === 完全一致パターン ===

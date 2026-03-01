@@ -477,3 +477,50 @@ class TestSpeakerPoliticianMatchingService:
         # 佐藤 ≠ 佐々木 なのでマッチしない
         assert result.politician_id is None
         assert result.confidence == 0.0
+
+    # --- 同姓曖昧判定テスト ---
+
+    def test_has_surname_ambiguity_multiple_same_surname(self) -> None:
+        """同姓候補が複数いる場合にTrueを返す."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="田中太郎"),
+            PoliticianCandidate(politician_id=2, name="田中次郎"),
+        ]
+        assert self.service.has_surname_ambiguity("田中", candidates) is True
+
+    def test_has_surname_ambiguity_single_candidate(self) -> None:
+        """同姓候補が1人のみの場合にFalseを返す."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="田中太郎"),
+            PoliticianCandidate(politician_id=2, name="佐藤花子"),
+        ]
+        assert self.service.has_surname_ambiguity("田中", candidates) is False
+
+    def test_has_surname_ambiguity_fullname_not_ambiguous(self) -> None:
+        """フルネーム（姓の長さ超過）の場合はFalseを返す."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="田中太郎"),
+            PoliticianCandidate(politician_id=2, name="田中次郎"),
+        ]
+        # フルネームは姓のみ判定の対象外
+        assert self.service.has_surname_ambiguity("田中太郎", candidates) is False
+
+    def test_has_surname_ambiguity_no_candidates(self) -> None:
+        """候補なしの場合にFalseを返す."""
+        assert self.service.has_surname_ambiguity("田中", []) is False
+
+    def test_has_surname_ambiguity_no_match(self) -> None:
+        """どの候補の姓にも一致しない場合にFalseを返す."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="佐藤太郎"),
+            PoliticianCandidate(politician_id=2, name="鈴木花子"),
+        ]
+        assert self.service.has_surname_ambiguity("田中", candidates) is False
+
+    def test_has_surname_ambiguity_with_honorific(self) -> None:
+        """敬称付き名前でも正規化されて判定される."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="田中太郎"),
+            PoliticianCandidate(politician_id=2, name="田中次郎"),
+        ]
+        assert self.service.has_surname_ambiguity("田中君", candidates) is True
