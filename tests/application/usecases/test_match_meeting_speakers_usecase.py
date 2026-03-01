@@ -1349,3 +1349,197 @@ class TestMixedScenarios:
         assert result.matched_count == 0
         assert result.baml_matched_count == 0
         mock_baml_service.find_best_match_from_candidates.assert_not_called()
+
+
+class TestHomonymClassification:
+    """同姓同名（homonym）分類のテスト."""
+
+    @pytest.mark.asyncio
+    async def test_homonym_speaker_without_baml(
+        self, usecase: MatchMeetingSpeakersUseCase, mock_repos: dict[str, AsyncMock]
+    ) -> None:
+        """同姓候補が複数存在しBAML無効時にskip_reason=HOMONYMが設定される."""
+        _setup_meeting(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1])
+        _setup_speakers(
+            mock_repos,
+            [Speaker(name="田中", id=1)],
+        )
+        _setup_candidates(
+            mock_repos,
+            [
+                ConferenceMember(
+                    politician_id=100,
+                    conference_id=10,
+                    start_date=date(2024, 1, 1),
+                    id=1,
+                ),
+                ConferenceMember(
+                    politician_id=200,
+                    conference_id=10,
+                    start_date=date(2024, 1, 1),
+                    id=2,
+                ),
+            ],
+            [
+                Politician(name="田中太郎", prefecture="", district="", id=100),
+                Politician(name="田中次郎", prefecture="", district="", id=200),
+            ],
+        )
+
+        result = await usecase.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
+
+        assert result.success is True
+        assert result.matched_count == 0
+        assert len(result.results) == 1
+        assert result.results[0].skip_reason == SkipReason.HOMONYM
+        assert result.results[0].politician_id is None
+
+    @pytest.mark.asyncio
+    async def test_non_homonym_speaker_no_skip_reason(
+        self, usecase: MatchMeetingSpeakersUseCase, mock_repos: dict[str, AsyncMock]
+    ) -> None:
+        """同姓候補が1人のみの場合はhomonymにならず通常マッチする."""
+        _setup_meeting(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1])
+        _setup_speakers(
+            mock_repos,
+            [Speaker(name="田中", id=1)],
+        )
+        _setup_candidates(
+            mock_repos,
+            [
+                ConferenceMember(
+                    politician_id=100,
+                    conference_id=10,
+                    start_date=date(2024, 1, 1),
+                    id=1,
+                ),
+                ConferenceMember(
+                    politician_id=200,
+                    conference_id=10,
+                    start_date=date(2024, 1, 1),
+                    id=2,
+                ),
+            ],
+            [
+                Politician(name="田中太郎", prefecture="", district="", id=100),
+                Politician(name="佐藤花子", prefecture="", district="", id=200),
+            ],
+        )
+
+        result = await usecase.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
+
+        assert result.success is True
+        assert result.matched_count == 1
+        assert result.results[0].politician_id == 100
+        assert result.results[0].skip_reason is None
+
+    @pytest.mark.asyncio
+    async def test_homonym_resolved_by_baml(
+        self,
+        usecase_with_baml: MatchMeetingSpeakersUseCase,
+        mock_repos: dict[str, AsyncMock],
+        mock_baml_service: AsyncMock,
+    ) -> None:
+        """BAMLが同姓候補を解決した場合、skip_reasonは設定されない."""
+        _setup_meeting(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1])
+        _setup_speakers(
+            mock_repos,
+            [Speaker(name="田中", id=1)],
+        )
+        _setup_candidates(
+            mock_repos,
+            [
+                ConferenceMember(
+                    politician_id=100,
+                    conference_id=10,
+                    start_date=date(2024, 1, 1),
+                    id=1,
+                ),
+                ConferenceMember(
+                    politician_id=200,
+                    conference_id=10,
+                    start_date=date(2024, 1, 1),
+                    id=2,
+                ),
+            ],
+            [
+                Politician(name="田中太郎", prefecture="", district="", id=100),
+                Politician(name="田中次郎", prefecture="", district="", id=200),
+            ],
+        )
+        mock_baml_service.find_best_match_from_candidates.return_value = (
+            PoliticianMatch(
+                politician_id=100,
+                politician_name="田中太郎",
+                confidence=0.9,
+                matched=True,
+            )
+        )
+
+        result = await usecase_with_baml.execute(
+            MatchMeetingSpeakersInputDTO(meeting_id=1, enable_baml_fallback=True)
+        )
+
+        assert result.success is True
+        assert result.matched_count == 1
+        assert result.results[0].politician_id == 100
+        assert result.results[0].skip_reason is None
+
+    @pytest.mark.asyncio
+    async def test_homonym_not_resolved_by_baml(
+        self,
+        usecase_with_baml: MatchMeetingSpeakersUseCase,
+        mock_repos: dict[str, AsyncMock],
+        mock_baml_service: AsyncMock,
+    ) -> None:
+        """BAMLでも解決できなかった同姓候補にskip_reason=HOMONYMが設定される."""
+        _setup_meeting(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1])
+        _setup_speakers(
+            mock_repos,
+            [Speaker(name="田中", id=1)],
+        )
+        _setup_candidates(
+            mock_repos,
+            [
+                ConferenceMember(
+                    politician_id=100,
+                    conference_id=10,
+                    start_date=date(2024, 1, 1),
+                    id=1,
+                ),
+                ConferenceMember(
+                    politician_id=200,
+                    conference_id=10,
+                    start_date=date(2024, 1, 1),
+                    id=2,
+                ),
+            ],
+            [
+                Politician(name="田中太郎", prefecture="", district="", id=100),
+                Politician(name="田中次郎", prefecture="", district="", id=200),
+            ],
+        )
+        mock_baml_service.find_best_match_from_candidates.return_value = (
+            PoliticianMatch(
+                politician_id=None,
+                politician_name=None,
+                confidence=0.3,
+                matched=False,
+            )
+        )
+
+        result = await usecase_with_baml.execute(
+            MatchMeetingSpeakersInputDTO(meeting_id=1, enable_baml_fallback=True)
+        )
+
+        assert result.success is True
+        assert result.matched_count == 0
+        assert result.results[0].skip_reason == SkipReason.HOMONYM

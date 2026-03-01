@@ -158,6 +158,34 @@ class SpeakerPoliticianMatchingService:
 
         return None
 
+    def _find_surname_matches(
+        self, normalized_name: str, candidates: list[PoliticianCandidate]
+    ) -> list[PoliticianCandidate]:
+        """姓が一致する候補を検索する（最大2件で早期終了）.
+
+        Args:
+            normalized_name: 正規化済みの発言者名（姓のみ想定）
+            candidates: 候補リスト
+
+        Returns:
+            姓が一致した候補リスト（最大2件）
+        """
+        if not (_MIN_SURNAME_LEN <= len(normalized_name) <= _MAX_SURNAME_LEN):
+            return []
+
+        matched: list[PoliticianCandidate] = []
+        for candidate in candidates:
+            normalized_candidate = self.normalize_name(candidate.name)
+            if not normalized_candidate:
+                continue
+            if normalized_candidate.startswith(normalized_name) and len(
+                normalized_name
+            ) < len(normalized_candidate):
+                matched.append(candidate)
+                if len(matched) > 1:
+                    return matched
+        return matched
+
     def _match_by_surname(
         self, speaker_name: str, candidates: list[PoliticianCandidate]
     ) -> PoliticianCandidate | None:
@@ -172,27 +200,28 @@ class SpeakerPoliticianMatchingService:
         Returns:
             マッチした候補（同姓1人の場合のみ）、該当なしはNone
         """
-        matched_candidates: list[PoliticianCandidate] = []
-
-        for candidate in candidates:
-            normalized_candidate = self.normalize_name(candidate.name)
-            if not normalized_candidate:
-                continue
-
-            # 発言者名が候補のフルネームの先頭と一致（姓のみの発言者）
-            if (
-                _MIN_SURNAME_LEN <= len(speaker_name) <= _MAX_SURNAME_LEN
-                and normalized_candidate.startswith(speaker_name)
-                and len(speaker_name) < len(normalized_candidate)
-            ):
-                matched_candidates.append(candidate)
-                if len(matched_candidates) > 1:
-                    return None
-
-        if len(matched_candidates) == 1:
-            return matched_candidates[0]
-
+        matches = self._find_surname_matches(speaker_name, candidates)
+        if len(matches) == 1:
+            return matches[0]
         return None
+
+    def has_surname_ambiguity(
+        self, speaker_name: str, candidates: list[PoliticianCandidate]
+    ) -> bool:
+        """同姓の候補が複数存在し、姓のみでは特定できないかを判定する.
+
+        Args:
+            speaker_name: 発言者名（未正規化でも可）
+            candidates: マッチング候補の政治家リスト
+
+        Returns:
+            同姓候補が2人以上存在する場合True
+        """
+        normalized_name = self.normalize_name(speaker_name)
+        if not normalized_name or not candidates:
+            return False
+
+        return len(self._find_surname_matches(normalized_name, candidates)) >= 2
 
     @staticmethod
     def _no_match(speaker_id: int, speaker_name: str) -> SpeakerPoliticianMatchResult:

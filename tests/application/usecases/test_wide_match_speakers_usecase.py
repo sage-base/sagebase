@@ -31,6 +31,7 @@ from src.domain.services.election_domain_service import ElectionDomainService
 from src.domain.services.interfaces.politician_matching_service import (
     IPoliticianMatchingService,
 )
+from src.domain.services.speaker_classifier import SkipReason
 from src.domain.services.speaker_politician_matching_service import (
     SpeakerPoliticianMatchingService,
 )
@@ -708,3 +709,77 @@ class TestWideMatchSpeakersUseCase:
         assert result.auto_matched_count == 1
         assert result.non_politician_count == 1
         assert len(result.results) == 3
+
+    @pytest.mark.asyncio
+    async def test_homonym_speaker_without_baml(
+        self, usecase: WideMatchSpeakersUseCase, mock_repos: dict[str, AsyncMock]
+    ) -> None:
+        """同姓候補が複数存在しBAML無効時にskip_reason=HOMONYMが設定される."""
+        _setup_meeting(mock_repos)
+        _setup_conference(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1])
+
+        speakers = [Speaker(name="田中", id=1, is_politician=True)]
+        mock_repos["speaker_repository"].get_by_ids.return_value = speakers
+        mock_repos["speaker_repository"].update.return_value = speakers[0]
+
+        politicians = [
+            Politician(
+                name="田中太郎", prefecture="東京都", district="東京1区", id=100
+            ),
+            Politician(
+                name="田中次郎", prefecture="大阪府", district="大阪1区", id=200
+            ),
+        ]
+        _setup_elections_and_members(mock_repos, politicians)
+
+        result = await usecase.execute(_make_input())
+
+        assert result.success is True
+        assert result.auto_matched_count == 0
+        assert len(result.results) == 1
+        assert result.results[0].skip_reason == SkipReason.HOMONYM
+
+    @pytest.mark.asyncio
+    async def test_homonym_resolved_by_baml(
+        self,
+        usecase_with_baml: WideMatchSpeakersUseCase,
+        mock_repos: dict[str, AsyncMock],
+        mock_baml_service: AsyncMock,
+    ) -> None:
+        """BAMLが同姓候補を解決した場合、skip_reasonは設定されない."""
+        _setup_meeting(mock_repos)
+        _setup_conference(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1])
+
+        speakers = [Speaker(name="田中", id=1, is_politician=True)]
+        mock_repos["speaker_repository"].get_by_ids.return_value = speakers
+        mock_repos["speaker_repository"].update.return_value = speakers[0]
+
+        politicians = [
+            Politician(
+                name="田中太郎", prefecture="東京都", district="東京1区", id=100
+            ),
+            Politician(
+                name="田中次郎", prefecture="大阪府", district="大阪1区", id=200
+            ),
+        ]
+        _setup_elections_and_members(mock_repos, politicians)
+
+        mock_baml_service.find_best_match_from_candidates.return_value = (
+            PoliticianMatch(
+                politician_id=100,
+                politician_name="田中太郎",
+                confidence=0.95,
+                matched=True,
+            )
+        )
+
+        result = await usecase_with_baml.execute(_make_input(enable_baml=True))
+
+        assert result.success is True
+        assert result.auto_matched_count == 1
+        assert result.results[0].politician_id == 100
+        assert result.results[0].skip_reason is None

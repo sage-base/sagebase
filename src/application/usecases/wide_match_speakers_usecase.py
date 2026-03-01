@@ -31,7 +31,10 @@ from src.domain.services.election_domain_service import ElectionDomainService
 from src.domain.services.interfaces.politician_matching_service import (
     IPoliticianMatchingService,
 )
-from src.domain.services.speaker_classifier import classify_speaker_skip_reason
+from src.domain.services.speaker_classifier import (
+    SkipReason,
+    classify_speaker_skip_reason,
+)
 from src.domain.services.speaker_politician_matching_service import (
     SpeakerPoliticianMatchingService,
 )
@@ -50,6 +53,7 @@ class _MatchingCounters:
     baml_matched_count: int = 0
     non_politician_count: int = 0
     results: list[SpeakerMatchResultDTO] = field(default_factory=list)
+    homonym_speaker_ids: set[int] = field(default_factory=set)
 
 
 class WideMatchSpeakersUseCase:
@@ -287,6 +291,12 @@ class WideMatchSpeakersUseCase:
                 counters.results.append(dto)
                 continue
 
+            # 同姓候補が複数存在する場合のhomonym判定
+            if self._matching_service.has_surname_ambiguity(speaker.name, candidates):
+                if speaker.id:
+                    counters.homonym_speaker_ids.add(speaker.id)
+                self._logger.debug("同姓候補複数: %s", speaker.name)
+
             # BAMLフォールバック対象として保留
             baml_pending_speakers.append(speaker)
 
@@ -306,10 +316,13 @@ class WideMatchSpeakersUseCase:
             and self._baml_matching_service is not None
             and baml_pending_speakers
         ):
-            # BAML無効: 未マッチDTOとして登録
+            # BAML無効: 未マッチDTOとして登録（homonymフラグ考慮）
             for speaker in baml_pending_speakers:
                 if speaker.id:
-                    counters.results.append(SpeakerMatchResultDTO.unmatched(speaker))
+                    dto = SpeakerMatchResultDTO.unmatched(speaker)
+                    if speaker.id in counters.homonym_speaker_ids:
+                        dto.skip_reason = SkipReason.HOMONYM
+                    counters.results.append(dto)
             return
 
         for speaker in baml_pending_speakers:
@@ -357,28 +370,33 @@ class WideMatchSpeakersUseCase:
                             baml_result.confidence,
                         )
 
-                counters.results.append(
-                    SpeakerMatchResultDTO(
-                        speaker_id=speaker.id,
-                        speaker_name=speaker.name,
-                        politician_id=baml_result.politician_id
-                        if baml_result.matched
-                        else None,
-                        politician_name=baml_result.politician_name
-                        if baml_result.matched
-                        else None,
-                        confidence=baml_result.confidence,
-                        match_method=MatchMethod.BAML if updated else MatchMethod.NONE,
-                        updated=updated,
-                    )
+                dto = SpeakerMatchResultDTO(
+                    speaker_id=speaker.id,
+                    speaker_name=speaker.name,
+                    politician_id=baml_result.politician_id
+                    if baml_result.matched
+                    else None,
+                    politician_name=baml_result.politician_name
+                    if baml_result.matched
+                    else None,
+                    confidence=baml_result.confidence,
+                    match_method=MatchMethod.BAML if updated else MatchMethod.NONE,
+                    updated=updated,
                 )
+                # BAMLでも解決できなかったhomonymケースにskip_reasonを設定
+                if not updated and speaker.id in counters.homonym_speaker_ids:
+                    dto.skip_reason = SkipReason.HOMONYM
+                counters.results.append(dto)
             except Exception:
                 self._logger.warning(
                     "BAMLフォールバック失敗（スキップ）: %s",
                     speaker.name,
                     exc_info=True,
                 )
-                counters.results.append(SpeakerMatchResultDTO.unmatched(speaker))
+                dto = SpeakerMatchResultDTO.unmatched(speaker)
+                if speaker.id and speaker.id in counters.homonym_speaker_ids:
+                    dto.skip_reason = SkipReason.HOMONYM
+                counters.results.append(dto)
 
     async def _build_candidate_list_from_elections(
         self, meeting_date: date, chamber: str | None

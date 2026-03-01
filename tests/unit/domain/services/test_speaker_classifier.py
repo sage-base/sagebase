@@ -223,3 +223,7 @@ class TestClassifySpeakerSkipReason:
             classify_speaker_skip_reason(" 政府参考人（山田太郎君） ")
             == SkipReason.GOVERNMENT_OFFICIAL
         )
+
+    def test_homonym_skip_reason_exists(self) -> None:
+        """SkipReason.HOMONYM が定義されている."""
+        assert SkipReason.HOMONYM.value == "homonym"
