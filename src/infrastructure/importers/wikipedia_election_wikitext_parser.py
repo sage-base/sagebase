@@ -10,35 +10,11 @@ import re
 
 from src.domain.value_objects.election_candidate import CandidateRecord
 from src.infrastructure.importers._constants import WIKIPEDIA_COLOR_PARTY_FALLBACK
-
-
-def _extract_template_content(wikitext: str, template_prefix: str) -> str | None:
-    """ブレース深度追跡でテンプレート内容を抽出する.
-
-    {{Refnest|...}}等のネストされたテンプレートを正しくスキップする。
-    """
-    start = wikitext.find("{{" + template_prefix)
-    if start == -1:
-        return None
-
-    # テンプレート名の後（改行またはパイプ）からコンテンツ開始
-    content_start = start + len("{{" + template_prefix)
-
-    depth = 1
-    i = content_start
-    while i < len(wikitext):
-        if wikitext[i : i + 2] == "{{":
-            depth += 1
-            i += 2
-        elif wikitext[i : i + 2] == "}}":
-            depth -= 1
-            if depth == 0:
-                return wikitext[content_start:i]
-            i += 2
-        else:
-            i += 1
-
-    return None
+from src.infrastructure.importers._utils import (
+    extract_template_content,
+    normalize_color,
+    normalize_prefecture,
+)
 
 
 # colorboxパターン: {{colorbox|#9E9|自由民主党}}
@@ -122,12 +98,12 @@ def extract_color_party_mapping(wikitext: str) -> dict[str, str]:
     mapping: dict[str, str] = {}
 
     for match in _COLORBOX_RE.finditer(wikitext):
-        color = _normalize_color(match.group(1))
+        color = normalize_color(match.group(1))
         party = match.group(2).strip()
         mapping[color] = party
 
     for match in _PARTY_BOX_RE.finditer(wikitext):
-        color = _normalize_color(match.group(1))
+        color = normalize_color(match.group(1))
         party = match.group(2).strip()
         mapping[color] = party
 
@@ -159,7 +135,7 @@ def _parse_format_a(
     color_to_party: dict[str, str],
 ) -> list[CandidateRecord]:
     """形式Aをパースする（第41回: 都道府県ヘッダ + 位置順リスト）."""
-    template_text = _extract_template_content(wikitext, "衆院小選挙区当選者")
+    template_text = extract_template_content(wikitext, "衆院小選挙区当選者")
     if template_text is None:
         return []
     candidates: list[CandidateRecord] = []
@@ -191,11 +167,11 @@ def _parse_format_a(
         entry_match = _FORMAT_A_ENTRY_RE.match(line)
         if entry_match:
             district_counter += 1
-            color = _normalize_color(entry_match.group(1))
+            color = normalize_color(entry_match.group(1))
             name_part = entry_match.group(2)
             name = extract_name_from_wikilink(name_part)
             party = _resolve_party(color, color_to_party)
-            pref_for_district = _normalize_prefecture(current_pref)
+            pref_for_district = normalize_prefecture(current_pref)
             district_name = f"{pref_for_district}{district_counter}区"
 
             candidates.append(
@@ -218,7 +194,7 @@ def _parse_format_b(
     color_to_party: dict[str, str],
 ) -> list[CandidateRecord]:
     """形式Bをパースする（第42-44回: 明示的な選挙区名）."""
-    template_text = _extract_template_content(wikitext, "衆議院小選挙区当選者")
+    template_text = extract_template_content(wikitext, "衆議院小選挙区当選者")
     if template_text is None:
         return []
     candidates: list[CandidateRecord] = []
@@ -237,7 +213,7 @@ def _parse_format_b(
         )
 
         for _district_color, color, district, name_part in entries:
-            color = _normalize_color(color)
+            color = normalize_color(color)
             name = extract_name_from_wikilink(name_part)
             party = _resolve_party(color, color_to_party)
             pref = _extract_prefecture_from_district(district)
@@ -257,31 +233,11 @@ def _parse_format_b(
     return candidates
 
 
-def _normalize_color(color: str) -> str:
-    """カラーコードを正規化（大文字化、#除去）."""
-    return color.lstrip("#").upper()
-
-
 def _resolve_party(color: str, color_to_party: dict[str, str]) -> str:
     """カラーコードから政党名を解決する."""
     if color in color_to_party:
         return color_to_party[color]
     return WIKIPEDIA_COLOR_PARTY_FALLBACK.get(color, f"不明({color})")
-
-
-def _normalize_prefecture(pref_name: str) -> str:
-    """都道府県名を正規化する（「都」「道」「府」「県」の補完）."""
-    if pref_name in ("北海道",):
-        return pref_name
-    if pref_name in ("東京", "東京都"):
-        return "東京都"
-    if pref_name in ("大阪", "大阪府"):
-        return "大阪府"
-    if pref_name in ("京都", "京都府"):
-        return "京都府"
-    if pref_name.endswith(("都", "道", "府", "県")):
-        return pref_name
-    return pref_name + "県"
 
 
 def _extract_prefecture_from_district(district: str) -> str:
@@ -295,7 +251,7 @@ def _extract_prefecture_from_district(district: str) -> str:
     # 「区」の前の数字を除去して都道府県名を推定
     match = re.match(r"^(.+?)\d+区", district)
     if match:
-        return _normalize_prefecture(match.group(1))
+        return normalize_prefecture(match.group(1))
     return district
 
 
@@ -508,7 +464,7 @@ def _process_format_c_cells(
         cell_text = cell_text.strip()
         cell_match = _WIKITABLE_MEMBER_CELL_RE.match(cell_text)
         if cell_match:
-            color = _normalize_color(cell_match.group(1))
+            color = normalize_color(cell_match.group(1))
             name_part = cell_match.group(2)
             name = extract_name_from_wikilink(name_part)
             party = _resolve_party(color, color_to_party)
@@ -644,7 +600,7 @@ def _parse_proportional_format_a(
     形式: {{衆院比例当選者 ... }}
     ブロック別セクション（|北海道定数=N |北海道= ...）に色:[[名前]]リスト。
     """
-    template_text = _extract_template_content(wikitext, "衆院比例当選者")
+    template_text = extract_template_content(wikitext, "衆院比例当選者")
     if template_text is None:
         return []
 
@@ -679,7 +635,7 @@ def _parse_proportional_format_a(
         entry_match = _FORMAT_A_ENTRY_RE.match(line)
         if entry_match:
             rank_counter += 1
-            color = _normalize_color(entry_match.group(1))
+            color = normalize_color(entry_match.group(1))
             name_part = entry_match.group(2)
             name = extract_name_from_wikilink(name_part)
             party = _resolve_party(color, color_to_party)
@@ -708,7 +664,7 @@ def _parse_proportional_format_b(
     形式: {{衆議院当選者一覧(比例区) ... }}
     |{block略称}{n}色={color}|{block略称}{n}=[[名前]]
     """
-    template_text = _extract_template_content(wikitext, "衆議院当選者一覧(比例区)")
+    template_text = extract_template_content(wikitext, "衆議院当選者一覧(比例区)")
     if template_text is None:
         return []
 
@@ -725,7 +681,7 @@ def _parse_proportional_format_b(
         )
 
         for block_short, rank_str, color, _block2, name_part in entries:
-            color = _normalize_color(color)
+            color = normalize_color(color)
             name = extract_name_from_wikilink(name_part)
             party = _resolve_party(color, color_to_party)
             block_full = _BLOCK_SHORT_TO_FULL.get(
@@ -828,7 +784,7 @@ def _parse_proportional_wikitable(
                 cell_text,
             )
             if cell_match and col_index < len(blocks):
-                color = _normalize_color(cell_match.group(1))
+                color = normalize_color(cell_match.group(1))
                 name_part = cell_match.group(2)
                 name = extract_name_from_wikilink(name_part)
                 party = _resolve_party(color, color_to_party)

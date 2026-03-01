@@ -11,9 +11,9 @@ import logging
 
 from datetime import date
 from pathlib import Path
-from urllib.request import Request, urlopen
 
 from src.domain.value_objects.election_candidate import CandidateRecord, ElectionInfo
+from src.infrastructure.importers._utils import fetch_wikipedia_wikitext
 from src.infrastructure.importers.wikipedia_election_wikitext_parser import (
     parse_all_wikitext,
 )
@@ -70,37 +70,6 @@ ELECTION_DATES: dict[int, date] = {
 
 SUPPORTED_ELECTIONS: list[int] = list(range(1, 45))
 
-_WIKIPEDIA_API_URL = "https://ja.wikipedia.org/w/api.php"
-_USER_AGENT = "SagebaseBot/1.0 (political-activity-tracker; contact@example.com)"
-
-
-def _fetch_wikitext(election_number: int) -> str:
-    """Wikipedia APIからWikitextを取得する（同期）."""
-    import json
-
-    from urllib.parse import urlencode
-
-    page_title = f"第{election_number}回衆議院議員総選挙"
-    params = urlencode(
-        {
-            "action": "parse",
-            "page": page_title,
-            "prop": "wikitext",
-            "format": "json",
-        }
-    )
-    url = f"{_WIKIPEDIA_API_URL}?{params}"
-
-    req = Request(url, headers={"User-Agent": _USER_AGENT})
-    with urlopen(req, timeout=30) as response:  # nosec B310 — URLはhttpsハードコード
-        data = json.loads(response.read().decode("utf-8"))
-
-    if "error" in data:
-        msg = f"Wikipedia API error: {data['error'].get('info', 'unknown')}"
-        raise RuntimeError(msg)
-
-    return data["parse"]["wikitext"]["*"]
-
 
 class WikipediaElectionDataSource:
     """Wikipedia小選挙区+比例代表当選者テンプレートからの選挙データソース."""
@@ -120,7 +89,8 @@ class WikipediaElectionDataSource:
             return None, []
 
         logger.info("第%d回衆議院選挙のWikitextを取得中...", election_number)
-        wikitext = await asyncio.to_thread(_fetch_wikitext, election_number)
+        page_title = f"第{election_number}回衆議院議員総選挙"
+        wikitext = await asyncio.to_thread(fetch_wikipedia_wikitext, page_title)
         logger.info("Wikitext取得完了（%d文字）", len(wikitext))
 
         candidates = parse_all_wikitext(wikitext, election_number)
