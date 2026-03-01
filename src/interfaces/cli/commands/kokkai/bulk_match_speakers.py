@@ -11,11 +11,8 @@ from typing import Any
 
 import click
 
+from src.domain.constants import KOKKAI_GOVERNING_BODY_ID
 from src.interfaces.cli.base import with_error_handling
-
-
-# 国会の governing_body_id
-_KOKKAI_GOVERNING_BODY_ID = 1
 
 
 @dataclass
@@ -160,7 +157,7 @@ async def _run_bulk_match(
     summary = BulkMatchSummary()
 
     # 選挙一覧を取得（回次レポート用）
-    elections = await election_repo.get_by_governing_body(_KOKKAI_GOVERNING_BODY_ID)
+    elections = await election_repo.get_by_governing_body(KOKKAI_GOVERNING_BODY_ID)
     election_service = ElectionDomainService()
 
     if wide_match:

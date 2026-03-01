@@ -593,3 +593,118 @@ class TestWideMatchSpeakersUseCase:
 
         assert not result.success
         assert "見つかりません" in result.message
+
+    @pytest.mark.asyncio
+    async def test_meeting_without_date(
+        self, usecase: WideMatchSpeakersUseCase, mock_repos: dict[str, AsyncMock]
+    ) -> None:
+        """会議に日付がない場合 → エラーDTO."""
+        meeting = Meeting(conference_id=10, date=None, name="日付なし会議", id=1)
+        mock_repos["meeting_repository"].get_by_id.return_value = meeting
+
+        result = await usecase.execute(_make_input())
+
+        assert not result.success
+        assert "日付が設定されていません" in result.message
+
+    @pytest.mark.asyncio
+    async def test_baml_fallback_auto_match(
+        self,
+        usecase_with_baml: WideMatchSpeakersUseCase,
+        mock_repos: dict[str, AsyncMock],
+        mock_baml_service: AsyncMock,
+    ) -> None:
+        """BAMLフォールバック → confidence=0.95 → 自動マッチ."""
+        _setup_meeting(mock_repos)
+        _setup_conference(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1])
+
+        speaker = Speaker(name="田中一郎", id=1, is_politician=True)
+        _setup_speakers(mock_repos, [speaker])
+
+        politician = Politician(
+            name="山田太郎", prefecture="東京都", district="東京1区", id=100
+        )
+        _setup_elections_and_members(mock_repos, [politician])
+
+        mock_baml_service.find_best_match_from_candidates.return_value = (
+            PoliticianMatch(
+                matched=True,
+                politician_id=100,
+                politician_name="山田太郎",
+                political_party_name="自由民主党",
+                confidence=0.95,
+                reason="BAMLマッチ高信頼度",
+            )
+        )
+
+        result = await usecase_with_baml.execute(_make_input(enable_baml=True))
+
+        assert result.success
+        assert result.baml_matched_count == 1
+        assert result.auto_matched_count == 1
+        assert result.review_matched_count == 0
+
+    @pytest.mark.asyncio
+    async def test_baml_fallback_exception_handled(
+        self,
+        usecase_with_baml: WideMatchSpeakersUseCase,
+        mock_repos: dict[str, AsyncMock],
+        mock_baml_service: AsyncMock,
+    ) -> None:
+        """BAMLフォールバック例外 → スキップして未マッチDTOを返す."""
+        _setup_meeting(mock_repos)
+        _setup_conference(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1])
+
+        speaker = Speaker(name="田中一郎", id=1, is_politician=True)
+        _setup_speakers(mock_repos, [speaker])
+
+        politician = Politician(
+            name="山田太郎", prefecture="東京都", district="東京1区", id=100
+        )
+        _setup_elections_and_members(mock_repos, [politician])
+
+        mock_baml_service.find_best_match_from_candidates.side_effect = RuntimeError(
+            "BAML API error"
+        )
+
+        result = await usecase_with_baml.execute(_make_input(enable_baml=True))
+
+        assert result.success
+        assert result.baml_matched_count == 0
+        assert result.auto_matched_count == 0
+        assert len(result.results) == 1
+        assert result.results[0].updated is False
+
+    @pytest.mark.asyncio
+    async def test_multiple_speakers_mixed_results(
+        self, usecase: WideMatchSpeakersUseCase, mock_repos: dict[str, AsyncMock]
+    ) -> None:
+        """複数Speaker: マッチ・非政治家・未マッチが混在."""
+        _setup_meeting(mock_repos)
+        _setup_conference(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1, 2, 3])
+
+        speakers = [
+            Speaker(name="山田太郎", id=1, is_politician=True),  # → 完全一致
+            Speaker(name="議長", id=2, is_politician=True),  # → 非政治家
+            Speaker(name="佐々木花子", id=3, is_politician=True),  # → 未マッチ
+        ]
+        mock_repos["speaker_repository"].get_by_ids.return_value = speakers
+        mock_repos["speaker_repository"].update.return_value = speakers[0]
+
+        politician = Politician(
+            name="山田太郎", prefecture="東京都", district="東京1区", id=100
+        )
+        _setup_elections_and_members(mock_repos, [politician])
+
+        result = await usecase.execute(_make_input())
+
+        assert result.success
+        assert result.auto_matched_count == 1
+        assert result.non_politician_count == 1
+        assert len(result.results) == 3

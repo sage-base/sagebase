@@ -177,6 +177,18 @@ class SpeakerRepository(BaseRepository[Speaker]):
         pass
 
     @abstractmethod
+    async def get_speakers_pending_review(self) -> list[Speaker]:
+        """手動検証待ちの発言者を取得する.
+
+        広域マッチングで0.7-0.9の信頼度でマッチされた発言者のうち、
+        まだ手動検証されていないものを返す。
+
+        Returns:
+            手動検証待ちの発言者リスト
+        """
+        pass
+
+    @abstractmethod
     async def classify_is_politician_bulk(
         self,
         non_politician_names: frozenset[str],

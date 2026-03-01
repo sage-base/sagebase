@@ -7,6 +7,7 @@ Speaker→Politician マッチングを行う。
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
@@ -16,6 +17,7 @@ from src.application.dtos.wide_match_speakers_dto import (
     WideMatchSpeakersOutputDTO,
 )
 from src.common.logging import get_logger
+from src.domain.constants import KOKKAI_GOVERNING_BODY_ID
 from src.domain.entities.speaker import Speaker
 from src.domain.repositories.conference_repository import ConferenceRepository
 from src.domain.repositories.conversation_repository import ConversationRepository
@@ -39,8 +41,15 @@ from src.domain.value_objects.speaker_politician_match_result import (
 )
 
 
-# 国会の governing_body_id
-_KOKKAI_GOVERNING_BODY_ID = 1
+@dataclass
+class _MatchingCounters:
+    """マッチング処理の集計カウンター."""
+
+    auto_matched_count: int = 0
+    review_matched_count: int = 0
+    baml_matched_count: int = 0
+    non_politician_count: int = 0
+    results: list[SpeakerMatchResultDTO] = field(default_factory=list)
 
 
 class WideMatchSpeakersUseCase:
@@ -173,180 +182,37 @@ class WideMatchSpeakersUseCase:
                     skipped_count=skipped_count,
                 )
 
-            # 5. マッチング実行
-            results: list[SpeakerMatchResultDTO] = []
-            auto_matched_count = 0
-            review_matched_count = 0
-            baml_matched_count = 0
-            non_politician_count = 0
-            baml_pending_speakers: list[Speaker] = []
-
-            for speaker in unmatched_speakers:
-                if not speaker.id:
-                    continue
-
-                match_result = self._matching_service.match(
-                    speaker_id=speaker.id,
-                    speaker_name=speaker.name,
-                    speaker_name_yomi=speaker.name_yomi,
-                    candidates=candidates,
-                )
-
-                if (
-                    match_result.confidence >= input_dto.review_threshold
-                    and match_result.politician_id is not None
-                ):
-                    updated, action = self._apply_confidence_action(
-                        speaker,
-                        match_result.politician_id,
-                        match_result.politician_name,
-                        match_result.confidence,
-                        match_result.match_method,
-                        input_dto.auto_match_threshold,
-                        input_dto.review_threshold,
-                    )
-                    if updated:
-                        await self._speaker_repo.update(speaker)
-                        if action == "auto_match":
-                            auto_matched_count += 1
-                        else:
-                            review_matched_count += 1
-                        self._logger.info(
-                            "マッチ成功(%s): %s → %s (confidence=%.2f, method=%s)",
-                            action,
-                            speaker.name,
-                            match_result.politician_name,
-                            match_result.confidence,
-                            match_result.match_method.value,
-                        )
-                    results.append(
-                        SpeakerMatchResultDTO(
-                            speaker_id=match_result.speaker_id,
-                            speaker_name=match_result.speaker_name,
-                            politician_id=match_result.politician_id,
-                            politician_name=match_result.politician_name,
-                            confidence=match_result.confidence,
-                            match_method=match_result.match_method,
-                            updated=updated,
-                        )
-                    )
-                    continue
-
-                # 非政治家分類
-                skip_reason = classify_speaker_skip_reason(speaker.name)
-                if skip_reason is not None:
-                    if speaker.is_politician:
-                        speaker.is_politician = False
-                        await self._speaker_repo.update(speaker)
-                    non_politician_count += 1
-                    self._logger.debug(
-                        "非政治家分類: %s → %s", speaker.name, skip_reason
-                    )
-                    dto = self._unmatched_dto(speaker)
-                    dto.skip_reason = skip_reason
-                    results.append(dto)
-                    continue
-
-                # BAMLフォールバック対象として保留
-                baml_pending_speakers.append(speaker)
+            # 5. ルールベースマッチング
+            counters = _MatchingCounters()
+            baml_pending_speakers = await self._run_rule_based_matching(
+                unmatched_speakers, candidates, input_dto, counters
+            )
 
             # 6. BAMLフォールバック
-            if (
-                input_dto.enable_baml_fallback
-                and self._baml_matching_service is not None
-                and baml_pending_speakers
-            ):
-                role_name_mappings = minutes.role_name_mappings
+            await self._run_baml_fallback(
+                baml_pending_speakers,
+                candidates,
+                input_dto,
+                counters,
+                minutes.role_name_mappings,
+            )
 
-                for speaker in baml_pending_speakers:
-                    if not speaker.id:
-                        continue
-                    try:
-                        baml_svc = self._baml_matching_service
-                        baml_result = await baml_svc.find_best_match_from_candidates(
-                            speaker_name=speaker.name,
-                            candidates=candidates,
-                            speaker_type=speaker.type,
-                            speaker_party=speaker.political_party_name,
-                            role_name_mappings=role_name_mappings,
-                        )
-
-                        updated = False
-                        action = "pending"
-                        if (
-                            baml_result.matched
-                            and baml_result.confidence >= input_dto.review_threshold
-                            and baml_result.politician_id is not None
-                        ):
-                            updated, action = self._apply_confidence_action(
-                                speaker,
-                                baml_result.politician_id,
-                                baml_result.politician_name,
-                                baml_result.confidence,
-                                MatchMethod.BAML,
-                                input_dto.auto_match_threshold,
-                                input_dto.review_threshold,
-                            )
-                            if updated:
-                                await self._speaker_repo.update(speaker)
-                                baml_matched_count += 1
-                                if action == "auto_match":
-                                    auto_matched_count += 1
-                                else:
-                                    review_matched_count += 1
-                                self._logger.info(
-                                    "BAMLマッチ成功(%s): %s → %s (confidence=%.2f)",
-                                    action,
-                                    speaker.name,
-                                    baml_result.politician_name,
-                                    baml_result.confidence,
-                                )
-
-                        results.append(
-                            SpeakerMatchResultDTO(
-                                speaker_id=speaker.id,
-                                speaker_name=speaker.name,
-                                politician_id=baml_result.politician_id
-                                if baml_result.matched
-                                else None,
-                                politician_name=baml_result.politician_name
-                                if baml_result.matched
-                                else None,
-                                confidence=baml_result.confidence,
-                                match_method=MatchMethod.BAML
-                                if updated
-                                else MatchMethod.NONE,
-                                updated=updated,
-                            )
-                        )
-                    except Exception:
-                        self._logger.warning(
-                            "BAMLフォールバック失敗（スキップ）: %s",
-                            speaker.name,
-                            exc_info=True,
-                        )
-                        results.append(self._unmatched_dto(speaker))
-            else:
-                for speaker in baml_pending_speakers:
-                    if not speaker.id:
-                        continue
-                    results.append(self._unmatched_dto(speaker))
-
-            total_matched = auto_matched_count + review_matched_count
+            total_matched = counters.auto_matched_count + counters.review_matched_count
             return WideMatchSpeakersOutputDTO(
                 success=True,
                 message=(
                     f"{len(unmatched_speakers)}件の発言者を分析し、"
                     f"{total_matched}件をマッチングしました"
-                    f"（自動: {auto_matched_count}, 検証待ち: {review_matched_count}）"
+                    f"（自動: {counters.auto_matched_count},"
+                    f" 検証待ち: {counters.review_matched_count}）"
                 ),
                 total_speakers=len(speakers),
-                auto_matched_count=auto_matched_count,
-                review_matched_count=review_matched_count,
+                auto_matched_count=counters.auto_matched_count,
+                review_matched_count=counters.review_matched_count,
                 skipped_count=skipped_count,
-                baml_matched_count=baml_matched_count,
-                non_politician_count=non_politician_count,
-                results=results,
+                baml_matched_count=counters.baml_matched_count,
+                non_politician_count=counters.non_politician_count,
+                results=counters.results,
             )
 
         except Exception as e:
@@ -356,12 +222,183 @@ class WideMatchSpeakersUseCase:
                 message=f"広域マッチング中にエラーが発生しました: {e!s}",
             )
 
+    async def _run_rule_based_matching(
+        self,
+        unmatched_speakers: list[Speaker],
+        candidates: list[PoliticianCandidate],
+        input_dto: WideMatchSpeakersInputDTO,
+        counters: _MatchingCounters,
+    ) -> list[Speaker]:
+        """ルールベースマッチングと非政治家分類を実行する.
+
+        Returns:
+            BAMLフォールバック対象のSpeakerリスト
+        """
+        baml_pending_speakers: list[Speaker] = []
+
+        for speaker in unmatched_speakers:
+            if not speaker.id:
+                continue
+
+            match_result = self._matching_service.match(
+                speaker_id=speaker.id,
+                speaker_name=speaker.name,
+                speaker_name_yomi=speaker.name_yomi,
+                candidates=candidates,
+            )
+
+            if (
+                match_result.confidence >= input_dto.review_threshold
+                and match_result.politician_id is not None
+            ):
+                updated, action = self._apply_confidence_action(
+                    speaker,
+                    match_result.politician_id,
+                    match_result.politician_name,
+                    match_result.confidence,
+                    match_result.match_method,
+                    input_dto.auto_match_threshold,
+                    input_dto.review_threshold,
+                )
+                if updated:
+                    await self._speaker_repo.update(speaker)
+                    if action == "auto_match":
+                        counters.auto_matched_count += 1
+                    else:
+                        counters.review_matched_count += 1
+                    self._logger.info(
+                        "マッチ成功(%s): %s → %s (confidence=%.2f, method=%s)",
+                        action,
+                        speaker.name,
+                        match_result.politician_name,
+                        match_result.confidence,
+                        match_result.match_method.value,
+                    )
+                counters.results.append(
+                    SpeakerMatchResultDTO(
+                        speaker_id=match_result.speaker_id,
+                        speaker_name=match_result.speaker_name,
+                        politician_id=match_result.politician_id,
+                        politician_name=match_result.politician_name,
+                        confidence=match_result.confidence,
+                        match_method=match_result.match_method,
+                        updated=updated,
+                    )
+                )
+                continue
+
+            # 非政治家分類
+            skip_reason = classify_speaker_skip_reason(speaker.name)
+            if skip_reason is not None:
+                if speaker.is_politician:
+                    speaker.is_politician = False
+                    await self._speaker_repo.update(speaker)
+                counters.non_politician_count += 1
+                self._logger.debug("非政治家分類: %s → %s", speaker.name, skip_reason)
+                dto = self._unmatched_dto(speaker)
+                dto.skip_reason = skip_reason
+                counters.results.append(dto)
+                continue
+
+            # BAMLフォールバック対象として保留
+            baml_pending_speakers.append(speaker)
+
+        return baml_pending_speakers
+
+    async def _run_baml_fallback(
+        self,
+        baml_pending_speakers: list[Speaker],
+        candidates: list[PoliticianCandidate],
+        input_dto: WideMatchSpeakersInputDTO,
+        counters: _MatchingCounters,
+        role_name_mappings: Any,
+    ) -> None:
+        """BAMLフォールバックマッチングを実行する."""
+        if not (
+            input_dto.enable_baml_fallback
+            and self._baml_matching_service is not None
+            and baml_pending_speakers
+        ):
+            # BAML無効: 未マッチDTOとして登録
+            for speaker in baml_pending_speakers:
+                if speaker.id:
+                    counters.results.append(self._unmatched_dto(speaker))
+            return
+
+        for speaker in baml_pending_speakers:
+            if not speaker.id:
+                continue
+            try:
+                baml_result = (
+                    await self._baml_matching_service.find_best_match_from_candidates(
+                        speaker_name=speaker.name,
+                        candidates=candidates,
+                        speaker_type=speaker.type,
+                        speaker_party=speaker.political_party_name,
+                        role_name_mappings=role_name_mappings,
+                    )
+                )
+
+                updated = False
+                action = "pending"
+                if (
+                    baml_result.matched
+                    and baml_result.confidence >= input_dto.review_threshold
+                    and baml_result.politician_id is not None
+                ):
+                    updated, action = self._apply_confidence_action(
+                        speaker,
+                        baml_result.politician_id,
+                        baml_result.politician_name,
+                        baml_result.confidence,
+                        MatchMethod.BAML,
+                        input_dto.auto_match_threshold,
+                        input_dto.review_threshold,
+                    )
+                    if updated:
+                        await self._speaker_repo.update(speaker)
+                        counters.baml_matched_count += 1
+                        if action == "auto_match":
+                            counters.auto_matched_count += 1
+                        else:
+                            counters.review_matched_count += 1
+                        self._logger.info(
+                            "BAMLマッチ成功(%s): %s → %s (confidence=%.2f)",
+                            action,
+                            speaker.name,
+                            baml_result.politician_name,
+                            baml_result.confidence,
+                        )
+
+                counters.results.append(
+                    SpeakerMatchResultDTO(
+                        speaker_id=speaker.id,
+                        speaker_name=speaker.name,
+                        politician_id=baml_result.politician_id
+                        if baml_result.matched
+                        else None,
+                        politician_name=baml_result.politician_name
+                        if baml_result.matched
+                        else None,
+                        confidence=baml_result.confidence,
+                        match_method=MatchMethod.BAML if updated else MatchMethod.NONE,
+                        updated=updated,
+                    )
+                )
+            except Exception:
+                self._logger.warning(
+                    "BAMLフォールバック失敗（スキップ）: %s",
+                    speaker.name,
+                    exc_info=True,
+                )
+                counters.results.append(self._unmatched_dto(speaker))
+
     async def _build_candidate_list_from_elections(
         self, meeting_date: date, chamber: str | None
     ) -> list[PoliticianCandidate]:
         """選挙当選者ベースで候補政治家リストを構築する."""
         elections = await self._election_repo.get_by_governing_body(
-            _KOKKAI_GOVERNING_BODY_ID
+            KOKKAI_GOVERNING_BODY_ID
         )
         if not elections:
             return []
@@ -382,8 +419,7 @@ class WideMatchSpeakersUseCase:
             previous_elections = [
                 e
                 for e in elections
-                if e.chamber == "参議院"
-                and e.election_date < active_election.election_date
+                if e.is_sangiin and e.election_date < active_election.election_date
             ]
             if previous_elections:
                 prev_election = max(previous_elections, key=lambda e: e.election_date)
@@ -415,7 +451,11 @@ class WideMatchSpeakersUseCase:
     async def _build_candidate_list_from_all_politicians(
         self,
     ) -> list[PoliticianCandidate]:
-        """全Politicianから候補リストを構築する（フォールバック）."""
+        """全Politicianから候補リストを構築する（フォールバック）.
+
+        注意: このフォールバックではfurigana情報が取得できないため、
+        ふりがなマッチングは機能しない。
+        """
         all_politicians: list[
             dict[str, Any]
         ] = await self._politician_repo.get_all_for_matching()
