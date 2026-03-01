@@ -4,6 +4,7 @@ from src.domain.services.conference_domain_service import ConferenceDomainServic
 from src.domain.services.data_coverage_domain_service import DataCoverageDomainService
 from src.domain.services.election_domain_service import ElectionDomainService
 from src.domain.services.minutes_domain_service import MinutesDomainService
+from src.domain.services.name_similarity_calculator import NameSimilarityCalculator
 from src.domain.services.parliamentary_group_domain_service import (
     ParliamentaryGroupDomainService,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "DataCoverageDomainService",
     "ElectionDomainService",
     "MinutesDomainService",
+    "NameSimilarityCalculator",
     "ParliamentaryGroupDomainService",
     "PoliticianDomainService",
     "SpeakerDomainService",

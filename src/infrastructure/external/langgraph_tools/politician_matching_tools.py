@@ -18,6 +18,7 @@ from src.domain.repositories.conference_member_repository import (
     ConferenceMemberRepository,
 )
 from src.domain.repositories.politician_repository import PoliticianRepository
+from src.domain.services.name_similarity_calculator import NameSimilarityCalculator
 
 
 logger = logging.getLogger(__name__)
@@ -49,30 +50,14 @@ def _calculate_name_similarity(
     cleaned_speaker = re.sub(r"(議員|氏|さん|様|先生)$", "", speaker_name.strip())
     cleaned_politician = politician_name.strip()
 
-    # 完全一致
-    if cleaned_speaker == cleaned_politician:
-        return 1.0, "exact"
-
-    # 部分一致（発言者名が政治家名を含む、または逆）
-    if cleaned_speaker in cleaned_politician or cleaned_politician in cleaned_speaker:
-        return PARTIAL_MATCH_SCORE, "partial"
-
-    # 姓または名の一致
-    speaker_parts = cleaned_speaker.split()
-    politician_parts = cleaned_politician.split()
-    if any(sp in politician_parts for sp in speaker_parts if len(sp) >= 2):
-        return FUZZY_NAME_MATCH_SCORE, "fuzzy"
-
-    # レーベンシュタイン距離ベースのあいまいマッチ
-    if len(cleaned_speaker) > 0 and len(cleaned_politician) > 0:
-        common_chars = set(cleaned_speaker) & set(cleaned_politician)
-        similarity = len(common_chars) / max(
-            len(cleaned_speaker), len(cleaned_politician)
-        )
-        if similarity > FUZZY_SIMILARITY_THRESHOLD:
-            return similarity * FUZZY_SCORE_FACTOR, "fuzzy"
-
-    return 0.0, "none"
+    return NameSimilarityCalculator.staged_match(
+        cleaned_speaker,
+        cleaned_politician,
+        partial_score=PARTIAL_MATCH_SCORE,
+        word_match_score=FUZZY_NAME_MATCH_SCORE,
+        fuzzy_threshold=FUZZY_SIMILARITY_THRESHOLD,
+        fuzzy_factor=FUZZY_SCORE_FACTOR,
+    )
 
 
 def create_politician_matching_tools(

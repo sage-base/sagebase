@@ -8,7 +8,6 @@ Issue #905: [LangGraph+BAML] 議員団メンバー抽出のエージェント化
 
 import logging
 
-from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Any
 
 from langchain_core.tools import tool
@@ -16,6 +15,7 @@ from langchain_core.tools import tool
 from src.application.dtos.parliamentary_group_member_dto import (
     ExtractedParliamentaryGroupMemberDTO,
 )
+from src.domain.services.name_similarity_calculator import NameSimilarityCalculator
 
 
 if TYPE_CHECKING:
@@ -373,9 +373,9 @@ def create_parliamentary_group_member_extraction_tools(
                         break
 
                     # 類似度チェック
-                    similarity = SequenceMatcher(
-                        None, normalized_name, existing_normalized
-                    ).ratio()
+                    similarity = NameSimilarityCalculator.sequence_ratio(
+                        normalized_name, existing_normalized
+                    )
                     if similarity >= similarity_threshold:
                         is_duplicate = True
                         duplicates_removed.append(member)
