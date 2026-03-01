@@ -126,6 +126,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
     def _to_entity(self, model: Any) -> Speaker:
         """Convert database model to domain entity."""
+        raw_confidence = getattr(model, "matching_confidence", None)
         return Speaker(
             name=model.name,
             type=model.type,
@@ -137,6 +138,10 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             is_manually_verified=bool(getattr(model, "is_manually_verified", False)),
             latest_extraction_log_id=getattr(model, "latest_extraction_log_id", None),
             name_yomi=getattr(model, "name_yomi", None),
+            matching_confidence=float(raw_confidence)
+            if raw_confidence is not None
+            else None,
+            matching_reason=getattr(model, "matching_reason", None),
             id=model.id,
         )
 
@@ -153,6 +158,8 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             is_manually_verified=entity.is_manually_verified,
             latest_extraction_log_id=entity.latest_extraction_log_id,
             name_yomi=entity.name_yomi,
+            matching_confidence=entity.matching_confidence,
+            matching_reason=entity.matching_reason,
         )
 
     def _update_model(self, model: Any, entity: Speaker) -> None:
@@ -167,6 +174,8 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         model.is_manually_verified = entity.is_manually_verified
         model.latest_extraction_log_id = entity.latest_extraction_log_id
         model.name_yomi = entity.name_yomi
+        model.matching_confidence = entity.matching_confidence
+        model.matching_reason = entity.matching_reason
 
     async def get_speakers_with_conversation_count(
         self,
@@ -342,7 +351,9 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 is_politician = :is_politician,
                 politician_id = :politician_id,
                 matched_by_user_id = :matched_by_user_id,
-                name_yomi = :name_yomi
+                name_yomi = :name_yomi,
+                matching_confidence = :matching_confidence,
+                matching_reason = :matching_reason
             WHERE id = :id
             RETURNING *
         """)
@@ -357,6 +368,8 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             "politician_id": entity.politician_id,
             "matched_by_user_id": entity.matched_by_user_id,
             "name_yomi": entity.name_yomi,
+            "matching_confidence": entity.matching_confidence,
+            "matching_reason": entity.matching_reason,
         }
 
         result = await self.session.execute(query, params)
@@ -369,6 +382,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
     def _row_to_entity(self, row: Any) -> Speaker:
         """Convert database row to domain entity."""
+        raw_confidence = getattr(row, "matching_confidence", None)
         return Speaker(
             id=row.id,
             name=row.name,
@@ -381,6 +395,10 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             is_manually_verified=bool(getattr(row, "is_manually_verified", False)),
             latest_extraction_log_id=getattr(row, "latest_extraction_log_id", None),
             name_yomi=getattr(row, "name_yomi", None),
+            matching_confidence=float(raw_confidence)
+            if raw_confidence is not None
+            else None,
+            matching_reason=getattr(row, "matching_reason", None),
         )
 
     async def get_speakers_with_politician_info(self) -> list[dict[str, Any]]:
@@ -765,6 +783,28 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         await self.session.commit()
 
         return result.rowcount
+
+    async def get_speakers_pending_review(
+        self,
+        min_confidence: float = 0.7,
+        max_confidence: float = 0.9,
+    ) -> list[Speaker]:
+        """手動検証待ちの発言者を取得する."""
+        query = text("""
+            SELECT * FROM speakers
+            WHERE matching_confidence IS NOT NULL
+              AND matching_confidence >= :min_confidence
+              AND matching_confidence < :max_confidence
+              AND is_manually_verified = FALSE
+              AND politician_id IS NOT NULL
+            ORDER BY matching_confidence DESC, name
+        """)
+        result = await self.session.execute(
+            query,
+            {"min_confidence": min_confidence, "max_confidence": max_confidence},
+        )
+        rows = result.fetchall()
+        return [self._row_to_entity(row) for row in rows]
 
     async def classify_is_politician_bulk(
         self,
