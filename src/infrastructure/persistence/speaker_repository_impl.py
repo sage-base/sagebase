@@ -767,7 +767,9 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         return result.rowcount
 
     async def classify_is_politician_bulk(
-        self, non_politician_names: frozenset[str]
+        self,
+        non_politician_names: frozenset[str],
+        non_politician_prefixes: frozenset[str] | None = None,
     ) -> dict[str, int]:
         """全Speakerのis_politicianフラグを一括分類設定する."""
         # Step 1: is_manually_verified=Falseかつ未リンクのSpeakerを全て政治家に設定
@@ -781,18 +783,29 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         total_updated_to_politician = result1.rowcount
 
         # Step 2: 非政治家パターンに該当しpolitician_idがNULLのものをFalseに戻す
+        # 完全一致（ANY）とプレフィックスマッチ（LIKE ANY）の複合条件
+        conditions: list[str] = []
+        params: dict[str, object] = {}
+
         if non_politician_names:
-            update_to_non_politician_query = text("""
+            conditions.append("name = ANY(:exact_names)")
+            # SQLAlchemy/psycopg2はlist型をPostgreSQL配列パラメータとして渡す
+            params["exact_names"] = list(non_politician_names)
+
+        if non_politician_prefixes:
+            conditions.append("name LIKE ANY(:prefix_patterns)")
+            params["prefix_patterns"] = [f"{p}%" for p in non_politician_prefixes]
+
+        if conditions:
+            where_clause = " OR ".join(conditions)
+            update_to_non_politician_query = text(f"""
                 UPDATE speakers
                 SET is_politician = FALSE
-                WHERE name = ANY(:names)
+                WHERE ({where_clause})
                   AND politician_id IS NULL
                   AND is_manually_verified = FALSE
             """)
-            names_list = list(non_politician_names)
-            result2 = await self.session.execute(
-                update_to_non_politician_query, {"names": names_list}
-            )
+            result2 = await self.session.execute(update_to_non_politician_query, params)
             total_kept_non_politician = result2.rowcount
         else:
             total_kept_non_politician = 0
