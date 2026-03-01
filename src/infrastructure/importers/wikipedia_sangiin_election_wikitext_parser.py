@@ -90,7 +90,7 @@ def parse_sangiin_wikitext(
     election_number: int,
 ) -> list[CandidateRecord]:
     """参議院選挙のWikitextから選挙区+比例/全国区の全当選者を抽出する."""
-    color_to_party = _build_color_to_party(wikitext)
+    color_to_party = _build_color_to_party(wikitext, election_number)
 
     district = _parse_district_winners(wikitext, color_to_party)
     proportional = _parse_proportional_winners(
@@ -99,11 +99,30 @@ def parse_sangiin_wikitext(
     return district + proportional
 
 
-def _build_color_to_party(wikitext: str) -> dict[str, str]:
-    """凡例からカラーコード→政党名マッピングを構築する."""
-    mapping = extract_color_party_mapping(wikitext)
-    # {{政党箱|政党名}} 形式（色コードなし）からは取得できないため
-    # フォールバックは _resolve_party で対応
+def _build_color_to_party(wikitext: str, election_number: int) -> dict[str, str]:
+    """凡例+フォールバック+時代別オーバーライドでカラー→政党マッピングを構築する.
+
+    優先順位: 記事内抽出 > 時代別オーバーライド > 静的フォールバック
+    """
+    # 1. 静的フォールバックをベースに
+    mapping: dict[str, str] = dict(WIKIPEDIA_SANGIIN_COLOR_PARTY_FALLBACK)
+
+    # 2. 時代別オーバーライド（同じ色コードが時代により異なる政党を指す）
+    # 社会民主党: 1996年（第17回）〜。0FFは旧: 日本社会党
+    if election_number >= 17:
+        mapping["0FF"] = "社会民主党"
+    # れいわ新選組: 2019年（第25回）〜。F8Dは旧: 民社党
+    if election_number >= 25:
+        mapping["F8D"] = "れいわ新選組"
+    # 日本保守党: 2025年（第27回）〜。0CFは旧: 第二院クラブ
+    if election_number >= 27:
+        mapping["0CF"] = "日本保守党"
+        mapping["3FB"] = "チームみらい"
+
+    # 3. 記事内の {{colorbox}} / {{政党箱|#hex|name}} 抽出が最優先
+    article_mapping = extract_color_party_mapping(wikitext)
+    mapping.update(article_mapping)
+
     return mapping
 
 
@@ -111,9 +130,6 @@ def _resolve_party(color: str, color_to_party: dict[str, str]) -> str:
     """カラーコードから政党名を解決する."""
     if color in color_to_party:
         return color_to_party[color]
-    # 参議院専用フォールバック → 衆議院共通フォールバック
-    if color in WIKIPEDIA_SANGIIN_COLOR_PARTY_FALLBACK:
-        return WIKIPEDIA_SANGIIN_COLOR_PARTY_FALLBACK[color]
     return WIKIPEDIA_COLOR_PARTY_FALLBACK.get(color, f"不明({color})")
 
 
