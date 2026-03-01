@@ -1086,17 +1086,15 @@ class TestNonPoliticianClassification:
         assert updated_speaker.is_politician is False
 
     @pytest.mark.asyncio
-    async def test_non_politician_already_false_no_update(
+    async def test_non_politician_already_false_updates_skip_reason(
         self, usecase: MatchMeetingSpeakersUseCase, mock_repos: dict[str, AsyncMock]
     ) -> None:
-        """is_politician=Falseの非政治家はupdateが呼ばれない."""
+        """is_politician=Falseでもskip_reason永続化のためupdateが呼ばれる."""
         _setup_meeting(mock_repos)
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1])
-        _setup_speakers(
-            mock_repos,
-            [Speaker(name="委員長", is_politician=False, id=1)],
-        )
+        speaker = Speaker(name="委員長", is_politician=False, id=1)
+        _setup_speakers(mock_repos, [speaker])
         _setup_candidates(
             mock_repos,
             [
@@ -1113,7 +1111,10 @@ class TestNonPoliticianClassification:
         result = await usecase.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
 
         assert result.non_politician_count == 1
-        mock_repos["speaker_repository"].update.assert_not_called()
+        mock_repos["speaker_repository"].update.assert_called_once()
+        updated_speaker = mock_repos["speaker_repository"].update.call_args[0][0]
+        assert updated_speaker.is_politician is False
+        assert updated_speaker.skip_reason == "role_only"
 
 
 class TestIsPoliticianFlag:

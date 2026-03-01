@@ -281,9 +281,10 @@ class WideMatchSpeakersUseCase:
             # 非政治家分類
             skip_reason = classify_speaker_skip_reason(speaker.name)
             if skip_reason is not None:
-                if speaker.is_politician:
-                    speaker.is_politician = False
-                    await self._speaker_repo.update(speaker)
+                # 非政治家として分類 → is_politicianをFalseに、skip_reasonを設定
+                speaker.is_politician = False
+                speaker.skip_reason = skip_reason.value
+                await self._speaker_repo.update(speaker)
                 counters.non_politician_count += 1
                 self._logger.debug("非政治家分類: %s → %s", speaker.name, skip_reason)
                 dto = SpeakerMatchResultDTO.unmatched(speaker)
