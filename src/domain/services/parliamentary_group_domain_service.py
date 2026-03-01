@@ -4,6 +4,7 @@ from datetime import date, datetime
 from typing import Any
 
 from src.domain.entities.parliamentary_group import ParliamentaryGroup
+from src.domain.services.name_similarity_calculator import NameSimilarityCalculator
 
 
 class ParliamentaryGroupDomainService:
@@ -189,24 +190,7 @@ class ParliamentaryGroupDomainService:
 
     def _calculate_similarity(self, name1: str, name2: str) -> float:
         """Calculate similarity between two names."""
-        if name1 == name2:
-            return 1.0
-
-        # Check containment
-        if name1 in name2 or name2 in name1:
-            return 0.9
-
-        # Character-based similarity
-        chars1 = set(name1)
-        chars2 = set(name2)
-
-        if not chars1 or not chars2:
-            return 0.0
-
-        intersection = chars1 & chars2
-        union = chars1 | chars2
-
-        return len(intersection) / len(union)
+        return NameSimilarityCalculator.jaccard_with_containment(name1, name2)
 
     def group_politicians_by_parliamentary_group(
         self,

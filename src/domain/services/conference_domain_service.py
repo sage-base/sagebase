@@ -3,6 +3,7 @@
 from datetime import date, datetime
 
 from src.domain.entities.conference import Conference
+from src.domain.services.name_similarity_calculator import NameSimilarityCalculator
 
 
 class ConferenceDomainService:
@@ -148,25 +149,8 @@ class ConferenceDomainService:
 
     def _calculate_name_similarity(self, name1: str, name2: str) -> float:
         """Calculate similarity between two names."""
-        # Normalize names
+        # 正規化（スペース除去）
         norm1 = name1.strip().replace(" ", "").replace("　", "")
         norm2 = name2.strip().replace(" ", "").replace("　", "")
 
-        if norm1 == norm2:
-            return 1.0
-
-        # Check if one contains the other
-        if norm1 in norm2 or norm2 in norm1:
-            return 0.9
-
-        # Character-based similarity
-        chars1 = set(norm1)
-        chars2 = set(norm2)
-
-        if not chars1 or not chars2:
-            return 0.0
-
-        intersection = chars1 & chars2
-        union = chars1 | chars2
-
-        return len(intersection) / len(union)
+        return NameSimilarityCalculator.jaccard_with_containment(norm1, norm2)

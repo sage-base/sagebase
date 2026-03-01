@@ -4,6 +4,7 @@ from typing import Any
 
 from src.domain.entities.politician import Politician
 from src.domain.entities.speaker import Speaker
+from src.domain.services.name_similarity_calculator import NameSimilarityCalculator
 
 
 class SpeakerDomainService:
@@ -153,15 +154,7 @@ class SpeakerDomainService:
         norm1 = self.normalize_speaker_name(name1)
         norm2 = self.normalize_speaker_name(name2)
 
-        if norm1 == norm2:
-            return 1.0
-
-        # Simple character-based similarity
-        common_chars = set(norm1) & set(norm2)
-        if not common_chars:
-            return 0.0
-
-        return len(common_chars) / max(len(set(norm1)), len(set(norm2)))
+        return NameSimilarityCalculator.jaccard(norm1, norm2)
 
     def merge_speaker_info(self, existing: Speaker, new_info: Speaker) -> Speaker:
         """Merge new speaker information with existing speaker."""
