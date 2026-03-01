@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
 from src.application.dtos.match_meeting_speakers_dto import SpeakerMatchResultDTO
 from src.application.dtos.wide_match_speakers_dto import (
@@ -54,19 +54,6 @@ class _MatchingCounters:
 
 class WideMatchSpeakersUseCase:
     """ConferenceMember非依存の広域マッチングユースケース."""
-
-    @staticmethod
-    def _unmatched_dto(speaker: Speaker) -> SpeakerMatchResultDTO:
-        """未マッチSpeaker用のDTO生成ファクトリ."""
-        return SpeakerMatchResultDTO(
-            speaker_id=speaker.id,  # type: ignore[arg-type]
-            speaker_name=speaker.name,
-            politician_id=None,
-            politician_name=None,
-            confidence=0.0,
-            match_method=MatchMethod.NONE,
-            updated=False,
-        )
 
     def __init__(
         self,
@@ -295,7 +282,7 @@ class WideMatchSpeakersUseCase:
                     await self._speaker_repo.update(speaker)
                 counters.non_politician_count += 1
                 self._logger.debug("非政治家分類: %s → %s", speaker.name, skip_reason)
-                dto = self._unmatched_dto(speaker)
+                dto = SpeakerMatchResultDTO.unmatched(speaker)
                 dto.skip_reason = skip_reason
                 counters.results.append(dto)
                 continue
@@ -322,7 +309,7 @@ class WideMatchSpeakersUseCase:
             # BAML無効: 未マッチDTOとして登録
             for speaker in baml_pending_speakers:
                 if speaker.id:
-                    counters.results.append(self._unmatched_dto(speaker))
+                    counters.results.append(SpeakerMatchResultDTO.unmatched(speaker))
             return
 
         for speaker in baml_pending_speakers:
@@ -391,7 +378,7 @@ class WideMatchSpeakersUseCase:
                     speaker.name,
                     exc_info=True,
                 )
-                counters.results.append(self._unmatched_dto(speaker))
+                counters.results.append(SpeakerMatchResultDTO.unmatched(speaker))
 
     async def _build_candidate_list_from_elections(
         self, meeting_date: date, chamber: str | None
@@ -477,11 +464,11 @@ class WideMatchSpeakersUseCase:
         match_method: MatchMethod,
         auto_threshold: float,
         review_threshold: float,
-    ) -> tuple[bool, str]:
+    ) -> tuple[bool, Literal["auto_match", "manual_review", "pending"]]:
         """信頼度に基づいてSpeakerを更新する.
 
         Returns:
-            (updated, action): actionは "auto_match" | "manual_review" | "pending"
+            (updated, action)
         """
         if confidence >= auto_threshold:
             speaker.politician_id = politician_id

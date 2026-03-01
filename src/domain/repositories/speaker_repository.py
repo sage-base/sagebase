@@ -177,11 +177,19 @@ class SpeakerRepository(BaseRepository[Speaker]):
         pass
 
     @abstractmethod
-    async def get_speakers_pending_review(self) -> list[Speaker]:
+    async def get_speakers_pending_review(
+        self,
+        min_confidence: float = 0.7,
+        max_confidence: float = 0.9,
+    ) -> list[Speaker]:
         """手動検証待ちの発言者を取得する.
 
-        広域マッチングで0.7-0.9の信頼度でマッチされた発言者のうち、
+        指定された信頼度範囲でマッチされた発言者のうち、
         まだ手動検証されていないものを返す。
+
+        Args:
+            min_confidence: 最低信頼度（この値以上）
+            max_confidence: 最高信頼度（この値未満）
 
         Returns:
             手動検証待ちの発言者リスト

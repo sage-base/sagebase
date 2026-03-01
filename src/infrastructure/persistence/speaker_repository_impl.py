@@ -784,18 +784,25 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
         return result.rowcount
 
-    async def get_speakers_pending_review(self) -> list[Speaker]:
+    async def get_speakers_pending_review(
+        self,
+        min_confidence: float = 0.7,
+        max_confidence: float = 0.9,
+    ) -> list[Speaker]:
         """手動検証待ちの発言者を取得する."""
         query = text("""
             SELECT * FROM speakers
             WHERE matching_confidence IS NOT NULL
-              AND matching_confidence >= 0.7
-              AND matching_confidence < 0.9
+              AND matching_confidence >= :min_confidence
+              AND matching_confidence < :max_confidence
               AND is_manually_verified = FALSE
               AND politician_id IS NOT NULL
             ORDER BY matching_confidence DESC, name
         """)
-        result = await self.session.execute(query)
+        result = await self.session.execute(
+            query,
+            {"min_confidence": min_confidence, "max_confidence": max_confidence},
+        )
         rows = result.fetchall()
         return [self._row_to_entity(row) for row in rows]
 
