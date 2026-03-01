@@ -83,8 +83,12 @@ from src.application.usecases.view_data_coverage_usecase import (
     ViewMeetingCoverageUseCase,
     ViewSpeakerMatchingStatsUseCase,
 )
+from src.application.usecases.wide_match_speakers_usecase import (
+    WideMatchSpeakersUseCase,
+)
 from src.domain.interfaces.minutes_divider_service import IMinutesDividerService
 from src.domain.interfaces.role_name_mapping_service import IRoleNameMappingService
+from src.domain.services.election_domain_service import ElectionDomainService
 from src.domain.services.interfaces.llm_service import ILLMService
 from src.domain.services.interfaces.minutes_processing_service import (
     IMinutesProcessingService,
@@ -866,5 +870,22 @@ class UseCaseContainer(containers.DeclarativeContainer):
         politician_repository=repositories.politician_repository,
         matching_service=providers.Factory(SpeakerPoliticianMatchingService),
         conference_repository=repositories.conference_repository,
+        baml_matching_service=baml_politician_matching_service,
+    )
+
+    # Wide Match Speakers UseCase (Issue #1263)
+    # ConferenceMember非依存の広域マッチング（1947-2007年対応）
+    wide_match_speakers_usecase = providers.Factory(
+        WideMatchSpeakersUseCase,
+        meeting_repository=repositories.meeting_repository,
+        minutes_repository=repositories.minutes_repository,
+        conversation_repository=repositories.conversation_repository,
+        speaker_repository=repositories.speaker_repository,
+        politician_repository=repositories.politician_repository,
+        election_repository=repositories.election_repository,
+        election_member_repository=repositories.election_member_repository,
+        conference_repository=repositories.conference_repository,
+        matching_service=providers.Factory(SpeakerPoliticianMatchingService),
+        election_domain_service=providers.Factory(ElectionDomainService),
         baml_matching_service=baml_politician_matching_service,
     )

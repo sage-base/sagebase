@@ -44,6 +44,8 @@ class MockSpeakerModel:
     is_manually_verified = MockColumn("is_manually_verified")
     latest_extraction_log_id = MockColumn("latest_extraction_log_id")
     name_yomi = MockColumn("name_yomi")
+    matching_confidence = MockColumn("matching_confidence")
+    matching_reason = MockColumn("matching_reason")
 
     def __init__(
         self,
@@ -58,6 +60,8 @@ class MockSpeakerModel:
         is_manually_verified: bool = False,
         latest_extraction_log_id: int | None = None,
         name_yomi: str | None = None,
+        matching_confidence: float | None = None,
+        matching_reason: str | None = None,
     ):
         self.id = id
         self.name = name
@@ -70,6 +74,8 @@ class MockSpeakerModel:
         self.is_manually_verified = is_manually_verified
         self.latest_extraction_log_id = latest_extraction_log_id
         self.name_yomi = name_yomi
+        self.matching_confidence = matching_confidence
+        self.matching_reason = matching_reason
 
 
 class TestSpeakerRepositoryImpl:
