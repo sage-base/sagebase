@@ -45,7 +45,7 @@ from src.application.usecases.override_individual_judge_usecase import (
 )
 from src.domain.entities.proposal_judge import ProposalJudge
 from src.domain.value_objects.submitter_type import SubmitterType
-from src.infrastructure.config import DATABASE_URL
+from src.infrastructure.config.database import DATABASE_URL
 from src.infrastructure.persistence.async_session_adapter import (
     AsyncSessionAdapter,
 )

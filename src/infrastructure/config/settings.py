@@ -1,11 +1,12 @@
-"""Centralized configuration management using environment variables
+"""設定管理の一元化モジュール
 
-Provides a single source of truth for application configuration with
-validation and type safety.
+環境変数を使った設定管理の単一エントリーポイント。
+バリデーション・型安全性・worktree対応の.envファイル探索を提供する。
 """
 
 import logging
 import os
+import subprocess
 
 from pathlib import Path
 
@@ -20,8 +21,45 @@ from src.application.exceptions import (
 
 logger = logging.getLogger(__name__)
 
-# Load environment variables from .env file
-load_dotenv()
+
+def find_env_file() -> str:
+    """worktree対応の.envファイル探索
+
+    以下の優先順位で.envファイルを探索する:
+    1. POLIBASE_ENV_FILE環境変数で指定されたパス
+    2. カレントディレクトリの.env
+    3. git worktreeのメインリポジトリの.env
+    """
+    custom_path = os.getenv("POLIBASE_ENV_FILE")
+    if custom_path:
+        return custom_path
+
+    if os.path.exists(".env"):
+        return ".env"
+
+    # git worktreeの場合、メインリポジトリの.envを探す
+    try:
+        result = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        for line in result.stdout.splitlines():
+            if line.startswith("worktree ") and "[main]" in line:
+                main_repo_path = line.split()[1]
+                main_env_path = os.path.join(main_repo_path, ".env")
+                if os.path.exists(main_env_path):
+                    return main_env_path
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+
+    return ".env"
+
+
+# worktree対応の.envファイル読み込み
+ENV_FILE_PATH = find_env_file()
+load_dotenv(ENV_FILE_PATH)
 
 
 class Settings:
@@ -193,6 +231,27 @@ class Settings:
                 key, f"Required configuration '{key}' is not set"
             )
         return value
+
+    def set_env(self) -> None:
+        """外部ライブラリ用にos.environへ設定値を書き戻す
+
+        LangChain等の外部ライブラリがos.environから直接APIキーを読み取るため、
+        .envから読み込んだ設定値をos.environに反映する。
+        """
+        env_vars: dict[str, str | None] = {
+            "LANGCHAIN_TRACING_V2": "true" if self.langchain_tracing_v2 else "false",
+            "LANGCHAIN_ENDPOINT": self.langchain_endpoint or None,
+            "LANGCHAIN_API_KEY": self.langchain_api_key or None,
+            "LANGCHAIN_PROJECT": self.langchain_project or None,
+            "GOOGLE_API_KEY": self.google_api_key or None,
+            "OPENAI_API_KEY": self.openai_api_key or None,
+            "TAVILY_API_KEY": self.tavily_api_key or None,
+            "DATABASE_URL": self.database_url,
+        }
+
+        for key, value in env_vars.items():
+            if value is not None:
+                os.environ[key] = value
 
 
 # Global settings instance

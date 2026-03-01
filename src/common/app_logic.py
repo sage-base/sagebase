@@ -10,14 +10,13 @@ import os
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-import src.infrastructure.config.config as config
-
 from src.application.exceptions import (
     ConfigurationError,
     PDFProcessingError,
     ProcessingError,
 )
 from src.infrastructure.config.database import test_connection
+from src.infrastructure.config.settings import get_settings
 from src.infrastructure.exceptions import DatabaseError
 from src.infrastructure.exceptions import (
     FileNotFoundException as PolibaseFileNotFoundError,
@@ -39,8 +38,9 @@ def setup_environment() -> None:
         ConfigurationError: If configuration validation fails
     """
     try:
-        config.set_env()
-        config.validate_config()
+        settings = get_settings()
+        settings.set_env()
+        settings.validate()
         logger.info("Environment setup completed")
     except Exception as e:
         logger.error(f"Failed to setup environment: {e}")
