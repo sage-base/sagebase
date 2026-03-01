@@ -63,7 +63,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra dev
+          uv sync
 
       - name: Set up environment
         run: |

@@ -31,7 +31,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra dev
+          uv sync --frozen
 
       - name: Check code formatting with ruff
         run: |
@@ -60,7 +60,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra dev
+          uv sync --frozen
 
       - name: Type check with Pyright
         run: |
@@ -104,7 +104,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra dev
+          uv sync --frozen
 
       - name: Security scan with bandit
         run: |
@@ -166,7 +166,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra dev
+          uv sync --frozen
 
       - name: Run unit tests with coverage
         run: |
@@ -252,7 +252,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra dev
+          uv sync --frozen
 
       - name: Set up test database
         env:
@@ -296,7 +296,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra dev
+          uv sync --frozen
 
       - name: Install Playwright browsers
         run: |
@@ -344,7 +344,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra dev
+          uv sync --frozen
 
       - name: Run LLM integration tests (fully mocked)
         env:
@@ -374,7 +374,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra dev
+          uv sync --frozen
 
       - name: Run other integration tests
         env:
@@ -431,7 +431,7 @@ jobs:
       - name: Install dependencies
         if: steps.baml-changes.outputs.has_changes == 'true'
         run: |
-          uv sync --frozen --extra dev
+          uv sync --frozen
 
       - name: Set up Node.js for BAML
         if: steps.baml-changes.outputs.has_changes == 'true'
@@ -489,7 +489,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra dev
+          uv sync --frozen
 
       - name: Run E2E tests
         env:
@@ -518,7 +518,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --frozen --extra dev
+          uv sync --frozen
 
       - name: Run performance tests
         env:
