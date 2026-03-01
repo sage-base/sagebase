@@ -181,3 +181,7 @@ class TestNormalizeKana:
     def test_mixed_kana(self) -> None:
         """カタカナ+ひらがな混在."""
         assert NameNormalizer.normalize_kana("キシダふみお") == "きしだふみお"
+
+    def test_halfwidth_katakana(self) -> None:
+        """半角カタカナがNFKC正規化で全角→ひらがなに変換される."""
+        assert NameNormalizer.normalize_kana("ﾔﾏﾀﾞﾀﾛｳ") == "やまだたろう"

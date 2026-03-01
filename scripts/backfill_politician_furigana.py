@@ -69,12 +69,12 @@ async def fetch_politicians_without_furigana(session) -> set[int]:  # type: igno
 
 async def update_furigana_bulk(session, updates: list[tuple[int, str]]) -> int:  # type: ignore[no-untyped-def]
     """Politicianのfuriganaを一括更新する."""
+    query = text("""
+        UPDATE politicians SET furigana = :furigana, updated_at = CURRENT_TIMESTAMP
+        WHERE id = :id AND (furigana IS NULL OR furigana = '')
+    """)
     updated = 0
     for politician_id, furigana in updates:
-        query = text("""
-            UPDATE politicians SET furigana = :furigana, updated_at = CURRENT_TIMESTAMP
-            WHERE id = :id AND (furigana IS NULL OR furigana = '')
-        """)
         result = await session.execute(
             query, {"id": politician_id, "furigana": furigana}
         )

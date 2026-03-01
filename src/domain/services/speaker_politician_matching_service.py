@@ -150,8 +150,9 @@ class SpeakerPoliticianMatchingService:
                 kanji_surname
             ):
                 matched_candidates.append(candidate)
+                if len(matched_candidates) > 1:
+                    return None
 
-        # 同姓候補が1人のみの場合にマッチ
         if len(matched_candidates) == 1:
             return matched_candidates[0]
 
@@ -185,8 +186,9 @@ class SpeakerPoliticianMatchingService:
                 and len(speaker_name) < len(normalized_candidate)
             ):
                 matched_candidates.append(candidate)
+                if len(matched_candidates) > 1:
+                    return None
 
-        # 同姓候補が1人のみの場合にマッチ
         if len(matched_candidates) == 1:
             return matched_candidates[0]
 

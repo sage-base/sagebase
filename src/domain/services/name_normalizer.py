@@ -111,9 +111,6 @@ _KYUJITAI_TO_SHINJITAI: dict[str, str] = {
     "鑛": "鉱",
     "滿": "満",
     "萬": "万",
-    "邦": "邦",
-    "塚": "塚",
-    "鷗": "鷗",
 }
 
 _TRANSLATE_TABLE = str.maketrans(_KYUJITAI_TO_SHINJITAI)
@@ -130,6 +127,9 @@ _KANJI_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf]")
 # ッ/ツ: 三ッ林、三ツ矢
 # ノ: 一ノ瀬
 _SURNAME_CHAR_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf々ヶケッツノ]")
+
+# 全角・半角スペース除去（各メソッドで共有）
+_WHITESPACE_RE = re.compile(r"[\s\u3000]+")
 
 
 class NameNormalizer:
@@ -151,7 +151,7 @@ class NameNormalizer:
         # 2. 旧字体→新字体変換
         normalized = normalized.translate(_TRANSLATE_TABLE)
         # 3. スペース除去
-        normalized = re.sub(r"[\s　]+", "", normalized)
+        normalized = _WHITESPACE_RE.sub("", normalized)
         # 4. 敬称除去
         for honorific in _HONORIFICS:
             if normalized.endswith(honorific):
@@ -173,7 +173,7 @@ class NameNormalizer:
             "たけむら" → ""（先頭が漢字でなければ空文字）
         """
         # スペース除去
-        cleaned = re.sub(r"[\s　]+", "", name)
+        cleaned = _WHITESPACE_RE.sub("", name)
         # 先頭が漢字でなければ空文字
         if not cleaned or not _KANJI_RE.match(cleaned[0]):
             return ""
@@ -188,16 +188,17 @@ class NameNormalizer:
     @staticmethod
     def has_mixed_hiragana(name: str) -> bool:
         """名前に漢字とひらがなが混在しているか判定する."""
-        cleaned = re.sub(r"[\s　]+", "", name)
+        cleaned = _WHITESPACE_RE.sub("", name)
         has_kanji = bool(_KANJI_RE.search(cleaned))
         has_hiragana = bool(_HIRAGANA_RE.search(cleaned))
         return has_kanji and has_hiragana
 
     @staticmethod
     def normalize_kana(kana: str) -> str:
-        """ふりがなを正規化する（カタカナ→ひらがな変換、スペース除去）."""
+        """ふりがなを正規化する（NFKC正規化、カタカナ→ひらがな変換、スペース除去）."""
         normalized = kana.strip()
-        normalized = re.sub(r"[\s　]+", "", normalized)
+        normalized = unicodedata.normalize("NFKC", normalized)
+        normalized = _WHITESPACE_RE.sub("", normalized)
         # カタカナをひらがなに変換
         result: list[str] = []
         for char in normalized:
