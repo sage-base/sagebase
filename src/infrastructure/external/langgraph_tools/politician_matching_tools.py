@@ -18,7 +18,10 @@ from src.domain.repositories.conference_member_repository import (
     ConferenceMemberRepository,
 )
 from src.domain.repositories.politician_repository import PoliticianRepository
-from src.domain.services.name_similarity_calculator import NameSimilarityCalculator
+from src.domain.services.name_similarity_calculator import (
+    MatchType,
+    NameSimilarityCalculator,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -34,7 +37,7 @@ CONFIDENCE_THRESHOLD = 0.7
 
 def _calculate_name_similarity(
     speaker_name: str, politician_name: str
-) -> tuple[float, str]:
+) -> tuple[float, MatchType]:
     """名前の類似度を計算
 
     Args:

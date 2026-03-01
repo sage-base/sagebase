@@ -6,6 +6,10 @@
 """
 
 from difflib import SequenceMatcher
+from typing import Literal
+
+
+MatchType = Literal["exact", "partial", "fuzzy", "none"]
 
 
 class NameSimilarityCalculator:
@@ -63,16 +67,7 @@ class NameSimilarityCalculator:
         if name1 in name2 or name2 in name1:
             return containment_score
 
-        chars1 = set(name1)
-        chars2 = set(name2)
-
-        if not chars1 or not chars2:
-            return 0.0
-
-        intersection = chars1 & chars2
-        union = chars1 | chars2
-
-        return len(intersection) / len(union)
+        return NameSimilarityCalculator.jaccard(name1, name2)
 
     @staticmethod
     def sequence_ratio(name1: str, name2: str) -> float:
@@ -102,7 +97,7 @@ class NameSimilarityCalculator:
         word_match_score: float = 0.6,
         fuzzy_threshold: float = 0.5,
         fuzzy_factor: float = 0.5,
-    ) -> tuple[float, str]:
+    ) -> tuple[float, MatchType]:
         """段階的マッチングによる類似度を計算する。
 
         以下の順序で判定する:
@@ -120,8 +115,7 @@ class NameSimilarityCalculator:
             fuzzy_factor: あいまいマッチのスコア係数
 
         Returns:
-            (score, match_type) のタプル。
-            match_type: "exact", "partial", "fuzzy", "none"
+            (score, match_type) のタプル
         """
         if name1 == name2:
             return 1.0, "exact"
@@ -136,6 +130,7 @@ class NameSimilarityCalculator:
             return word_match_score, "fuzzy"
 
         # 文字集合の重なりによるあいまいマッチ
+        # len(共通文字集合) / max(文字列長) で計算（Jaccard係数とは異なる指標）
         if len(name1) > 0 and len(name2) > 0:
             common_chars = set(name1) & set(name2)
             similarity = len(common_chars) / max(len(name1), len(name2))
