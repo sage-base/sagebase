@@ -11,7 +11,7 @@ from enum import Enum
 
 
 class SkipReason(Enum):
-    """非政治家分類の理由."""
+    """発言者マッチングのスキップ理由."""
 
     ROLE_ONLY = "role_only"
     REFERENCE_PERSON = "reference_person"
