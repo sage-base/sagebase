@@ -9,6 +9,7 @@ class MatchMethod(Enum):
 
     EXACT_NAME = "exact_name"
     YOMI = "yomi"
+    KANJI_SURNAME = "kanji_surname"
     SURNAME_ONLY = "surname_only"
     BAML = "baml"
     NONE = "none"

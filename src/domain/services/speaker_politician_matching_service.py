@@ -5,39 +5,13 @@ ConferenceMemberで絞り込んだ候補リストに対して、
 DB非依存の純粋なドメインロジック。
 """
 
-import re
-
+from src.domain.services.name_normalizer import NameNormalizer
 from src.domain.value_objects.speaker_politician_match_result import (
     MatchMethod,
     PoliticianCandidate,
     SpeakerPoliticianMatchResult,
 )
 
-
-# 末尾から除去する敬称
-# 長い順にソートし「副議長」が「議長」より先にマッチするようにする
-_HONORIFICS = sorted(
-    [
-        "副委員長",
-        "委員長",
-        "副議長",
-        "議長",
-        "副市長",
-        "市長",
-        "副知事",
-        "知事",
-        "議員",
-        "先生",
-        "殿",
-        "氏",
-        "さん",
-        "くん",
-        "君",
-        "様",
-    ],
-    key=len,
-    reverse=True,
-)
 
 # 姓の最小・最大文字数（日本語名の姓は1-4文字が一般的）
 _MIN_SURNAME_LEN = 1
@@ -59,8 +33,9 @@ class SpeakerPoliticianMatchingService:
         マッチング優先順位:
         1. 完全一致 → confidence: 1.0
         2. ふりがな一致 → confidence: 0.9
-        3. 姓のみ一致（同姓候補1人のみ）→ confidence: 0.8
-        4. マッチなし → confidence: 0.0
+        3. 漢字姓マッチ（ひらがな混じり候補名対応）→ confidence: 0.85
+        4. 姓のみ一致（同姓候補1人のみ）→ confidence: 0.8
+        5. マッチなし → confidence: 0.0
 
         Args:
             speaker_id: 発言者ID
@@ -106,7 +81,19 @@ class SpeakerPoliticianMatchingService:
                                 match_method=MatchMethod.YOMI,
                             )
 
-        # 3. 姓のみ一致チェック（同姓候補が1人のみの場合）
+        # 3. 漢字姓マッチ（ひらがな混じり候補名対応）
+        kanji_surname_match = self._match_by_kanji_surname(normalized_name, candidates)
+        if kanji_surname_match:
+            return SpeakerPoliticianMatchResult(
+                speaker_id=speaker_id,
+                speaker_name=speaker_name,
+                politician_id=kanji_surname_match.politician_id,
+                politician_name=kanji_surname_match.name,
+                confidence=0.85,
+                match_method=MatchMethod.KANJI_SURNAME,
+            )
+
+        # 4. 姓のみ一致チェック（同姓候補が1人のみの場合）
         surname_match = self._match_by_surname(normalized_name, candidates)
         if surname_match:
             return SpeakerPoliticianMatchResult(
@@ -121,37 +108,54 @@ class SpeakerPoliticianMatchingService:
         return self._no_match(speaker_id, speaker_name)
 
     def normalize_name(self, name: str) -> str:
-        """名前を正規化する（敬称除去、スペース除去）."""
-        normalized = name.strip()
-        # 全角・半角スペースを除去
-        normalized = re.sub(r"[\s　]+", "", normalized)
-        # 末尾から敬称を除去
-        for honorific in _HONORIFICS:
-            if normalized.endswith(honorific):
-                normalized = normalized[: -len(honorific)]
-                break
-        return normalized.strip()
+        """名前を正規化する（旧字体→新字体変換、NFKC正規化、敬称除去、スペース除去）."""
+        return NameNormalizer.normalize(name)
 
     def _normalize_kana(self, kana: str) -> str:
         """ふりがなを正規化する（カタカナ→ひらがな変換、スペース除去）."""
-        normalized = kana.strip()
-        normalized = re.sub(r"[\s　]+", "", normalized)
-        # カタカナをひらがなに変換
-        normalized = self._katakana_to_hiragana(normalized)
-        return normalized
+        return NameNormalizer.normalize_kana(kana)
 
-    @staticmethod
-    def _katakana_to_hiragana(text: str) -> str:
-        """カタカナをひらがなに変換する."""
-        result = []
-        for char in text:
-            code = ord(char)
-            # カタカナ範囲(0x30A1-0x30F6)をひらがな(0x3041-0x3096)に変換
-            if 0x30A1 <= code <= 0x30F6:
-                result.append(chr(code - 0x60))
-            else:
-                result.append(char)
-        return "".join(result)
+    def _match_by_kanji_surname(
+        self, speaker_name: str, candidates: list[PoliticianCandidate]
+    ) -> PoliticianCandidate | None:
+        """ひらがな混じり候補名の漢字姓部分でマッチングする.
+
+        候補名が漢字+ひらがな混在（例: "武村のぶひで"）の場合、
+        先頭の漢字部分（姓）を抽出してSpeaker名と比較する。
+
+        Args:
+            speaker_name: 正規化済みの発言者名
+            candidates: 候補リスト
+
+        Returns:
+            マッチした候補（同姓1人の場合のみ）、該当なしはNone
+        """
+        matched_candidates: list[PoliticianCandidate] = []
+
+        for candidate in candidates:
+            # ひらがな混じりの候補名のみ対象
+            if not NameNormalizer.has_mixed_hiragana(candidate.name):
+                continue
+
+            kanji_surname = NameNormalizer.extract_kanji_surname(candidate.name)
+            if not kanji_surname:
+                continue
+
+            # 姓の長さチェック
+            if not (_MIN_SURNAME_LEN <= len(kanji_surname) <= _MAX_SURNAME_LEN):
+                continue
+
+            # Speaker名がこの漢字姓で始まり、かつSpeaker名の方が長い（フルネーム）
+            if speaker_name.startswith(kanji_surname) and len(speaker_name) > len(
+                kanji_surname
+            ):
+                matched_candidates.append(candidate)
+
+        # 同姓候補が1人のみの場合にマッチ
+        if len(matched_candidates) == 1:
+            return matched_candidates[0]
+
+        return None
 
     def _match_by_surname(
         self, speaker_name: str, candidates: list[PoliticianCandidate]

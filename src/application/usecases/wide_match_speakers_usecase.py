@@ -438,11 +438,7 @@ class WideMatchSpeakersUseCase:
     async def _build_candidate_list_from_all_politicians(
         self,
     ) -> list[PoliticianCandidate]:
-        """全Politicianから候補リストを構築する（フォールバック）.
-
-        注意: このフォールバックではfurigana情報が取得できないため、
-        ふりがなマッチングは機能しない。
-        """
+        """全Politicianから候補リストを構築する（フォールバック）."""
         all_politicians: list[
             dict[str, Any]
         ] = await self._politician_repo.get_all_for_matching()
@@ -450,7 +446,7 @@ class WideMatchSpeakersUseCase:
             PoliticianCandidate(
                 politician_id=p["id"],
                 name=p["name"],
-                furigana=None,
+                furigana=p.get("furigana"),
             )
             for p in all_politicians
         ]

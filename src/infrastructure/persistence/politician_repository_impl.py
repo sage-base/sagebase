@@ -381,7 +381,7 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         政党名はparty_membership_history経由で取得する。
         """
         query = text("""
-            SELECT p.id, p.name, p.party_position, p.district,
+            SELECT p.id, p.name, p.furigana, p.party_position, p.district,
                    pp.name as party_name
             FROM politicians p
             LEFT JOIN party_membership_history pmh
@@ -396,6 +396,7 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             {
                 "id": row.id,
                 "name": row.name,
+                "furigana": row.furigana,
                 "party_position": row.party_position,
                 "district": row.district,
                 "party_name": row.party_name,
