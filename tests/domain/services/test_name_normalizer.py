@@ -118,6 +118,30 @@ class TestExtractKanjiSurname:
         """空文字."""
         assert NameNormalizer.extract_kanji_surname("") == ""
 
+    def test_odoriji_nonomura(self) -> None:
+        """踊り字「々」を含む姓（佐々木）."""
+        assert NameNormalizer.extract_kanji_surname("佐々木はじめ") == "佐々木"
+
+    def test_odoriji_sasaki_with_space(self) -> None:
+        """踊り字「々」+スペース."""
+        assert NameNormalizer.extract_kanji_surname("佐々木　あけみ") == "佐々木"
+
+    def test_katakana_in_surname_mittsubayashi(self) -> None:
+        """カタカナ「ッ」を含む姓（三ッ林）."""
+        assert NameNormalizer.extract_kanji_surname("三ッ林ひろみ") == "三ッ林"
+
+    def test_katakana_in_surname_mitsuya(self) -> None:
+        """カタカナ「ツ」を含む姓（三ツ矢）."""
+        assert NameNormalizer.extract_kanji_surname("三ツ矢のりお") == "三ツ矢"
+
+    def test_katakana_ke_in_surname(self) -> None:
+        """カタカナ「ヶ」を含む姓（竹ヶ原）."""
+        assert NameNormalizer.extract_kanji_surname("竹ヶ原ゆみこ") == "竹ヶ原"
+
+    def test_starts_with_katakana(self) -> None:
+        """先頭がカタカナの場合は空文字（漢字でないため）."""
+        assert NameNormalizer.extract_kanji_surname("ッ林ひろみ") == ""
+
 
 class TestHasMixedHiragana:
     """has_mixed_hiragana メソッドのテスト."""

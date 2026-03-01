@@ -124,6 +124,13 @@ _HIRAGANA_RE = re.compile(r"[ぁ-ん]")
 # CJK統合漢字の範囲（基本ブロック + 拡張A）
 _KANJI_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf]")
 
+# 姓の構成文字（漢字 + 姓に出現する特殊文字）
+# 々: 踊り字（佐々木、野々村）
+# ヶ/ケ: 竹ヶ原、一ヶ谷
+# ッ/ツ: 三ッ林、三ツ矢
+# ノ: 一ノ瀬
+_SURNAME_CHAR_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf々ヶケッツノ]")
+
 
 class NameNormalizer:
     """名前正規化サービス."""
@@ -156,16 +163,23 @@ class NameNormalizer:
     def extract_kanji_surname(name: str) -> str:
         """ひらがな混じり名から先頭の連続漢字部分（姓）を抽出する.
 
+        漢字に加え、姓に出現する特殊文字（々、ヶ、ッ、ツ、ノ）も含める。
+
         例:
             "武村のぶひで" → "武村"
+            "佐々木はじめ" → "佐々木"
+            "三ッ林ひろみ" → "三ッ林"
             "岸田文雄" → "岸田文雄"（全部漢字ならそのまま）
             "たけむら" → ""（先頭が漢字でなければ空文字）
         """
         # スペース除去
         cleaned = re.sub(r"[\s　]+", "", name)
+        # 先頭が漢字でなければ空文字
+        if not cleaned or not _KANJI_RE.match(cleaned[0]):
+            return ""
         result: list[str] = []
         for char in cleaned:
-            if _KANJI_RE.match(char):
+            if _SURNAME_CHAR_RE.match(char):
                 result.append(char)
             else:
                 break

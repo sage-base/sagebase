@@ -447,3 +447,33 @@ class TestSpeakerPoliticianMatchingService:
         # 漢字姓マッチが優先
         assert result.match_method == MatchMethod.KANJI_SURNAME
         assert result.confidence == 0.85
+
+    def test_kanji_surname_with_odoriji(self) -> None:
+        """踊り字「々」を含む姓（佐々木）でマッチ."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="佐々木　はじめ"),
+        ]
+        result = self.service.match(
+            speaker_id=10,
+            speaker_name="佐々木一",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert result.politician_id == 1
+        assert result.confidence == 0.85
+        assert result.match_method == MatchMethod.KANJI_SURNAME
+
+    def test_kanji_surname_odoriji_no_false_positive(self) -> None:
+        """「佐々木」候補に「佐藤太郎」がマッチしないこと."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="佐々木　はじめ"),
+        ]
+        result = self.service.match(
+            speaker_id=10,
+            speaker_name="佐藤太郎",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        # 佐藤 ≠ 佐々木 なのでマッチしない
+        assert result.politician_id is None
+        assert result.confidence == 0.0
