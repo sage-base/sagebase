@@ -4,6 +4,7 @@ import asyncio
 
 import click
 
+from src.domain.services.speaker_classifier import SkipReason
 from src.interfaces.cli.base import with_error_handling
 
 
@@ -43,16 +44,11 @@ async def _run_stats(limit: int) -> None:
     if skip_reason_breakdown:
         non_politician = stat.get("non_politician_speakers", 0)
         click.echo(f"\n=== 非政治家 skip_reason 別内訳 (全{non_politician}件) ===")
-        reason_labels = {
-            "role_only": "ROLE_ONLY（役職のみ）",
-            "reference_person": "REFERENCE_PERSON（参考人等）",
-            "government_official": "GOVERNMENT_OFFICIAL（政府側）",
-            "other_non_politician": "OTHER_NON_POLITICIAN（その他）",
-            "homonym": "HOMONYM（同姓同名）",
-            "未分類": "未分類",
-        }
         for reason, cnt in skip_reason_breakdown.items():
-            label = reason_labels.get(reason, reason)
+            try:
+                label = SkipReason(reason).display_label
+            except ValueError:
+                label = reason
             click.echo(f"  {label}: {cnt:>8,}件")
 
     unlinked_speakers = await speaker_repo.get_speakers_not_linked_to_politicians()

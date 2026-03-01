@@ -19,6 +19,18 @@ class SkipReason(Enum):
     OTHER_NON_POLITICIAN = "other_non_politician"
     HOMONYM = "homonym"
 
+    @property
+    def display_label(self) -> str:
+        """表示用ラベルを返す."""
+        labels = {
+            "role_only": "ROLE_ONLY（役職のみ）",
+            "reference_person": "REFERENCE_PERSON（参考人等）",
+            "government_official": "GOVERNMENT_OFFICIAL（政府側）",
+            "other_non_politician": "OTHER_NON_POLITICIAN（その他）",
+            "homonym": "HOMONYM（同姓同名）",
+        }
+        return labels[self.value]
+
 
 # === 完全一致パターン ===
 

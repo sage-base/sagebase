@@ -905,3 +905,186 @@ class TestSpeakerRepositoryImpl:
         # Verify
         assert len(result) == 0
         assert result == []
+
+
+class TestClassifyIsPoliticianBulk:
+    """classify_is_politician_bulk()のテスト."""
+
+    @pytest.fixture
+    def mock_session(self):
+        """Create mock session."""
+        session = MagicMock(spec=AsyncSession)
+        return session
+
+    @pytest.fixture
+    def repository(self, mock_session):
+        """Create speaker repository."""
+        repo = SpeakerRepositoryImpl(mock_session)
+        repo.model_class = MockSpeakerModel
+        return repo
+
+    @pytest.mark.asyncio
+    async def test_with_skip_reason_patterns(self, repository, mock_session):
+        """skip_reason_patternsが渡された場合、カテゴリ別にUPDATEが実行される."""
+        execute_calls = []
+
+        # Step 1のリセットとStep 2のカテゴリ別UPDATEの結果をモック
+        mock_results = iter(
+            [
+                MagicMock(rowcount=50),  # Step 1: リセット
+                MagicMock(rowcount=5),  # role_only
+                MagicMock(rowcount=3),  # reference_person
+            ]
+        )
+
+        async def async_execute(query, params=None):
+            execute_calls.append((str(query), params))
+            return next(mock_results)
+
+        async def async_commit():
+            pass
+
+        mock_session.execute = async_execute
+        mock_session.commit = async_commit
+
+        skip_reason_patterns = [
+            ("role_only", frozenset({"議長", "副議長"}), frozenset()),
+            ("reference_person", frozenset({"参考人"}), frozenset({"参考人（"})),
+        ]
+
+        result = await repository.classify_is_politician_bulk(
+            non_politician_names=frozenset({"議長", "副議長", "参考人"}),
+            non_politician_prefixes=frozenset({"参考人（"}),
+            skip_reason_patterns=skip_reason_patterns,
+        )
+
+        # Step 1（リセット）+ Step 2（2カテゴリ分）= 3回のexecute
+        assert len(execute_calls) == 3
+
+        # Step 1: skip_reasonもNULLにリセットされる
+        step1_query = execute_calls[0][0]
+        assert "skip_reason = NULL" in step1_query
+        assert "is_politician = TRUE" in step1_query
+
+        # Step 2: カテゴリ別にskip_reasonが設定される
+        step2_query = execute_calls[1][0]
+        assert "skip_reason = :skip_reason" in step2_query
+        assert execute_calls[1][1]["skip_reason"] == "role_only"
+
+        step3_query = execute_calls[2][0]
+        assert "skip_reason = :skip_reason" in step3_query
+        assert execute_calls[2][1]["skip_reason"] == "reference_person"
+
+        # 戻り値
+        assert result["total_updated_to_politician"] == 50
+        assert result["total_kept_non_politician"] == 8  # 5 + 3
+
+    @pytest.mark.asyncio
+    async def test_without_skip_reason_patterns_backward_compat(
+        self, repository, mock_session
+    ):
+        """skip_reason_patternsがNoneの場合、旧動作（skip_reasonなし）で実行される."""
+        execute_calls = []
+
+        mock_results = iter(
+            [
+                MagicMock(rowcount=10),  # Step 1: リセット
+                MagicMock(rowcount=3),  # Step 2: 旧動作
+            ]
+        )
+
+        async def async_execute(query, params=None):
+            execute_calls.append((str(query), params))
+            return next(mock_results)
+
+        async def async_commit():
+            pass
+
+        mock_session.execute = async_execute
+        mock_session.commit = async_commit
+
+        result = await repository.classify_is_politician_bulk(
+            non_politician_names=frozenset({"議長", "副議長"}),
+            non_politician_prefixes=frozenset({"参考人（"}),
+            skip_reason_patterns=None,
+        )
+
+        # Step 1 + Step 2（旧動作1回）= 2回のexecute
+        assert len(execute_calls) == 2
+
+        # 旧動作ではskip_reasonは設定されない
+        step2_query = execute_calls[1][0]
+        assert "skip_reason" not in step2_query
+        assert "is_politician = FALSE" in step2_query
+
+        assert result["total_updated_to_politician"] == 10
+        assert result["total_kept_non_politician"] == 3
+
+    @pytest.mark.asyncio
+    async def test_with_empty_category(self, repository, mock_session):
+        """完全一致もプレフィックスも空のカテゴリはスキップされる."""
+        execute_calls = []
+
+        mock_results = iter(
+            [
+                MagicMock(rowcount=0),  # Step 1: リセット
+            ]
+        )
+
+        async def async_execute(query, params=None):
+            execute_calls.append((str(query), params))
+            return next(mock_results)
+
+        async def async_commit():
+            pass
+
+        mock_session.execute = async_execute
+        mock_session.commit = async_commit
+
+        skip_reason_patterns = [
+            ("empty_category", frozenset(), frozenset()),
+        ]
+
+        result = await repository.classify_is_politician_bulk(
+            non_politician_names=frozenset(),
+            skip_reason_patterns=skip_reason_patterns,
+        )
+
+        # Step 1のみ（空カテゴリはスキップ）
+        assert len(execute_calls) == 1
+        assert result["total_kept_non_politician"] == 0
+
+    @pytest.mark.asyncio
+    async def test_is_manually_verified_excluded(self, repository, mock_session):
+        """is_manually_verified=FALSE条件が全ステップに含まれる."""
+        execute_calls = []
+
+        mock_results = iter(
+            [
+                MagicMock(rowcount=0),
+                MagicMock(rowcount=0),
+            ]
+        )
+
+        async def async_execute(query, params=None):
+            execute_calls.append((str(query), params))
+            return next(mock_results)
+
+        async def async_commit():
+            pass
+
+        mock_session.execute = async_execute
+        mock_session.commit = async_commit
+
+        skip_reason_patterns = [
+            ("role_only", frozenset({"議長"}), frozenset()),
+        ]
+
+        await repository.classify_is_politician_bulk(
+            non_politician_names=frozenset({"議長"}),
+            skip_reason_patterns=skip_reason_patterns,
+        )
+
+        # 全クエリにis_manually_verified = FALSE条件が含まれる
+        for query_str, _params in execute_calls:
+            assert "is_manually_verified = FALSE" in query_str

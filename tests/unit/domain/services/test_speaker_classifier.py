@@ -264,3 +264,27 @@ class TestSkipReasonPatterns:
             *(prefixes for _, _, prefixes in SKIP_REASON_PATTERNS)
         )
         assert all_prefixes == NON_POLITICIAN_PREFIX_PATTERNS
+
+
+class TestSkipReasonDisplayLabel:
+    """SkipReason.display_labelのテスト."""
+
+    @pytest.mark.parametrize(
+        ("reason", "expected_label"),
+        [
+            (SkipReason.ROLE_ONLY, "ROLE_ONLY（役職のみ）"),
+            (SkipReason.REFERENCE_PERSON, "REFERENCE_PERSON（参考人等）"),
+            (SkipReason.GOVERNMENT_OFFICIAL, "GOVERNMENT_OFFICIAL（政府側）"),
+            (SkipReason.OTHER_NON_POLITICIAN, "OTHER_NON_POLITICIAN（その他）"),
+            (SkipReason.HOMONYM, "HOMONYM（同姓同名）"),
+        ],
+    )
+    def test_display_label(self, reason: SkipReason, expected_label: str) -> None:
+        """各SkipReasonが正しい表示ラベルを返す."""
+        assert reason.display_label == expected_label
+
+    def test_all_members_have_display_label(self) -> None:
+        """全SkipReasonメンバーがdisplay_labelを持つ."""
+        for reason in SkipReason:
+            assert isinstance(reason.display_label, str)
+            assert len(reason.display_label) > 0

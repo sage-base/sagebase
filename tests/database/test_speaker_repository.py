@@ -255,6 +255,43 @@ async def test_get_speaker_politician_stats(
     # = unlinked count of 1 (佐藤)
     assert stats["match_rate"] == pytest.approx(66.7, rel=0.1)  # 2/3 = 66.7%
 
+    # skip_reason_breakdown: 田中（is_politician=FALSE, skip_reason=NULL）→ 未分類1件
+    breakdown = stats["skip_reason_breakdown"]
+    assert isinstance(breakdown, dict)
+    assert breakdown["未分類"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_speaker_politician_stats_skip_reason_breakdown(
+    speaker_repo: SpeakerRepository, test_session: Session
+) -> None:
+    """skip_reason が設定されている場合の内訳テスト."""
+    test_session.execute(
+        text(
+            """
+            INSERT INTO speakers (id, name, type, is_politician, skip_reason)
+            VALUES
+                (1, '議長', NULL, FALSE, 'role_only'),
+                (2, '副議長', NULL, FALSE, 'role_only'),
+                (3, '参考人', NULL, FALSE, 'reference_person'),
+                (4, '政府参考人', NULL, FALSE, 'government_official'),
+                (5, '山田太郎', '議員', TRUE, NULL),
+                (6, '事務局長', NULL, FALSE, NULL)
+            """
+        )
+    )
+    test_session.commit()
+
+    stats = await speaker_repo.get_speaker_politician_stats()
+
+    breakdown = stats["skip_reason_breakdown"]
+    assert isinstance(breakdown, dict)
+    assert breakdown["role_only"] == 2
+    assert breakdown["reference_person"] == 1
+    assert breakdown["government_official"] == 1
+    assert breakdown["未分類"] == 1  # 事務局長（skip_reason=NULL）
+    assert "homonym" not in breakdown
+
 
 @pytest.mark.asyncio
 async def test_get_speaker_politician_stats_empty(
@@ -269,6 +306,8 @@ async def test_get_speaker_politician_stats_empty(
     assert stats["linked_speakers"] == 0
     assert stats["linked_politician_speakers"] == 0
     assert stats["match_rate"] == 0.0
+    # 非政治家がいない場合、skip_reason_breakdownは空
+    assert stats["skip_reason_breakdown"] == {}
 
 
 @pytest.mark.asyncio

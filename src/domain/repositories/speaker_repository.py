@@ -68,7 +68,7 @@ class SpeakerRepository(BaseRepository[Speaker]):
         pass
 
     @abstractmethod
-    async def get_speaker_politician_stats(self) -> dict[str, int | float]:
+    async def get_speaker_politician_stats(self) -> dict[str, Any]:
         """Get statistics of speaker-politician linkage."""
         pass
 

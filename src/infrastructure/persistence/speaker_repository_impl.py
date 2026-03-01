@@ -452,7 +452,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             for row in rows
         ]
 
-    async def get_speaker_politician_stats(self) -> dict[str, int | float]:
+    async def get_speaker_politician_stats(self) -> dict[str, Any]:
         """Get statistics of speaker-politician linkage."""
         query = text("""
             WITH stats AS (
@@ -496,7 +496,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
         if row:
             unlinked = row.total_speakers - row.linked_speakers
-            stats: dict[str, int | float] = {
+            stats: dict[str, Any] = {
                 "total_speakers": row.total_speakers,
                 "linked_speakers": row.linked_speakers,
                 "unlinked_speakers": unlinked,
@@ -531,7 +531,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         skip_reason_breakdown: dict[str, int] = {}
         for sr_row in sr_rows:
             skip_reason_breakdown[sr_row.reason] = sr_row.cnt
-        stats["skip_reason_breakdown"] = skip_reason_breakdown  # type: ignore[assignment]
+        stats["skip_reason_breakdown"] = skip_reason_breakdown
 
         return stats
 
