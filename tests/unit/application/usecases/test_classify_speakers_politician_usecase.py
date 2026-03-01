@@ -8,6 +8,10 @@ from src.application.usecases.classify_speakers_politician_usecase import (
     ClassifySpeakersPoliticianUseCase,
 )
 from src.domain.repositories.speaker_repository import SpeakerRepository
+from src.domain.services.speaker_classifier import (
+    NON_POLITICIAN_EXACT_NAMES,
+    NON_POLITICIAN_PREFIX_PATTERNS,
+)
 
 
 class TestClassifySpeakersPoliticianUseCase:
@@ -46,16 +50,12 @@ class TestClassifySpeakersPoliticianUseCase:
         assert result["total_kept_non_politician"] == 20
 
     @pytest.mark.asyncio()
-    async def test_passes_non_politician_names(
+    async def test_passes_non_politician_names_and_prefixes(
         self,
         usecase: ClassifySpeakersPoliticianUseCase,
         mock_speaker_repository: AsyncMock,
     ) -> None:
-        """execute()がNON_POLITICIAN_EXACT_NAMESをリポジトリに渡す."""
-        from src.domain.services.speaker_classifier import (
-            NON_POLITICIAN_EXACT_NAMES,
-        )
-
+        """execute()が完全一致パターンとプレフィックスパターンの両方をリポジトリに渡す."""
         mock_speaker_repository.classify_is_politician_bulk.return_value = {
             "total_updated_to_politician": 0,
             "total_kept_non_politician": 0,
@@ -65,7 +65,9 @@ class TestClassifySpeakersPoliticianUseCase:
 
         call_args = mock_speaker_repository.classify_is_politician_bulk.call_args
         passed_names = call_args[0][0]
+        passed_prefixes = call_args[1]["non_politician_prefixes"]
         assert passed_names == NON_POLITICIAN_EXACT_NAMES
+        assert passed_prefixes == NON_POLITICIAN_PREFIX_PATTERNS
 
     @pytest.mark.asyncio()
     async def test_handles_zero_speakers(

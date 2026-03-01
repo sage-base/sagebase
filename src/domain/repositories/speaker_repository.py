@@ -178,16 +178,20 @@ class SpeakerRepository(BaseRepository[Speaker]):
 
     @abstractmethod
     async def classify_is_politician_bulk(
-        self, non_politician_names: frozenset[str]
+        self,
+        non_politician_names: frozenset[str],
+        non_politician_prefixes: frozenset[str] | None = None,
     ) -> dict[str, int]:
         """全Speakerのis_politicianフラグを一括分類設定する.
 
         1. 全件をis_politician=Trueに設定
-        2. non_politician_namesに該当し、politician_idがNULLかつ
-           is_manually_verified=FalseのものをFalseに戻す
+        2. non_politician_namesに完全一致、またはnon_politician_prefixesで
+           始まる名前で、politician_idがNULLかつis_manually_verified=Falseの
+           ものをFalseに戻す
 
         Args:
-            non_politician_names: 非政治家として扱う名前パターンの集合
+            non_politician_names: 非政治家として扱う名前の完全一致パターン
+            non_politician_prefixes: 非政治家として扱う名前のプレフィックスパターン
 
         Returns:
             {"total_updated_to_politician": int,
