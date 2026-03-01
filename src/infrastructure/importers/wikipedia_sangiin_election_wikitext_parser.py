@@ -17,39 +17,19 @@ from src.infrastructure.importers._constants import (
     WIKIPEDIA_COLOR_PARTY_FALLBACK,
     WIKIPEDIA_SANGIIN_COLOR_PARTY_FALLBACK,
 )
+from src.infrastructure.importers._utils import (
+    extract_template_content,
+    normalize_color,
+    normalize_prefecture,
+)
 from src.infrastructure.importers.wikipedia_election_wikitext_parser import (
     extract_color_party_mapping,
     extract_name_from_wikilink,
 )
 
 
-def _extract_template_content(wikitext: str, template_prefix: str) -> str | None:
-    """ブレース深度追跡でテンプレート内容を抽出する."""
-    start = wikitext.find("{{" + template_prefix)
-    if start == -1:
-        return None
-
-    content_start = start + len("{{" + template_prefix)
-    depth = 1
-    i = content_start
-    while i < len(wikitext):
-        if wikitext[i : i + 2] == "{{":
-            depth += 1
-            i += 2
-        elif wikitext[i : i + 2] == "}}":
-            depth -= 1
-            if depth == 0:
-                return wikitext[content_start:i]
-            i += 2
-        else:
-            i += 1
-    return None
-
-
-def _normalize_color(color: str) -> str:
-    """カラーコードを正規化（大文字化、#除去）."""
-    return color.lstrip("#").upper()
-
+# 比例代表制度開始回次（第13回以降は「比例区」、以前は「全国区」）
+_PROPORTIONAL_START_ELECTION = 13
 
 # 色:[[名前]] エントリ（テンプレート内で使用）
 _ENTRY_RE = re.compile(r"([0-9A-Fa-f]{3,6}):(.+)")
@@ -74,6 +54,36 @@ _PROPORTIONAL_SECTION_RE = re.compile(
     r"比例代表当選者)\s*===?",
 )
 
+# 都道府県ヘッダ: |北海道= or |青森=色:[[名前]]
+_PREF_HEADER_RE = re.compile(r"^\|(.+?)=(.*)")
+
+# 補欠マーカー
+_HOKETSU_RE = re.compile(r":補欠\s*$")
+
+# 特定枠マーカー
+_TOKUTEI_WAKU_RE = re.compile(r":特定枠\s*$")
+
+# wikitable抽出パターン
+_WIKITABLE_EXTRACT_RE = re.compile(r"\{\|.*?\n(.*?)\|\}", re.DOTALL)
+
+# rowspan属性
+_ROWSPAN_RE = re.compile(r'rowspan="?\d+"?\s*\|\s*(.*)')
+
+# 定数行（!8人区 等）
+_TEISU_HEADER_RE = re.compile(r"^!\s*(?:colspan[^|]*\|)?\s*\d+人区")
+
+# colspan値
+_COLSPAN_RE = re.compile(r'colspan[= ]"?(\d+)"?\s*\|\s*(.*)')
+
+# 順位範囲ヘッダ: !1-10, !11-20 etc.
+_RANK_RANGE_RE = re.compile(r"^!(\d+)\s*[-–〜~]\s*(\d+)")
+
+# 単独順位ヘッダ: !1
+_SINGLE_RANK_RE = re.compile(r"^!(\d+)\s*$")
+
+# 次のセクション見出し
+_NEXT_SECTION_RE = re.compile(r"\n==(?!=)")
+
 
 def parse_sangiin_wikitext(
     wikitext: str,
@@ -82,7 +92,7 @@ def parse_sangiin_wikitext(
     """参議院選挙のWikitextから選挙区+比例/全国区の全当選者を抽出する."""
     color_to_party = _build_color_to_party(wikitext)
 
-    district = _parse_district_winners(wikitext, election_number, color_to_party)
+    district = _parse_district_winners(wikitext, color_to_party)
     proportional = _parse_proportional_winners(
         wikitext, election_number, color_to_party
     )
@@ -112,7 +122,6 @@ def _resolve_party(color: str, color_to_party: dict[str, str]) -> str:
 
 def _parse_district_winners(
     wikitext: str,
-    election_number: int,
     color_to_party: dict[str, str],
 ) -> list[CandidateRecord]:
     """選挙区（地方区）当選者を抽出する.
@@ -142,7 +151,7 @@ def _parse_district_template(
         |青森=9AF:[[佐藤尚武]]
         }}
     """
-    template_text = _extract_template_content(wikitext, "参院選挙区当選者")
+    template_text = extract_template_content(wikitext, "参院選挙区当選者")
     if template_text is None:
         return []
 
@@ -155,7 +164,7 @@ def _parse_district_template(
             continue
 
         # 都道府県ヘッダ: |北海道= or |青森=色:[[名前]]（ヘッダと値が同一行）
-        pref_match = re.match(r"^\|(.+?)=(.*)", line)
+        pref_match = _PREF_HEADER_RE.match(line)
         if pref_match:
             pref_name = pref_match.group(1).strip()
             remainder = pref_match.group(2).strip()
@@ -211,13 +220,13 @@ def _parse_entry_line(
     if not entry_match:
         return
 
-    color = _normalize_color(entry_match.group(1))
+    color = normalize_color(entry_match.group(1))
     name_part = entry_match.group(2)
 
     # 補欠マーカー ":補欠" を除去
-    name_part = re.sub(r":補欠\s*$", "", name_part)
+    name_part = _HOKETSU_RE.sub("", name_part)
     # 特定枠マーカーを除去（比例で使われるが念のため）
-    name_part = re.sub(r":特定枠\s*$", "", name_part)
+    name_part = _TOKUTEI_WAKU_RE.sub("", name_part)
 
     name = extract_name_from_wikilink(name_part)
     if not name:
@@ -263,7 +272,7 @@ def _parse_district_wikitable(
         return []
 
     # wikitableを抽出
-    table_match = re.search(r"\{\|.*?\n(.*?)\|\}", section_text, re.DOTALL)
+    table_match = _WIKITABLE_EXTRACT_RE.search(section_text)
     if not table_match:
         return []
 
@@ -292,21 +301,20 @@ def _parse_district_wikitable(
         if not line.startswith("|"):
             continue
 
-        # セル行を処理
-        content = line[1:] if line.startswith("|") else line
-        cells = content.split("||")
+        # セル行を処理（line.startswith("|") はガード済み）
+        cells = line[1:].split("||")
 
         for cell_text in cells:
             cell_text = cell_text.strip()
 
             # rowspan属性の処理
-            rowspan_match = re.match(r'rowspan="?\d+"?\s*\|\s*(.*)', cell_text)
+            rowspan_match = _ROWSPAN_RE.match(cell_text)
             if rowspan_match:
                 cell_text = rowspan_match.group(1).strip()
 
             cell_match = _WIKITABLE_CELL_RE.match(cell_text)
             if cell_match:
-                color = _normalize_color(cell_match.group(1))
+                color = normalize_color(cell_match.group(1))
                 name_part = cell_match.group(2)
                 name = extract_name_from_wikilink(name_part)
 
@@ -351,11 +359,10 @@ def _extract_district_columns(table_text: str) -> list[str]:
 
         # 定数行（数字のみ）はスキップ
         # 例: !8人区 や !colspan=10|8人区
-        if re.match(r"^!\s*(?:colspan[^|]*\|)?\s*\d+人区", line):
-            # 定数行 — これは選挙区名ではない
+        if _TEISU_HEADER_RE.match(line):
             continue
 
-        parts = re.split(r"!!", line)
+        parts = line.split("!!")
         for i, part in enumerate(parts):
             part = part.strip()
             if i == 0:
@@ -367,7 +374,7 @@ def _extract_district_columns(table_text: str) -> list[str]:
 
             # colspan値を取得
             colspan = 1
-            colspan_match = re.match(r'colspan[= ]"?(\d+)"?\s*\|\s*(.*)', part)
+            colspan_match = _COLSPAN_RE.match(part)
             if colspan_match:
                 colspan = int(colspan_match.group(1))
                 part = colspan_match.group(2).strip()
@@ -429,12 +436,14 @@ def _parse_proportional_template(
         ...
         }}
     """
-    template_text = _extract_template_content(wikitext, "参院比例当選者")
+    template_text = extract_template_content(wikitext, "参院比例当選者")
     if template_text is None:
         return []
 
     candidates: list[CandidateRecord] = []
-    district_label = "比例区" if election_number >= 13 else "全国区"
+    district_label = (
+        "比例区" if election_number >= _PROPORTIONAL_START_ELECTION else "全国区"
+    )
     rank_counter = 0
 
     for line in template_text.split("\n"):
@@ -447,11 +456,11 @@ def _parse_proportional_template(
             continue
 
         rank_counter += 1
-        color = _normalize_color(entry_match.group(1))
+        color = normalize_color(entry_match.group(1))
         name_part = entry_match.group(2)
 
         # 特定枠マーカーを除去
-        name_part = re.sub(r":特定枠\s*$", "", name_part)
+        name_part = _TOKUTEI_WAKU_RE.sub("", name_part)
 
         name = extract_name_from_wikilink(name_part)
         if not name:
@@ -499,13 +508,15 @@ def _parse_proportional_wikitable(
         return []
 
     # wikitableを抽出
-    table_match = re.search(r"\{\|.*?\n(.*?)\|\}", section_text, re.DOTALL)
+    table_match = _WIKITABLE_EXTRACT_RE.search(section_text)
     if not table_match:
         return []
 
     table_text = table_match.group(1)
     candidates: list[CandidateRecord] = []
-    district_label = "比例区" if election_number >= 13 else "全国区"
+    district_label = (
+        "比例区" if election_number >= _PROPORTIONAL_START_ELECTION else "全国区"
+    )
 
     # 順位追跡用
     rank_base = 0  # 行ヘッダの開始順位
@@ -521,14 +532,14 @@ def _parse_proportional_wikitable(
             continue
 
         # ヘッダ行: !1-10 or !11-20 etc.
-        rank_header_match = re.match(r"^!(\d+)\s*[-–〜~]\s*(\d+)", line)
+        rank_header_match = _RANK_RANGE_RE.match(line)
         if rank_header_match:
             rank_base = int(rank_header_match.group(1))
             rank_offset = 0
             continue
 
         # 単独数字ヘッダ: !1
-        single_rank_match = re.match(r"^!(\d+)\s*$", line)
+        single_rank_match = _SINGLE_RANK_RE.match(line)
         if single_rank_match:
             rank_base = int(single_rank_match.group(1))
             rank_offset = 0
@@ -549,13 +560,13 @@ def _parse_proportional_wikitable(
             cell_text = cell_text.strip()
 
             # rowspan属性の処理
-            rowspan_match = re.match(r'rowspan="?\d+"?\s*\|\s*(.*)', cell_text)
+            rowspan_match = _ROWSPAN_RE.match(cell_text)
             if rowspan_match:
                 cell_text = rowspan_match.group(1).strip()
 
             cell_match = _WIKITABLE_CELL_RE.match(cell_text)
             if cell_match:
-                color = _normalize_color(cell_match.group(1))
+                color = normalize_color(cell_match.group(1))
                 name_part = cell_match.group(2)
                 name = extract_name_from_wikilink(name_part)
 
@@ -592,7 +603,7 @@ def _extract_section(wikitext: str, pattern: re.Pattern[str]) -> str | None:
 
     start = match.end()
     # 次の同レベル以上のセクション見出しまで
-    next_section = re.search(r"\n==(?!=)", wikitext[start:])
+    next_section = _NEXT_SECTION_RE.search(wikitext[start:])
     if next_section:
         return wikitext[start : start + next_section.start()]
     return wikitext[start:]
@@ -614,25 +625,10 @@ def _normalize_sangiin_district(name: str) -> str:
     # 合区対応: "鳥取・島根" → "鳥取県・島根県選挙区"
     if "・" in name:
         parts = name.split("・")
-        normalized_parts = [_add_prefecture_suffix(p.strip()) for p in parts]
+        normalized_parts = [normalize_prefecture(p.strip()) for p in parts]
         return "・".join(normalized_parts) + "選挙区"
 
-    return _add_prefecture_suffix(name) + "選挙区"
-
-
-def _add_prefecture_suffix(name: str) -> str:
-    """都道府県名に接尾辞を補完する."""
-    if name in ("北海道",):
-        return name
-    if name in ("東京", "東京都"):
-        return "東京都"
-    if name in ("大阪", "大阪府"):
-        return "大阪府"
-    if name in ("京都", "京都府"):
-        return "京都府"
-    if name.endswith(("都", "道", "府", "県")):
-        return name
-    return name + "県"
+    return normalize_prefecture(name) + "選挙区"
 
 
 def _extract_prefecture_from_sangiin_district(name: str) -> str:
@@ -647,4 +643,4 @@ def _extract_prefecture_from_sangiin_district(name: str) -> str:
     if "・" in name:
         name = name.split("・")[0]
 
-    return _add_prefecture_suffix(name.strip())
+    return normalize_prefecture(name.strip())

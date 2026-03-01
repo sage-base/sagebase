@@ -1,8 +1,11 @@
 """インポーターモジュール共通のユーティリティ関数."""
 
+import json
 import re
 
 from datetime import date
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 
 # 和暦→西暦変換
@@ -13,6 +16,84 @@ WAREKI_MAP: dict[str, int] = {
     "大正": 1911,
     "明治": 1867,
 }
+
+
+_WIKIPEDIA_API_URL = "https://ja.wikipedia.org/w/api.php"
+_WIKIPEDIA_USER_AGENT = (
+    "SagebaseBot/1.0 (political-activity-tracker; contact@example.com)"
+)
+
+
+def extract_template_content(wikitext: str, template_prefix: str) -> str | None:
+    """ブレース深度追跡でテンプレート内容を抽出する.
+
+    {{Refnest|...}}等のネストされたテンプレートを正しくスキップする。
+    """
+    start = wikitext.find("{{" + template_prefix)
+    if start == -1:
+        return None
+
+    # テンプレート名の後（改行またはパイプ）からコンテンツ開始
+    content_start = start + len("{{" + template_prefix)
+
+    depth = 1
+    i = content_start
+    while i < len(wikitext):
+        if wikitext[i : i + 2] == "{{":
+            depth += 1
+            i += 2
+        elif wikitext[i : i + 2] == "}}":
+            depth -= 1
+            if depth == 0:
+                return wikitext[content_start:i]
+            i += 2
+        else:
+            i += 1
+
+    return None
+
+
+def normalize_color(color: str) -> str:
+    """カラーコードを正規化（大文字化、#除去）."""
+    return color.lstrip("#").upper()
+
+
+def normalize_prefecture(name: str) -> str:
+    """都道府県名に接尾辞を補完する（「都」「道」「府」「県」の補完）."""
+    if name in ("北海道",):
+        return name
+    if name in ("東京", "東京都"):
+        return "東京都"
+    if name in ("大阪", "大阪府"):
+        return "大阪府"
+    if name in ("京都", "京都府"):
+        return "京都府"
+    if name.endswith(("都", "道", "府", "県")):
+        return name
+    return name + "県"
+
+
+def fetch_wikipedia_wikitext(page_title: str) -> str:
+    """Wikipedia APIからWikitextを取得する（同期）."""
+    params = urlencode(
+        {
+            "action": "parse",
+            "page": page_title,
+            "prop": "wikitext",
+            "format": "json",
+        }
+    )
+    url = f"{_WIKIPEDIA_API_URL}?{params}"
+
+    req = Request(url, headers={"User-Agent": _WIKIPEDIA_USER_AGENT})
+    with urlopen(req, timeout=30) as response:  # nosec B310 — URLはhttpsハードコード
+        data = json.loads(response.read().decode("utf-8"))
+
+    if "error" in data:
+        msg = f"Wikipedia API error: {data['error'].get('info', 'unknown')}"
+        raise RuntimeError(msg)
+
+    return data["parse"]["wikitext"]["*"]
 
 
 def zen_to_han(text: str) -> str:

@@ -1,8 +1,8 @@
 """Wikipedia参議院選挙Wikitextパーサーのユニットテスト."""
 
 # pyright: reportPrivateUsage=false
+from src.infrastructure.importers._utils import normalize_prefecture
 from src.infrastructure.importers.wikipedia_sangiin_election_wikitext_parser import (
-    _add_prefecture_suffix,
     _extract_prefecture_from_sangiin_district,
     _normalize_sangiin_district,
     _parse_district_template,
@@ -537,23 +537,23 @@ class TestExtractPrefectureFromSangiinDistrict:
         assert _extract_prefecture_from_sangiin_district("北海道選挙区") == "北海道"
 
 
-class TestAddPrefectureSuffix:
+class TestNormalizePrefecture:
     """都道府県接尾辞補完のテスト."""
 
     def test_hokkaido(self) -> None:
-        assert _add_prefecture_suffix("北海道") == "北海道"
+        assert normalize_prefecture("北海道") == "北海道"
 
     def test_tokyo(self) -> None:
-        assert _add_prefecture_suffix("東京") == "東京都"
+        assert normalize_prefecture("東京") == "東京都"
 
     def test_osaka(self) -> None:
-        assert _add_prefecture_suffix("大阪") == "大阪府"
+        assert normalize_prefecture("大阪") == "大阪府"
 
     def test_kyoto(self) -> None:
-        assert _add_prefecture_suffix("京都") == "京都府"
+        assert normalize_prefecture("京都") == "京都府"
 
     def test_aomori(self) -> None:
-        assert _add_prefecture_suffix("青森") == "青森県"
+        assert normalize_prefecture("青森") == "青森県"
 
     def test_already_has_suffix(self) -> None:
-        assert _add_prefecture_suffix("青森県") == "青森県"
+        assert normalize_prefecture("青森県") == "青森県"
