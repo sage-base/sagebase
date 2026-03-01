@@ -337,3 +337,143 @@ class TestSpeakerPoliticianMatchingService:
         assert self.service.normalize_name("田中太郎委員長") == "田中太郎"
         assert self.service.normalize_name("山田花子副委員長") == "山田花子"
         assert self.service.normalize_name("佐藤次郎副議長") == "佐藤次郎"
+
+    # --- 旧字体→新字体マッチテスト ---
+
+    def test_kyujitai_exact_match(self) -> None:
+        """旧字体Speakerと新字体候補が完全一致する."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="桜田義孝"),
+        ]
+        result = self.service.match(
+            speaker_id=10,
+            speaker_name="櫻田義孝",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert result.politician_id == 1
+        assert result.confidence == 1.0
+        assert result.match_method == MatchMethod.EXACT_NAME
+
+    def test_kyujitai_san_match(self) -> None:
+        """參→参 の変換による完全一致."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="野坂参三"),
+        ]
+        result = self.service.match(
+            speaker_id=10,
+            speaker_name="野坂參三",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert result.politician_id == 1
+        assert result.confidence == 1.0
+        assert result.match_method == MatchMethod.EXACT_NAME
+
+    # --- 漢字姓マッチテスト（ひらがな混じり候補名） ---
+
+    def test_kanji_surname_match(self) -> None:
+        """ひらがな混じり候補名の漢字姓でマッチ."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="武村　のぶひで"),
+        ]
+        result = self.service.match(
+            speaker_id=10,
+            speaker_name="武村展英",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert result.politician_id == 1
+        assert result.confidence == 0.85
+        assert result.match_method == MatchMethod.KANJI_SURNAME
+
+    def test_kanji_surname_match_yamada(self) -> None:
+        """別のひらがな混じり名でもマッチ."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="山田　かつひこ"),
+        ]
+        result = self.service.match(
+            speaker_id=10,
+            speaker_name="山田勝彦",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert result.politician_id == 1
+        assert result.confidence == 0.85
+        assert result.match_method == MatchMethod.KANJI_SURNAME
+
+    def test_kanji_surname_no_match_multiple_same_surname(self) -> None:
+        """同姓候補が複数いる場合はマッチしない."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="武村　のぶひで"),
+            PoliticianCandidate(politician_id=2, name="武村　たろう"),
+        ]
+        result = self.service.match(
+            speaker_id=10,
+            speaker_name="武村展英",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert result.politician_id is None
+        assert result.confidence == 0.0
+
+    def test_kanji_surname_skips_all_kanji_name(self) -> None:
+        """全漢字名の候補は漢字姓マッチの対象外（通常の完全一致で処理）."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="桜田義孝"),
+        ]
+        result = self.service.match(
+            speaker_id=10,
+            speaker_name="桜田義孝",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        # 全漢字名は完全一致でマッチするべき
+        assert result.politician_id == 1
+        assert result.confidence == 1.0
+        assert result.match_method == MatchMethod.EXACT_NAME
+
+    def test_kanji_surname_priority_over_surname_only(self) -> None:
+        """漢字姓マッチ(0.85)が姓のみマッチ(0.8)より優先される."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="武村　のぶひで"),
+        ]
+        result = self.service.match(
+            speaker_id=10,
+            speaker_name="武村展英",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        # 漢字姓マッチが優先
+        assert result.match_method == MatchMethod.KANJI_SURNAME
+        assert result.confidence == 0.85
+
+    def test_kanji_surname_with_odoriji(self) -> None:
+        """踊り字「々」を含む姓（佐々木）でマッチ."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="佐々木　はじめ"),
+        ]
+        result = self.service.match(
+            speaker_id=10,
+            speaker_name="佐々木一",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert result.politician_id == 1
+        assert result.confidence == 0.85
+        assert result.match_method == MatchMethod.KANJI_SURNAME
+
+    def test_kanji_surname_odoriji_no_false_positive(self) -> None:
+        """「佐々木」候補に「佐藤太郎」がマッチしないこと."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="佐々木　はじめ"),
+        ]
+        result = self.service.match(
+            speaker_id=10,
+            speaker_name="佐藤太郎",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        # 佐藤 ≠ 佐々木 なのでマッチしない
+        assert result.politician_id is None
+        assert result.confidence == 0.0
