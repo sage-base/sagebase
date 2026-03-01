@@ -11,6 +11,7 @@ from src.domain.repositories.speaker_repository import SpeakerRepository
 from src.domain.services.speaker_classifier import (
     NON_POLITICIAN_EXACT_NAMES,
     NON_POLITICIAN_PREFIX_PATTERNS,
+    SKIP_REASON_PATTERNS,
 )
 
 
@@ -68,6 +69,39 @@ class TestClassifySpeakersPoliticianUseCase:
         passed_prefixes = call_args[1]["non_politician_prefixes"]
         assert passed_names == NON_POLITICIAN_EXACT_NAMES
         assert passed_prefixes == NON_POLITICIAN_PREFIX_PATTERNS
+
+    @pytest.mark.asyncio()
+    async def test_passes_skip_reason_patterns(
+        self,
+        usecase: ClassifySpeakersPoliticianUseCase,
+        mock_speaker_repository: AsyncMock,
+    ) -> None:
+        """execute()がskip_reason_patternsをリポジトリに渡す."""
+        mock_speaker_repository.classify_is_politician_bulk.return_value = {
+            "total_updated_to_politician": 0,
+            "total_kept_non_politician": 0,
+        }
+
+        await usecase.execute()
+
+        call_args = mock_speaker_repository.classify_is_politician_bulk.call_args
+        passed_patterns = call_args[1]["skip_reason_patterns"]
+
+        # SKIP_REASON_PATTERNSと同数のカテゴリが渡される
+        assert len(passed_patterns) == len(SKIP_REASON_PATTERNS)
+
+        # 各パターンが(str, frozenset, frozenset)の形式
+        for skip_reason_value, exact_names, prefixes in passed_patterns:
+            assert isinstance(skip_reason_value, str)
+            assert isinstance(exact_names, frozenset)
+            assert isinstance(prefixes, frozenset)
+
+        # SkipReason.valueが文字列として渡されている
+        passed_reasons = [p[0] for p in passed_patterns]
+        assert "role_only" in passed_reasons
+        assert "reference_person" in passed_reasons
+        assert "government_official" in passed_reasons
+        assert "other_non_politician" in passed_reasons
 
     @pytest.mark.asyncio()
     async def test_handles_zero_speakers(

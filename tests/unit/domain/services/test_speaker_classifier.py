@@ -5,6 +5,7 @@ import pytest
 from src.domain.services.speaker_classifier import (
     NON_POLITICIAN_EXACT_NAMES,
     NON_POLITICIAN_PREFIX_PATTERNS,
+    SKIP_REASON_PATTERNS,
     SkipReason,
     classify_speaker_skip_reason,
     is_non_politician_name,
@@ -227,3 +228,39 @@ class TestClassifySpeakerSkipReason:
     def test_homonym_skip_reason_exists(self) -> None:
         """SkipReason.HOMONYM が定義されている."""
         assert SkipReason.HOMONYM.value == "homonym"
+
+
+class TestSkipReasonPatterns:
+    """SKIP_REASON_PATTERNSのテスト."""
+
+    def test_is_public_and_importable(self) -> None:
+        """SKIP_REASON_PATTERNSが公開定数としてインポート可能."""
+        assert isinstance(SKIP_REASON_PATTERNS, list)
+        assert len(SKIP_REASON_PATTERNS) > 0
+
+    def test_contains_all_non_homonym_categories(self) -> None:
+        """HOMONYM以外の全カテゴリが含まれている."""
+        reasons = [reason for reason, _, _ in SKIP_REASON_PATTERNS]
+        assert SkipReason.ROLE_ONLY in reasons
+        assert SkipReason.REFERENCE_PERSON in reasons
+        assert SkipReason.GOVERNMENT_OFFICIAL in reasons
+        assert SkipReason.OTHER_NON_POLITICIAN in reasons
+
+    def test_each_entry_has_correct_structure(self) -> None:
+        """各エントリが(SkipReason, frozenset, frozenset)の構造を持つ."""
+        for reason, exact_names, prefixes in SKIP_REASON_PATTERNS:
+            assert isinstance(reason, SkipReason)
+            assert isinstance(exact_names, frozenset)
+            assert isinstance(prefixes, frozenset)
+
+    def test_patterns_cover_all_exact_names(self) -> None:
+        """パターン内の完全一致名がNON_POLITICIAN_EXACT_NAMESを網羅している."""
+        all_exact = frozenset().union(*(exact for _, exact, _ in SKIP_REASON_PATTERNS))
+        assert all_exact == NON_POLITICIAN_EXACT_NAMES
+
+    def test_patterns_cover_all_prefixes(self) -> None:
+        """パターン内のプレフィックスがNON_POLITICIAN_PREFIX_PATTERNSを網羅している."""
+        all_prefixes = frozenset().union(
+            *(prefixes for _, _, prefixes in SKIP_REASON_PATTERNS)
+        )
+        assert all_prefixes == NON_POLITICIAN_PREFIX_PATTERNS

@@ -48,6 +48,7 @@ def test_session() -> Iterator[Session]:
                     position VARCHAR,
                     is_politician BOOLEAN DEFAULT FALSE,
                     politician_id INTEGER,
+                    skip_reason VARCHAR,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )

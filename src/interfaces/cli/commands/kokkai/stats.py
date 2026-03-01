@@ -38,6 +38,23 @@ async def _run_stats(limit: int) -> None:
     click.echo(f"  未紐付け:       {unlinked:,}")
     click.echo(f"  マッチ率:       {match_rate:.1f}%")
 
+    # skip_reason別内訳
+    skip_reason_breakdown = stat.get("skip_reason_breakdown", {})
+    if skip_reason_breakdown:
+        non_politician = stat.get("non_politician_speakers", 0)
+        click.echo(f"\n=== 非政治家 skip_reason 別内訳 (全{non_politician}件) ===")
+        reason_labels = {
+            "role_only": "ROLE_ONLY（役職のみ）",
+            "reference_person": "REFERENCE_PERSON（参考人等）",
+            "government_official": "GOVERNMENT_OFFICIAL（政府側）",
+            "other_non_politician": "OTHER_NON_POLITICIAN（その他）",
+            "homonym": "HOMONYM（同姓同名）",
+            "未分類": "未分類",
+        }
+        for reason, cnt in skip_reason_breakdown.items():
+            label = reason_labels.get(reason, reason)
+            click.echo(f"  {label}: {cnt:>8,}件")
+
     unlinked_speakers = await speaker_repo.get_speakers_not_linked_to_politicians()
 
     if unlinked_speakers:

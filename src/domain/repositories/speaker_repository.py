@@ -201,17 +201,23 @@ class SpeakerRepository(BaseRepository[Speaker]):
         self,
         non_politician_names: frozenset[str],
         non_politician_prefixes: frozenset[str] | None = None,
+        skip_reason_patterns: (
+            list[tuple[str, frozenset[str], frozenset[str]]] | None
+        ) = None,
     ) -> dict[str, int]:
         """全Speakerのis_politicianフラグを一括分類設定する.
 
-        1. 全件をis_politician=Trueに設定
+        1. 全件をis_politician=Trueに設定（skip_reasonもNULLにリセット）
         2. non_politician_namesに完全一致、またはnon_politician_prefixesで
            始まる名前で、politician_idがNULLかつis_manually_verified=Falseの
            ものをFalseに戻す
+        3. skip_reason_patternsが指定された場合、カテゴリ別にskip_reasonも設定
 
         Args:
             non_politician_names: 非政治家として扱う名前の完全一致パターン
             non_politician_prefixes: 非政治家として扱う名前のプレフィックスパターン
+            skip_reason_patterns: カテゴリ別の
+                (skip_reason値, 完全一致名, プレフィックス)リスト
 
         Returns:
             {"total_updated_to_politician": int,

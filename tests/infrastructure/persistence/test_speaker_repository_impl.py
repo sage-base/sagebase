@@ -44,6 +44,7 @@ class MockSpeakerModel:
     is_manually_verified = MockColumn("is_manually_verified")
     latest_extraction_log_id = MockColumn("latest_extraction_log_id")
     name_yomi = MockColumn("name_yomi")
+    skip_reason = MockColumn("skip_reason")
     matching_confidence = MockColumn("matching_confidence")
     matching_reason = MockColumn("matching_reason")
 
@@ -60,6 +61,7 @@ class MockSpeakerModel:
         is_manually_verified: bool = False,
         latest_extraction_log_id: int | None = None,
         name_yomi: str | None = None,
+        skip_reason: str | None = None,
         matching_confidence: float | None = None,
         matching_reason: str | None = None,
     ):
@@ -74,6 +76,7 @@ class MockSpeakerModel:
         self.is_manually_verified = is_manually_verified
         self.latest_extraction_log_id = latest_extraction_log_id
         self.name_yomi = name_yomi
+        self.skip_reason = skip_reason
         self.matching_confidence = matching_confidence
         self.matching_reason = matching_reason
 

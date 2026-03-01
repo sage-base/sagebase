@@ -138,6 +138,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             is_manually_verified=bool(getattr(model, "is_manually_verified", False)),
             latest_extraction_log_id=getattr(model, "latest_extraction_log_id", None),
             name_yomi=getattr(model, "name_yomi", None),
+            skip_reason=getattr(model, "skip_reason", None),
             matching_confidence=float(raw_confidence)
             if raw_confidence is not None
             else None,
@@ -158,6 +159,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             is_manually_verified=entity.is_manually_verified,
             latest_extraction_log_id=entity.latest_extraction_log_id,
             name_yomi=entity.name_yomi,
+            skip_reason=entity.skip_reason,
             matching_confidence=entity.matching_confidence,
             matching_reason=entity.matching_reason,
         )
@@ -174,6 +176,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         model.is_manually_verified = entity.is_manually_verified
         model.latest_extraction_log_id = entity.latest_extraction_log_id
         model.name_yomi = entity.name_yomi
+        model.skip_reason = entity.skip_reason
         model.matching_confidence = entity.matching_confidence
         model.matching_reason = entity.matching_reason
 
@@ -313,11 +316,11 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         query = text("""
             INSERT INTO speakers (
                 name, type, political_party_name, position, is_politician,
-                matched_by_user_id, name_yomi
+                matched_by_user_id, name_yomi, skip_reason
             )
             VALUES (
                 :name, :type, :political_party_name, :position, :is_politician,
-                :matched_by_user_id, :name_yomi
+                :matched_by_user_id, :name_yomi, :skip_reason
             )
             RETURNING *
         """)
@@ -330,6 +333,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             "is_politician": entity.is_politician,
             "matched_by_user_id": entity.matched_by_user_id,
             "name_yomi": entity.name_yomi,
+            "skip_reason": entity.skip_reason,
         }
 
         result = await self.session.execute(query, params)
@@ -352,6 +356,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 politician_id = :politician_id,
                 matched_by_user_id = :matched_by_user_id,
                 name_yomi = :name_yomi,
+                skip_reason = :skip_reason,
                 matching_confidence = :matching_confidence,
                 matching_reason = :matching_reason
             WHERE id = :id
@@ -368,6 +373,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             "politician_id": entity.politician_id,
             "matched_by_user_id": entity.matched_by_user_id,
             "name_yomi": entity.name_yomi,
+            "skip_reason": entity.skip_reason,
             "matching_confidence": entity.matching_confidence,
             "matching_reason": entity.matching_reason,
         }
@@ -395,6 +401,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             is_manually_verified=bool(getattr(row, "is_manually_verified", False)),
             latest_extraction_log_id=getattr(row, "latest_extraction_log_id", None),
             name_yomi=getattr(row, "name_yomi", None),
+            skip_reason=getattr(row, "skip_reason", None),
             matching_confidence=float(raw_confidence)
             if raw_confidence is not None
             else None,
@@ -489,7 +496,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
         if row:
             unlinked = row.total_speakers - row.linked_speakers
-            return {
+            stats: dict[str, int | float] = {
                 "total_speakers": row.total_speakers,
                 "linked_speakers": row.linked_speakers,
                 "unlinked_speakers": unlinked,
@@ -499,7 +506,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 "match_rate": float(row.link_rate),
             }
         else:
-            return {
+            stats = {
                 "total_speakers": 0,
                 "linked_speakers": 0,
                 "unlinked_speakers": 0,
@@ -508,6 +515,25 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 "non_politician_speakers": 0,
                 "match_rate": 0.0,
             }
+
+        # skip_reason別内訳を取得
+        skip_reason_query = text("""
+            SELECT
+                COALESCE(skip_reason, '未分類') as reason,
+                COUNT(*) as cnt
+            FROM speakers
+            WHERE is_politician = FALSE
+            GROUP BY skip_reason
+            ORDER BY cnt DESC
+        """)
+        sr_result = await self.session.execute(skip_reason_query)
+        sr_rows = sr_result.fetchall()
+        skip_reason_breakdown: dict[str, int] = {}
+        for sr_row in sr_rows:
+            skip_reason_breakdown[sr_row.reason] = sr_row.cnt
+        stats["skip_reason_breakdown"] = skip_reason_breakdown  # type: ignore[assignment]
+
+        return stats
 
     async def get_all_for_matching(self) -> list[dict[str, Any]]:
         """Get all speakers for matching purposes."""
@@ -810,12 +836,16 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         self,
         non_politician_names: frozenset[str],
         non_politician_prefixes: frozenset[str] | None = None,
+        skip_reason_patterns: (
+            list[tuple[str, frozenset[str], frozenset[str]]] | None
+        ) = None,
     ) -> dict[str, int]:
         """全Speakerのis_politicianフラグを一括分類設定する."""
         # Step 1: is_manually_verified=Falseかつ未リンクのSpeakerを全て政治家に設定
+        # skip_reasonもNULLにリセット
         update_to_politician_query = text("""
             UPDATE speakers
-            SET is_politician = TRUE
+            SET is_politician = TRUE, skip_reason = NULL
             WHERE is_politician = FALSE
               AND is_manually_verified = FALSE
         """)
@@ -823,32 +853,63 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         total_updated_to_politician = result1.rowcount
 
         # Step 2: 非政治家パターンに該当しpolitician_idがNULLのものをFalseに戻す
-        # 完全一致（ANY）とプレフィックスマッチ（LIKE ANY）の複合条件
-        conditions: list[str] = []
-        params: dict[str, object] = {}
+        total_kept_non_politician = 0
 
-        if non_politician_names:
-            conditions.append("name = ANY(:exact_names)")
-            # SQLAlchemy/psycopg2はlist型をPostgreSQL配列パラメータとして渡す
-            params["exact_names"] = list(non_politician_names)
+        if skip_reason_patterns:
+            # カテゴリ別にskip_reasonを設定しながら非政治家を分類
+            for skip_reason_value, exact_names, prefixes in skip_reason_patterns:
+                conditions: list[str] = []
+                params: dict[str, object] = {
+                    "skip_reason": skip_reason_value,
+                }
 
-        if non_politician_prefixes:
-            conditions.append("name LIKE ANY(:prefix_patterns)")
-            params["prefix_patterns"] = [f"{p}%" for p in non_politician_prefixes]
+                if exact_names:
+                    conditions.append("name = ANY(:exact_names)")
+                    params["exact_names"] = list(exact_names)
 
-        if conditions:
-            where_clause = " OR ".join(conditions)
-            update_to_non_politician_query = text(f"""
-                UPDATE speakers
-                SET is_politician = FALSE
-                WHERE ({where_clause})
-                  AND politician_id IS NULL
-                  AND is_manually_verified = FALSE
-            """)
-            result2 = await self.session.execute(update_to_non_politician_query, params)
-            total_kept_non_politician = result2.rowcount
+                if prefixes:
+                    conditions.append("name LIKE ANY(:prefix_patterns)")
+                    params["prefix_patterns"] = [f"{p}%" for p in prefixes]
+
+                if conditions:
+                    where_clause = " OR ".join(conditions)
+                    update_query = text(f"""
+                        UPDATE speakers
+                        SET is_politician = FALSE, skip_reason = :skip_reason
+                        WHERE ({where_clause})
+                          AND politician_id IS NULL
+                          AND is_manually_verified = FALSE
+                    """)
+                    result = await self.session.execute(update_query, params)
+                    total_kept_non_politician += result.rowcount
         else:
-            total_kept_non_politician = 0
+            # 後方互換: skip_reasonなしの旧動作
+            conditions_flat: list[str] = []
+            params_flat: dict[str, object] = {}
+
+            if non_politician_names:
+                conditions_flat.append("name = ANY(:exact_names)")
+                params_flat["exact_names"] = list(non_politician_names)
+
+            if non_politician_prefixes:
+                conditions_flat.append("name LIKE ANY(:prefix_patterns)")
+                params_flat["prefix_patterns"] = [
+                    f"{p}%" for p in non_politician_prefixes
+                ]
+
+            if conditions_flat:
+                where_clause = " OR ".join(conditions_flat)
+                update_to_non_politician_query = text(f"""
+                    UPDATE speakers
+                    SET is_politician = FALSE
+                    WHERE ({where_clause})
+                      AND politician_id IS NULL
+                      AND is_manually_verified = FALSE
+                """)
+                result2 = await self.session.execute(
+                    update_to_non_politician_query, params_flat
+                )
+                total_kept_non_politician = result2.rowcount
 
         await self.session.commit()
 
