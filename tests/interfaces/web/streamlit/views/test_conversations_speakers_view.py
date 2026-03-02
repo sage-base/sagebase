@@ -11,19 +11,37 @@ from src.application.usecases.link_speaker_to_politician_usecase import (
 )
 
 
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.tabs.speakers_list_tab.RepositoryAdapter"
+)
 @patch("src.interfaces.web.streamlit.views.conversations.tabs.speakers_list_tab.st")
-def test_render_speakers_list_tab_displays_placeholder(mock_st):
-    """発言者一覧タブがプレースホルダーを表示することを確認"""
+def test_render_speakers_list_tab_displays_placeholder(mock_st, mock_repo_adapter):
+    """発言者一覧タブがデータなし時にinfoメッセージを表示することを確認"""
     # Arrange
     from src.interfaces.web.streamlit.views.conversations.tabs.speakers_list_tab import (  # noqa: E501
         render_speakers_list_tab,
     )
 
+    # RepositoryAdapterのモック（データなし）
+    mock_speaker_repo = MagicMock()
+    mock_speaker_repo.get_speakers_with_conversation_count.return_value = []
+    mock_politician_repo = MagicMock()
+    mock_repo_adapter.side_effect = [mock_speaker_repo, mock_politician_repo]
+
+    # st.columns()のモック
+    mock_cols = [MagicMock() for _ in range(4)]
+    mock_st.columns.return_value = mock_cols
+
+    # st.text_input, st.selectbox, st.number_inputのモック
+    mock_st.text_input.return_value = ""
+    mock_st.selectbox.return_value = "すべて"
+    mock_st.number_input.return_value = 50
+
     # Act
     render_speakers_list_tab()
 
     # Assert
-    mock_st.info.assert_called_once_with("発言者リストの表示機能は実装中です")
+    mock_st.info.assert_called_once_with("該当する発言者がありません")
 
 
 @patch("src.interfaces.web.streamlit.views.conversations.tabs.matching_tab.st")
