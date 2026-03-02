@@ -21,3 +21,8 @@ class SpeakerWithConversationCount:
     position: str | None
     is_politician: bool
     conversation_count: int
+    name_yomi: str | None = None
+    skip_reason: str | None = None
+    politician_id: int | None = None
+    matching_confidence: float | None = None
+    is_manually_verified: bool = False

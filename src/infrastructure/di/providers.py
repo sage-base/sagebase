@@ -60,6 +60,9 @@ from src.application.usecases.manage_political_parties_usecase import (
 from src.application.usecases.manage_proposal_deliberations_usecase import (
     ManageProposalDeliberationsUseCase,
 )
+from src.application.usecases.mark_speaker_as_non_politician_usecase import (
+    MarkSpeakerAsNonPoliticianUseCase,
+)
 from src.application.usecases.match_meeting_speakers_usecase import (
     MatchMeetingSpeakersUseCase,
 )
@@ -643,6 +646,13 @@ class UseCaseContainer(containers.DeclarativeContainer):
     # 発言者と政治家の手動紐付け用ユースケース
     link_speaker_to_politician_usecase = providers.Factory(
         LinkSpeakerToPoliticianUseCase,
+        speaker_repository=repositories.speaker_repository,
+    )
+
+    # Mark Speaker as Non-Politician UseCase (Issue #1298)
+    # 発言者を非政治家として分類するユースケース
+    mark_speaker_as_non_politician_usecase = providers.Factory(
+        MarkSpeakerAsNonPoliticianUseCase,
         speaker_repository=repositories.speaker_repository,
     )
 
