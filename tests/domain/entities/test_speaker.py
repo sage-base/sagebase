@@ -17,6 +17,7 @@ class TestSpeaker:
         assert speaker.political_party_name is None
         assert speaker.position is None
         assert speaker.is_politician is False
+        assert speaker.skip_reason is None
         assert speaker.id is None
 
     def test_initialization_with_all_fields(self) -> None:
@@ -220,6 +221,30 @@ class TestSpeaker:
             name="部長一郎", type="職員", position="総務部長", is_politician=False
         )
         assert str(dept_head) == "部長一郎 (総務部長)"
+
+    def test_skip_reason_field(self) -> None:
+        """Test skip_reason field initialization and usage."""
+        # デフォルトはNone
+        speaker = Speaker(name="議長")
+        assert speaker.skip_reason is None
+
+        # skip_reasonを設定
+        speaker_with_reason = Speaker(
+            name="議長", is_politician=False, skip_reason="role_only"
+        )
+        assert speaker_with_reason.skip_reason == "role_only"
+        assert speaker_with_reason.is_politician is False
+
+        # 各カテゴリのskip_reason
+        for reason in [
+            "role_only",
+            "reference_person",
+            "government_official",
+            "other_non_politician",
+            "homonym",
+        ]:
+            s = Speaker(name="test", skip_reason=reason)
+            assert s.skip_reason == reason
 
     def test_edge_cases(self) -> None:
         """Test edge cases for Speaker entity."""

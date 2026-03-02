@@ -19,6 +19,18 @@ class SkipReason(Enum):
     OTHER_NON_POLITICIAN = "other_non_politician"
     HOMONYM = "homonym"
 
+    @property
+    def display_label(self) -> str:
+        """表示用ラベルを返す."""
+        labels = {
+            "role_only": "ROLE_ONLY（役職のみ）",
+            "reference_person": "REFERENCE_PERSON（参考人等）",
+            "government_official": "GOVERNMENT_OFFICIAL（政府側）",
+            "other_non_politician": "OTHER_NON_POLITICIAN（その他）",
+            "homonym": "HOMONYM（同姓同名）",
+        }
+        return labels[self.value]
+
 
 # === 完全一致パターン ===
 
@@ -120,7 +132,7 @@ NON_POLITICIAN_PREFIX_PATTERNS: frozenset[str] = (
 # カテゴリとパターンの対応テーブル
 # 新カテゴリ追加時はここに1行追加するだけでよい。
 # 議長・委員長はROLE_ONLYに完全一致のみ（括弧付き形式は政治家）。
-_SKIP_REASON_PATTERNS: list[tuple[SkipReason, frozenset[str], frozenset[str]]] = [
+SKIP_REASON_PATTERNS: list[tuple[SkipReason, frozenset[str], frozenset[str]]] = [
     (SkipReason.ROLE_ONLY, _ROLE_ONLY_NAMES, frozenset()),
     (SkipReason.REFERENCE_PERSON, _REFERENCE_PERSON_NAMES, _REFERENCE_PERSON_PREFIXES),
     (
@@ -165,7 +177,7 @@ def classify_speaker_skip_reason(name: str) -> SkipReason | None:
         SkipReason Enum値。政治家の可能性がある場合はNone。
     """
     stripped = name.strip()
-    for reason, exact_names, prefixes in _SKIP_REASON_PATTERNS:
+    for reason, exact_names, prefixes in SKIP_REASON_PATTERNS:
         if stripped in exact_names:
             return reason
         if prefixes and any(stripped.startswith(p) for p in prefixes):

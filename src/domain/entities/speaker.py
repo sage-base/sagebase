@@ -25,6 +25,7 @@ class Speaker(BaseEntity):
         is_manually_verified: bool = False,
         latest_extraction_log_id: int | None = None,
         name_yomi: str | None = None,
+        skip_reason: str | None = None,
         matching_confidence: float | None = None,
         matching_reason: str | None = None,
         created_at: datetime | None = None,
@@ -42,6 +43,7 @@ class Speaker(BaseEntity):
         self.is_manually_verified = is_manually_verified
         self.latest_extraction_log_id = latest_extraction_log_id
         self.name_yomi = name_yomi
+        self.skip_reason = skip_reason
         self.matching_confidence = matching_confidence
         self.matching_reason = matching_reason
         self.created_at = created_at

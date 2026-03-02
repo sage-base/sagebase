@@ -10,6 +10,7 @@ from src.domain.repositories.speaker_repository import SpeakerRepository
 from src.domain.services.speaker_classifier import (
     NON_POLITICIAN_EXACT_NAMES,
     NON_POLITICIAN_PREFIX_PATTERNS,
+    SKIP_REASON_PATTERNS,
 )
 
 
@@ -36,6 +37,10 @@ class ClassifySpeakersPoliticianUseCase:
         result = await self.speaker_repository.classify_is_politician_bulk(
             NON_POLITICIAN_EXACT_NAMES,
             non_politician_prefixes=NON_POLITICIAN_PREFIX_PATTERNS,
+            skip_reason_patterns=[
+                (reason.value, exact, prefixes)
+                for reason, exact, prefixes in SKIP_REASON_PATTERNS
+            ],
         )
         logger.info(
             "Speaker分類完了: 政治家に設定=%d件, 非政治家に設定=%d件",
