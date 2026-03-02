@@ -75,6 +75,6 @@ class MarkSpeakerAsNonPoliticianUseCase:
         speaker.skip_reason = input_dto.skip_reason
         speaker.politician_id = None
 
-        await self.speaker_repository.upsert(speaker)
+        await self.speaker_repository.update(speaker)
 
         return MarkSpeakerAsNonPoliticianOutputDto(success=True)

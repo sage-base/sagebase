@@ -53,7 +53,7 @@ class TestMarkSpeakerAsNonPoliticianUseCase:
         assert speaker.is_politician is False
         assert speaker.skip_reason == "reference_person"
         assert speaker.politician_id is None
-        mock_speaker_repo.upsert.assert_called_once_with(speaker)
+        mock_speaker_repo.update.assert_called_once_with(speaker)
 
     @pytest.mark.asyncio
     async def test_mark_clears_politician_id(
@@ -100,7 +100,7 @@ class TestMarkSpeakerAsNonPoliticianUseCase:
 
         assert result.success is False
         assert result.error_message == "発言者が見つかりません"
-        mock_speaker_repo.upsert.assert_not_called()
+        mock_speaker_repo.update.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_mark_with_invalid_skip_reason(
@@ -119,7 +119,7 @@ class TestMarkSpeakerAsNonPoliticianUseCase:
         assert result.success is False
         assert "無効なスキップ理由" in result.error_message
         mock_speaker_repo.get_by_id.assert_not_called()
-        mock_speaker_repo.upsert.assert_not_called()
+        mock_speaker_repo.update.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_mark_with_government_official(

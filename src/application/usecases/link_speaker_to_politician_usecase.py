@@ -74,8 +74,8 @@ class LinkSpeakerToPoliticianUseCase:
         speaker.is_manually_verified = True
         speaker.skip_reason = None
 
-        # 更新をリポジトリに反映
-        await self.speaker_repository.upsert(speaker)
+        # 更新をリポジトリに反映（既にget_by_idで取得済みなので直接update）
+        await self.speaker_repository.update(speaker)
 
         # 更新後のマッチングDTOを作成
         updated_dto = SpeakerMatchingDTO(

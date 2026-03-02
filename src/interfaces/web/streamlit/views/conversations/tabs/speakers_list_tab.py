@@ -106,9 +106,14 @@ def render_speakers_list_tab() -> None:
 
     # 統計メトリクス（表示中のデータに基づく）
     total = len(speakers)
-    matched = sum(1 for s in speakers if s.politician_id is not None)
-    unmatched = sum(1 for s in speakers if s.politician_id is None and s.is_politician)
-    non_politician = sum(1 for s in speakers if not s.is_politician)
+    matched = unmatched = non_politician = 0
+    for s in speakers:
+        if s.politician_id is not None:
+            matched += 1
+        elif s.is_politician:
+            unmatched += 1
+        else:
+            non_politician += 1
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -276,10 +281,11 @@ def _render_non_politician_section(
 def _execute_link(speaker_id: int, politician_id: int, politician_name: str) -> None:
     """政治家紐付けを実行する."""
     try:
-        user_info = google_sign_in.get_user_info()
-        user_id = _get_user_id(user_info)
-
         container = Container.create_for_environment()
+
+        user_info = google_sign_in.get_user_info()
+        user_id = _get_user_id(user_info, container)
+
         usecase = container.use_cases.link_speaker_to_politician_usecase()
 
         result = asyncio.run(
@@ -326,12 +332,15 @@ def _execute_mark_non_politician(speaker_id: int, skip_reason: str) -> None:
         st.error(f"エラーが発生しました: {e}")
 
 
-def _get_user_id(user_info: dict[str, str] | None) -> UUID | None:
+def _get_user_id(
+    user_info: dict[str, str] | None, container: Container | None = None
+) -> UUID | None:
     """ユーザー情報からユーザーIDを取得する."""
     if not user_info:
         return None
     try:
-        container = Container.create_for_environment()
+        if container is None:
+            container = Container.create_for_environment()
         auth_usecase = AuthenticateUserUseCase(
             user_repository=container.repositories.user_repository()
         )

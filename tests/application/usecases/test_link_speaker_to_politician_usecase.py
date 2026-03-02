@@ -76,8 +76,8 @@ class TestLinkSpeakerToPoliticianUseCase:
         assert speaker.is_politician is True
         assert speaker.skip_reason is None
 
-        # upsertが呼ばれたことを確認
-        mock_speaker_repo.upsert.assert_called_once_with(speaker)
+        # updateが呼ばれたことを確認
+        mock_speaker_repo.update.assert_called_once_with(speaker)
 
     @pytest.mark.asyncio
     async def test_link_speaker_to_politician_without_user_id(
@@ -137,7 +137,7 @@ class TestLinkSpeakerToPoliticianUseCase:
         assert result.updated_matching_dto is None
 
         # upsertが呼ばれていないことを確認
-        mock_speaker_repo.upsert.assert_not_called()
+        mock_speaker_repo.update.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_link_speaker_to_politician_updates_existing_link(

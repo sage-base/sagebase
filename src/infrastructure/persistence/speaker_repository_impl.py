@@ -256,10 +256,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             FROM speakers s
             LEFT JOIN conversations c ON s.id = c.speaker_id
             {where_clause}
-            GROUP BY s.id, s.name, s.type, s.political_party_name,
-                     s.position, s.is_politician, s.name_yomi,
-                     s.skip_reason, s.politician_id, s.matching_confidence,
-                     s.is_manually_verified
+            GROUP BY s.id
             {order_clause}
             {pagination_clause}
         """)
