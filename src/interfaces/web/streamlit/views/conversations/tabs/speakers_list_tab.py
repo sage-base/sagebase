@@ -6,6 +6,8 @@
 
 import asyncio
 
+from uuid import UUID
+
 import pandas as pd
 import streamlit as st
 
@@ -31,6 +33,10 @@ from src.infrastructure.persistence.speaker_repository_impl import (
     SpeakerRepositoryImpl,
 )
 from src.interfaces.web.streamlit.auth import google_sign_in
+
+
+# 詳細操作セクションに表示するSpeakerの最大数（パフォーマンスのため制限）
+_MAX_DETAIL_SPEAKERS = 30
 
 
 def render_speakers_list_tab() -> None:
@@ -98,7 +104,7 @@ def render_speakers_list_tab() -> None:
         st.info("該当する発言者がありません")
         return
 
-    # 統計メトリクス
+    # 統計メトリクス（表示中のデータに基づく）
     total = len(speakers)
     matched = sum(1 for s in speakers if s.politician_id is not None)
     unmatched = sum(1 for s in speakers if s.politician_id is None and s.is_politician)
@@ -106,7 +112,7 @@ def render_speakers_list_tab() -> None:
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("総数", f"{total}件")
+        st.metric("表示中", f"{total}件")
     with col2:
         st.metric("マッチ済み", f"{matched}件")
     with col3:
@@ -167,7 +173,10 @@ def _render_speaker_detail_section(
     """発言者の詳細操作セクションを表示する."""
     st.markdown("### 個別操作")
 
-    for speaker in speakers[:30]:
+    if len(speakers) > _MAX_DETAIL_SPEAKERS:
+        st.caption(f"上位{_MAX_DETAIL_SPEAKERS}件の操作パネルを表示しています")
+
+    for speaker in speakers[:_MAX_DETAIL_SPEAKERS]:
         status = _get_match_status(speaker)
         with st.expander(
             f"{speaker.name}（発言{speaker.conversation_count}回）— {status}"
@@ -317,7 +326,7 @@ def _execute_mark_non_politician(speaker_id: int, skip_reason: str) -> None:
         st.error(f"エラーが発生しました: {e}")
 
 
-def _get_user_id(user_info: dict[str, str] | None):
+def _get_user_id(user_info: dict[str, str] | None) -> UUID | None:
     """ユーザー情報からユーザーIDを取得する."""
     if not user_info:
         return None

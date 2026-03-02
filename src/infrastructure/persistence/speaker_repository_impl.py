@@ -396,7 +396,8 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 name_yomi = :name_yomi,
                 skip_reason = :skip_reason,
                 matching_confidence = :matching_confidence,
-                matching_reason = :matching_reason
+                matching_reason = :matching_reason,
+                is_manually_verified = :is_manually_verified
             WHERE id = :id
             RETURNING *
         """)
@@ -414,6 +415,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             "skip_reason": entity.skip_reason,
             "matching_confidence": entity.matching_confidence,
             "matching_reason": entity.matching_reason,
+            "is_manually_verified": entity.is_manually_verified,
         }
 
         result = await self.session.execute(query, params)

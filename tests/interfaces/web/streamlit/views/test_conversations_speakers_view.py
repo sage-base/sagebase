@@ -9,6 +9,14 @@ from src.application.dtos.speaker_dto import SpeakerMatchingDTO
 from src.application.usecases.link_speaker_to_politician_usecase import (
     LinkSpeakerToPoliticianOutputDto,
 )
+from src.domain.value_objects.speaker_with_conversation_count import (
+    SpeakerWithConversationCount,
+)
+from src.interfaces.web.streamlit.views.conversations.tabs.speakers_list_tab import (  # noqa: E501
+    _get_classification_label,
+    _get_match_status,
+    render_speakers_list_tab,
+)
 
 
 @patch(
@@ -17,11 +25,6 @@ from src.application.usecases.link_speaker_to_politician_usecase import (
 @patch("src.interfaces.web.streamlit.views.conversations.tabs.speakers_list_tab.st")
 def test_render_speakers_list_tab_displays_placeholder(mock_st, mock_repo_adapter):
     """発言者一覧タブがデータなし時にinfoメッセージを表示することを確認"""
-    # Arrange
-    from src.interfaces.web.streamlit.views.conversations.tabs.speakers_list_tab import (  # noqa: E501
-        render_speakers_list_tab,
-    )
-
     # RepositoryAdapterのモック（データなし）
     mock_speaker_repo = MagicMock()
     mock_speaker_repo.get_speakers_with_conversation_count.return_value = []
@@ -42,6 +45,186 @@ def test_render_speakers_list_tab_displays_placeholder(mock_st, mock_repo_adapte
 
     # Assert
     mock_st.info.assert_called_once_with("該当する発言者がありません")
+
+
+class TestGetMatchStatus:
+    """_get_match_status の各分岐テスト."""
+
+    def test_manually_verified_match(self):
+        """手動マッチ済みのラベルを返す。"""
+        speaker = SpeakerWithConversationCount(
+            id=1,
+            name="テスト",
+            type=None,
+            political_party_name=None,
+            position=None,
+            is_politician=True,
+            conversation_count=5,
+            politician_id=100,
+            is_manually_verified=True,
+        )
+        assert _get_match_status(speaker) == "手動マッチ済み"
+
+    def test_auto_match(self):
+        """自動マッチ済みのラベルを返す。"""
+        speaker = SpeakerWithConversationCount(
+            id=1,
+            name="テスト",
+            type=None,
+            political_party_name=None,
+            position=None,
+            is_politician=True,
+            conversation_count=5,
+            politician_id=100,
+            is_manually_verified=False,
+        )
+        assert _get_match_status(speaker) == "自動マッチ済み"
+
+    def test_non_politician(self):
+        """非政治家のラベルを返す。"""
+        speaker = SpeakerWithConversationCount(
+            id=1,
+            name="テスト",
+            type=None,
+            political_party_name=None,
+            position=None,
+            is_politician=False,
+            conversation_count=5,
+        )
+        assert _get_match_status(speaker) == "非政治家"
+
+    def test_unmatched(self):
+        """未マッチのラベルを返す。"""
+        speaker = SpeakerWithConversationCount(
+            id=1,
+            name="テスト",
+            type=None,
+            political_party_name=None,
+            position=None,
+            is_politician=True,
+            conversation_count=5,
+        )
+        assert _get_match_status(speaker) == "未マッチ"
+
+
+class TestGetClassificationLabel:
+    """_get_classification_label の各分岐テスト."""
+
+    def test_valid_skip_reason(self):
+        """有効なSkipReasonの表示ラベルを返す。"""
+        speaker = SpeakerWithConversationCount(
+            id=1,
+            name="テスト",
+            type=None,
+            political_party_name=None,
+            position=None,
+            is_politician=False,
+            conversation_count=5,
+            skip_reason="reference_person",
+        )
+        result = _get_classification_label(speaker)
+        assert "REFERENCE_PERSON" in result
+
+    def test_invalid_skip_reason(self):
+        """無効なskip_reasonはそのまま返す。"""
+        speaker = SpeakerWithConversationCount(
+            id=1,
+            name="テスト",
+            type=None,
+            political_party_name=None,
+            position=None,
+            is_politician=False,
+            conversation_count=5,
+            skip_reason="unknown_value",
+        )
+        assert _get_classification_label(speaker) == "unknown_value"
+
+    def test_no_skip_reason(self):
+        """skip_reasonがNoneの場合はハイフンを返す。"""
+        speaker = SpeakerWithConversationCount(
+            id=1,
+            name="テスト",
+            type=None,
+            political_party_name=None,
+            position=None,
+            is_politician=True,
+            conversation_count=5,
+        )
+        assert _get_classification_label(speaker) == "-"
+
+
+@patch(
+    "src.interfaces.web.streamlit.views.conversations.tabs.speakers_list_tab.RepositoryAdapter"
+)
+@patch("src.interfaces.web.streamlit.views.conversations.tabs.speakers_list_tab.st")
+def test_render_speakers_list_tab_with_data(mock_st, mock_repo_adapter):
+    """発言者一覧タブがデータあり時にテーブルと統計を表示することを確認"""
+    # テストデータ
+    speakers = [
+        SpeakerWithConversationCount(
+            id=1,
+            name="山田太郎",
+            type=None,
+            political_party_name="自民党",
+            position=None,
+            is_politician=True,
+            conversation_count=10,
+            politician_id=100,
+        ),
+        SpeakerWithConversationCount(
+            id=2,
+            name="参考人A",
+            type=None,
+            political_party_name=None,
+            position=None,
+            is_politician=False,
+            conversation_count=3,
+            skip_reason="reference_person",
+        ),
+    ]
+
+    # RepositoryAdapterのモック
+    mock_speaker_repo = MagicMock()
+    mock_speaker_repo.get_speakers_with_conversation_count.return_value = speakers
+    mock_politician_repo = MagicMock()
+    mock_politician_repo.search_by_name.return_value = []
+    mock_repo_adapter.side_effect = [mock_speaker_repo, mock_politician_repo]
+
+    # st.columns()のモック（引数に応じた数の要素を返す）
+    def columns_side_effect(spec, **kwargs):
+        if isinstance(spec, int):
+            return [MagicMock() for _ in range(spec)]
+        return [MagicMock() for _ in range(len(spec))]
+
+    mock_st.columns.side_effect = columns_side_effect
+
+    # フィルタ入力のモック
+    mock_st.text_input.return_value = ""
+    mock_st.selectbox.return_value = "すべて"
+    mock_st.number_input.return_value = 50
+    mock_st.button.return_value = False
+
+    # expanderのモック
+    mock_expander = MagicMock()
+    mock_st.expander.return_value.__enter__ = MagicMock(return_value=mock_expander)
+    mock_st.expander.return_value.__exit__ = MagicMock(return_value=None)
+
+    # tabsのモック
+    mock_tab1 = MagicMock()
+    mock_tab2 = MagicMock()
+    mock_st.tabs.return_value = [mock_tab1, mock_tab2]
+
+    # Act
+    render_speakers_list_tab()
+
+    # Assert
+    # dataframeが呼ばれたことを確認
+    mock_st.dataframe.assert_called_once()
+    # メトリクスが呼ばれたことを確認（表示中、マッチ済み、未マッチ、非政治家の4つ）
+    metric_calls = mock_st.metric.call_args_list
+    assert len(metric_calls) == 4
+    # 表示中メトリクスの値確認
+    assert metric_calls[0] == (("表示中", "2件"),)
 
 
 @patch("src.interfaces.web.streamlit.views.conversations.tabs.matching_tab.st")

@@ -103,6 +103,25 @@ class TestMarkSpeakerAsNonPoliticianUseCase:
         mock_speaker_repo.upsert.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_mark_with_invalid_skip_reason(
+        self,
+        use_case,
+        mock_speaker_repo,
+    ):
+        """無効なskip_reasonはエラーを返す。"""
+        input_dto = MarkSpeakerAsNonPoliticianInputDto(
+            speaker_id=1,
+            skip_reason="invalid_reason",
+        )
+
+        result = await use_case.execute(input_dto)
+
+        assert result.success is False
+        assert "無効なスキップ理由" in result.error_message
+        mock_speaker_repo.get_by_id.assert_not_called()
+        mock_speaker_repo.upsert.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_mark_with_government_official(
         self,
         use_case,

@@ -7,6 +7,7 @@
 from dataclasses import dataclass
 
 from src.domain.repositories.speaker_repository import SpeakerRepository
+from src.domain.services.speaker_classifier import SkipReason
 
 
 @dataclass
@@ -54,6 +55,15 @@ class MarkSpeakerAsNonPoliticianUseCase:
         Returns:
             分類結果を含む出力DTO
         """
+        # skip_reasonのバリデーション
+        try:
+            SkipReason(input_dto.skip_reason)
+        except ValueError:
+            return MarkSpeakerAsNonPoliticianOutputDto(
+                success=False,
+                error_message=f"無効なスキップ理由: {input_dto.skip_reason}",
+            )
+
         speaker = await self.speaker_repository.get_by_id(input_dto.speaker_id)
         if not speaker:
             return MarkSpeakerAsNonPoliticianOutputDto(
