@@ -64,6 +64,7 @@ class BAMLPoliticianMatchingService:
         speaker_type: str | None = None,
         speaker_party: str | None = None,
         role_name_mappings: dict[str, str] | None = None,
+        speaker_name_yomi: str | None = None,
     ) -> PoliticianMatch:
         """
         発言者に最適な政治家マッチを見つける
@@ -101,6 +102,7 @@ class BAMLPoliticianMatchingService:
             speaker_party=speaker_party,
             candidate_dicts=available_politicians,
             operation="politician_matching",
+            speaker_name_yomi=speaker_name_yomi,
         )
 
     async def find_best_match_from_candidates(
@@ -110,6 +112,7 @@ class BAMLPoliticianMatchingService:
         speaker_type: str | None = None,
         speaker_party: str | None = None,
         role_name_mappings: dict[str, str] | None = None,
+        speaker_name_yomi: str | None = None,
     ) -> PoliticianMatch:
         """外部から提供された候補リストを使って発言者に最適な政治家マッチを見つける.
 
@@ -149,6 +152,7 @@ class BAMLPoliticianMatchingService:
             speaker_party=speaker_party,
             candidate_dicts=candidate_dicts,
             operation="politician_matching_from_candidates",
+            speaker_name_yomi=speaker_name_yomi,
         )
 
     def _resolve_role_name(
@@ -184,6 +188,7 @@ class BAMLPoliticianMatchingService:
         speaker_party: str | None,
         candidate_dicts: list[dict[str, Any]],
         operation: str,
+        speaker_name_yomi: str | None = None,
     ) -> PoliticianMatch:
         """ルールベース→BAMLのマッチングパイプラインを実行する共通メソッド."""
         # ルールベースマッチング（高速パス）
@@ -204,6 +209,7 @@ class BAMLPoliticianMatchingService:
                 speaker_name=resolved_name,
                 speaker_type=speaker_type or "不明",
                 speaker_party=speaker_party or "不明",
+                speaker_name_yomi=speaker_name_yomi or "不明",
                 available_politicians=self._format_politicians_for_llm(filtered),
             )
 
@@ -380,6 +386,8 @@ class BAMLPoliticianMatchingService:
         formatted: list[str] = []
         for p in politicians:
             info = f"ID: {p['id']}, 名前: {p['name']}"
+            if p.get("furigana"):
+                info += f", ふりがな: {p['furigana']}"
             if p.get("party_name"):
                 info += f", 政党: {p['party_name']}"
             if p.get("position"):

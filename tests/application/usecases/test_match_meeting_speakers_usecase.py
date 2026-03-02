@@ -180,12 +180,13 @@ class TestMatchMeetingSpeakersUseCase:
         mock_repos["speaker_repository"].update.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_yomi_match_updates_speaker(
+    async def test_yomi_mismatch_goes_to_baml_pending(
         self, usecase: MatchMeetingSpeakersUseCase, mock_repos: dict[str, AsyncMock]
     ) -> None:
-        """ふりがなマッチで Speaker.politician_id が更新される.
+        """ふりがな一致のみ → 完全一致せず → BAML無効で未マッチ.
 
-        Speaker名（漢字表記）が候補と異なるが、ふりがなが一致するケース。
+        3段階方式変更により、match()は完全一致のみ返す。
+        漢字表記が異なるケースはLLM判定に委譲される。
         """
         _setup_meeting(mock_repos)
         _setup_minutes(mock_repos)
@@ -219,10 +220,10 @@ class TestMatchMeetingSpeakersUseCase:
         result = await usecase.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
 
         assert result.success is True
-        assert result.matched_count == 1
-        # 漢字名が不一致のためふりがなマッチ（confidence 0.9）
-        assert result.results[0].confidence == 0.9
-        assert result.results[0].updated is True
+        # 完全一致しないためマッチしない（BAML無効）
+        assert result.matched_count == 0
+        assert len(result.results) == 1
+        assert result.results[0].updated is False
 
     @pytest.mark.asyncio
     async def test_low_confidence_does_not_update(
@@ -438,10 +439,14 @@ class TestMatchMeetingSpeakersUseCase:
         assert len(result.results) == 2  # 未マッチ対象は2人
 
     @pytest.mark.asyncio
-    async def test_surname_only_match(
+    async def test_surname_only_goes_to_baml_pending(
         self, usecase: MatchMeetingSpeakersUseCase, mock_repos: dict[str, AsyncMock]
     ) -> None:
-        """姓のみ一致（同姓1人）でマッチする."""
+        """姓のみ一致 → 完全一致しない → BAML保留 → BAML無効で未マッチ.
+
+        3段階方式変更により、match()は完全一致のみ返す。
+        姓のみ一致はLLM判定に委譲される。
+        """
         _setup_meeting(mock_repos)
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1])
@@ -476,15 +481,20 @@ class TestMatchMeetingSpeakersUseCase:
         )
 
         assert result.success is True
-        assert result.matched_count == 1
-        assert result.results[0].politician_id == 100
-        assert result.results[0].confidence == 0.8
+        # 完全一致しないためマッチしない（BAML無効）
+        assert result.matched_count == 0
+        assert len(result.results) == 1
+        assert result.results[0].updated is False
 
     @pytest.mark.asyncio
     async def test_custom_confidence_threshold(
         self, usecase: MatchMeetingSpeakersUseCase, mock_repos: dict[str, AsyncMock]
     ) -> None:
-        """高い閾値を設定すると姓のみ一致（0.8）ではマッチしない."""
+        """高い閾値(0.9)では完全一致(1.0)しかマッチしない → 姓のみは未マッチ.
+
+        3段階方式変更後、match()は完全一致(1.0)のみ返すため、
+        confidence_threshold=0.9でも姓のみ一致は0.0のため閾値以下でマッチしない。
+        """
         _setup_meeting(mock_repos)
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1])
@@ -743,9 +753,10 @@ class TestBAMLFallback:
         _setup_meeting(mock_repos)
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1])
+        # 候補フィルタで通るように姓が部分一致する名前を使用
         _setup_speakers(
             mock_repos,
-            [Speaker(name="あいまいな名前", id=1)],
+            [Speaker(name="曖昧太郎", name_yomi="あいまいたろう", id=1)],
         )
         _setup_candidates(
             mock_repos,
@@ -757,7 +768,15 @@ class TestBAMLFallback:
                     id=1,
                 )
             ],
-            [Politician(name="曖昧名前太郎", prefecture="", district="", id=100)],
+            [
+                Politician(
+                    name="曖昧名前太郎",
+                    furigana="あいまいなまえたろう",
+                    prefecture="",
+                    district="",
+                    id=100,
+                )
+            ],
         )
 
         mock_baml_service.find_best_match_from_candidates.return_value = (
@@ -780,6 +799,9 @@ class TestBAMLFallback:
         assert result.results[0].match_method == MatchMethod.BAML
         assert result.results[0].updated is True
         mock_baml_service.find_best_match_from_candidates.assert_called_once()
+        # speaker_name_yomiがBAMLサービスに渡されることを検証
+        call_kwargs = mock_baml_service.find_best_match_from_candidates.call_args
+        assert call_kwargs.kwargs["speaker_name_yomi"] == "あいまいたろう"
 
     @pytest.mark.asyncio
     async def test_baml_fallback_disabled_by_default(
@@ -829,9 +851,10 @@ class TestBAMLFallback:
         _setup_meeting(mock_repos)
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1])
+        # 候補フィルタで通るようにfurigana/name_yomiを設定
         _setup_speakers(
             mock_repos,
-            [Speaker(name="テスト太郎", id=1)],
+            [Speaker(name="岸田一郎", name_yomi="きしだいちろう", id=1)],
         )
         _setup_candidates(
             mock_repos,
@@ -843,7 +866,15 @@ class TestBAMLFallback:
                     id=1,
                 )
             ],
-            [Politician(name="岸田文雄", prefecture="", district="", id=100)],
+            [
+                Politician(
+                    name="岸田文雄",
+                    furigana="きしだふみお",
+                    prefecture="",
+                    district="",
+                    id=100,
+                )
+            ],
         )
 
         mock_baml_service.find_best_match_from_candidates.side_effect = RuntimeError(
@@ -870,9 +901,10 @@ class TestBAMLFallback:
         _setup_meeting(mock_repos)
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1])
+        # 候補フィルタで通るようにfurigana/name_yomiを設定
         _setup_speakers(
             mock_repos,
-            [Speaker(name="不明太郎", id=1)],
+            [Speaker(name="岸田一郎", name_yomi="きしだいちろう", id=1)],
         )
         _setup_candidates(
             mock_repos,
@@ -884,7 +916,15 @@ class TestBAMLFallback:
                     id=1,
                 )
             ],
-            [Politician(name="岸田文雄", prefecture="", district="", id=100)],
+            [
+                Politician(
+                    name="岸田文雄",
+                    furigana="きしだふみお",
+                    prefecture="",
+                    district="",
+                    id=100,
+                )
+            ],
         )
 
         mock_baml_service.find_best_match_from_candidates.return_value = (
@@ -920,9 +960,10 @@ class TestBAMLFallback:
         )
         mock_repos["minutes_repository"].get_by_meeting.return_value = minutes
         _setup_conversations(mock_repos, [1])
+        # 候補フィルタで通るようにfurigana/name_yomiを設定
         _setup_speakers(
             mock_repos,
-            [Speaker(name="あいまい名前", id=1)],
+            [Speaker(name="大島太郎", name_yomi="おおしまたろう", id=1)],
         )
         _setup_candidates(
             mock_repos,
@@ -934,7 +975,15 @@ class TestBAMLFallback:
                     id=1,
                 )
             ],
-            [Politician(name="大島理森", prefecture="", district="", id=100)],
+            [
+                Politician(
+                    name="大島理森",
+                    furigana="おおしまただもり",
+                    prefecture="",
+                    district="",
+                    id=100,
+                )
+            ],
         )
 
         mock_baml_service.find_best_match_from_candidates.return_value = (
@@ -1161,7 +1210,10 @@ class TestIsPoliticianFlag:
         _setup_meeting(mock_repos)
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1])
-        speaker = Speaker(name="あいまい名前", is_politician=False, id=1)
+        # 候補フィルタで通るようにfurigana/name_yomiを設定
+        speaker = Speaker(
+            name="岸田一郎", name_yomi="きしだいちろう", is_politician=False, id=1
+        )
         _setup_speakers(mock_repos, [speaker])
         _setup_candidates(
             mock_repos,
@@ -1173,7 +1225,15 @@ class TestIsPoliticianFlag:
                     id=1,
                 )
             ],
-            [Politician(name="岸田文雄", prefecture="", district="", id=100)],
+            [
+                Politician(
+                    name="岸田文雄",
+                    furigana="きしだふみお",
+                    prefecture="",
+                    district="",
+                    id=100,
+                )
+            ],
         )
 
         mock_baml_service.find_best_match_from_candidates.return_value = (
@@ -1213,9 +1273,11 @@ class TestMixedScenarios:
         _setup_speakers(
             mock_repos,
             [
-                Speaker(name="岸田文雄", id=1),  # ルールベースマッチ
+                Speaker(name="岸田文雄", id=1),  # ルールベース完全一致マッチ
                 Speaker(name="議長", id=2),  # 非政治家（role_only）
-                Speaker(name="あいまい名前", id=3),  # BAMLフォールバック対象
+                Speaker(
+                    name="岸田一郎", name_yomi="きしだいちろう", id=3
+                ),  # BAMLフォールバック対象
             ],
         )
         _setup_candidates(
@@ -1228,7 +1290,15 @@ class TestMixedScenarios:
                     id=1,
                 )
             ],
-            [Politician(name="岸田文雄", prefecture="", district="", id=100)],
+            [
+                Politician(
+                    name="岸田文雄",
+                    furigana="きしだふみお",
+                    prefecture="",
+                    district="",
+                    id=100,
+                )
+            ],
         )
 
         mock_baml_service.find_best_match_from_candidates.return_value = (
@@ -1263,11 +1333,12 @@ class TestMixedScenarios:
         _setup_meeting(mock_repos)
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1, 2])
+        # 候補フィルタで通るようにfurigana/name_yomiを設定
         _setup_speakers(
             mock_repos,
             [
-                Speaker(name="不明太郎", id=1),
-                Speaker(name="不明次郎", id=2),
+                Speaker(name="岸田太郎", name_yomi="きしだたろう", id=1),
+                Speaker(name="岸田次郎", name_yomi="きしだじろう", id=2),
             ],
         )
         _setup_candidates(
@@ -1280,7 +1351,15 @@ class TestMixedScenarios:
                     id=1,
                 )
             ],
-            [Politician(name="岸田文雄", prefecture="", district="", id=100)],
+            [
+                Politician(
+                    name="岸田文雄",
+                    furigana="きしだふみお",
+                    prefecture="",
+                    district="",
+                    id=100,
+                )
+            ],
         )
 
         # 1人目: BAML成功、2人目: BAMLエラー
@@ -1401,7 +1480,7 @@ class TestHomonymClassification:
     async def test_non_homonym_speaker_no_skip_reason(
         self, usecase: MatchMeetingSpeakersUseCase, mock_repos: dict[str, AsyncMock]
     ) -> None:
-        """同姓候補が1人のみの場合はhomonymにならず通常マッチする."""
+        """同姓候補が1人のみの場合はhomonymにならずskip_reason未設定."""
         _setup_meeting(mock_repos)
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1])
@@ -1434,8 +1513,8 @@ class TestHomonymClassification:
         result = await usecase.execute(MatchMeetingSpeakersInputDTO(meeting_id=1))
 
         assert result.success is True
-        assert result.matched_count == 1
-        assert result.results[0].politician_id == 100
+        # 完全一致のみなので姓のみではマッチしない
+        assert result.matched_count == 0
         assert result.results[0].skip_reason is None
 
     @pytest.mark.asyncio
@@ -1451,7 +1530,7 @@ class TestHomonymClassification:
         _setup_conversations(mock_repos, [1])
         _setup_speakers(
             mock_repos,
-            [Speaker(name="田中", id=1)],
+            [Speaker(name="田中", name_yomi="たなか", id=1)],
         )
         _setup_candidates(
             mock_repos,
@@ -1470,8 +1549,20 @@ class TestHomonymClassification:
                 ),
             ],
             [
-                Politician(name="田中太郎", prefecture="", district="", id=100),
-                Politician(name="田中次郎", prefecture="", district="", id=200),
+                Politician(
+                    name="田中太郎",
+                    furigana="たなかたろう",
+                    prefecture="",
+                    district="",
+                    id=100,
+                ),
+                Politician(
+                    name="田中次郎",
+                    furigana="たなかじろう",
+                    prefecture="",
+                    district="",
+                    id=200,
+                ),
             ],
         )
         mock_baml_service.find_best_match_from_candidates.return_value = (
@@ -1491,6 +1582,9 @@ class TestHomonymClassification:
         assert result.matched_count == 1
         assert result.results[0].politician_id == 100
         assert result.results[0].skip_reason is None
+        # speaker_name_yomiがBAMLサービスに渡されることを検証
+        call_kwargs = mock_baml_service.find_best_match_from_candidates.call_args
+        assert call_kwargs.kwargs["speaker_name_yomi"] == "たなか"
 
     @pytest.mark.asyncio
     async def test_homonym_not_resolved_by_baml(
@@ -1505,7 +1599,7 @@ class TestHomonymClassification:
         _setup_conversations(mock_repos, [1])
         _setup_speakers(
             mock_repos,
-            [Speaker(name="田中", id=1)],
+            [Speaker(name="田中", name_yomi="たなか", id=1)],
         )
         _setup_candidates(
             mock_repos,
@@ -1524,8 +1618,20 @@ class TestHomonymClassification:
                 ),
             ],
             [
-                Politician(name="田中太郎", prefecture="", district="", id=100),
-                Politician(name="田中次郎", prefecture="", district="", id=200),
+                Politician(
+                    name="田中太郎",
+                    furigana="たなかたろう",
+                    prefecture="",
+                    district="",
+                    id=100,
+                ),
+                Politician(
+                    name="田中次郎",
+                    furigana="たなかじろう",
+                    prefecture="",
+                    district="",
+                    id=200,
+                ),
             ],
         )
         mock_baml_service.find_best_match_from_candidates.return_value = (

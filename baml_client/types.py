@@ -41,19 +41,13 @@ def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
 # #########################################################################
 
 # #########################################################################
-# Generated classes (13)
+# Generated classes (12)
 # #########################################################################
 
 class AttendeesMapping(BaseModel):
     attendees_mapping: typing.Optional[typing.Dict[str, typing.Optional[str]]] = Field(default=None, description='役職から人名へのマッピング（使用しない場合はnull）')
     regular_attendees: typing.List[str] = Field(description='出席者の人名リスト')
     confidence: float = Field(description='抽出の信頼度（0.0-1.0）')
-
-class ExtractedMember(BaseModel):
-    name: str = Field(description='議員名（フルネーム）')
-    role: typing.Optional[str] = Field(default=None, description='役職（議長、副議長、委員長、委員など）')
-    party_name: typing.Optional[str] = Field(default=None, description='所属政党名')
-    additional_info: typing.Optional[str] = Field(default=None, description='その他の情報')
 
 class MinutesBoundary(BaseModel):
     boundary_found: bool = Field(description='境界が見つかったかどうか')

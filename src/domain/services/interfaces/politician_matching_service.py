@@ -30,6 +30,7 @@ class IPoliticianMatchingService(Protocol):
         speaker_type: str | None = None,
         speaker_party: str | None = None,
         role_name_mappings: dict[str, str] | None = None,
+        speaker_name_yomi: str | None = None,
     ) -> PoliticianMatch:
         """発言者に最適な政治家マッチを見つける
 
@@ -42,6 +43,7 @@ class IPoliticianMatchingService(Protocol):
             speaker_party: 発言者の所属政党（もしあれば）
             role_name_mappings: 役職-人名マッピング辞書（例: {"議長": "伊藤条一"}）
                 役職のみの発言者名を実名に解決するために使用
+            speaker_name_yomi: 発言者のふりがな（ひらがな/カタカナ）
 
         Returns:
             PoliticianMatch: マッチング結果
@@ -56,6 +58,7 @@ class IPoliticianMatchingService(Protocol):
         speaker_type: str | None = None,
         speaker_party: str | None = None,
         role_name_mappings: dict[str, str] | None = None,
+        speaker_name_yomi: str | None = None,
     ) -> PoliticianMatch:
         """外部から提供された候補リストを使って発言者に最適な政治家マッチを見つける.
 
@@ -69,6 +72,7 @@ class IPoliticianMatchingService(Protocol):
             speaker_type: 発言者の種別
             speaker_party: 発言者の所属政党
             role_name_mappings: 役職-人名マッピング辞書
+            speaker_name_yomi: 発言者のふりがな（ひらがな/カタカナ）
 
         Returns:
             PoliticianMatch: マッチング結果

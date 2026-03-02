@@ -159,12 +159,12 @@ class MatchMeetingSpeakersUseCase:
                     skipped_count=skipped_count,
                 )
 
-            # 5. 各Speakerに対してルールベースマッチング実行
+            # 5. Step 1: 完全一致マッチング + 候補フィルタリング
             results: list[SpeakerMatchResultDTO] = []
             matched_count = 0
             baml_matched_count = 0
             non_politician_count = 0
-            baml_pending_speakers: list[Speaker] = []
+            baml_pending: list[tuple[Speaker, list[PoliticianCandidate]]] = []
             homonym_speaker_ids: set[int] = set()
 
             for speaker in unmatched_speakers:
@@ -208,10 +208,9 @@ class MatchMeetingSpeakersUseCase:
                     )
                     continue
 
-                # 6. ルールベース未マッチ → 非政治家分類
+                # 6. 非政治家分類
                 skip_reason = classify_speaker_skip_reason(speaker.name)
                 if skip_reason is not None:
-                    # 非政治家として分類 → is_politicianをFalseに、skip_reasonを設定
                     speaker.is_politician = False
                     speaker.skip_reason = skip_reason.value
                     await self._speaker_repo.update(speaker)
@@ -224,7 +223,26 @@ class MatchMeetingSpeakersUseCase:
                     results.append(dto)
                     continue
 
-                # 6.5. 同姓候補が複数存在する場合のhomonym判定
+                # Step 2a: 候補フィルタリング
+                filtered_candidates = self._matching_service.filter_candidates_for_llm(
+                    speaker_name=speaker.name,
+                    speaker_name_yomi=speaker.name_yomi,
+                    candidates=candidates,
+                )
+
+                if not filtered_candidates:
+                    # フィルタ結果0件 → マッチなし（LLMスキップ）
+                    dto = SpeakerMatchResultDTO.unmatched(speaker)
+                    # 同姓候補が複数存在する場合のhomonym判定
+                    if self._matching_service.has_surname_ambiguity(
+                        speaker.name, candidates
+                    ):
+                        dto.skip_reason = SkipReason.HOMONYM
+                    results.append(dto)
+                    self._logger.debug("候補フィルタ0件: %s", speaker.name)
+                    continue
+
+                # 同姓候補が複数存在する場合のhomonym判定
                 if self._matching_service.has_surname_ambiguity(
                     speaker.name, candidates
                 ):
@@ -232,28 +250,29 @@ class MatchMeetingSpeakersUseCase:
                         homonym_speaker_ids.add(speaker.id)
                     self._logger.debug("同姓候補複数: %s", speaker.name)
 
-                # BAMLフォールバック対象として保留
-                baml_pending_speakers.append(speaker)
+                # LLM判定対象として保留（フィルタ済み候補付き）
+                baml_pending.append((speaker, filtered_candidates))
 
-            # 7. BAMLフォールバック（有効時のみ）
+            # 7. Step 2b: LLM判定（有効時のみ）
             if (
                 input_dto.enable_baml_fallback
                 and self._baml_matching_service is not None
-                and baml_pending_speakers
+                and baml_pending
             ):
                 role_name_mappings = minutes.role_name_mappings
 
-                for speaker in baml_pending_speakers:
+                for speaker, filtered_candidates in baml_pending:
                     if not speaker.id:
                         continue
                     try:
                         baml_svc = self._baml_matching_service
                         baml_result = await baml_svc.find_best_match_from_candidates(
                             speaker_name=speaker.name,
-                            candidates=candidates,
+                            candidates=filtered_candidates,
                             speaker_type=speaker.type,
                             speaker_party=speaker.political_party_name,
                             role_name_mappings=role_name_mappings,
+                            speaker_name_yomi=speaker.name_yomi,
                         )
 
                         updated = False
@@ -269,7 +288,7 @@ class MatchMeetingSpeakersUseCase:
                             matched_count += 1
                             baml_matched_count += 1
                             self._logger.info(
-                                "BAMLマッチ成功: %s → %s (confidence=%.2f)",
+                                "LLMマッチ成功: %s → %s (confidence=%.2f)",
                                 speaker.name,
                                 baml_result.politician_name,
                                 baml_result.confidence,
@@ -290,13 +309,12 @@ class MatchMeetingSpeakersUseCase:
                             else MatchMethod.NONE,
                             updated=updated,
                         )
-                        # BAMLでも解決できなかったhomonymケースにskip_reasonを設定
                         if not updated and speaker.id in homonym_speaker_ids:
                             dto.skip_reason = SkipReason.HOMONYM
                         results.append(dto)
                     except Exception:
                         self._logger.warning(
-                            "BAMLフォールバック失敗（スキップ）: %s",
+                            "LLM判定失敗（スキップ）: %s",
                             speaker.name,
                             exc_info=True,
                         )
@@ -305,8 +323,8 @@ class MatchMeetingSpeakersUseCase:
                             dto.skip_reason = SkipReason.HOMONYM
                         results.append(dto)
             else:
-                # BAMLフォールバック無効時、残りの未マッチSpeakerを結果に追加
-                for speaker in baml_pending_speakers:
+                # LLM無効時、残りの未マッチSpeakerを結果に追加
+                for speaker, _ in baml_pending:
                     if not speaker.id:
                         continue
                     dto = SpeakerMatchResultDTO.unmatched(speaker)

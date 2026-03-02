@@ -24,6 +24,7 @@ function MatchPolitician(
     speaker_name: string,
     speaker_type: string,
     speaker_party: string,
+    speaker_name_yomi: string,
     available_politicians: string
 ) -> PoliticianMatch {
     client Gemini2Flash
@@ -33,6 +34,7 @@ function MatchPolitician(
 
         # 発言者情報
         名前: {{ speaker_name }}
+        ふりがな（読み）: {{ speaker_name_yomi }}
         種別: {{ speaker_type }}
         所属政党: {{ speaker_party }}
 
@@ -41,14 +43,16 @@ function MatchPolitician(
 
         # マッチング基準
         1. 氏名の完全一致を最優先
-        2. 所属政党が一致する場合は信頼度を上げる
-        3. 表記ゆれを考慮（例: "斉藤" と "齊藤"）
-        4. 同姓同名の場合は政党や役職で判断
-        5. 部分一致や音韻的類似性
+        2. ふりがな（読み）が一致する候補を重視
+        3. 所属政党が一致する場合は信頼度を上げる
+        4. 表記ゆれを考慮（例: "斉藤" と "齊藤"）
+        5. 漢字名とひらがな名の不整合に注意（例: "たちばな慶一郎" と "橘慶一郎" は同一人物の可能性が高い）
+        6. 同姓同名の場合は政党や役職で判断
+        7. 姓のみ一致で名が異なる場合は別人と判定（例: "上野宏史" と "上野みちこ" は別人）
 
         # 信頼度の基準
-        - 0.9以上: 氏名と政党が完全一致
-        - 0.7-0.9: 氏名は一致するが政党が不明または部分一致
+        - 0.9以上: 氏名と政党が完全一致、またはふりがなが完全一致
+        - 0.7-0.9: 氏名は一致するが政党が不明、またはふりがなで高い類似性
         - 0.5-0.7: 氏名に表記ゆれがあるが政党は一致
         - 0.5未満: マッチング不可（matched: false）
 

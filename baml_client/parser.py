@@ -13,7 +13,6 @@
 import typing
 import typing_extensions
 
-import baml_py
 
 from . import stream_types, types
 from .runtime import DoNotUseDirectlyCallManager, BamlCallOptions
@@ -47,12 +46,6 @@ class LlmResponseParser:
     ) -> types.AttendeesMapping:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractAttendees", llm_response=llm_response, mode="request")
         return typing.cast(types.AttendeesMapping, __result__)
-
-    def ExtractMembers(
-        self, llm_response: str, baml_options: BamlCallOptions = {},
-    ) -> typing.List["types.ExtractedMember"]:
-        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractMembers", llm_response=llm_response, mode="request")
-        return typing.cast(typing.List["types.ExtractedMember"], __result__)
 
     def ExtractParliamentaryGroupMembers(
         self, llm_response: str, baml_options: BamlCallOptions = {},
@@ -121,12 +114,6 @@ class LlmStreamParser:
     ) -> stream_types.AttendeesMapping:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractAttendees", llm_response=llm_response, mode="stream")
         return typing.cast(stream_types.AttendeesMapping, __result__)
-
-    def ExtractMembers(
-        self, llm_response: str, baml_options: BamlCallOptions = {},
-    ) -> typing.List["stream_types.ExtractedMember"]:
-        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ExtractMembers", llm_response=llm_response, mode="stream")
-        return typing.cast(typing.List["stream_types.ExtractedMember"], __result__)
 
     def ExtractParliamentaryGroupMembers(
         self, llm_response: str, baml_options: BamlCallOptions = {},

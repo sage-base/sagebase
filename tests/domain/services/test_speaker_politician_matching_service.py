@@ -10,7 +10,11 @@ from src.domain.value_objects.speaker_politician_match_result import (
 
 
 class TestSpeakerPoliticianMatchingService:
-    """SpeakerPoliticianMatchingService のテスト."""
+    """SpeakerPoliticianMatchingService.match() のテスト.
+
+    match()は完全一致（confidence=1.0）のみを判定し、
+    中間ルール（ふりがな、漢字姓、姓のみ）はLLM判定に委譲された。
+    """
 
     def setup_method(self) -> None:
         self.service = SpeakerPoliticianMatchingService()
@@ -84,100 +88,30 @@ class TestSpeakerPoliticianMatchingService:
         assert result.politician_id == 1
         assert result.confidence == 1.0
 
-    # --- ふりがなマッチテスト ---
+    # --- match()が完全一致のみ返すことの確認テスト ---
 
-    def test_yomi_match(self) -> None:
-        """ふりがな一致で confidence 0.9 を返す."""
+    def test_match_returns_none_for_yomi_only_match(self) -> None:
+        """ふりがなのみ一致する場合、match()はNONEを返す（LLMに委譲）."""
         candidates = [
             PoliticianCandidate(
                 politician_id=1, name="河野太郎", furigana="こうのたろう"
             ),
-            PoliticianCandidate(
-                politician_id=2, name="菅義偉", furigana="すがよしひで"
-            ),
         ]
-        # 名前は不一致だがふりがなで一致
         result = self.service.match(
             speaker_id=10,
             speaker_name="こうの太郎",
             speaker_name_yomi="こうのたろう",
             candidates=candidates,
         )
-        assert result.politician_id == 1
-        assert result.confidence == 0.9
-        assert result.match_method == MatchMethod.YOMI
-
-    def test_yomi_match_katakana_to_hiragana(self) -> None:
-        """カタカナのふりがなもひらがなに正規化してマッチする."""
-        candidates = [
-            PoliticianCandidate(
-                politician_id=1, name="岸田文雄", furigana="キシダフミオ"
-            ),
-        ]
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="別名",
-            speaker_name_yomi="きしだふみお",
-            candidates=candidates,
-        )
-        assert result.politician_id == 1
-        assert result.confidence == 0.9
-        assert result.match_method == MatchMethod.YOMI
-
-    def test_yomi_match_speaker_katakana(self) -> None:
-        """Speaker側がカタカナでもマッチする."""
-        candidates = [
-            PoliticianCandidate(
-                politician_id=1, name="岸田文雄", furigana="きしだふみお"
-            ),
-        ]
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="別名",
-            speaker_name_yomi="キシダフミオ",
-            candidates=candidates,
-        )
-        assert result.politician_id == 1
-        assert result.confidence == 0.9
-
-    def test_yomi_not_matched_when_speaker_yomi_none(self) -> None:
-        """Speaker.name_yomi が None の場合、ふりがなマッチはスキップされる."""
-        candidates = [
-            PoliticianCandidate(
-                politician_id=1, name="特殊名前", furigana="とくしゅなまえ"
-            ),
-        ]
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="別名",
-            speaker_name_yomi=None,
-            candidates=candidates,
-        )
-        # 完全一致もふりがなもマッチしない
+        # 完全一致しないのでマッチなし
         assert result.politician_id is None
         assert result.confidence == 0.0
+        assert result.match_method == MatchMethod.NONE
 
-    def test_yomi_not_matched_when_candidate_furigana_none(self) -> None:
-        """候補の furigana が None の場合、その候補はふりがなマッチ対象外."""
-        candidates = [
-            PoliticianCandidate(politician_id=1, name="特殊名前", furigana=None),
-        ]
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="別名",
-            speaker_name_yomi="とくしゅなまえ",
-            candidates=candidates,
-        )
-        assert result.politician_id is None
-        assert result.confidence == 0.0
-
-    # --- 姓のみ一致テスト ---
-
-    def test_surname_only_match(self) -> None:
-        """姓のみ一致（同姓1人のみ）で confidence 0.8 を返す."""
+    def test_match_returns_none_for_surname_only(self) -> None:
+        """姓のみ一致する場合、match()はNONEを返す（LLMに委譲）."""
         candidates = [
             PoliticianCandidate(politician_id=1, name="岸田文雄"),
-            PoliticianCandidate(politician_id=2, name="石破茂"),
         ]
         result = self.service.match(
             speaker_id=10,
@@ -185,53 +119,24 @@ class TestSpeakerPoliticianMatchingService:
             speaker_name_yomi=None,
             candidates=candidates,
         )
-        assert result.politician_id == 1
-        assert result.confidence == 0.8
-        assert result.match_method == MatchMethod.SURNAME_ONLY
+        assert result.politician_id is None
+        assert result.confidence == 0.0
+        assert result.match_method == MatchMethod.NONE
 
-    def test_surname_only_match_multiple_candidates_no_match(self) -> None:
-        """同姓候補が複数いる場合はマッチしない."""
+    def test_match_returns_none_for_kanji_surname_only(self) -> None:
+        """漢字姓のみ一致する場合、match()はNONEを返す（LLMに委譲）."""
         candidates = [
-            PoliticianCandidate(politician_id=1, name="田中太郎"),
-            PoliticianCandidate(politician_id=2, name="田中花子"),
+            PoliticianCandidate(politician_id=1, name="武村　のぶひで"),
         ]
         result = self.service.match(
             speaker_id=10,
-            speaker_name="田中",
+            speaker_name="武村展英",
             speaker_name_yomi=None,
             candidates=candidates,
         )
         assert result.politician_id is None
         assert result.confidence == 0.0
         assert result.match_method == MatchMethod.NONE
-
-    def test_surname_3_chars(self) -> None:
-        """3文字の姓でもマッチする."""
-        candidates = [
-            PoliticianCandidate(politician_id=1, name="長谷川太郎"),
-        ]
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="長谷川",
-            speaker_name_yomi=None,
-            candidates=candidates,
-        )
-        assert result.politician_id == 1
-        assert result.confidence == 0.8
-
-    def test_surname_too_long_no_match(self) -> None:
-        """5文字以上の名前は姓のみマッチ対象外."""
-        candidates = [
-            PoliticianCandidate(politician_id=1, name="長谷川太郎次郎"),
-        ]
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="長谷川太郎",
-            speaker_name_yomi=None,
-            candidates=candidates,
-        )
-        # 5文字は姓の最大長(4)を超えるため姓のみマッチ対象外
-        assert result.politician_id is None
 
     # --- マッチなしテスト ---
 
@@ -275,46 +180,6 @@ class TestSpeakerPoliticianMatchingService:
         assert result.politician_id is None
         assert result.confidence == 0.0
         assert result.match_method == MatchMethod.NONE
-
-    # --- 優先順位テスト ---
-
-    def test_exact_match_takes_priority_over_yomi(self) -> None:
-        """完全一致がふりがなよりも優先される."""
-        candidates = [
-            PoliticianCandidate(
-                politician_id=1, name="岸田文雄", furigana="きしだふみお"
-            ),
-        ]
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="岸田文雄",
-            speaker_name_yomi="きしだふみお",
-            candidates=candidates,
-        )
-        assert result.confidence == 1.0
-        assert result.match_method == MatchMethod.EXACT_NAME
-
-    def test_yomi_takes_priority_over_surname(self) -> None:
-        """ふりがなが姓のみより優先される."""
-        candidates = [
-            PoliticianCandidate(
-                politician_id=1, name="岸田文雄", furigana="きしだふみお"
-            ),
-            PoliticianCandidate(
-                politician_id=2, name="石破茂", furigana="いしばしげる"
-            ),
-        ]
-        # 名前は「岸田」（姓のみ一致可能）だが、ふりがなは石破と一致
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="岸田",
-            speaker_name_yomi="いしばしげる",
-            candidates=candidates,
-        )
-        # ふりがなの方が優先される
-        assert result.politician_id == 2
-        assert result.confidence == 0.9
-        assert result.match_method == MatchMethod.YOMI
 
     # --- 正規化テスト ---
 
@@ -370,114 +235,6 @@ class TestSpeakerPoliticianMatchingService:
         assert result.confidence == 1.0
         assert result.match_method == MatchMethod.EXACT_NAME
 
-    # --- 漢字姓マッチテスト（ひらがな混じり候補名） ---
-
-    def test_kanji_surname_match(self) -> None:
-        """ひらがな混じり候補名の漢字姓でマッチ."""
-        candidates = [
-            PoliticianCandidate(politician_id=1, name="武村　のぶひで"),
-        ]
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="武村展英",
-            speaker_name_yomi=None,
-            candidates=candidates,
-        )
-        assert result.politician_id == 1
-        assert result.confidence == 0.85
-        assert result.match_method == MatchMethod.KANJI_SURNAME
-
-    def test_kanji_surname_match_yamada(self) -> None:
-        """別のひらがな混じり名でもマッチ."""
-        candidates = [
-            PoliticianCandidate(politician_id=1, name="山田　かつひこ"),
-        ]
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="山田勝彦",
-            speaker_name_yomi=None,
-            candidates=candidates,
-        )
-        assert result.politician_id == 1
-        assert result.confidence == 0.85
-        assert result.match_method == MatchMethod.KANJI_SURNAME
-
-    def test_kanji_surname_no_match_multiple_same_surname(self) -> None:
-        """同姓候補が複数いる場合はマッチしない."""
-        candidates = [
-            PoliticianCandidate(politician_id=1, name="武村　のぶひで"),
-            PoliticianCandidate(politician_id=2, name="武村　たろう"),
-        ]
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="武村展英",
-            speaker_name_yomi=None,
-            candidates=candidates,
-        )
-        assert result.politician_id is None
-        assert result.confidence == 0.0
-
-    def test_kanji_surname_skips_all_kanji_name(self) -> None:
-        """全漢字名の候補は漢字姓マッチの対象外（通常の完全一致で処理）."""
-        candidates = [
-            PoliticianCandidate(politician_id=1, name="桜田義孝"),
-        ]
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="桜田義孝",
-            speaker_name_yomi=None,
-            candidates=candidates,
-        )
-        # 全漢字名は完全一致でマッチするべき
-        assert result.politician_id == 1
-        assert result.confidence == 1.0
-        assert result.match_method == MatchMethod.EXACT_NAME
-
-    def test_kanji_surname_priority_over_surname_only(self) -> None:
-        """漢字姓マッチ(0.85)が姓のみマッチ(0.8)より優先される."""
-        candidates = [
-            PoliticianCandidate(politician_id=1, name="武村　のぶひで"),
-        ]
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="武村展英",
-            speaker_name_yomi=None,
-            candidates=candidates,
-        )
-        # 漢字姓マッチが優先
-        assert result.match_method == MatchMethod.KANJI_SURNAME
-        assert result.confidence == 0.85
-
-    def test_kanji_surname_with_odoriji(self) -> None:
-        """踊り字「々」を含む姓（佐々木）でマッチ."""
-        candidates = [
-            PoliticianCandidate(politician_id=1, name="佐々木　はじめ"),
-        ]
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="佐々木一",
-            speaker_name_yomi=None,
-            candidates=candidates,
-        )
-        assert result.politician_id == 1
-        assert result.confidence == 0.85
-        assert result.match_method == MatchMethod.KANJI_SURNAME
-
-    def test_kanji_surname_odoriji_no_false_positive(self) -> None:
-        """「佐々木」候補に「佐藤太郎」がマッチしないこと."""
-        candidates = [
-            PoliticianCandidate(politician_id=1, name="佐々木　はじめ"),
-        ]
-        result = self.service.match(
-            speaker_id=10,
-            speaker_name="佐藤太郎",
-            speaker_name_yomi=None,
-            candidates=candidates,
-        )
-        # 佐藤 ≠ 佐々木 なのでマッチしない
-        assert result.politician_id is None
-        assert result.confidence == 0.0
-
     # --- 同姓曖昧判定テスト ---
 
     def test_has_surname_ambiguity_multiple_same_surname(self) -> None:
@@ -524,3 +281,263 @@ class TestSpeakerPoliticianMatchingService:
             PoliticianCandidate(politician_id=2, name="田中次郎"),
         ]
         assert self.service.has_surname_ambiguity("田中君", candidates) is True
+
+
+class TestFilterCandidatesForLlm:
+    """filter_candidates_for_llm() のテスト.
+
+    LLM判定前の候補フィルタリング。3つのフィルタ基準（OR条件）:
+    1. 名前パート部分一致: Politician名をスペース分割し各パートがSpeaker名に含まれるか
+    2. 漢字姓一致: extract_kanji_surname()で姓抽出して双方向チェック
+    3. ふりがなプレフィックス一致: name_yomiとfuriganaの先頭>=3文字一致
+    """
+
+    def setup_method(self) -> None:
+        self.service = SpeakerPoliticianMatchingService()
+
+    # --- 基準1: 名前パート部分一致（スペース区切り） ---
+
+    def test_name_part_match_with_space_separated_candidate(self) -> None:
+        """Politician名をスペース分割し、パート(>=2文字)がSpeaker名に含まれればマッチ."""
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1,
+                name="たちばな　慶一郎",
+                furigana="たちばなけいいちろう",
+            ),
+            PoliticianCandidate(
+                politician_id=2,
+                name="佐藤　花子",
+                furigana="さとうはなこ",
+            ),
+        ]
+        # "慶一郎"(3文字>=2文字)が"橘慶一郎"に含まれるため候補1がマッチ
+        result = self.service.filter_candidates_for_llm(
+            speaker_name="橘慶一郎",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert len(result) == 1
+        assert result[0].politician_id == 1
+
+    def test_name_part_short_part_skipped(self) -> None:
+        """1文字のパートはフィルタ基準から除外される."""
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1,
+                name="木 太郎",  # "木"は1文字なのでスキップ
+            ),
+        ]
+        # "太郎"(2文字>=2文字)が"木太郎"に含まれるのでマッチ
+        result = self.service.filter_candidates_for_llm(
+            speaker_name="木太郎",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert len(result) == 1
+        assert result[0].politician_id == 1
+
+    # --- 基準2: 漢字姓抽出による一致判定 ---
+
+    def test_kanji_surname_extraction_candidate_to_speaker(self) -> None:
+        """候補名の漢字姓がSpeaker名に含まれればマッチ（候補→Speaker方向）."""
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1,
+                name="上野みちこ",  # 漢字姓 "上野" を抽出
+            ),
+        ]
+        # "上野"(2文字>=2文字)が"上野宏史"に含まれるのでマッチ
+        result = self.service.filter_candidates_for_llm(
+            speaker_name="上野宏史",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert len(result) == 1
+        assert result[0].politician_id == 1
+
+    def test_kanji_surname_extraction_speaker_to_candidate(self) -> None:
+        """Speaker名の漢字姓が候補名に含まれればマッチ（Speaker→候補方向）."""
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1,
+                name="武村展英",
+            ),
+        ]
+        # Speaker "武村のぶひで" → 漢字姓 "武村" → "武村展英" に含まれる
+        result = self.service.filter_candidates_for_llm(
+            speaker_name="武村のぶひで",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert len(result) == 1
+        assert result[0].politician_id == 1
+
+    def test_kanji_surname_single_char_not_matched(self) -> None:
+        """1文字の漢字姓はフィルタ基準から除外される."""
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1,
+                name="林よしひろ",  # 漢字姓 "林" は1文字
+            ),
+        ]
+        # "林"は1文字なので漢字姓一致の対象外
+        result = self.service.filter_candidates_for_llm(
+            speaker_name="林芳正",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert len(result) == 0
+
+    # --- 基準3: ふりがなプレフィックス一致 ---
+
+    def test_furigana_prefix_match(self) -> None:
+        """Speaker name_yomiとPolitician furiganaの先頭>=3文字が一致すればマッチ."""
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1,
+                name="橘慶一郎",
+                furigana="たちばなけいいちろう",
+            ),
+            PoliticianCandidate(
+                politician_id=2,
+                name="佐藤花子",
+                furigana="さとうはなこ",
+            ),
+        ]
+        result = self.service.filter_candidates_for_llm(
+            speaker_name="たちばな慶一郎",
+            speaker_name_yomi="たちばなけいいちろう",
+            candidates=candidates,
+        )
+        # ふりがなプレフィックス一致で候補1がマッチ
+        assert any(c.politician_id == 1 for c in result)
+
+    def test_furigana_prefix_match_katakana_normalized(self) -> None:
+        """カタカナのname_yomiもひらがなに正規化してプレフィックス一致する."""
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1,
+                name="岸田文雄",
+                furigana="きしだふみお",
+            ),
+        ]
+        # カタカナ → ひらがな正規化で "きしだふみお" と一致
+        result = self.service.filter_candidates_for_llm(
+            speaker_name="別名",
+            speaker_name_yomi="キシダフミオ",
+            candidates=candidates,
+        )
+        assert len(result) == 1
+        assert result[0].politician_id == 1
+
+    def test_furigana_prefix_too_short_no_match(self) -> None:
+        """ふりがなが3文字未満の場合はマッチしない."""
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1,
+                name="木太郎",
+                furigana="き",  # 1文字のふりがな
+            ),
+        ]
+        result = self.service.filter_candidates_for_llm(
+            speaker_name="別名",
+            speaker_name_yomi="き",
+            candidates=candidates,
+        )
+        # 先頭一致の最小長(3)に満たないのでマッチしない
+        assert len(result) == 0
+
+    def test_furigana_no_match_when_yomi_none(self) -> None:
+        """Speaker name_yomiがNoneの場合、ふりがなプレフィックス基準は適用されない."""
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1,
+                name="岸田文雄",
+                furigana="きしだふみお",
+            ),
+        ]
+        # name_yomiがNone、かつ名前パート・漢字姓いずれもマッチしない
+        result = self.service.filter_candidates_for_llm(
+            speaker_name="全く異なる名前",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert len(result) == 0
+
+    # --- 候補0件テスト ---
+
+    def test_no_candidates_returns_empty(self) -> None:
+        """候補リストが空の場合、空リストを返す."""
+        result = self.service.filter_candidates_for_llm(
+            speaker_name="岸田文雄",
+            speaker_name_yomi=None,
+            candidates=[],
+        )
+        assert result == []
+
+    def test_empty_speaker_name_returns_empty(self) -> None:
+        """発言者名が空文字の場合、空リストを返す."""
+        candidates = [
+            PoliticianCandidate(politician_id=1, name="岸田文雄"),
+        ]
+        result = self.service.filter_candidates_for_llm(
+            speaker_name="",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert result == []
+
+    def test_no_relevant_candidate(self) -> None:
+        """どの基準にもマッチしない名前の場合、空リストを返す."""
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1,
+                name="岸田文雄",
+                furigana="きしだふみお",
+            ),
+            PoliticianCandidate(
+                politician_id=2,
+                name="石破茂",
+                furigana="いしばしげる",
+            ),
+        ]
+        result = self.service.filter_candidates_for_llm(
+            speaker_name="全く異なる名前",
+            speaker_name_yomi="まったくことなるなまえ",
+            candidates=candidates,
+        )
+        assert result == []
+
+    # --- 複数候補マッチテスト ---
+
+    def test_multiple_candidates_matched(self) -> None:
+        """複数の候補がフィルタ基準に該当する場合、全てを返す."""
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1,
+                name="田中一郎",
+                furigana="たなかいちろう",
+            ),
+            PoliticianCandidate(
+                politician_id=2,
+                name="田中次郎",
+                furigana="たなかじろう",
+            ),
+            PoliticianCandidate(
+                politician_id=3,
+                name="佐藤花子",
+                furigana="さとうはなこ",
+            ),
+        ]
+        # "田中" はSpeaker "田中ひろし" の漢字姓として抽出され、
+        # "田中一郎"と"田中次郎"の両方に含まれる
+        result = self.service.filter_candidates_for_llm(
+            speaker_name="田中ひろし",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        matched_ids = {c.politician_id for c in result}
+        assert matched_ids == {1, 2}
+        # 佐藤花子はマッチしない
+        assert 3 not in matched_ids
