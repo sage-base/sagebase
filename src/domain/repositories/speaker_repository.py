@@ -48,8 +48,23 @@ class SpeakerRepository(BaseRepository[Speaker]):
         offset: int | None = None,
         speaker_type: str | None = None,
         is_politician: bool | None = None,
+        name_search: str | None = None,
+        skip_reason: str | None = None,
+        has_politician_id: bool | None = None,
+        order_by: str = "conversation_count",
     ) -> list[SpeakerWithConversationCount]:
-        """Get speakers with their conversation count."""
+        """Get speakers with their conversation count.
+
+        Args:
+            limit: 取得件数上限
+            offset: オフセット
+            speaker_type: 発言者タイプフィルタ
+            is_politician: 政治家フラグフィルタ
+            name_search: 名前検索（部分一致）
+            skip_reason: スキップ理由フィルタ
+            has_politician_id: マッチ状態フィルタ（True=マッチ済み、False=未マッチ）
+            order_by: ソートカラム（"conversation_count" or "name"）
+        """
         pass
 
     @abstractmethod

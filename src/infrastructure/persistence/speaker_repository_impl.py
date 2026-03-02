@@ -186,11 +186,15 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         offset: int | None = None,
         speaker_type: str | None = None,
         is_politician: bool | None = None,
+        name_search: str | None = None,
+        skip_reason: str | None = None,
+        has_politician_id: bool | None = None,
+        order_by: str = "conversation_count",
     ) -> list[SpeakerWithConversationCount]:
         """Get speakers with their conversation count."""
-        # Build the WHERE clause conditions
+        # WHERE条件の構築
         conditions = []
-        params = {}
+        params: dict[str, object] = {}
 
         if speaker_type is not None:
             conditions.append("s.type = :speaker_type")
@@ -200,9 +204,28 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             conditions.append("s.is_politician = :is_politician")
             params["is_politician"] = is_politician
 
+        if name_search is not None:
+            conditions.append(
+                "(s.name ILIKE :name_search OR s.name_yomi ILIKE :name_search)"
+            )
+            params["name_search"] = f"%{name_search}%"
+
+        if skip_reason is not None:
+            if skip_reason == "__none__":
+                conditions.append("s.skip_reason IS NULL")
+            else:
+                conditions.append("s.skip_reason = :skip_reason")
+                params["skip_reason"] = skip_reason
+
+        if has_politician_id is not None:
+            if has_politician_id:
+                conditions.append("s.politician_id IS NOT NULL")
+            else:
+                conditions.append("s.politician_id IS NULL")
+
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
 
-        # Build the pagination clause
+        # ページネーション
         pagination_clause = ""
         if limit is not None:
             pagination_clause += " LIMIT :limit"
@@ -211,7 +234,11 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             pagination_clause += " OFFSET :offset"
             params["offset"] = offset
 
-        # Execute the query
+        # ソート順の決定
+        order_clause = "ORDER BY conversation_count DESC, s.name"
+        if order_by == "name":
+            order_clause = "ORDER BY s.name"
+
         query = text(f"""
             SELECT
                 s.id,
@@ -220,20 +247,26 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 s.political_party_name,
                 s.position,
                 s.is_politician,
+                s.name_yomi,
+                s.skip_reason,
+                s.politician_id,
+                s.matching_confidence,
+                s.is_manually_verified,
                 COUNT(c.id) as conversation_count
             FROM speakers s
             LEFT JOIN conversations c ON s.id = c.speaker_id
             {where_clause}
             GROUP BY s.id, s.name, s.type, s.political_party_name,
-                     s.position, s.is_politician
-            ORDER BY s.name
+                     s.position, s.is_politician, s.name_yomi,
+                     s.skip_reason, s.politician_id, s.matching_confidence,
+                     s.is_manually_verified
+            {order_clause}
             {pagination_clause}
         """)
 
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        # Convert rows to Value Objects
         return [
             SpeakerWithConversationCount(
                 id=row.id,
@@ -243,6 +276,11 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 position=row.position,
                 is_politician=row.is_politician,
                 conversation_count=row.conversation_count,
+                name_yomi=row.name_yomi,
+                skip_reason=row.skip_reason,
+                politician_id=row.politician_id,
+                matching_confidence=row.matching_confidence,
+                is_manually_verified=row.is_manually_verified,
             )
             for row in rows
         ]

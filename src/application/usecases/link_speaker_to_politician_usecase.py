@@ -67,9 +67,12 @@ class LinkSpeakerToPoliticianUseCase:
                 error_message="発言者が見つかりません",
             )
 
-        # 発言者のpolitician_idとmatched_by_user_idを更新
+        # 発言者の紐付け情報を更新（手動マッチ）
         speaker.politician_id = input_dto.politician_id
         speaker.matched_by_user_id = input_dto.user_id
+        speaker.is_politician = True
+        speaker.is_manually_verified = True
+        speaker.skip_reason = None
 
         # 更新をリポジトリに反映
         await self.speaker_repository.upsert(speaker)
