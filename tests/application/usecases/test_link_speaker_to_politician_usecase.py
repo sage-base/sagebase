@@ -72,9 +72,12 @@ class TestLinkSpeakerToPoliticianUseCase:
         # 発言者が更新されたことを確認
         assert speaker.politician_id == 100
         assert speaker.matched_by_user_id == user_id
+        assert speaker.is_manually_verified is True
+        assert speaker.is_politician is True
+        assert speaker.skip_reason is None
 
-        # upsertが呼ばれたことを確認
-        mock_speaker_repo.upsert.assert_called_once_with(speaker)
+        # updateが呼ばれたことを確認
+        mock_speaker_repo.update.assert_called_once_with(speaker)
 
     @pytest.mark.asyncio
     async def test_link_speaker_to_politician_without_user_id(
@@ -106,6 +109,8 @@ class TestLinkSpeakerToPoliticianUseCase:
         assert result.success is True
         assert speaker.politician_id == 200
         assert speaker.matched_by_user_id is None
+        assert speaker.is_manually_verified is True
+        assert speaker.is_politician is True
 
     @pytest.mark.asyncio
     async def test_link_speaker_to_politician_speaker_not_found(
@@ -132,7 +137,7 @@ class TestLinkSpeakerToPoliticianUseCase:
         assert result.updated_matching_dto is None
 
         # upsertが呼ばれていないことを確認
-        mock_speaker_repo.upsert.assert_not_called()
+        mock_speaker_repo.update.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_link_speaker_to_politician_updates_existing_link(
@@ -167,3 +172,32 @@ class TestLinkSpeakerToPoliticianUseCase:
         assert result.success is True
         assert speaker.politician_id == 150
         assert speaker.matched_by_user_id == new_user_id
+        assert speaker.is_manually_verified is True
+
+    @pytest.mark.asyncio
+    async def test_link_clears_skip_reason(
+        self,
+        use_case,
+        mock_speaker_repo,
+    ):
+        """紐付け時にskip_reasonがクリアされる。"""
+        speaker = Speaker(
+            id=4,
+            name="政府参考人",
+            is_politician=False,
+            skip_reason="government_official",
+        )
+        mock_speaker_repo.get_by_id.return_value = speaker
+
+        input_dto = LinkSpeakerToPoliticianInputDto(
+            speaker_id=4,
+            politician_id=300,
+            politician_name="田中一郎",
+        )
+
+        result = await use_case.execute(input_dto)
+
+        assert result.success is True
+        assert speaker.is_politician is True
+        assert speaker.skip_reason is None
+        assert speaker.politician_id == 300
