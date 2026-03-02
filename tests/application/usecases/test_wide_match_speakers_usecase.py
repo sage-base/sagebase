@@ -222,10 +222,10 @@ class TestWideMatchSpeakersUseCase:
         mock_repos["speaker_repository"].update.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_yomi_match_auto(
+    async def test_yomi_mismatch_goes_to_baml_pending(
         self, usecase: WideMatchSpeakersUseCase, mock_repos: dict[str, AsyncMock]
     ) -> None:
-        """ふりがな一致 → confidence=0.9 → 自動マッチ."""
+        """ふりがな一致のみ → 完全一致せず → BAML無効で未マッチ."""
         _setup_meeting(mock_repos)
         _setup_conference(mock_repos)
         _setup_minutes(mock_repos)
@@ -248,15 +248,15 @@ class TestWideMatchSpeakersUseCase:
         result = await usecase.execute(_make_input())
 
         assert result.success
-        assert result.auto_matched_count == 1
+        # 完全一致しないためauto_matchは0
+        assert result.auto_matched_count == 0
         assert result.review_matched_count == 0
-        assert result.results[0].match_method == MatchMethod.YOMI
 
     @pytest.mark.asyncio
-    async def test_surname_match_review_queue(
+    async def test_surname_mismatch_goes_to_baml_pending(
         self, usecase: WideMatchSpeakersUseCase, mock_repos: dict[str, AsyncMock]
     ) -> None:
-        """姓一致（1人） → confidence=0.8 → 手動検証キュー."""
+        """姓のみ（完全一致しない） → confidence=0.0 → BAML保留 → BAML無効で未マッチ."""
         _setup_meeting(mock_repos)
         _setup_conference(mock_repos)
         _setup_minutes(mock_repos)
@@ -273,11 +273,11 @@ class TestWideMatchSpeakersUseCase:
         result = await usecase.execute(_make_input())
 
         assert result.success
+        # 完全一致しないためマッチしない（BAML無効）
         assert result.auto_matched_count == 0
-        assert result.review_matched_count == 1
-        assert result.results[0].confidence == 0.8
-        assert result.results[0].match_method == MatchMethod.SURNAME_ONLY
-        mock_repos["speaker_repository"].update.assert_awaited_once()
+        assert result.review_matched_count == 0
+        assert len(result.results) == 1
+        assert result.results[0].updated is False
 
     @pytest.mark.asyncio
     async def test_low_confidence_pending(
@@ -409,11 +409,18 @@ class TestWideMatchSpeakersUseCase:
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1])
 
-        speaker = Speaker(name="田中一郎", id=1, is_politician=True)
+        speaker = Speaker(
+            name="田中一郎", name_yomi="たなかいちろう", id=1, is_politician=True
+        )
         _setup_speakers(mock_repos, [speaker])
 
+        # ふりがなプレフィックス一致で候補フィルタを通過させる
         politician = Politician(
-            name="山田太郎", prefecture="東京都", district="東京1区", id=100
+            name="田中角栄",
+            furigana="たなかかくえい",
+            prefecture="新潟県",
+            district="新潟3区",
+            id=100,
         )
         _setup_elections_and_members(mock_repos, [politician])
 
@@ -421,7 +428,7 @@ class TestWideMatchSpeakersUseCase:
             PoliticianMatch(
                 matched=True,
                 politician_id=100,
-                politician_name="山田太郎",
+                politician_name="田中角栄",
                 political_party_name="自由民主党",
                 confidence=0.85,
                 reason="BAMLマッチ",
@@ -434,6 +441,9 @@ class TestWideMatchSpeakersUseCase:
         assert result.baml_matched_count == 1
         assert result.review_matched_count == 1
         assert result.auto_matched_count == 0
+        # speaker_name_yomiがBAMLサービスに渡されることを検証
+        call_kwargs = mock_baml_service.find_best_match_from_candidates.call_args
+        assert call_kwargs.kwargs["speaker_name_yomi"] == "たなかいちろう"
 
     @pytest.mark.asyncio
     async def test_baml_low_confidence_not_matched(
@@ -448,11 +458,18 @@ class TestWideMatchSpeakersUseCase:
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1])
 
-        speaker = Speaker(name="田中一郎", id=1, is_politician=True)
+        # ふりがなプレフィックス一致で候補フィルタを通過させる
+        speaker = Speaker(
+            name="田中一郎", name_yomi="たなかいちろう", id=1, is_politician=True
+        )
         _setup_speakers(mock_repos, [speaker])
 
         politician = Politician(
-            name="山田太郎", prefecture="東京都", district="東京1区", id=100
+            name="田中角栄",
+            furigana="たなかかくえい",
+            prefecture="新潟県",
+            district="新潟3区",
+            id=100,
         )
         _setup_elections_and_members(mock_repos, [politician])
 
@@ -621,11 +638,18 @@ class TestWideMatchSpeakersUseCase:
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1])
 
-        speaker = Speaker(name="田中一郎", id=1, is_politician=True)
+        # ふりがなプレフィックス一致で候補フィルタを通過させる
+        speaker = Speaker(
+            name="田中一郎", name_yomi="たなかいちろう", id=1, is_politician=True
+        )
         _setup_speakers(mock_repos, [speaker])
 
         politician = Politician(
-            name="山田太郎", prefecture="東京都", district="東京1区", id=100
+            name="田中角栄",
+            furigana="たなかかくえい",
+            prefecture="新潟県",
+            district="新潟3区",
+            id=100,
         )
         _setup_elections_and_members(mock_repos, [politician])
 
@@ -633,7 +657,7 @@ class TestWideMatchSpeakersUseCase:
             PoliticianMatch(
                 matched=True,
                 politician_id=100,
-                politician_name="山田太郎",
+                politician_name="田中角栄",
                 political_party_name="自由民主党",
                 confidence=0.95,
                 reason="BAMLマッチ高信頼度",
@@ -660,11 +684,18 @@ class TestWideMatchSpeakersUseCase:
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1])
 
-        speaker = Speaker(name="田中一郎", id=1, is_politician=True)
+        # ふりがなプレフィックス一致で候補フィルタを通過させる
+        speaker = Speaker(
+            name="田中一郎", name_yomi="たなかいちろう", id=1, is_politician=True
+        )
         _setup_speakers(mock_repos, [speaker])
 
         politician = Politician(
-            name="山田太郎", prefecture="東京都", district="東京1区", id=100
+            name="田中角栄",
+            furigana="たなかかくえい",
+            prefecture="新潟県",
+            district="新潟3区",
+            id=100,
         )
         _setup_elections_and_members(mock_repos, [politician])
 
@@ -754,16 +785,25 @@ class TestWideMatchSpeakersUseCase:
         _setup_minutes(mock_repos)
         _setup_conversations(mock_repos, [1])
 
-        speakers = [Speaker(name="田中", id=1, is_politician=True)]
+        speakers = [Speaker(name="田中", name_yomi="たなか", id=1, is_politician=True)]
         mock_repos["speaker_repository"].get_by_ids.return_value = speakers
         mock_repos["speaker_repository"].update.return_value = speakers[0]
 
+        # ふりがなプレフィックス一致で候補フィルタを通過させる
         politicians = [
             Politician(
-                name="田中太郎", prefecture="東京都", district="東京1区", id=100
+                name="田中太郎",
+                furigana="たなかたろう",
+                prefecture="東京都",
+                district="東京1区",
+                id=100,
             ),
             Politician(
-                name="田中次郎", prefecture="大阪府", district="大阪1区", id=200
+                name="田中次郎",
+                furigana="たなかじろう",
+                prefecture="大阪府",
+                district="大阪1区",
+                id=200,
             ),
         ]
         _setup_elections_and_members(mock_repos, politicians)
@@ -783,3 +823,6 @@ class TestWideMatchSpeakersUseCase:
         assert result.auto_matched_count == 1
         assert result.results[0].politician_id == 100
         assert result.results[0].skip_reason is None
+        # speaker_name_yomiがBAMLサービスに渡されることを検証
+        call_kwargs = mock_baml_service.find_best_match_from_candidates.call_args
+        assert call_kwargs.kwargs["speaker_name_yomi"] == "たなか"

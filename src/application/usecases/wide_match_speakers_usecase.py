@@ -173,16 +173,15 @@ class WideMatchSpeakersUseCase:
                     skipped_count=skipped_count,
                 )
 
-            # 5. ルールベースマッチング
+            # 5. 完全一致マッチング + 候補フィルタリング
             counters = _MatchingCounters()
-            baml_pending_speakers = await self._run_rule_based_matching(
+            baml_pending = await self._run_exact_matching(
                 unmatched_speakers, candidates, input_dto, counters
             )
 
-            # 6. BAMLフォールバック
-            await self._run_baml_fallback(
-                baml_pending_speakers,
-                candidates,
+            # 6. LLM判定（候補フィルタ済み）
+            await self._run_llm_matching(
+                baml_pending,
                 input_dto,
                 counters,
                 minutes.role_name_mappings,
@@ -213,24 +212,27 @@ class WideMatchSpeakersUseCase:
                 message=f"広域マッチング中にエラーが発生しました: {e!s}",
             )
 
-    async def _run_rule_based_matching(
+    async def _run_exact_matching(
         self,
         unmatched_speakers: list[Speaker],
         candidates: list[PoliticianCandidate],
         input_dto: WideMatchSpeakersInputDTO,
         counters: _MatchingCounters,
-    ) -> list[Speaker]:
-        """ルールベースマッチングと非政治家分類を実行する.
+    ) -> list[tuple[Speaker, list[PoliticianCandidate]]]:
+        """完全一致マッチング・非政治家分類・候補フィルタリングを実行する.
+
+        3段階方式のStep 1（完全一致）とStep 2a（候補フィルタ）を担当。
 
         Returns:
-            BAMLフォールバック対象のSpeakerリスト
+            LLM判定対象の (Speaker, フィルタ済み候補) リスト
         """
-        baml_pending_speakers: list[Speaker] = []
+        baml_pending: list[tuple[Speaker, list[PoliticianCandidate]]] = []
 
         for speaker in unmatched_speakers:
             if not speaker.id:
                 continue
 
+            # Step 1: 完全一致マッチング
             match_result = self._matching_service.match(
                 speaker_id=speaker.id,
                 speaker_name=speaker.name,
@@ -281,7 +283,6 @@ class WideMatchSpeakersUseCase:
             # 非政治家分類
             skip_reason = classify_speaker_skip_reason(speaker.name)
             if skip_reason is not None:
-                # 非政治家として分類 → is_politicianをFalseに、skip_reasonを設定
                 speaker.is_politician = False
                 speaker.skip_reason = skip_reason.value
                 await self._speaker_repo.update(speaker)
@@ -292,33 +293,51 @@ class WideMatchSpeakersUseCase:
                 counters.results.append(dto)
                 continue
 
+            # Step 2a: 候補フィルタリング
+            filtered_candidates = self._matching_service.filter_candidates_for_llm(
+                speaker_name=speaker.name,
+                speaker_name_yomi=speaker.name_yomi,
+                candidates=candidates,
+            )
+
+            if not filtered_candidates:
+                # フィルタ結果0件 → マッチなしとして記録（LLMスキップ）
+                dto = SpeakerMatchResultDTO.unmatched(speaker)
+                # 同姓候補が複数存在する場合のhomonym判定
+                if self._matching_service.has_surname_ambiguity(
+                    speaker.name, candidates
+                ):
+                    dto.skip_reason = SkipReason.HOMONYM
+                counters.results.append(dto)
+                self._logger.debug("候補フィルタ0件: %s", speaker.name)
+                continue
+
             # 同姓候補が複数存在する場合のhomonym判定
             if self._matching_service.has_surname_ambiguity(speaker.name, candidates):
                 if speaker.id:
                     counters.homonym_speaker_ids.add(speaker.id)
                 self._logger.debug("同姓候補複数: %s", speaker.name)
 
-            # BAMLフォールバック対象として保留
-            baml_pending_speakers.append(speaker)
+            # LLM判定対象として保留（フィルタ済み候補付き）
+            baml_pending.append((speaker, filtered_candidates))
 
-        return baml_pending_speakers
+        return baml_pending
 
-    async def _run_baml_fallback(
+    async def _run_llm_matching(
         self,
-        baml_pending_speakers: list[Speaker],
-        candidates: list[PoliticianCandidate],
+        baml_pending: list[tuple[Speaker, list[PoliticianCandidate]]],
         input_dto: WideMatchSpeakersInputDTO,
         counters: _MatchingCounters,
         role_name_mappings: Any,
     ) -> None:
-        """BAMLフォールバックマッチングを実行する."""
+        """Step 2b: フィルタ済み候補に対するLLM判定を実行する."""
         if not (
             input_dto.enable_baml_fallback
             and self._baml_matching_service is not None
-            and baml_pending_speakers
+            and baml_pending
         ):
             # BAML無効: 未マッチDTOとして登録（homonymフラグ考慮）
-            for speaker in baml_pending_speakers:
+            for speaker, _ in baml_pending:
                 if speaker.id:
                     dto = SpeakerMatchResultDTO.unmatched(speaker)
                     if speaker.id in counters.homonym_speaker_ids:
@@ -326,17 +345,18 @@ class WideMatchSpeakersUseCase:
                     counters.results.append(dto)
             return
 
-        for speaker in baml_pending_speakers:
+        for speaker, filtered_candidates in baml_pending:
             if not speaker.id:
                 continue
             try:
                 baml_result = (
                     await self._baml_matching_service.find_best_match_from_candidates(
                         speaker_name=speaker.name,
-                        candidates=candidates,
+                        candidates=filtered_candidates,
                         speaker_type=speaker.type,
                         speaker_party=speaker.political_party_name,
                         role_name_mappings=role_name_mappings,
+                        speaker_name_yomi=speaker.name_yomi,
                     )
                 )
 
@@ -364,7 +384,7 @@ class WideMatchSpeakersUseCase:
                         else:
                             counters.review_matched_count += 1
                         self._logger.info(
-                            "BAMLマッチ成功(%s): %s → %s (confidence=%.2f)",
+                            "LLMマッチ成功(%s): %s → %s (confidence=%.2f)",
                             action,
                             speaker.name,
                             baml_result.politician_name,
@@ -384,13 +404,13 @@ class WideMatchSpeakersUseCase:
                     match_method=MatchMethod.BAML if updated else MatchMethod.NONE,
                     updated=updated,
                 )
-                # BAMLでも解決できなかったhomonymケースにskip_reasonを設定
+                # LLMでも解決できなかったhomonymケースにskip_reasonを設定
                 if not updated and speaker.id in counters.homonym_speaker_ids:
                     dto.skip_reason = SkipReason.HOMONYM
                 counters.results.append(dto)
             except Exception:
                 self._logger.warning(
-                    "BAMLフォールバック失敗（スキップ）: %s",
+                    "LLM判定失敗（スキップ）: %s",
                     speaker.name,
                     exc_info=True,
                 )

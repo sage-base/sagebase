@@ -142,21 +142,6 @@ class BamlAsyncClient:
                 "attendees_text": attendees_text,
             })
             return typing.cast(types.AttendeesMapping, __result__.cast_to(types, types, stream_types, False, __runtime__))
-    async def ExtractMembers(self, html: str,conference_name: str,
-        baml_options: BamlCallOptions = {},
-    ) -> typing.List["types.ExtractedMember"]:
-        # Check if on_tick is provided
-        if 'on_tick' in baml_options:
-            # Use streaming internally when on_tick is provided
-            __stream__ = self.stream.ExtractMembers(html=html,conference_name=conference_name,
-                baml_options=baml_options)
-            return await __stream__.get_final_response()
-        else:
-            # Original non-streaming code
-            __result__ = await self.__options.merge_options(baml_options).call_function_async(function_name="ExtractMembers", args={
-                "html": html,"conference_name": conference_name,
-            })
-            return typing.cast(typing.List["types.ExtractedMember"], __result__.cast_to(types, types, stream_types, False, __runtime__))
     async def ExtractParliamentaryGroupMembers(self, html: str,text_content: str,
         baml_options: BamlCallOptions = {},
     ) -> typing.List["types.ParliamentaryGroupMember"]:
@@ -202,19 +187,19 @@ class BamlAsyncClient:
                 "attendee_text": attendee_text,
             })
             return typing.cast(types.RoleNameMappingResult, __result__.cast_to(types, types, stream_types, False, __runtime__))
-    async def MatchPolitician(self, speaker_name: str,speaker_type: str,speaker_party: str,available_politicians: str,
+    async def MatchPolitician(self, speaker_name: str,speaker_type: str,speaker_party: str,speaker_name_yomi: str,available_politicians: str,
         baml_options: BamlCallOptions = {},
     ) -> types.PoliticianMatch:
         # Check if on_tick is provided
         if 'on_tick' in baml_options:
             # Use streaming internally when on_tick is provided
-            __stream__ = self.stream.MatchPolitician(speaker_name=speaker_name,speaker_type=speaker_type,speaker_party=speaker_party,available_politicians=available_politicians,
+            __stream__ = self.stream.MatchPolitician(speaker_name=speaker_name,speaker_type=speaker_type,speaker_party=speaker_party,speaker_name_yomi=speaker_name_yomi,available_politicians=available_politicians,
                 baml_options=baml_options)
             return await __stream__.get_final_response()
         else:
             # Original non-streaming code
             __result__ = await self.__options.merge_options(baml_options).call_function_async(function_name="MatchPolitician", args={
-                "speaker_name": speaker_name,"speaker_type": speaker_type,"speaker_party": speaker_party,"available_politicians": available_politicians,
+                "speaker_name": speaker_name,"speaker_type": speaker_type,"speaker_party": speaker_party,"speaker_name_yomi": speaker_name_yomi,"available_politicians": available_politicians,
             })
             return typing.cast(types.PoliticianMatch, __result__.cast_to(types, types, stream_types, False, __runtime__))
     async def NormalizeSpeakerNames(self, speakers: typing.List[str],role_name_mappings: typing.Optional[typing.Dict[str, str]] = None,
@@ -304,18 +289,6 @@ class BamlStreamClient:
           lambda x: typing.cast(types.AttendeesMapping, x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
-    def ExtractMembers(self, html: str,conference_name: str,
-        baml_options: BamlCallOptions = {},
-    ) -> baml_py.BamlStream[typing.List["stream_types.ExtractedMember"], typing.List["types.ExtractedMember"]]:
-        __ctx__, __result__ = self.__options.merge_options(baml_options).create_async_stream(function_name="ExtractMembers", args={
-            "html": html,"conference_name": conference_name,
-        })
-        return baml_py.BamlStream[typing.List["stream_types.ExtractedMember"], typing.List["types.ExtractedMember"]](
-          __result__,
-          lambda x: typing.cast(typing.List["stream_types.ExtractedMember"], x.cast_to(types, types, stream_types, True, __runtime__)),
-          lambda x: typing.cast(typing.List["types.ExtractedMember"], x.cast_to(types, types, stream_types, False, __runtime__)),
-          __ctx__,
-        )
     def ExtractParliamentaryGroupMembers(self, html: str,text_content: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlStream[typing.List["stream_types.ParliamentaryGroupMember"], typing.List["types.ParliamentaryGroupMember"]]:
@@ -352,11 +325,11 @@ class BamlStreamClient:
           lambda x: typing.cast(types.RoleNameMappingResult, x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
-    def MatchPolitician(self, speaker_name: str,speaker_type: str,speaker_party: str,available_politicians: str,
+    def MatchPolitician(self, speaker_name: str,speaker_type: str,speaker_party: str,speaker_name_yomi: str,available_politicians: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlStream[stream_types.PoliticianMatch, types.PoliticianMatch]:
         __ctx__, __result__ = self.__options.merge_options(baml_options).create_async_stream(function_name="MatchPolitician", args={
-            "speaker_name": speaker_name,"speaker_type": speaker_type,"speaker_party": speaker_party,"available_politicians": available_politicians,
+            "speaker_name": speaker_name,"speaker_type": speaker_type,"speaker_party": speaker_party,"speaker_name_yomi": speaker_name_yomi,"available_politicians": available_politicians,
         })
         return baml_py.BamlStream[stream_types.PoliticianMatch, types.PoliticianMatch](
           __result__,
@@ -424,13 +397,6 @@ class BamlHttpRequestClient:
             "attendees_text": attendees_text,
         }, mode="request")
         return __result__
-    async def ExtractMembers(self, html: str,conference_name: str,
-        baml_options: BamlCallOptions = {},
-    ) -> baml_py.baml_py.HTTPRequest:
-        __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="ExtractMembers", args={
-            "html": html,"conference_name": conference_name,
-        }, mode="request")
-        return __result__
     async def ExtractParliamentaryGroupMembers(self, html: str,text_content: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
@@ -452,11 +418,11 @@ class BamlHttpRequestClient:
             "attendee_text": attendee_text,
         }, mode="request")
         return __result__
-    async def MatchPolitician(self, speaker_name: str,speaker_type: str,speaker_party: str,available_politicians: str,
+    async def MatchPolitician(self, speaker_name: str,speaker_type: str,speaker_party: str,speaker_name_yomi: str,available_politicians: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="MatchPolitician", args={
-            "speaker_name": speaker_name,"speaker_type": speaker_type,"speaker_party": speaker_party,"available_politicians": available_politicians,
+            "speaker_name": speaker_name,"speaker_type": speaker_type,"speaker_party": speaker_party,"speaker_name_yomi": speaker_name_yomi,"available_politicians": available_politicians,
         }, mode="request")
         return __result__
     async def NormalizeSpeakerNames(self, speakers: typing.List[str],role_name_mappings: typing.Optional[typing.Dict[str, str]] = None,
@@ -509,13 +475,6 @@ class BamlHttpStreamRequestClient:
             "attendees_text": attendees_text,
         }, mode="stream")
         return __result__
-    async def ExtractMembers(self, html: str,conference_name: str,
-        baml_options: BamlCallOptions = {},
-    ) -> baml_py.baml_py.HTTPRequest:
-        __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="ExtractMembers", args={
-            "html": html,"conference_name": conference_name,
-        }, mode="stream")
-        return __result__
     async def ExtractParliamentaryGroupMembers(self, html: str,text_content: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
@@ -537,11 +496,11 @@ class BamlHttpStreamRequestClient:
             "attendee_text": attendee_text,
         }, mode="stream")
         return __result__
-    async def MatchPolitician(self, speaker_name: str,speaker_type: str,speaker_party: str,available_politicians: str,
+    async def MatchPolitician(self, speaker_name: str,speaker_type: str,speaker_party: str,speaker_name_yomi: str,available_politicians: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="MatchPolitician", args={
-            "speaker_name": speaker_name,"speaker_type": speaker_type,"speaker_party": speaker_party,"available_politicians": available_politicians,
+            "speaker_name": speaker_name,"speaker_type": speaker_type,"speaker_party": speaker_party,"speaker_name_yomi": speaker_name_yomi,"available_politicians": available_politicians,
         }, mode="stream")
         return __result__
     async def NormalizeSpeakerNames(self, speakers: typing.List[str],role_name_mappings: typing.Optional[typing.Dict[str, str]] = None,

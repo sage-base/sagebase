@@ -19,9 +19,6 @@ type_map = {
     "types.AttendeesMapping": types.AttendeesMapping,
     "stream_types.AttendeesMapping": stream_types.AttendeesMapping,
 
-    "types.ExtractedMember": types.ExtractedMember,
-    "stream_types.ExtractedMember": stream_types.ExtractedMember,
-
     "types.MinutesBoundary": types.MinutesBoundary,
     "stream_types.MinutesBoundary": stream_types.MinutesBoundary,
 

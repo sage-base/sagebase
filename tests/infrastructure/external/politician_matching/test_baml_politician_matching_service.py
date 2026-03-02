@@ -120,6 +120,39 @@ class TestBAMLPoliticianMatchingService:
         assert result.politician_id == 1
         # BAMLが呼ばれたことを確認
         mock_baml_client.MatchPolitician.assert_awaited_once()
+        # speaker_name_yomiがBAMLに渡されることを確認（デフォルトNone→"不明"）
+        call_kwargs = mock_baml_client.MatchPolitician.call_args
+        assert call_kwargs.kwargs["speaker_name_yomi"] == "不明"
+
+    @pytest.mark.asyncio
+    async def test_speaker_name_yomi_passed_to_baml(
+        self,
+        mock_llm_service,
+        mock_politician_repository,
+        mock_baml_client,
+    ):
+        """speaker_name_yomiがBAML呼び出しに渡されるテスト."""
+        mock_baml_client.MatchPolitician.return_value = MagicMock(
+            matched=True,
+            politician_id=3,
+            politician_name="鈴木一郎",
+            political_party_name="公明党",
+            confidence=0.9,
+            reason="ふりがなマッチ",
+        )
+
+        service = BAMLPoliticianMatchingService(
+            mock_llm_service, mock_politician_repository
+        )
+
+        result = await service.find_best_match(
+            "スズキイチロウ", speaker_name_yomi="すずきいちろう"
+        )
+
+        assert result.matched is True
+        # speaker_name_yomiがBAMLに正しく渡されたことを確認
+        call_kwargs = mock_baml_client.MatchPolitician.call_args
+        assert call_kwargs.kwargs["speaker_name_yomi"] == "すずきいちろう"
 
     @pytest.mark.asyncio
     async def test_baml_matching_when_rule_based_fails(
@@ -394,11 +427,15 @@ class TestFindBestMatchFromCandidates:
         result = await service.find_best_match_from_candidates(
             speaker_name="ヤマダタロウ",
             candidates=candidates,
+            speaker_name_yomi="やまだたろう",
         )
 
         assert result.matched is True
         assert result.politician_id == 1
         mock_baml_client.MatchPolitician.assert_awaited_once()
+        # speaker_name_yomiがBAMLに渡されることを確認
+        call_kwargs = mock_baml_client.MatchPolitician.call_args
+        assert call_kwargs.kwargs["speaker_name_yomi"] == "やまだたろう"
 
     @pytest.mark.asyncio
     async def test_candidates_with_none_party_name(
@@ -422,3 +459,49 @@ class TestFindBestMatchFromCandidates:
         assert result.matched is True
         assert result.politician_id == 1
         assert result.confidence == 0.9
+
+
+class TestFormatPoliticiansForLlm:
+    """_format_politicians_for_llm メソッドのテスト."""
+
+    def test_furigana_included_in_formatted_output(
+        self,
+        mock_llm_service,
+        mock_politician_repository,
+    ):
+        """ふりがな情報がフォーマット出力に含まれる."""
+        service = BAMLPoliticianMatchingService(
+            mock_llm_service, mock_politician_repository
+        )
+        politicians = [
+            {
+                "id": 1,
+                "name": "山田太郎",
+                "furigana": "ヤマダタロウ",
+                "party_name": "自由民主党",
+            },
+        ]
+
+        result = service._format_politicians_for_llm(politicians)  # type: ignore[reportPrivateUsage]
+
+        assert "ふりがな: ヤマダタロウ" in result
+        assert "名前: 山田太郎" in result
+        assert "政党: 自由民主党" in result
+
+    def test_furigana_omitted_when_none(
+        self,
+        mock_llm_service,
+        mock_politician_repository,
+    ):
+        """ふりがながNoneの場合はフォーマット出力に含まれない."""
+        service = BAMLPoliticianMatchingService(
+            mock_llm_service, mock_politician_repository
+        )
+        politicians = [
+            {"id": 1, "name": "山田太郎", "party_name": "自由民主党"},
+        ]
+
+        result = service._format_politicians_for_llm(politicians)  # type: ignore[reportPrivateUsage]
+
+        assert "ふりがな" not in result
+        assert "名前: 山田太郎" in result
