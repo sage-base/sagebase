@@ -255,7 +255,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             "prefecture": entity.prefecture,
             "district": entity.district,
             "profile_page_url": entity.profile_page_url,
-            "party_position": entity.party_position,
             "furigana": entity.furigana,
         }
         if entity.id is not None:
@@ -268,7 +267,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         model.prefecture = entity.prefecture
         model.district = entity.district
         model.profile_page_url = entity.profile_page_url
-        model.party_position = entity.party_position
         model.furigana = entity.furigana
 
     async def search_by_normalized_name(self, normalized_name: str) -> list[Politician]:

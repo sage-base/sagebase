@@ -181,7 +181,6 @@ class TestPoliticianRepositoryImplConversions:
         assert model.district == "東京1区"
         assert model.profile_page_url == "https://example.com/politician/1"
         assert model.prefecture == "東京都"  # prefecture mapping
-        assert model.party_position is None  # Not in entity
 
     def test_to_model_minimal_data(self, async_repository):
         """Test converting entity to model with minimal data"""
@@ -207,7 +206,6 @@ class TestPoliticianRepositoryImplConversions:
         assert mock_model.furigana == "てすとたろう"
         assert mock_model.district == "東京1区"
         assert mock_model.profile_page_url == "https://example.com/politician/1"
-        assert mock_model.party_position is None
 
     def test_update_model_partial_fields(self, async_repository):
         """Test updating model with partial entity data"""

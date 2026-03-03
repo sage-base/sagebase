@@ -103,15 +103,10 @@ class PoliticianModel(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    political_party_id: Mapped[int | None] = mapped_column(
-        Integer,
-        ForeignKey("political_parties.id", use_alter=True, name="fk_politician_party"),
-    )
     prefecture: Mapped[str | None] = mapped_column(String(10))
     furigana: Mapped[str | None] = mapped_column(String)
     district: Mapped[str | None] = mapped_column(String)
     profile_page_url: Mapped[str | None] = mapped_column(String)
-    party_position: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime, default=datetime.utcnow
     )

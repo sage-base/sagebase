@@ -174,12 +174,14 @@ class ConferenceMemberRepositoryImpl(
                 UPDATE conference_members
                 SET end_date = :end_date, role = :role
                 WHERE id = :id
+                RETURNING *
             """)
-            await self.session.execute(
+            update_result = await self.session.execute(
                 update_stmt, {"id": existing_row.id, "end_date": end_date, "role": role}
             )
             await self.session.commit()
-            return self._to_entity(existing_row)
+            updated_row = update_result.fetchone()
+            return self._to_entity(updated_row)
         else:
             entity = ConferenceMember(
                 politician_id=politician_id,

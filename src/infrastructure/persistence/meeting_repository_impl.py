@@ -3,7 +3,7 @@
 import json
 import logging
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import text, update
@@ -68,9 +68,11 @@ class MeetingRepositoryImpl(BaseRepositoryImpl[Meeting], MeetingRepository):
             WHERE min.id IS NULL
             ORDER BY m.date DESC
         """
+        params: dict[str, Any] = {}
         if limit:
-            sql += f" LIMIT {limit}"
-        result = await self.session.execute(text(sql))
+            sql += " LIMIT :limit"
+            params["limit"] = limit
+        result = await self.session.execute(text(sql), params if params else None)
         return [self._to_entity(row) for row in result.fetchall()]
 
     async def update_gcs_uris(
@@ -226,8 +228,6 @@ class MeetingRepositoryImpl(BaseRepositoryImpl[Meeting], MeetingRepository):
 
     async def create(self, entity: Meeting) -> Meeting:
         """Create a new meeting."""
-        from datetime import datetime
-
         sql = text("""
         INSERT INTO meetings (
             conference_id, date, url, name,
@@ -262,8 +262,6 @@ class MeetingRepositoryImpl(BaseRepositoryImpl[Meeting], MeetingRepository):
 
     async def update(self, entity: Meeting) -> Meeting:
         """Update a meeting."""
-        from datetime import datetime
-
         sql = text("""
         UPDATE meetings
         SET conference_id = :conference_id,
@@ -345,7 +343,7 @@ class MeetingRepositoryImpl(BaseRepositoryImpl[Meeting], MeetingRepository):
         # ORM model の場合は属性アクセス
         return Meeting(
             id=getattr(model, "id", None),
-            conference_id=model.conference_id,
+            conference_id=getattr(model, "conference_id", None) or 0,
             date=getattr(model, "date", None),
             url=getattr(model, "url", None),
             name=getattr(model, "name", None),
