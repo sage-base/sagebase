@@ -1,6 +1,16 @@
 """Politician entity."""
 
+import re
+
 from src.domain.entities.base import BaseEntity
+
+
+_ZENKAKU_SPACE_RE = re.compile(r"\u3000")
+
+
+def _sanitize_name(name: str) -> str:
+    """全角スペースを半角スペースに変換し、前後の空白を除去する."""
+    return _ZENKAKU_SPACE_RE.sub(" ", name).strip()
 
 
 class Politician(BaseEntity):
@@ -17,7 +27,7 @@ class Politician(BaseEntity):
         id: int | None = None,
     ) -> None:
         super().__init__(id)
-        self.name = name
+        self.name = _sanitize_name(name)
         self.prefecture = prefecture
         self.district = district
         self.furigana = furigana

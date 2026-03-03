@@ -211,6 +211,41 @@ class TestPolitician:
         )
         assert pr_politician.district == "全国比例"
 
+    def test_name_sanitizes_zenkaku_space(self) -> None:
+        """全角スペースが半角スペースに変換されることを確認する."""
+        politician = Politician(
+            name="伊藤\u3000孝江", prefecture="東京都", district="東京1区"
+        )
+        assert politician.name == "伊藤 孝江"
+
+    def test_name_sanitizes_multiple_zenkaku_spaces(self) -> None:
+        """複数の全角スペースが半角スペースに変換されることを確認する."""
+        politician = Politician(
+            name="加藤\u3000\u3000明良", prefecture="東京都", district="東京1区"
+        )
+        assert politician.name == "加藤  明良"
+
+    def test_name_strips_whitespace(self) -> None:
+        """前後の空白が除去されることを確認する."""
+        politician = Politician(
+            name="  山田太郎  ", prefecture="東京都", district="東京1区"
+        )
+        assert politician.name == "山田太郎"
+
+    def test_name_without_zenkaku_space_unchanged(self) -> None:
+        """全角スペースがない名前はそのまま保持されることを確認する."""
+        politician = Politician(
+            name="山田太郎", prefecture="東京都", district="東京1区"
+        )
+        assert politician.name == "山田太郎"
+
+    def test_name_halfwidth_space_preserved(self) -> None:
+        """半角スペースはそのまま保持されることを確認する."""
+        politician = Politician(
+            name="山田 太郎", prefecture="東京都", district="東京1区"
+        )
+        assert politician.name == "山田 太郎"
+
     def test_edge_cases(self) -> None:
         """Test edge cases for Politician entity."""
         # Empty strings
