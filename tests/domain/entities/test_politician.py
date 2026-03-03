@@ -317,6 +317,63 @@ class TestPolitician:
         )
         assert politician2.id == 100
 
+    def test_hiragana_flags_default_values(self) -> None:
+        """ひらがなフラグのデフォルト値テスト."""
+        politician = Politician(
+            name="山田太郎", prefecture="東京都", district="東京1区"
+        )
+        assert politician.is_lastname_hiragana is False
+        assert politician.is_firstname_hiragana is False
+        assert politician.kanji_name is None
+
+    def test_hiragana_flags_explicit_values(self) -> None:
+        """ひらがなフラグの明示的な設定テスト."""
+        politician = Politician(
+            name="みやもとたけし",
+            prefecture="大阪府",
+            district="大阪5区",
+            is_lastname_hiragana=True,
+            is_firstname_hiragana=True,
+            kanji_name="宮本岳志",
+        )
+        assert politician.is_lastname_hiragana is True
+        assert politician.is_firstname_hiragana is True
+        assert politician.kanji_name == "宮本岳志"
+
+    def test_kanji_name_sanitizes_zenkaku_space(self) -> None:
+        """kanji_nameの全角スペース除去テスト."""
+        politician = Politician(
+            name="宮本たけし",
+            prefecture="大阪府",
+            district="大阪5区",
+            kanji_name="宮本　岳志",
+        )
+        assert politician.kanji_name == "宮本岳志"
+
+    def test_kanji_name_none_preserved(self) -> None:
+        """kanji_nameがNoneの場合はそのまま保持."""
+        politician = Politician(
+            name="山田太郎", prefecture="東京都", district="東京1区", kanji_name=None
+        )
+        assert politician.kanji_name is None
+
+    def test_kanji_name_empty_string_becomes_none(self) -> None:
+        """kanji_nameがNoneの場合はそのまま保持される."""
+        # Noneが渡された場合はNoneのまま
+        politician = create_politician(kanji_name=None)
+        assert politician.kanji_name is None
+
+    def test_factory_creates_with_hiragana_fields(self) -> None:
+        """ファクトリがひらがなフラグを正しく設定するテスト."""
+        politician = create_politician(
+            is_lastname_hiragana=True,
+            is_firstname_hiragana=False,
+            kanji_name="宮本岳志",
+        )
+        assert politician.is_lastname_hiragana is True
+        assert politician.is_firstname_hiragana is False
+        assert politician.kanji_name == "宮本岳志"
+
         # ID can be any integer
         politician3 = Politician(
             name="Test 3", prefecture="東京都", district="東京1区", id=999999

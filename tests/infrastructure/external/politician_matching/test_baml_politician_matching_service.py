@@ -505,3 +505,141 @@ class TestFormatPoliticiansForLlm:
 
         assert "ふりがな" not in result
         assert "名前: 山田太郎" in result
+
+    def test_kanji_name_included_in_formatted_output(
+        self,
+        mock_llm_service,
+        mock_politician_repository,
+    ):
+        """kanji_name情報がフォーマット出力に含まれる."""
+        service = BAMLPoliticianMatchingService(
+            mock_llm_service, mock_politician_repository
+        )
+        politicians = [
+            {
+                "id": 1,
+                "name": "宮本たけし",
+                "kanji_name": "宮本岳志",
+                "party_name": "日本共産党",
+            },
+        ]
+
+        result = service._format_politicians_for_llm(politicians)  # type: ignore[reportPrivateUsage]
+
+        assert "漢字名: 宮本岳志" in result
+        assert "名前: 宮本たけし" in result
+
+
+class TestKanjiNameMatching:
+    """kanji_nameを使ったマッチングのテスト."""
+
+    @pytest.mark.asyncio
+    async def test_rule_based_kanji_name_exact_match_with_party(
+        self,
+        mock_llm_service,
+    ):
+        """kanji_nameと政党の完全一致でマッチする."""
+        repo = AsyncMock()
+        repo.get_all_for_matching.return_value = [
+            {
+                "id": 10,
+                "name": "宮本たけし",
+                "kanji_name": "宮本岳志",
+                "party_name": "日本共産党",
+            },
+        ]
+
+        service = BAMLPoliticianMatchingService(mock_llm_service, repo)
+
+        result = await service.find_best_match("宮本岳志", speaker_party="日本共産党")
+
+        assert result.matched is True
+        assert result.politician_id == 10
+        assert result.politician_name == "宮本たけし"
+        assert result.confidence == 1.0
+        assert "漢字名" in result.reason
+
+    @pytest.mark.asyncio
+    async def test_rule_based_kanji_name_only_exact_match(
+        self,
+        mock_llm_service,
+    ):
+        """kanji_nameのみの完全一致（唯一の候補）でマッチする."""
+        repo = AsyncMock()
+        repo.get_all_for_matching.return_value = [
+            {
+                "id": 20,
+                "name": "しなたけし",
+                "kanji_name": "階猛",
+                "party_name": "立憲民主党",
+            },
+            {
+                "id": 21,
+                "name": "田中太郎",
+                "kanji_name": None,
+                "party_name": "自由民主党",
+            },
+        ]
+
+        service = BAMLPoliticianMatchingService(mock_llm_service, repo)
+
+        result = await service.find_best_match("階猛")
+
+        assert result.matched is True
+        assert result.politician_id == 20
+        assert result.politician_name == "しなたけし"
+        assert result.confidence == 0.9
+        assert "漢字名" in result.reason
+
+    @pytest.mark.asyncio
+    async def test_name_match_preferred_over_kanji_name(
+        self,
+        mock_llm_service,
+    ):
+        """nameでの一致がkanji_nameよりも優先される."""
+        repo = AsyncMock()
+        repo.get_all_for_matching.return_value = [
+            {
+                "id": 30,
+                "name": "山田太郎",
+                "kanji_name": None,
+                "party_name": "自由民主党",
+            },
+        ]
+
+        service = BAMLPoliticianMatchingService(mock_llm_service, repo)
+
+        result = await service.find_best_match("山田太郎")
+
+        assert result.matched is True
+        assert result.politician_id == 30
+        # nameで一致した場合は「漢字名」がreasonに含まれない
+        assert "漢字名" not in result.reason
+
+    @pytest.mark.asyncio
+    async def test_kanji_name_from_candidates(
+        self,
+        mock_llm_service,
+        mock_politician_repository,
+    ):
+        """PoliticianCandidate経由のkanji_nameでもマッチする."""
+        service = BAMLPoliticianMatchingService(
+            mock_llm_service, mock_politician_repository
+        )
+        candidates = [
+            PoliticianCandidate(
+                politician_id=10,
+                name="宮本たけし",
+                party_name="日本共産党",
+                kanji_name="宮本岳志",
+            ),
+        ]
+
+        result = await service.find_best_match_from_candidates(
+            speaker_name="宮本岳志",
+            candidates=candidates,
+        )
+
+        assert result.matched is True
+        assert result.politician_id == 10
+        assert result.confidence == 0.9

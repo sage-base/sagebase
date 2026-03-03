@@ -160,6 +160,7 @@ def render_politicians_list_tab(presenter: PoliticianPresenter) -> None:
             column_config = {
                 "ID": st.column_config.NumberColumn("ID", disabled=True),
                 "名前": st.column_config.TextColumn("名前", disabled=True),
+                "漢字名": st.column_config.TextColumn("漢字名", disabled=True),
                 "都道府県": st.column_config.SelectboxColumn(
                     "都道府県",
                     options=PREFECTURES,
@@ -379,7 +380,7 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
     )
 
     # チェックボックスフィルター
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
         filter_no_prefecture = st.checkbox(
             "都道府県が未設定の政治家のみ", key="filter_no_prefecture"
@@ -387,6 +388,10 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
     with col2:
         filter_no_district = st.checkbox(
             "選挙区が未設定の政治家のみ", key="filter_no_district"
+        )
+    with col3:
+        filter_hiragana_no_kanji = st.checkbox(
+            "ひらがな名（漢字名未設定）のみ", key="filter_hiragana_no_kanji"
         )
 
     # フィルター適用
@@ -414,6 +419,12 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
         filtered_politicians = [p for p in filtered_politicians if not p.prefecture]
     if filter_no_district:
         filtered_politicians = [p for p in filtered_politicians if not p.district]
+    if filter_hiragana_no_kanji:
+        filtered_politicians = [
+            p
+            for p in filtered_politicians
+            if (p.is_lastname_hiragana or p.is_firstname_hiragana) and not p.kanji_name
+        ]
 
     # フィルター結果の表示
     is_filtered = (
@@ -421,6 +432,7 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
         or selected_prefecture_filter != "すべて"
         or filter_no_prefecture
         or filter_no_district
+        or filter_hiragana_no_kanji
     )
     if is_filtered:
         filtered_count = len(filtered_politicians)
@@ -471,6 +483,11 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
             new_district = st.text_input(
                 "選挙区 *", value=selected_politician.district or ""
             )
+            new_kanji_name = st.text_input(
+                "漢字名（ひらがな名の場合に設定）",
+                value=selected_politician.kanji_name or "",
+                placeholder="例: 宮本岳志",
+            )
             new_profile_url = st.text_input(
                 "プロフィールURL", value=selected_politician.profile_page_url or ""
             )
@@ -493,6 +510,7 @@ def render_edit_delete_tab(presenter: PoliticianPresenter) -> None:
                         new_district,
                         new_profile_url if new_profile_url else None,
                         user_id=user_id,
+                        kanji_name=new_kanji_name if new_kanji_name else None,
                     )
                     if success:
                         st.success("政治家を更新しました")

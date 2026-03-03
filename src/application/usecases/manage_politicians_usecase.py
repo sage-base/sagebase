@@ -146,6 +146,7 @@ class ManagePoliticiansUseCase:
                 prefecture=input_dto.prefecture,
                 district=input_dto.district,
                 profile_page_url=input_dto.profile_url,
+                kanji_name=input_dto.kanji_name,
             )
 
             created = await self.politician_repository.create(politician)
@@ -186,6 +187,7 @@ class ManagePoliticiansUseCase:
             existing.prefecture = input_dto.prefecture
             existing.district = input_dto.district
             existing.profile_page_url = input_dto.profile_url
+            existing.kanji_name = input_dto.kanji_name
 
             await self.politician_repository.update(existing)
 
@@ -199,6 +201,7 @@ class ManagePoliticiansUseCase:
                     "prefecture": input_dto.prefecture,
                     "district": input_dto.district,
                     "profile_url": input_dto.profile_url,
+                    "kanji_name": input_dto.kanji_name,
                 },
             )
 

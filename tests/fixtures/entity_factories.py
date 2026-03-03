@@ -99,6 +99,9 @@ def create_politician(**kwargs: Any) -> Politician:
         "furigana": None,
         "profile_page_url": None,
         "party_position": None,
+        "is_lastname_hiragana": False,
+        "is_firstname_hiragana": False,
+        "kanji_name": None,
     }
     defaults.update(kwargs)
     return Politician(**defaults)
