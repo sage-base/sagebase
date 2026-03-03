@@ -79,16 +79,6 @@ class TestPoliticianRepositoryImplInitialization:
         assert repo.entity_class == Politician
 
     @pytest.mark.asyncio
-    async def test_initialization_with_custom_model_class(self):
-        """Test initialization with custom model class"""
-        async_session = AsyncMock(spec=AsyncSession)
-        custom_model = MagicMock()
-        repo = PoliticianRepositoryImpl(session=async_session, model_class=custom_model)
-
-        assert repo.session == async_session
-        assert repo.model_class == custom_model
-
-    @pytest.mark.asyncio
     async def test_initialization_with_default_model_class(self):
         """Test default PoliticianModel when no model_class provided"""
         from src.infrastructure.persistence.politician_repository_impl import (
@@ -104,39 +94,39 @@ class TestPoliticianRepositoryImplInitialization:
 class TestPoliticianRepositoryImplConversions:
     """Test conversion methods between row, entity, and model"""
 
-    def test_row_to_entity_complete_data(self, async_repository, sample_politician_row):
+    def test_to_entity_complete_data(self, async_repository, sample_politician_row):
         """Test converting database row to entity with complete data"""
-        mock_row = MagicMock()
-        mock_row._mapping = sample_politician_row
-        for key, value in sample_politician_row.items():
-            setattr(mock_row, key, value)
+        from src.infrastructure.persistence.sqlalchemy_models import PoliticianModel
 
-        entity = async_repository._row_to_entity(mock_row)
+        model = PoliticianModel(
+            id=1,
+            name="テスト太郎",
+            furigana="てすとたろう",
+            district="東京1区",
+            profile_page_url="https://example.com/politician/1",
+        )
+
+        entity = async_repository._to_entity(model)
 
         assert isinstance(entity, Politician)
         assert entity.id == 1
         assert entity.name == "テスト太郎"
         assert entity.furigana == "てすとたろう"
-        assert entity.district == "東京1区"  # electoral_district → district mapping
-        assert (
-            entity.profile_page_url == "https://example.com/politician/1"
-        )  # profile_url → profile_page_url mapping
+        assert entity.district == "東京1区"
+        assert entity.profile_page_url == "https://example.com/politician/1"
 
-    def test_row_to_entity_minimal_data(self, async_repository):
-        """Test converting row to entity with minimal required data"""
-        minimal_row = {
-            "id": 1,
-            "name": "最小太郎",
-            "prefecture": "東京都",
-            "district": "東京1区",
-        }
+    def test_to_entity_minimal_data(self, async_repository):
+        """Test converting model to entity with minimal required data"""
+        from src.infrastructure.persistence.sqlalchemy_models import PoliticianModel
 
-        mock_row = MagicMock()
-        mock_row._mapping = minimal_row
-        for key, value in minimal_row.items():
-            setattr(mock_row, key, value)
+        model = PoliticianModel(
+            id=1,
+            name="最小太郎",
+            prefecture="東京都",
+            district="東京1区",
+        )
 
-        entity = async_repository._row_to_entity(mock_row)
+        entity = async_repository._to_entity(model)
 
         assert entity.id == 1
         assert entity.name == "最小太郎"
@@ -144,31 +134,32 @@ class TestPoliticianRepositoryImplConversions:
         assert entity.district == "東京1区"
         assert entity.profile_page_url is None
 
-    def test_row_to_entity_with_dict_input(self, async_repository):
-        """Test _row_to_entity handles dict input"""
-        row_dict = {
-            "id": 2,
-            "name": "辞書太郎",
-            "district": "大阪1区",
-            "profile_page_url": "https://example.com/dict",
-        }
+    def test_to_entity_from_namespace(self, async_repository):
+        """Test _to_entity handles object with direct attributes"""
+        from types import SimpleNamespace
 
-        # Create mock with _mapping for dict-like rows
-        mock_row = MagicMock()
-        mock_row._mapping = row_dict
+        row = SimpleNamespace(
+            id=2,
+            name="辞書太郎",
+            prefecture="大阪府",
+            district="大阪1区",
+            profile_page_url="https://example.com/dict",
+            furigana=None,
+            party_position=None,
+        )
 
-        entity = async_repository._row_to_entity(mock_row)
+        entity = async_repository._to_entity(row)
 
         assert entity.id == 2
         assert entity.name == "辞書太郎"
         assert entity.district == "大阪1区"
 
-    def test_row_to_entity_raises_on_none(self, async_repository):
-        """Test that _row_to_entity raises error on None input"""
-        with pytest.raises(
-            ValueError, match="Cannot convert None to Politician entity"
-        ):
-            async_repository._row_to_entity(None)
+    def test_to_entity_with_none_returns_defaults(self, async_repository):
+        """Test that _to_entity with None returns entity with defaults."""
+        entity = async_repository._to_entity(None)
+
+        assert entity.id is None
+        assert entity.name == ""
 
     def test_to_entity(self, async_repository, sample_politician_row):
         """Test _to_entity delegates to _row_to_entity"""
@@ -246,16 +237,18 @@ class TestPoliticianRepositoryImplCRUD:
     """
 
     @pytest.mark.asyncio
-    async def test_get_by_id_found(self, async_repository, sample_politician_row):
+    async def test_get_by_id_found(self, async_repository):
         """Test get_by_id returns politician when found"""
-        mock_row = MagicMock()
-        mock_row._mapping = sample_politician_row
-        for key, value in sample_politician_row.items():
-            setattr(mock_row, key, value)
+        from src.infrastructure.persistence.sqlalchemy_models import PoliticianModel
 
-        mock_result = MagicMock()
-        mock_result.fetchone.return_value = mock_row
-        async_repository.session.execute = AsyncMock(return_value=mock_result)
+        mock_model = PoliticianModel(
+            id=1,
+            name="テスト太郎",
+            furigana="てすとたろう",
+            district="東京1区",
+            profile_page_url="https://example.com/politician/1",
+        )
+        async_repository.session.get = AsyncMock(return_value=mock_model)
 
         result = await async_repository.get_by_id(1)
 
@@ -266,9 +259,7 @@ class TestPoliticianRepositoryImplCRUD:
     @pytest.mark.asyncio
     async def test_get_by_id_not_found(self, async_repository):
         """Test get_by_id returns None when not found"""
-        mock_result = MagicMock()
-        mock_result.fetchone.return_value = None
-        async_repository.session.execute = AsyncMock(return_value=mock_result)
+        async_repository.session.get = AsyncMock(return_value=None)
 
         result = await async_repository.get_by_id(999)
 
