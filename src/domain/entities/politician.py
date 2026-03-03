@@ -3,6 +3,11 @@
 from src.domain.entities.base import BaseEntity
 
 
+def _sanitize_name(name: str) -> str:
+    """全角スペースを除去し、前後の空白を除去する."""
+    return name.replace("\u3000", "").strip()
+
+
 class Politician(BaseEntity):
     """政治家を表すエンティティ."""
 
@@ -17,7 +22,7 @@ class Politician(BaseEntity):
         id: int | None = None,
     ) -> None:
         super().__init__(id)
-        self.name = name
+        self.name = _sanitize_name(name)
         self.prefecture = prefecture
         self.district = district
         self.furigana = furigana
