@@ -154,15 +154,13 @@ class TestPoliticianRepositoryImplConversions:
         assert entity.name == "辞書太郎"
         assert entity.district == "大阪1区"
 
-    def test_to_entity_with_none_returns_defaults(self, async_repository):
-        """Test that _to_entity with None returns entity with defaults."""
-        entity = async_repository._to_entity(None)
-
-        assert entity.id is None
-        assert entity.name == ""
+    def test_to_entity_with_none_raises_value_error(self, async_repository):
+        """Test that _to_entity with None raises ValueError."""
+        with pytest.raises(ValueError, match="Cannot convert None"):
+            async_repository._to_entity(None)
 
     def test_to_entity(self, async_repository, sample_politician_row):
-        """Test _to_entity delegates to _row_to_entity"""
+        """Test _to_entity converts model to entity"""
         mock_model = MagicMock()
         mock_model._mapping = sample_politician_row
         for key, value in sample_politician_row.items():
@@ -209,6 +207,7 @@ class TestPoliticianRepositoryImplConversions:
         assert mock_model.furigana == "てすとたろう"
         assert mock_model.district == "東京1区"
         assert mock_model.profile_page_url == "https://example.com/politician/1"
+        assert mock_model.party_position is None
 
     def test_update_model_partial_fields(self, async_repository):
         """Test updating model with partial entity data"""

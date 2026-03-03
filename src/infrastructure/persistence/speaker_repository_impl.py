@@ -102,6 +102,8 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
     def _to_entity(self, model: Any) -> Speaker:
         """Convert database model or row to domain entity."""
+        if model is None:
+            raise ValueError("Cannot convert None to Speaker entity")
         raw_confidence = getattr(model, "matching_confidence", None)
         return Speaker(
             name=model.name,

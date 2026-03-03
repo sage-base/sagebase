@@ -251,6 +251,8 @@ class GoverningBodyRepositoryImpl(
 
     def _to_entity(self, model: Any) -> GoverningBody:
         """Convert database model or row to domain entity."""
+        if model is None:
+            raise ValueError("Cannot convert None to GoverningBody entity")
         return GoverningBody(
             id=model.id,
             name=model.name,

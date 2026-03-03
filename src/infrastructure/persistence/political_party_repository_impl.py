@@ -70,6 +70,8 @@ class PoliticalPartyRepositoryImpl(
 
     def _to_entity(self, model: Any) -> PoliticalParty:
         """Convert database model to domain entity."""
+        if model is None:
+            raise ValueError("Cannot convert None to PoliticalParty entity")
         return PoliticalParty(
             id=model.id,
             name=model.name,

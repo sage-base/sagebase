@@ -236,6 +236,8 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
 
     def _to_entity(self, model: Any) -> Politician:
         """Convert database model or row to domain entity."""
+        if model is None:
+            raise ValueError("Cannot convert None to Politician entity")
         return Politician(
             name=str(getattr(model, "name", "") or ""),
             prefecture=str(getattr(model, "prefecture", "") or ""),
@@ -253,6 +255,7 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             "prefecture": entity.prefecture,
             "district": entity.district,
             "profile_page_url": entity.profile_page_url,
+            "party_position": entity.party_position,
             "furigana": entity.furigana,
         }
         if entity.id is not None:
@@ -265,6 +268,7 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         model.prefecture = entity.prefecture
         model.district = entity.district
         model.profile_page_url = entity.profile_page_url
+        model.party_position = entity.party_position
         model.furigana = entity.furigana
 
     async def search_by_normalized_name(self, normalized_name: str) -> list[Politician]:

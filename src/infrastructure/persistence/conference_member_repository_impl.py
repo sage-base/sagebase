@@ -207,6 +207,8 @@ class ConferenceMemberRepositoryImpl(
 
     def _to_entity(self, model: Any) -> ConferenceMember:
         """Convert database model or row to domain entity."""
+        if model is None:
+            raise ValueError("Cannot convert None to ConferenceMember entity")
         return ConferenceMember(
             id=model.id,
             politician_id=model.politician_id,

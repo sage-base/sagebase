@@ -13,75 +13,6 @@ from src.infrastructure.persistence.speaker_repository_impl import SpeakerReposi
 from src.infrastructure.persistence.sqlalchemy_models import SpeakerModel
 
 
-class MockColumn:
-    """Mock SQLAlchemy column descriptor."""
-
-    def __init__(self, name):
-        self.name = name
-
-    def __eq__(self, other):
-        """Mock equality comparison for SQLAlchemy filters."""
-        return f"{self.name} == {other}"
-
-    def ilike(self, pattern):
-        """Mock ilike for pattern matching."""
-        return f"{self.name} ILIKE {pattern}"
-
-
-class MockSpeakerModel:
-    """Mock speaker model for testing."""
-
-    # Add __tablename__ to make it look like a SQLAlchemy model
-    __tablename__ = "speakers"
-
-    # Mock SQLAlchemy columns
-    name = MockColumn("name")
-    type = MockColumn("type")
-    political_party_name = MockColumn("political_party_name")
-    position = MockColumn("position")
-    is_politician = MockColumn("is_politician")
-    politician_id = MockColumn("politician_id")
-    matched_by_user_id = MockColumn("matched_by_user_id")
-    is_manually_verified = MockColumn("is_manually_verified")
-    latest_extraction_log_id = MockColumn("latest_extraction_log_id")
-    name_yomi = MockColumn("name_yomi")
-    skip_reason = MockColumn("skip_reason")
-    matching_confidence = MockColumn("matching_confidence")
-    matching_reason = MockColumn("matching_reason")
-
-    def __init__(
-        self,
-        id: int | None = None,
-        name: str = "",
-        type: str | None = None,
-        political_party_name: str | None = None,
-        position: str | None = None,
-        is_politician: bool = False,
-        politician_id: int | None = None,
-        matched_by_user_id: str | None = None,
-        is_manually_verified: bool = False,
-        latest_extraction_log_id: int | None = None,
-        name_yomi: str | None = None,
-        skip_reason: str | None = None,
-        matching_confidence: float | None = None,
-        matching_reason: str | None = None,
-    ):
-        self.id = id
-        self.name = name
-        self.type = type
-        self.political_party_name = political_party_name
-        self.position = position
-        self.is_politician = is_politician
-        self.politician_id = politician_id
-        self.matched_by_user_id = matched_by_user_id
-        self.is_manually_verified = is_manually_verified
-        self.latest_extraction_log_id = latest_extraction_log_id
-        self.name_yomi = name_yomi
-        self.skip_reason = skip_reason
-        self.matching_confidence = matching_confidence
-        self.matching_reason = matching_reason
-
-
 class TestSpeakerRepositoryImpl:
     """Test cases for SpeakerRepositoryImpl."""
 
@@ -94,9 +25,7 @@ class TestSpeakerRepositoryImpl:
     @pytest.fixture
     def repository(self, mock_session):
         """Create speaker repository."""
-        # Create repository and inject MockSpeakerModel as the model class
         repo = SpeakerRepositoryImpl(mock_session)
-        repo.model_class = MockSpeakerModel
         return repo
 
     @pytest.mark.asyncio
@@ -365,7 +294,7 @@ class TestSpeakerRepositoryImpl:
     async def test_to_entity_conversion(self, repository):
         """Test model to entity conversion."""
         # Setup
-        model = MockSpeakerModel(
+        model = SpeakerModel(
             id=1,
             name="山田太郎",
             type="議員",
@@ -416,7 +345,7 @@ class TestSpeakerRepositoryImpl:
     async def test_update_model(self, repository):
         """Test update model from entity."""
         # Setup
-        model = MockSpeakerModel(
+        model = SpeakerModel(
             id=1,
             name="旧名前",
             type="旧タイプ",
@@ -922,7 +851,6 @@ class TestClassifyIsPoliticianBulk:
     def repository(self, mock_session):
         """Create speaker repository."""
         repo = SpeakerRepositoryImpl(mock_session)
-        repo.model_class = MockSpeakerModel
         return repo
 
     @pytest.mark.asyncio

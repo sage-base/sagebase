@@ -233,6 +233,8 @@ class ParliamentaryGroupRepositoryImpl(
 
     def _to_entity(self, model: Any) -> ParliamentaryGroup:
         """Convert database model or row to domain entity."""
+        if model is None:
+            raise ValueError("Cannot convert None to ParliamentaryGroup entity")
         return ParliamentaryGroup(
             id=model.id,
             name=model.name,
