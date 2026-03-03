@@ -36,6 +36,48 @@ class TestNormalize:
         """複数の旧字体を含む名前."""
         assert NameNormalizer.normalize("國澤太郎") == "国沢太郎"
 
+    # --- Issue #1305: 旧字体テーブル拡充 ---
+
+    def test_kyujitai_ya(self) -> None:
+        """彌→弥 の変換."""
+        assert NameNormalizer.normalize("河井彌八") == "河井弥八"
+
+    def test_kyujitai_kaku(self) -> None:
+        """覺→覚 の変換."""
+        assert NameNormalizer.normalize("足鹿覺") == "足鹿覚"
+
+    def test_kyujitai_gan(self) -> None:
+        """巖→巌 の変換."""
+        assert NameNormalizer.normalize("寺前巖") == "寺前巌"
+
+    def test_kyujitai_ho(self) -> None:
+        """穗→穂 の変換."""
+        assert NameNormalizer.normalize("穗積七郎") == "穂積七郎"
+
+    def test_kyujitai_en(self) -> None:
+        """圓→円 の変換."""
+        assert NameNormalizer.normalize("草葉隆圓") == "草葉隆円"
+
+    def test_kyujitai_oku(self) -> None:
+        """奧→奥 の変換."""
+        assert NameNormalizer.normalize("奧野誠亮") == "奥野誠亮"
+
+    def test_kyujitai_ina(self) -> None:
+        """稻→稲 の変換."""
+        assert NameNormalizer.normalize("稻葉修") == "稲葉修"
+
+    def test_kyujitai_asa_with_multiple(self) -> None:
+        """淺→浅 + 稻→稲 の複数旧字体変換."""
+        assert NameNormalizer.normalize("淺沼稻次郎") == "浅沼稲次郎"
+
+    def test_kyujitai_taki(self) -> None:
+        """瀧→滝 の変換."""
+        assert NameNormalizer.normalize("瀧井太郎") == "滝井太郎"
+
+    def test_kyujitai_shin(self) -> None:
+        """眞→真 の変換."""
+        assert NameNormalizer.normalize("眞鍋勝") == "真鍋勝"
+
     # --- NFKC正規化 ---
 
     def test_nfkc_fullwidth_space(self) -> None:
