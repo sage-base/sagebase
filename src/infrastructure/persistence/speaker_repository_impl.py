@@ -1,4 +1,4 @@
-"""Speaker repository implementation."""
+"""Speaker repository implementation using SQLAlchemy ORM."""
 
 from typing import Any
 from uuid import UUID
@@ -15,9 +15,10 @@ from src.domain.value_objects.speaker_with_conversation_count import (
 )
 from src.domain.value_objects.speaker_with_politician import SpeakerWithPolitician
 from src.infrastructure.persistence.base_repository_impl import BaseRepositoryImpl
+from src.infrastructure.persistence.sqlalchemy_models import SpeakerModel
 
 
-# Time interval functions for timeline statistics
+# 時系列統計用の集計間隔関数
 INTERVAL_FUNCTIONS = {
     "day": "DATE(updated_at)",
     "week": "DATE_TRUNC('week', updated_at)::date",
@@ -25,34 +26,12 @@ INTERVAL_FUNCTIONS = {
 }
 
 
-class SpeakerModel:
-    """Speaker database model (dynamic)."""
-
-    id: int | None
-    name: str
-    political_party_name: str | None
-    position: str | None
-    is_politician: bool
-    politician_id: int | None
-    matched_by_user_id: UUID | None
-    is_manually_verified: bool
-    latest_extraction_log_id: int | None
-
-    def __init__(self, **kwargs: Any):
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-
-
 class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
-    """Implementation of speaker repository using SQLAlchemy."""
+    """Implementation of speaker repository using SQLAlchemy ORM."""
 
     def __init__(self, session: AsyncSession | ISessionAdapter):
         """Initialize repository with async session or session adapter."""
         super().__init__(session, Speaker, SpeakerModel)
-
-    @property
-    def _table_name(self) -> str:
-        return "speakers"
 
     async def get_by_name_party_position(
         self,
@@ -80,7 +59,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         row = result.fetchone()
 
         if row:
-            return self._row_to_entity(row)
+            return self._to_entity(row)
         return None
 
     async def get_politicians(self) -> list[Speaker]:
@@ -93,7 +72,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         result = await self.session.execute(query)
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def search_by_name(self, name_pattern: str) -> list[Speaker]:
         """Search speakers by name pattern."""
@@ -105,11 +84,10 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         result = await self.session.execute(query, {"pattern": f"%{name_pattern}%"})
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def upsert(self, speaker: Speaker) -> Speaker:
         """Insert or update speaker (upsert)."""
-        # Check if exists
         existing = await self.get_by_name_party_position(
             speaker.name,
             speaker.political_party_name,
@@ -117,22 +95,20 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         )
 
         if existing:
-            # Update existing
             speaker.id = existing.id
             return await self.update(speaker)
         else:
-            # Create new
             return await self.create(speaker)
 
     def _to_entity(self, model: Any) -> Speaker:
-        """Convert database model to domain entity."""
+        """Convert database model or row to domain entity."""
         raw_confidence = getattr(model, "matching_confidence", None)
         return Speaker(
             name=model.name,
-            type=model.type,
-            political_party_name=model.political_party_name,
-            position=model.position,
-            is_politician=model.is_politician,
+            type=getattr(model, "type", None),
+            political_party_name=getattr(model, "political_party_name", None),
+            position=getattr(model, "position", None),
+            is_politician=getattr(model, "is_politician", False),
             politician_id=getattr(model, "politician_id", None),
             matched_by_user_id=getattr(model, "matched_by_user_id", None),
             is_manually_verified=bool(getattr(model, "is_manually_verified", False)),
@@ -146,23 +122,26 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             id=model.id,
         )
 
-    def _to_model(self, entity: Speaker) -> Any:
+    def _to_model(self, entity: Speaker) -> SpeakerModel:
         """Convert domain entity to database model."""
-        return self.model_class(
-            name=entity.name,
-            type=entity.type,
-            political_party_name=entity.political_party_name,
-            position=entity.position,
-            is_politician=entity.is_politician,
-            politician_id=entity.politician_id,
-            matched_by_user_id=entity.matched_by_user_id,
-            is_manually_verified=entity.is_manually_verified,
-            latest_extraction_log_id=entity.latest_extraction_log_id,
-            name_yomi=entity.name_yomi,
-            skip_reason=entity.skip_reason,
-            matching_confidence=entity.matching_confidence,
-            matching_reason=entity.matching_reason,
-        )
+        data: dict[str, Any] = {
+            "name": entity.name,
+            "type": entity.type,
+            "political_party_name": entity.political_party_name,
+            "position": entity.position,
+            "is_politician": entity.is_politician,
+            "politician_id": entity.politician_id,
+            "matched_by_user_id": entity.matched_by_user_id,
+            "is_manually_verified": entity.is_manually_verified,
+            "latest_extraction_log_id": entity.latest_extraction_log_id,
+            "name_yomi": entity.name_yomi,
+            "skip_reason": entity.skip_reason,
+            "matching_confidence": entity.matching_confidence,
+            "matching_reason": entity.matching_reason,
+        }
+        if entity.id is not None:
+            data["id"] = entity.id
+        return SpeakerModel(**data)
 
     def _update_model(self, model: Any, entity: Speaker) -> None:
         """Update model fields from entity."""
@@ -192,7 +171,6 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         order_by: str = "conversation_count",
     ) -> list[SpeakerWithConversationCount]:
         """Get speakers with their conversation count."""
-        # WHERE条件の構築
         conditions = []
         params: dict[str, object] = {}
 
@@ -225,7 +203,6 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
 
-        # ページネーション
         pagination_clause = ""
         if limit is not None:
             pagination_clause += " LIMIT :limit"
@@ -234,7 +211,6 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             pagination_clause += " OFFSET :offset"
             params["offset"] = offset
 
-        # ソート順の決定
         order_clause = "ORDER BY conversation_count DESC, s.name"
         if order_by == "name":
             order_clause = "ORDER BY s.name"
@@ -293,7 +269,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         row = result.fetchone()
 
         if row:
-            return self._row_to_entity(row)
+            return self._to_entity(row)
         return None
 
     async def get_speakers_not_linked_to_politicians(self) -> list[Speaker]:
@@ -306,7 +282,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         result = await self.session.execute(query)
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def get_all(
         self, limit: int | None = None, offset: int | None = 0
@@ -324,27 +300,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         )
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
-
-    async def get_by_id(self, entity_id: int) -> Speaker | None:
-        """Get speaker by ID."""
-        query = text("SELECT * FROM speakers WHERE id = :id")
-        result = await self.session.execute(query, {"id": entity_id})
-        row = result.fetchone()
-
-        if row:
-            return self._row_to_entity(row)
-        return None
-
-    async def get_by_ids(self, entity_ids: list[int]) -> list[Speaker]:
-        """IDリストから発言者を取得する（動的モデル対応のraw SQL実装）."""
-        if not entity_ids:
-            return []
-        placeholders = ", ".join(f":id_{i}" for i in range(len(entity_ids)))
-        query = text(f"SELECT * FROM speakers WHERE id IN ({placeholders})")
-        params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
-        result = await self.session.execute(query, params)
-        return [self._row_to_entity(row) for row in result.fetchall()]
+        return [self._to_entity(row) for row in rows]
 
     async def create(self, entity: Speaker) -> Speaker:
         """Create a new speaker."""
@@ -376,7 +332,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
         row = result.first()
         if row:
-            return self._row_to_entity(row)
+            return self._to_entity(row)
         raise RuntimeError("Failed to create speaker")
 
     async def update(self, entity: Speaker) -> Speaker:
@@ -420,30 +376,8 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
         row = result.first()
         if row:
-            return self._row_to_entity(row)
+            return self._to_entity(row)
         raise ValueError(f"Speaker with ID {entity.id} not found")
-
-    def _row_to_entity(self, row: Any) -> Speaker:
-        """Convert database row to domain entity."""
-        raw_confidence = getattr(row, "matching_confidence", None)
-        return Speaker(
-            id=row.id,
-            name=row.name,
-            type=getattr(row, "type", None),
-            political_party_name=getattr(row, "political_party_name", None),
-            position=getattr(row, "position", None),
-            is_politician=getattr(row, "is_politician", False),
-            politician_id=getattr(row, "politician_id", None),
-            matched_by_user_id=getattr(row, "matched_by_user_id", None),
-            is_manually_verified=bool(getattr(row, "is_manually_verified", False)),
-            latest_extraction_log_id=getattr(row, "latest_extraction_log_id", None),
-            name_yomi=getattr(row, "name_yomi", None),
-            skip_reason=getattr(row, "skip_reason", None),
-            matching_confidence=float(raw_confidence)
-            if raw_confidence is not None
-            else None,
-            matching_reason=getattr(row, "matching_reason", None),
-        )
 
     async def get_speakers_with_politician_info(self) -> list[dict[str, Any]]:
         """Get speakers with linked politician information."""
@@ -553,7 +487,6 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 "match_rate": 0.0,
             }
 
-        # skip_reason別内訳を取得
         skip_reason_query = text("""
             SELECT
                 COALESCE(skip_reason, '未分類') as reason,
@@ -620,15 +553,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
     async def find_by_matched_user(
         self, user_id: "UUID | None" = None
     ) -> list[SpeakerWithPolitician]:
-        """指定されたユーザーIDによってマッチングされた発言者と政治家情報を取得する
-
-        Args:
-            user_id: フィルタリング対象のユーザーID（Noneの場合は全ユーザー）
-
-        Returns:
-            発言者と紐付けられた政治家情報を含むDTOのリスト
-        """
-        # Build SQL query with optional user_id filter
+        """指定されたユーザーIDによってマッチングされた発言者と政治家情報を取得する."""
         query_text = """
             SELECT
                 s.id,
@@ -656,7 +581,6 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        # Convert rows to DTOs
         results = []
         for row in rows:
             speaker = Speaker(
@@ -671,7 +595,6 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 updated_at=row.updated_at,
             )
 
-            # Create politician entity if exists
             politician = None
             if row.politician_id_from_join:
                 politician = Politician(
@@ -681,7 +604,6 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                     district=getattr(row, "politician_district", "") or "",
                 )
 
-            # Create Value Object with speaker and politician
             results.append(
                 SpeakerWithPolitician(speaker=speaker, politician=politician)
             )
@@ -694,17 +616,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         start_date: Any | None = None,
         end_date: Any | None = None,
     ) -> dict[UUID, int]:
-        """ユーザー別の発言者紐付け件数を集計する（データベースレベルで集計）
-
-        Args:
-            user_id: フィルタリング対象のユーザーID（Noneの場合は全ユーザー）
-            start_date: 開始日時（この日時以降の作業を集計）
-            end_date: 終了日時（この日時以前の作業を集計）
-
-        Returns:
-            ユーザーIDと件数のマッピング（例: {UUID('...'): 10, UUID('...'): 5}）
-        """
-        # Build SQL query with GROUP BY
+        """ユーザー別の発言者紐付け件数を集計する."""
         query_text = """
             SELECT
                 matched_by_user_id,
@@ -715,12 +627,10 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
         params: dict[str, Any] = {}
 
-        # Add user filter if specified
         if user_id is not None:
             query_text += " AND matched_by_user_id = :user_id"
             params["user_id"] = user_id
 
-        # Add date filters if specified
         if start_date is not None:
             query_text += " AND updated_at >= :start_date"
             params["start_date"] = start_date
@@ -735,10 +645,8 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        # Convert to dictionary
         statistics: dict[UUID, int] = {}
         for row in rows:
-            # Use cast to ensure type safety
             from typing import cast
 
             statistics[cast(UUID, row.matched_by_user_id)] = cast(int, row.count)
@@ -752,23 +660,11 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         end_date: Any | None = None,
         interval: str = "day",
     ) -> list[dict[str, Any]]:
-        """時系列の発言者紐付け件数を集計する（データベースレベルで集計）
-
-        Args:
-            user_id: フィルタリング対象のユーザーID（Noneの場合は全ユーザー）
-            start_date: 開始日時
-            end_date: 終了日時
-            interval: 集計間隔（"day", "week", "month"）
-
-        Returns:
-            時系列データのリスト（例: [{"date": "2024-01-01", "count": 5}, ...]）
-        """
-        # Determine date truncation function based on interval
+        """時系列の発言者紐付け件数を集計する."""
         date_trunc = INTERVAL_FUNCTIONS.get(interval)
         if date_trunc is None:
             raise ValueError(f"Invalid interval: {interval}")
 
-        # Build SQL query
         query_text = f"""
             SELECT
                 {date_trunc} as date,
@@ -780,12 +676,10 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
         params: dict[str, Any] = {}
 
-        # Add user filter if specified
         if user_id is not None:
             query_text += " AND matched_by_user_id = :user_id"
             params["user_id"] = user_id
 
-        # Add date filters if specified
         if start_date is not None:
             query_text += " AND updated_at >= :start_date"
             params["start_date"] = start_date
@@ -800,7 +694,6 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        # Convert to list of dictionaries
         timeline = []
         for row in rows:
             timeline.append({"date": str(row.date), "count": row.count})
@@ -808,14 +701,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         return timeline
 
     async def get_by_politician_id(self, politician_id: int) -> list[Speaker]:
-        """指定された政治家IDに紐づく発言者を取得する.
-
-        Args:
-            politician_id: 政治家ID
-
-        Returns:
-            紐づいている発言者のリスト
-        """
+        """指定された政治家IDに紐づく発言者を取得する."""
         query = text("""
             SELECT * FROM speakers
             WHERE politician_id = :politician_id
@@ -824,19 +710,10 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         result = await self.session.execute(query, {"politician_id": politician_id})
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def unlink_from_politician(self, politician_id: int) -> int:
-        """指定された政治家IDとの紐づきを解除する.
-
-        発言者のpolitician_idをNULLに設定します。
-
-        Args:
-            politician_id: 政治家ID
-
-        Returns:
-            解除された発言者の数
-        """
+        """指定された政治家IDとの紐づきを解除する."""
         query = text("""
             UPDATE speakers
             SET politician_id = NULL
@@ -867,7 +744,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             {"min_confidence": min_confidence, "max_confidence": max_confidence},
         )
         rows = result.fetchall()
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def classify_is_politician_bulk(
         self,
@@ -878,8 +755,6 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         ) = None,
     ) -> dict[str, int]:
         """全Speakerのis_politicianフラグを一括分類設定する."""
-        # Step 1: is_manually_verified=Falseかつ未リンクのSpeakerを全て政治家に設定
-        # skip_reasonもNULLにリセット
         update_to_politician_query = text("""
             UPDATE speakers
             SET is_politician = TRUE, skip_reason = NULL
@@ -889,11 +764,9 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         result1 = await self.session.execute(update_to_politician_query)
         total_updated_to_politician = result1.rowcount
 
-        # Step 2: 非政治家パターンに該当しpolitician_idがNULLのものをFalseに戻す
         total_kept_non_politician = 0
 
         if skip_reason_patterns:
-            # カテゴリ別にskip_reasonを設定しながら非政治家を分類
             for skip_reason_value, exact_names, prefixes in skip_reason_patterns:
                 conditions: list[str] = []
                 params: dict[str, object] = {
@@ -920,7 +793,6 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                     result = await self.session.execute(update_query, params)
                     total_kept_non_politician += result.rowcount
         else:
-            # 後方互換: skip_reasonなしの旧動作
             conditions_flat: list[str] = []
             params_flat: dict[str, object] = {}
 

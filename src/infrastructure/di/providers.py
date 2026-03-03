@@ -241,44 +241,6 @@ def _create_politician_matching_agent(
     )
 
 
-# Mock SQLAlchemy model classes for repositories that don't have them yet
-class MockSpeakerModel:
-    """Mock SQLAlchemy model for Speaker entity."""
-
-    __tablename__ = "speakers"
-    id = None
-    name = None
-
-
-class MockPoliticianModel:
-    """Mock SQLAlchemy model for Politician entity."""
-
-    __tablename__ = "politicians"
-    id = None
-    name = None
-
-
-class MockMeetingModel:
-    """Mock SQLAlchemy model for Meeting entity."""
-
-    __tablename__ = "meetings"
-    id = None
-
-
-class MockConversationModel:
-    """Mock SQLAlchemy model for Conversation entity."""
-
-    __tablename__ = "conversations"
-    id = None
-
-
-class MockMinutesModel:
-    """Mock SQLAlchemy model for Minutes entity."""
-
-    __tablename__ = "minutes"
-    id = None
-
-
 class MockService:
     """Mock service for testing."""
 

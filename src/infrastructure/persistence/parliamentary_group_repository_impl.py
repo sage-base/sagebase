@@ -1,4 +1,4 @@
-"""ParliamentaryGroup repository implementation using SQLAlchemy."""
+"""ParliamentaryGroup repository implementation using SQLAlchemy ORM."""
 
 from datetime import date
 from typing import Any
@@ -16,37 +16,16 @@ from src.domain.repositories.parliamentary_group_repository import (
 )
 from src.domain.repositories.session_adapter import ISessionAdapter
 from src.infrastructure.persistence.base_repository_impl import BaseRepositoryImpl
-
-
-class ParliamentaryGroupModel:
-    """Parliamentary group database model (dynamic)."""
-
-    id: int | None
-    name: str
-    governing_body_id: int
-    url: str | None
-    description: str | None
-    is_active: bool
-    chamber: str
-    start_date: date | None
-    end_date: date | None
-
-    def __init__(self, **kwargs: Any):
-        for key, value in kwargs.items():
-            setattr(self, key, value)
+from src.infrastructure.persistence.sqlalchemy_models import ParliamentaryGroupModel
 
 
 class ParliamentaryGroupRepositoryImpl(
     BaseRepositoryImpl[ParliamentaryGroup], IParliamentaryGroupRepository
 ):
-    """Implementation of ParliamentaryGroupRepository using SQLAlchemy."""
+    """Implementation of ParliamentaryGroupRepository using SQLAlchemy ORM."""
 
     def __init__(self, session: AsyncSession | ISessionAdapter):
         super().__init__(session, ParliamentaryGroup, ParliamentaryGroupModel)
-
-    @property
-    def _table_name(self) -> str:
-        return "parliamentary_groups"
 
     async def create(self, entity: ParliamentaryGroup) -> ParliamentaryGroup:
         """Create a new parliamentary group using raw SQL."""
@@ -84,7 +63,7 @@ class ParliamentaryGroupRepositoryImpl(
         row = result.fetchone()
 
         if row:
-            return self._row_to_entity(row)
+            return self._to_entity(row)
         raise ValueError("Failed to create parliamentary group")
 
     async def update(self, entity: ParliamentaryGroup) -> ParliamentaryGroup:
@@ -125,7 +104,7 @@ class ParliamentaryGroupRepositoryImpl(
         row = result.fetchone()
 
         if row:
-            return self._row_to_entity(row)
+            return self._to_entity(row)
         raise ValueError(f"Parliamentary group with ID {entity.id} not found")
 
     async def get_by_name_and_governing_body(
@@ -145,7 +124,7 @@ class ParliamentaryGroupRepositoryImpl(
         row = result.fetchone()
 
         if row:
-            return self._row_to_entity(row)
+            return self._to_entity(row)
         return None
 
     async def get_by_governing_body_id(
@@ -160,7 +139,6 @@ class ParliamentaryGroupRepositoryImpl(
         params: dict[str, Any] = {"gb_id": governing_body_id}
 
         if as_of_date is not None:
-            # as_of_dateが指定された場合、日付ベースでフィルタ（active_onlyより優先）
             conditions.append("(start_date IS NULL OR start_date <= :as_of_date)")
             conditions.append("(end_date IS NULL OR end_date >= :as_of_date)")
             params["as_of_date"] = as_of_date
@@ -180,7 +158,7 @@ class ParliamentaryGroupRepositoryImpl(
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def get_active(self) -> list[ParliamentaryGroup]:
         """Get all active parliamentary groups."""
@@ -193,7 +171,7 @@ class ParliamentaryGroupRepositoryImpl(
         result = await self.session.execute(query)
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def get_all(
         self, limit: int | None = None, offset: int | None = 0
@@ -216,7 +194,7 @@ class ParliamentaryGroupRepositoryImpl(
         )
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def get_all_with_details(
         self,
@@ -224,19 +202,7 @@ class ParliamentaryGroupRepositoryImpl(
         active_only: bool = True,
         with_url_only: bool = False,
     ) -> list[dict[str, Any]]:
-        """
-        Get all parliamentary groups with governing body details.
-
-        Returns dictionary format for CLI display purposes.
-
-        Args:
-            governing_body_id: Filter to specific governing body (optional)
-            active_only: Filter to only active groups
-            with_url_only: Filter to only groups with URL set
-
-        Returns:
-            List of dictionaries with parliamentary group details
-        """
+        """Get all parliamentary groups with governing body details."""
         query_text = """
             SELECT pg.*, gb.name as governing_body_name
             FROM parliamentary_groups pg
@@ -260,65 +226,20 @@ class ParliamentaryGroupRepositoryImpl(
         result = await self.session.execute(text(query_text), params or None)
         rows = result.fetchall()
 
-        # Convert rows to dictionaries
         if rows:
             keys = result.keys()
             return [dict(zip(keys, row, strict=False)) for row in rows]
         return []
 
-    async def get_by_id(self, entity_id: int) -> ParliamentaryGroup | None:
-        """Get parliamentary group by ID."""
-        query = text("SELECT * FROM parliamentary_groups WHERE id = :id")
-        result = await self.session.execute(query, {"id": entity_id})
-        row = result.fetchone()
-
-        if row:
-            return self._row_to_entity(row)
-        return None
-
-    async def get_by_ids(self, entity_ids: list[int]) -> list[ParliamentaryGroup]:
-        """Get parliamentary groups by their IDs."""
-        if not entity_ids:
-            return []
-        placeholders = ", ".join(f":id_{i}" for i in range(len(entity_ids)))
-        query = text(f"""
-            SELECT * FROM parliamentary_groups
-            WHERE id IN ({placeholders})
-        """)
-        params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
-        result = await self.session.execute(query, params)
-        return [self._row_to_entity(row) for row in result.fetchall()]
-
-    async def count(self) -> int:
-        """会派の総数を取得する（動的モデルのためraw SQLでオーバーライド）."""
-        query = text("SELECT COUNT(*) FROM parliamentary_groups")
-        result = await self.session.execute(query)
-        count = result.scalar()
-        return count if count is not None else 0
-
-    def _row_to_entity(self, row: Any) -> ParliamentaryGroup:
-        """Convert database row to domain entity."""
-        return ParliamentaryGroup(
-            id=row.id,
-            name=row.name,
-            governing_body_id=row.governing_body_id,
-            url=getattr(row, "url", None),
-            description=getattr(row, "description", None),
-            is_active=getattr(row, "is_active", True),
-            chamber=getattr(row, "chamber", ""),
-            start_date=getattr(row, "start_date", None),
-            end_date=getattr(row, "end_date", None),
-        )
-
-    def _to_entity(self, model: ParliamentaryGroupModel) -> ParliamentaryGroup:
-        """Convert database model to domain entity."""
+    def _to_entity(self, model: Any) -> ParliamentaryGroup:
+        """Convert database model or row to domain entity."""
         return ParliamentaryGroup(
             id=model.id,
             name=model.name,
             governing_body_id=model.governing_body_id,
             url=getattr(model, "url", None),
-            description=model.description,
-            is_active=model.is_active,
+            description=getattr(model, "description", None),
+            is_active=getattr(model, "is_active", True),
             chamber=getattr(model, "chamber", ""),
             start_date=getattr(model, "start_date", None),
             end_date=getattr(model, "end_date", None),
@@ -343,9 +264,7 @@ class ParliamentaryGroupRepositoryImpl(
 
         return ParliamentaryGroupModel(**data)
 
-    def _update_model(
-        self, model: ParliamentaryGroupModel, entity: ParliamentaryGroup
-    ) -> None:
+    def _update_model(self, model: Any, entity: ParliamentaryGroup) -> None:
         """Update model fields from entity."""
         model.name = entity.name
         model.governing_body_id = entity.governing_body_id

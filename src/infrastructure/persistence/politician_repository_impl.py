@@ -1,4 +1,4 @@
-"""Politician repository implementation (async-only)."""
+"""Politician repository implementation (async-only) using SQLAlchemy ORM."""
 
 import logging
 
@@ -13,42 +13,18 @@ from src.domain.entities.politician import Politician
 from src.domain.repositories.politician_repository import PoliticianRepository
 from src.domain.repositories.session_adapter import ISessionAdapter
 from src.infrastructure.persistence.base_repository_impl import BaseRepositoryImpl
+from src.infrastructure.persistence.sqlalchemy_models import PoliticianModel
 
 
 logger = logging.getLogger(__name__)
 
 
-class PoliticianModel:
-    """Politician database model (dynamic)."""
-
-    def __init__(self, **kwargs: Any):
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-
-
 class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianRepository):
-    """Async-only implementation of politician repository using SQLAlchemy."""
+    """Async-only implementation of politician repository using SQLAlchemy ORM."""
 
-    def __init__(
-        self,
-        session: AsyncSession | ISessionAdapter,
-        model_class: type[Any] | None = None,
-    ):
-        """Initialize repository.
-
-        Args:
-            session: AsyncSession or ISessionAdapter for database operations
-            model_class: Optional model class for compatibility
-        """
-        # Use dynamic model if no model class provided
-        if model_class is None:
-            model_class = PoliticianModel
-
-        super().__init__(session, Politician, model_class)
-
-    @property
-    def _table_name(self) -> str:
-        return "politicians"
+    def __init__(self, session: AsyncSession | ISessionAdapter):
+        """Initialize repository."""
+        super().__init__(session, Politician, PoliticianModel)
 
     async def get_by_name(self, name: str) -> Politician | None:
         """Get politician by name."""
@@ -59,7 +35,7 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         """)
         result = await self.session.execute(query, {"name": name})
         row = result.fetchone()
-        return self._row_to_entity(row) if row else None
+        return self._to_entity(row) if row else None
 
     async def search_by_name(self, name_pattern: str) -> list[Politician]:
         """Search politicians by name pattern."""
@@ -70,43 +46,34 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         """)
         result = await self.session.execute(query, {"pattern": f"%{name_pattern}%"})
         rows = result.fetchall()
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def upsert(self, politician: Politician) -> Politician:
         """Insert or update politician (upsert)."""
-        # Check if exists
         existing = await self.get_by_name(politician.name)
 
         if existing:
-            # Update existing
             politician.id = existing.id
             return await self.update(politician)
         else:
-            # Create new using base class create (which commits)
             return await self.create(politician)
 
     async def bulk_create_politicians(
         self, politicians_data: list[dict[str, Any]]
     ) -> dict[str, list[Politician] | list[dict[str, Any]]]:
-        """Bulk create or update politicians.
-
-        Returns dict for backward compatibility with legacy code.
-        """
+        """Bulk create or update politicians."""
         created: list[Politician] = []
         updated: list[Politician] = []
         errors: list[dict[str, Any]] = []
 
         for data in politicians_data:
             try:
-                # Check existing politician
                 existing = await self.get_by_name(
                     data.get("name", ""),
                 )
 
                 if existing:
-                    # Update if needed
                     needs_update = False
-                    # 外部データキー→エンティティ属性名のマッピング
                     field_mapping = {
                         "prefecture": "prefecture",
                         "electoral_district": "district",
@@ -124,7 +91,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
                         updated_politician = await self.update(existing)
                         updated.append(updated_politician)
                 else:
-                    # Create new politician
                     new_politician = Politician(
                         name=data.get("name", ""),
                         prefecture=data.get("prefecture", ""),
@@ -155,7 +121,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
                 )
                 errors.append({"data": data, "error": f"Unexpected error: {str(e)}"})
 
-        # Commit changes
         await self.session.commit()
 
         return {"created": created, "updated": updated, "errors": errors}
@@ -170,14 +135,10 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
 
     async def create_entity(self, entity: Politician) -> Politician:
         """Create a new politician entity (async) without committing."""
-        # Create without committing (for bulk operations)
         model = self._to_model(entity)
-
         self.session.add(model)
-        # Don't commit here - let the caller decide when to commit
-        await self.session.flush()  # Flush to get the ID without committing
+        await self.session.flush()
         await self.session.refresh(model)
-
         return self._to_entity(model)
 
     async def get_all(
@@ -200,36 +161,7 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         )
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
-
-    async def get_by_id(self, entity_id: int) -> Politician | None:
-        """Get politician by ID."""
-        query = text("""
-            SELECT p.*
-            FROM politicians p
-            WHERE p.id = :id
-        """)
-
-        result = await self.session.execute(query, {"id": entity_id})
-        row = result.fetchone()
-
-        if row:
-            return self._row_to_entity(row)
-        return None
-
-    async def get_by_ids(self, entity_ids: list[int]) -> list[Politician]:
-        """Get politicians by their IDs."""
-        if not entity_ids:
-            return []
-        placeholders = ", ".join(f":id_{i}" for i in range(len(entity_ids)))
-        query = text(f"""
-            SELECT p.*
-            FROM politicians p
-            WHERE p.id IN ({placeholders})
-        """)
-        params = {f"id_{i}": eid for i, eid in enumerate(entity_ids)}
-        result = await self.session.execute(query, params)
-        return [self._row_to_entity(row) for row in result.fetchall()]
+        return [self._to_entity(row) for row in rows]
 
     async def create(self, entity: Politician) -> Politician:
         """Create a new politician."""
@@ -258,7 +190,7 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
 
         row = result.first()
         if row:
-            return self._row_to_entity(row)
+            return self._to_entity(row)
         raise RuntimeError("Failed to create politician")
 
     async def update(self, entity: Politician) -> Politician:
@@ -290,7 +222,7 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
 
         row = result.first()
         if row:
-            return self._row_to_entity(row)
+            return self._to_entity(row)
         raise UpdateError(f"Politician with ID {entity.id} not found")
 
     async def delete(self, entity_id: int) -> bool:
@@ -302,60 +234,30 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
 
         return result.rowcount > 0  # type: ignore[attr-defined]
 
-    async def count(self) -> int:
-        """Count total number of politicians."""
-        query = text("SELECT COUNT(*) FROM politicians")
-        result = await self.session.execute(query)
-        count = result.scalar()
-        return count if count is not None else 0
-
-    def _row_to_entity(self, row: Any) -> Politician:
-        """Convert database row to domain entity."""
-        if row is None:
-            raise ValueError("Cannot convert None to Politician entity")
-
-        # Handle both Row and dict objects
-        if hasattr(row, "_mapping"):
-            data = dict(row._mapping)  # type: ignore[attr-defined]
-        elif isinstance(row, dict):
-            data = row
-        else:
-            # Try to access as attributes
-            data = {
-                "id": getattr(row, "id", None),
-                "name": getattr(row, "name", None),
-                "prefecture": getattr(row, "prefecture", None),
-                "district": getattr(row, "district", None),
-                "profile_page_url": getattr(row, "profile_page_url", None),
-                "party_position": getattr(row, "party_position", None),
-                "furigana": getattr(row, "furigana", None),
-            }
-
-        return Politician(
-            name=str(data.get("name") or ""),
-            prefecture=str(data.get("prefecture") or ""),
-            district=str(data.get("district") or ""),
-            furigana=data.get("furigana"),
-            profile_page_url=data.get("profile_page_url"),
-            party_position=data.get("party_position"),
-            id=data.get("id"),
-        )
-
     def _to_entity(self, model: Any) -> Politician:
-        """Convert database model to domain entity."""
-        return self._row_to_entity(model)
-
-    def _to_model(self, entity: Politician) -> Any:
-        """Convert domain entity to database model."""
-        return self.model_class(
-            name=entity.name,
-            prefecture=entity.prefecture,
-            district=entity.district,
-            profile_page_url=entity.profile_page_url,
-            party_position=entity.party_position,
-            furigana=entity.furigana,
-            id=entity.id,
+        """Convert database model or row to domain entity."""
+        return Politician(
+            name=str(getattr(model, "name", "") or ""),
+            prefecture=str(getattr(model, "prefecture", "") or ""),
+            district=str(getattr(model, "district", "") or ""),
+            furigana=getattr(model, "furigana", None),
+            profile_page_url=getattr(model, "profile_page_url", None),
+            party_position=getattr(model, "party_position", None),
+            id=getattr(model, "id", None),
         )
+
+    def _to_model(self, entity: Politician) -> PoliticianModel:
+        """Convert domain entity to database model."""
+        data: dict[str, Any] = {
+            "name": entity.name,
+            "prefecture": entity.prefecture,
+            "district": entity.district,
+            "profile_page_url": entity.profile_page_url,
+            "furigana": entity.furigana,
+        }
+        if entity.id is not None:
+            data["id"] = entity.id
+        return PoliticianModel(**data)
 
     def _update_model(self, model: Any, entity: Politician) -> None:
         """Update model fields from entity."""
@@ -373,13 +275,10 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         """)
         result = await self.session.execute(query, {"name": normalized_name})
         rows = result.fetchall()
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def get_all_for_matching(self) -> list[dict[str, Any]]:
-        """Get all politicians for matching purposes.
-
-        政党名はparty_membership_history経由で取得する。
-        """
+        """Get all politicians for matching purposes."""
         query = text("""
             SELECT p.id, p.name, p.furigana, p.party_position, p.district,
                    pp.name as party_name
@@ -408,7 +307,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         """指定された政治家に紐づく関連データの件数を取得する."""
         counts: dict[str, int] = {}
 
-        # 各テーブルの件数を取得
         tables_with_politician_id = [
             ("speakers", "politician_id"),
             ("parliamentary_group_memberships", "politician_id"),
@@ -439,7 +337,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         """指定された政治家に紐づく関連データを削除・解除する."""
         results: dict[str, int] = {}
 
-        # NULLableカラム: politician_idをNULLに設定
         nullable_tables = [
             ("speakers", "politician_id"),
             ("extracted_parliamentary_group_members", "matched_politician_id"),
@@ -453,7 +350,6 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             result = await self.session.execute(query, {"politician_id": politician_id})
             results[table] = result.rowcount  # type: ignore[attr-defined]
 
-        # NOT NULLカラム: レコードを削除
         not_null_tables = [
             "parliamentary_group_memberships",
             "pledges",

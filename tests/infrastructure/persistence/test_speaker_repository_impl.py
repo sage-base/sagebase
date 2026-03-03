@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.speaker import Speaker
 from src.infrastructure.persistence.speaker_repository_impl import SpeakerRepositoryImpl
+from src.infrastructure.persistence.sqlalchemy_models import SpeakerModel
 
 
 class MockColumn:
@@ -401,14 +402,15 @@ class TestSpeakerRepositoryImpl:
         # Execute
         model = repository._to_model(entity)
 
-        # Verify
-        assert isinstance(model, MockSpeakerModel)
+        # Verify — ORM化により戻り値はSpeakerModel型
+        assert isinstance(model, SpeakerModel)
         assert model.name == "山田太郎"
         assert model.type == "議員"
         assert model.political_party_name == "自民党"
         assert model.position == "議長"
         assert model.is_politician is True
-        # Note: ID is not set in _to_model
+        # ORM化後: entity.id が非Noneの場合はモデルにもidがセットされる
+        assert model.id == 1
 
     @pytest.mark.asyncio
     async def test_update_model(self, repository):
