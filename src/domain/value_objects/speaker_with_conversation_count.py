@@ -26,3 +26,4 @@ class SpeakerWithConversationCount:
     politician_id: int | None = None
     matching_confidence: float | None = None
     is_manually_verified: bool = False
+    government_official_id: int | None = None

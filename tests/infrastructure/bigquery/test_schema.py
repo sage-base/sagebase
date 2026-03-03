@@ -14,8 +14,8 @@ from src.infrastructure.bigquery.schema import (
 class TestGoldLayerTables:
     """GOLD_LAYER_TABLESの定義テスト."""
 
-    def test_table_count_is_21(self) -> None:
-        assert len(GOLD_LAYER_TABLES) == 21
+    def test_table_count_is_23(self) -> None:
+        assert len(GOLD_LAYER_TABLES) == 23
 
     def test_all_table_ids_are_unique(self) -> None:
         table_ids = [t.table_id for t in GOLD_LAYER_TABLES]
@@ -62,6 +62,8 @@ class TestGoldLayerTables:
             "minutes",
             "conversations",
             "speakers",
+            "government_officials",
+            "government_official_positions",
             "proposals",
             "proposal_submitters",
             "proposal_deliberations",

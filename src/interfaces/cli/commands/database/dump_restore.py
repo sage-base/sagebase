@@ -29,10 +29,12 @@ TABLE_INSERT_ORDER = [
     "governing_bodies",
     "political_parties",
     "users",
+    "government_officials",
     # 2. 第1レベルFK依存
     "elections",
     "conferences",
     "politicians",
+    "government_official_positions",
     # 3. 第2レベルFK依存
     "election_members",
     "meetings",

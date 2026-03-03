@@ -37,6 +37,7 @@ class SpeakerModel:
     matched_by_user_id: UUID | None
     is_manually_verified: bool
     latest_extraction_log_id: int | None
+    government_official_id: int | None
 
     def __init__(self, **kwargs: Any):
         for key, value in kwargs.items():
@@ -252,6 +253,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 s.politician_id,
                 s.matching_confidence,
                 s.is_manually_verified,
+                s.government_official_id,
                 COUNT(c.id) as conversation_count
             FROM speakers s
             LEFT JOIN conversations c ON s.id = c.speaker_id
@@ -278,6 +280,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 politician_id=row.politician_id,
                 matching_confidence=row.matching_confidence,
                 is_manually_verified=row.is_manually_verified,
+                government_official_id=getattr(row, "government_official_id", None),
             )
             for row in rows
         ]
@@ -351,11 +354,13 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         query = text("""
             INSERT INTO speakers (
                 name, type, political_party_name, position, is_politician,
-                matched_by_user_id, name_yomi, skip_reason
+                matched_by_user_id, name_yomi, skip_reason,
+                government_official_id
             )
             VALUES (
                 :name, :type, :political_party_name, :position, :is_politician,
-                :matched_by_user_id, :name_yomi, :skip_reason
+                :matched_by_user_id, :name_yomi, :skip_reason,
+                :government_official_id
             )
             RETURNING *
         """)
@@ -369,6 +374,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             "matched_by_user_id": entity.matched_by_user_id,
             "name_yomi": entity.name_yomi,
             "skip_reason": entity.skip_reason,
+            "government_official_id": entity.government_official_id,
         }
 
         result = await self.session.execute(query, params)
@@ -394,7 +400,8 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 skip_reason = :skip_reason,
                 matching_confidence = :matching_confidence,
                 matching_reason = :matching_reason,
-                is_manually_verified = :is_manually_verified
+                is_manually_verified = :is_manually_verified,
+                government_official_id = :government_official_id
             WHERE id = :id
             RETURNING *
         """)
@@ -413,6 +420,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             "matching_confidence": entity.matching_confidence,
             "matching_reason": entity.matching_reason,
             "is_manually_verified": entity.is_manually_verified,
+            "government_official_id": entity.government_official_id,
         }
 
         result = await self.session.execute(query, params)
@@ -443,6 +451,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             if raw_confidence is not None
             else None,
             matching_reason=getattr(row, "matching_reason", None),
+            government_official_id=getattr(row, "government_official_id", None),
         )
 
     async def get_speakers_with_politician_info(self) -> list[dict[str, Any]]:

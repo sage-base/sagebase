@@ -28,6 +28,7 @@ class Speaker(BaseEntity):
         skip_reason: str | None = None,
         matching_confidence: float | None = None,
         matching_reason: str | None = None,
+        government_official_id: int | None = None,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
         id: int | None = None,
@@ -46,6 +47,7 @@ class Speaker(BaseEntity):
         self.skip_reason = skip_reason
         self.matching_confidence = matching_confidence
         self.matching_reason = matching_reason
+        self.government_official_id = government_official_id
         self.created_at = created_at
         self.updated_at = updated_at
 
