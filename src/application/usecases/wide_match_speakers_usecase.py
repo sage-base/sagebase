@@ -158,10 +158,17 @@ class WideMatchSpeakersUseCase:
                 )
 
             # 4. 選挙当選者ベースの候補リスト構築
-            candidates = await self._build_candidate_list_from_elections(
+            election_candidates = await self._build_candidate_list_from_elections(
                 meeting.date, chamber
             )
-            if not candidates:
+            fallback_candidates: list[PoliticianCandidate] | None = None
+            if election_candidates:
+                candidates = election_candidates
+                # 選挙データ欠損に備え、全Politicianでのフォールバック完全一致用
+                fallback_candidates = (
+                    await self._build_candidate_list_from_all_politicians()
+                )
+            else:
                 self._logger.info("選挙ベース候補なし → 全Politicianフォールバック")
                 candidates = await self._build_candidate_list_from_all_politicians()
 
@@ -176,7 +183,11 @@ class WideMatchSpeakersUseCase:
             # 5. 完全一致マッチング + 候補フィルタリング
             counters = _MatchingCounters()
             baml_pending = await self._run_exact_matching(
-                unmatched_speakers, candidates, input_dto, counters
+                unmatched_speakers,
+                candidates,
+                input_dto,
+                counters,
+                fallback_candidates,
             )
 
             # 6. LLM判定（候補フィルタ済み）
@@ -218,10 +229,12 @@ class WideMatchSpeakersUseCase:
         candidates: list[PoliticianCandidate],
         input_dto: WideMatchSpeakersInputDTO,
         counters: _MatchingCounters,
+        fallback_candidates: list[PoliticianCandidate] | None = None,
     ) -> list[tuple[Speaker, list[PoliticianCandidate]]]:
         """完全一致マッチング・非政治家分類・候補フィルタリングを実行する.
 
         3段階方式のStep 1（完全一致）とStep 2a（候補フィルタ）を担当。
+        選挙候補で完全一致しない場合、fallback_candidatesで再試行する。
 
         Returns:
             LLM判定対象の (Speaker, フィルタ済み候補) リスト
@@ -232,13 +245,31 @@ class WideMatchSpeakersUseCase:
             if not speaker.id:
                 continue
 
-            # Step 1: 完全一致マッチング
+            # Step 1: 完全一致マッチング（選挙候補）
             match_result = self._matching_service.match(
                 speaker_id=speaker.id,
                 speaker_name=speaker.name,
                 speaker_name_yomi=speaker.name_yomi,
                 candidates=candidates,
             )
+
+            # Step 1b: フォールバック完全一致（全Politician）
+            if (
+                match_result.confidence < input_dto.review_threshold
+                and fallback_candidates
+            ):
+                match_result = self._matching_service.match(
+                    speaker_id=speaker.id,
+                    speaker_name=speaker.name,
+                    speaker_name_yomi=speaker.name_yomi,
+                    candidates=fallback_candidates,
+                )
+                if match_result.confidence >= input_dto.review_threshold:
+                    self._logger.info(
+                        "フォールバック完全一致: %s → %s (選挙候補外)",
+                        speaker.name,
+                        match_result.politician_name,
+                    )
 
             if (
                 match_result.confidence >= input_dto.review_threshold
