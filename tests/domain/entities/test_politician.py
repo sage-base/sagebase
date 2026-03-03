@@ -212,18 +212,18 @@ class TestPolitician:
         assert pr_politician.district == "全国比例"
 
     def test_name_sanitizes_zenkaku_space(self) -> None:
-        """全角スペースが半角スペースに変換されることを確認する."""
+        """全角スペースが除去されることを確認する."""
         politician = Politician(
             name="伊藤\u3000孝江", prefecture="東京都", district="東京1区"
         )
-        assert politician.name == "伊藤 孝江"
+        assert politician.name == "伊藤孝江"
 
     def test_name_sanitizes_multiple_zenkaku_spaces(self) -> None:
-        """複数の全角スペースが半角スペースに変換されることを確認する."""
+        """複数の全角スペースが除去されることを確認する."""
         politician = Politician(
             name="加藤\u3000\u3000明良", prefecture="東京都", district="東京1区"
         )
-        assert politician.name == "加藤  明良"
+        assert politician.name == "加藤明良"
 
     def test_name_strips_whitespace(self) -> None:
         """前後の空白が除去されることを確認する."""
