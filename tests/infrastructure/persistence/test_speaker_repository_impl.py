@@ -47,6 +47,7 @@ class MockSpeakerModel:
     skip_reason = MockColumn("skip_reason")
     matching_confidence = MockColumn("matching_confidence")
     matching_reason = MockColumn("matching_reason")
+    government_official_id = MockColumn("government_official_id")
 
     def __init__(
         self,
@@ -64,6 +65,7 @@ class MockSpeakerModel:
         skip_reason: str | None = None,
         matching_confidence: float | None = None,
         matching_reason: str | None = None,
+        government_official_id: int | None = None,
     ):
         self.id = id
         self.name = name
@@ -79,6 +81,7 @@ class MockSpeakerModel:
         self.skip_reason = skip_reason
         self.matching_confidence = matching_confidence
         self.matching_reason = matching_reason
+        self.government_official_id = government_official_id
 
 
 class TestSpeakerRepositoryImpl:
