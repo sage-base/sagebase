@@ -60,9 +60,7 @@ class GovernmentOfficialRepositoryImpl(
 
     async def search_by_name(self, name: str) -> list[GovernmentOfficial]:
         query = select(GovernmentOfficialModel).where(
-            GovernmentOfficialModel.name.ilike(
-                f"%{name.replace('%', '').replace('_', '')}%"
-            )
+            GovernmentOfficialModel.name.ilike(f"%{name}%")
         )
         result = await self.session.execute(query)
         models = result.scalars().all()

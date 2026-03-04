@@ -144,6 +144,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             if raw_confidence is not None
             else None,
             matching_reason=getattr(model, "matching_reason", None),
+            government_official_id=getattr(model, "government_official_id", None),
             id=model.id,
         )
 
@@ -163,6 +164,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             skip_reason=entity.skip_reason,
             matching_confidence=entity.matching_confidence,
             matching_reason=entity.matching_reason,
+            government_official_id=entity.government_official_id,
         )
 
     def _update_model(self, model: Any, entity: Speaker) -> None:
@@ -180,6 +182,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         model.skip_reason = entity.skip_reason
         model.matching_confidence = entity.matching_confidence
         model.matching_reason = entity.matching_reason
+        model.government_official_id = entity.government_official_id
 
     async def get_speakers_with_conversation_count(
         self,

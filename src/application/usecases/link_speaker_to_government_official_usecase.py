@@ -55,9 +55,7 @@ class LinkSpeakerToGovernmentOfficialUseCase:
                 error_message="政府関係者が見つかりません",
             )
 
-        speaker.government_official_id = input_dto.government_official_id
-        speaker.is_politician = False
-        speaker.skip_reason = "government_official"
+        speaker.link_to_government_official(input_dto.government_official_id)
 
         await self.speaker_repository.update(speaker)
 

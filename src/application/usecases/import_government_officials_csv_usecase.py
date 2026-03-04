@@ -93,8 +93,7 @@ class ImportGovernmentOfficialsCsvUseCase:
             if speaker.politician_id is not None:
                 continue
             if not dry_run and official:
-                speaker.government_official_id = official.id
-                speaker.is_politician = False
-                speaker.skip_reason = "government_official"
+                assert official.id is not None
+                speaker.link_to_government_official(official.id)
                 await self._speaker_repo.update(speaker)
             output.linked_speakers_count += 1

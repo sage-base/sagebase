@@ -386,8 +386,6 @@ class GovernmentOfficialPositionModel(Base):
         ForeignKey(
             "government_officials.id",
             ondelete="CASCADE",
-            use_alter=True,
-            name="fk_gop_official",
         ),
     )
     organization: Mapped[str] = mapped_column(String(200), nullable=False)

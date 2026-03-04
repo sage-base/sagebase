@@ -63,6 +63,16 @@ class Speaker(BaseEntity):
         """AIによる更新が可能かどうかを返す."""
         return not self.is_manually_verified
 
+    def link_to_government_official(self, government_official_id: int) -> None:
+        """政府関係者に紐付ける.
+
+        government_official_id を設定し、is_politician を False、
+        skip_reason を "government_official" に設定する。
+        """
+        self.government_official_id = government_official_id
+        self.is_politician = False
+        self.skip_reason = "government_official"
+
     def __str__(self) -> str:
         parts = [self.name]
         if self.position:
