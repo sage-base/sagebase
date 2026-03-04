@@ -616,6 +616,29 @@ class TestKanjiNameMatching:
         # nameで一致した場合は「漢字名」がreasonに含まれない
         assert "漢字名" not in result.reason
 
+    def test_rule_based_kanji_name_honorific_removal_match(
+        self,
+        mock_llm_service,
+    ):
+        """kanji_nameでの敬称除去後マッチテスト."""
+        service = BAMLPoliticianMatchingService(mock_llm_service, AsyncMock())
+        politicians = [
+            {
+                "id": 10,
+                "name": "宮本たけし",
+                "kanji_name": "宮本岳志",
+                "party_name": "日本共産党",
+            },
+        ]
+
+        result = service._rule_based_matching("宮本岳志議員", None, politicians)
+
+        assert result.matched is True
+        assert result.politician_id == 10
+        assert result.confidence == 0.85
+        assert "漢字名" in result.reason
+        assert "敬称除去" in result.reason
+
     @pytest.mark.asyncio
     async def test_kanji_name_from_candidates(
         self,

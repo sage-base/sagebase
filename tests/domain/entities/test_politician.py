@@ -358,9 +358,13 @@ class TestPolitician:
         assert politician.kanji_name is None
 
     def test_kanji_name_empty_string_becomes_none(self) -> None:
-        """kanji_nameがNoneの場合はそのまま保持される."""
-        # Noneが渡された場合はNoneのまま
-        politician = create_politician(kanji_name=None)
+        """kanji_nameが空文字列の場合はNoneになる."""
+        politician = Politician(
+            name="山田太郎",
+            prefecture="東京都",
+            district="東京1区",
+            kanji_name="",
+        )
         assert politician.kanji_name is None
 
     def test_factory_creates_with_hiragana_fields(self) -> None:
@@ -373,9 +377,3 @@ class TestPolitician:
         assert politician.is_lastname_hiragana is True
         assert politician.is_firstname_hiragana is False
         assert politician.kanji_name == "宮本岳志"
-
-        # ID can be any integer
-        politician3 = Politician(
-            name="Test 3", prefecture="東京都", district="東京1区", id=999999
-        )
-        assert politician3.id == 999999

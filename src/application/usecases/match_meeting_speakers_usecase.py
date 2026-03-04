@@ -377,6 +377,7 @@ class MatchMeetingSpeakersUseCase:
                 politician_id=p.id,
                 name=p.name,
                 furigana=p.furigana,
+                kanji_name=p.kanji_name,
             )
             for p in politicians
             if p.id is not None

@@ -169,10 +169,6 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                 if profile_url
                 else None
             )
-            normalized_kanji_name = (
-                kanji_name.replace("\u3000", "").strip() if kanji_name else None
-            )
-
             result = await self.use_case.create_politician(
                 CreatePoliticianInputDto(
                     name=normalized_name,
@@ -180,7 +176,7 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                     district=normalized_district,
                     profile_url=normalized_profile_url,
                     user_id=user_id,
-                    kanji_name=normalized_kanji_name,
+                    kanji_name=kanji_name or None,
                 )
             )
             if result.success and result.politician_id:
@@ -228,10 +224,6 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                 if profile_url
                 else None
             )
-            normalized_kanji_name = (
-                kanji_name.replace("\u3000", "").strip() if kanji_name else None
-            )
-
             result = await self.use_case.update_politician(
                 UpdatePoliticianInputDto(
                     id=id,
@@ -240,7 +232,7 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                     district=normalized_district,
                     profile_url=normalized_profile_url,
                     user_id=user_id,
-                    kanji_name=normalized_kanji_name,
+                    kanji_name=kanji_name or None,
                 )
             )
             if result.success:
@@ -403,6 +395,7 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                 kwargs.get("prefecture", ""),
                 kwargs.get("district", ""),
                 kwargs.get("profile_url"),
+                kanji_name=kwargs.get("kanji_name"),
             )
         elif action == "update":
             return self.update(
@@ -411,6 +404,7 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                 kwargs.get("prefecture", ""),
                 kwargs.get("district", ""),
                 kwargs.get("profile_url"),
+                kanji_name=kwargs.get("kanji_name"),
             )
         elif action == "delete":
             return self.delete(kwargs.get("id", 0))

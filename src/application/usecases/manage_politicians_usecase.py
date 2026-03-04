@@ -23,6 +23,7 @@ from src.application.dtos.politician_dto import (
 )
 from src.common.logging import get_logger
 from src.domain.entities import Politician
+from src.domain.entities.politician import sanitize_name
 from src.domain.entities.politician_operation_log import (
     PoliticianOperationLog,
     PoliticianOperationType,
@@ -162,6 +163,7 @@ class ManagePoliticiansUseCase:
                         "prefecture": input_dto.prefecture,
                         "district": input_dto.district,
                         "profile_url": input_dto.profile_url,
+                        "kanji_name": input_dto.kanji_name,
                     },
                 )
 
@@ -187,7 +189,9 @@ class ManagePoliticiansUseCase:
             existing.prefecture = input_dto.prefecture
             existing.district = input_dto.district
             existing.profile_page_url = input_dto.profile_url
-            existing.kanji_name = input_dto.kanji_name
+            existing.kanji_name = (
+                sanitize_name(input_dto.kanji_name) if input_dto.kanji_name else None
+            )
 
             await self.politician_repository.update(existing)
 
