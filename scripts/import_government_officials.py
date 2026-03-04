@@ -36,10 +36,18 @@ from src.application.dtos.government_official_dto import (
     GovernmentOfficialCsvRow,
     ImportGovernmentOfficialsCsvInputDto,
 )
-from src.infrastructure.di.providers import (
-    DatabaseContainer,
-    RepositoryContainer,
-    UseCaseContainer,
+from src.application.usecases.import_government_officials_csv_usecase import (
+    ImportGovernmentOfficialsCsvUseCase,
+)
+from src.infrastructure.config.async_database import get_async_session
+from src.infrastructure.persistence.government_official_position_repository_impl import (  # noqa: E501
+    GovernmentOfficialPositionRepositoryImpl,
+)
+from src.infrastructure.persistence.government_official_repository_impl import (
+    GovernmentOfficialRepositoryImpl,
+)
+from src.infrastructure.persistence.speaker_repository_impl import (
+    SpeakerRepositoryImpl,
 )
 
 
@@ -118,21 +126,23 @@ async def main(file_path: Path, dry_run: bool) -> None:
         logger.info("処理対象の行がありません")
         return
 
-    db_container = DatabaseContainer()
-    repo_container = RepositoryContainer(database=db_container)
-    usecase_container = UseCaseContainer(
-        repositories=repo_container,
-        database=db_container,
-    )
+    async with get_async_session() as session:
+        official_repo = GovernmentOfficialRepositoryImpl(session=session)
+        position_repo = GovernmentOfficialPositionRepositoryImpl(session=session)
+        speaker_repo = SpeakerRepositoryImpl(session=session)
 
-    usecase = usecase_container.import_government_officials_csv_usecase()
+        usecase = ImportGovernmentOfficialsCsvUseCase(
+            government_official_repository=official_repo,
+            government_official_position_repository=position_repo,
+            speaker_repository=speaker_repo,
+        )
 
-    input_dto = ImportGovernmentOfficialsCsvInputDto(
-        rows=rows,
-        dry_run=dry_run,
-    )
+        input_dto = ImportGovernmentOfficialsCsvInputDto(
+            rows=rows,
+            dry_run=dry_run,
+        )
 
-    output = await usecase.execute(input_dto)
+        output = await usecase.execute(input_dto)
 
     prefix = "[DRY RUN] " if dry_run else ""
     logger.info(f"{prefix}作成した政府関係者: {output.created_officials_count}")
