@@ -1,7 +1,7 @@
 """government_officialsおよびgovernment_official_positionsテーブルを追加.
 
-Revision ID: 038
-Revises: 037
+Revision ID: 039
+Revises: 038
 Create Date: 2026-03-04
 
 政府関係者（政府参考人・官僚）をモデル化するためのテーブルを新規作成し、
@@ -11,8 +11,8 @@ speakersテーブルにgovernment_official_idカラムを追加する。
 from alembic import op
 
 
-revision = "038"
-down_revision = "037"
+revision = "039"
+down_revision = "038"
 branch_labels = None
 depends_on = None
 
