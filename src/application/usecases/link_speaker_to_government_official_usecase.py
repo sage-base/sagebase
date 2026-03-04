@@ -40,6 +40,12 @@ class LinkSpeakerToGovernmentOfficialUseCase:
                 error_message="この発言者は既に政治家に紐付けられています",
             )
 
+        if speaker.government_official_id is not None:
+            return LinkSpeakerToGovernmentOfficialOutputDto(
+                success=False,
+                error_message="この発言者は既に政府関係者に紐付けられています",
+            )
+
         official = await self.government_official_repository.get_by_id(
             input_dto.government_official_id
         )

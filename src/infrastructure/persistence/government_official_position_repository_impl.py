@@ -49,7 +49,7 @@ class GovernmentOfficialPositionRepositoryImpl(
         self, entity: GovernmentOfficialPosition
     ) -> GovernmentOfficialPositionModel:
         return GovernmentOfficialPositionModel(
-            id=entity.id if entity.id is not None else 0,
+            id=entity.id,
             government_official_id=entity.government_official_id,
             organization=entity.organization,
             position=entity.position,

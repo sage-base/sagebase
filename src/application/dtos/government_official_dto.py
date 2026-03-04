@@ -23,8 +23,9 @@ class GovernmentOfficialPositionOutputItem:
     def from_entity(
         cls, entity: GovernmentOfficialPosition
     ) -> "GovernmentOfficialPositionOutputItem":
+        assert entity.id is not None, "DTOへの変換にはIDが必要です"
         return cls(
-            id=entity.id or 0,
+            id=entity.id,
             government_official_id=entity.government_official_id,
             organization=entity.organization,
             position=entity.position,
@@ -49,8 +50,9 @@ class GovernmentOfficialOutputItem:
         entity: GovernmentOfficial,
         positions: list[GovernmentOfficialPosition] | None = None,
     ) -> "GovernmentOfficialOutputItem":
+        assert entity.id is not None, "DTOへの変換にはIDが必要です"
         return cls(
-            id=entity.id or 0,
+            id=entity.id,
             name=entity.name,
             name_yomi=entity.name_yomi,
             positions=[

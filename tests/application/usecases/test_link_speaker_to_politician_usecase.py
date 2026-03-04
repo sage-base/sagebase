@@ -201,3 +201,33 @@ class TestLinkSpeakerToPoliticianUseCase:
         assert speaker.is_politician is True
         assert speaker.skip_reason is None
         assert speaker.politician_id == 300
+
+    @pytest.mark.asyncio
+    async def test_link_clears_government_official_id(
+        self,
+        use_case,
+        mock_speaker_repo,
+    ):
+        """政治家紐付け時にgovernment_official_idがクリアされる。"""
+        speaker = Speaker(
+            id=5,
+            name="法務省刑事局長",
+            is_politician=False,
+            skip_reason="government_official",
+            government_official_id=10,
+        )
+        mock_speaker_repo.get_by_id.return_value = speaker
+
+        input_dto = LinkSpeakerToPoliticianInputDto(
+            speaker_id=5,
+            politician_id=400,
+            politician_name="田中一郎",
+        )
+
+        result = await use_case.execute(input_dto)
+
+        assert result.success is True
+        assert speaker.politician_id == 400
+        assert speaker.government_official_id is None
+        assert speaker.skip_reason is None
+        assert speaker.is_politician is True

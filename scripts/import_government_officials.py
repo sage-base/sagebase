@@ -47,7 +47,9 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 # 省庁名のパターン（「○○省」「○○庁」「○○院」「○○局」等のサフィックス）
-_ORG_PATTERN = re.compile(r"^(.+?(?:省|庁|院|府|局|委員会|本部|機構|会議|センター|室))")
+_ORG_PATTERN = re.compile(
+    r"^(.+?(?:省|庁|院|府|局|委員会|本部|機構|会議|センター|室|房))"
+)
 
 
 def parse_org_position(notes: str) -> tuple[str, str]:

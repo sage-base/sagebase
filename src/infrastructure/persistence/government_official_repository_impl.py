@@ -37,7 +37,7 @@ class GovernmentOfficialRepositoryImpl(
 
     def _to_model(self, entity: GovernmentOfficial) -> GovernmentOfficialModel:
         return GovernmentOfficialModel(
-            id=entity.id if entity.id is not None else 0,
+            id=entity.id,
             name=entity.name,
             name_yomi=entity.name_yomi,
         )
@@ -60,7 +60,9 @@ class GovernmentOfficialRepositoryImpl(
 
     async def search_by_name(self, name: str) -> list[GovernmentOfficial]:
         query = select(GovernmentOfficialModel).where(
-            GovernmentOfficialModel.name.ilike(f"%{name}%")
+            GovernmentOfficialModel.name.ilike(
+                f"%{name.replace('%', '').replace('_', '')}%"
+            )
         )
         result = await self.session.execute(query)
         models = result.scalars().all()

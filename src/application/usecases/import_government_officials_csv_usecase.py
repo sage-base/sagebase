@@ -63,33 +63,38 @@ class ImportGovernmentOfficialsCsvUseCase:
             output.skipped_count += 1
             return
 
+        # 1. GovernmentOfficial の find-or-create
         official = await self._official_repo.get_by_name(row.speaker_name)
-        if official is None:
-            if dry_run:
-                output.created_officials_count += 1
-            else:
+        is_new_official = official is None
+        if is_new_official:
+            if not dry_run:
                 official = await self._official_repo.create(
                     GovernmentOfficial(name=row.speaker_name)
                 )
-                output.created_officials_count += 1
+            output.created_officials_count += 1
 
+        # 2. GovernmentOfficialPosition の upsert
         if official and not dry_run:
+            assert official.id is not None, "作成済みのofficialにIDが必要です"
             position_entity = GovernmentOfficialPosition(
-                government_official_id=official.id or 0,
+                government_official_id=official.id,
                 organization=row.organization,
                 position=row.position,
                 source_note=row.notes,
             )
             await self._position_repo.bulk_upsert([position_entity])
-            output.created_positions_count += 1
+        output.created_positions_count += 1
 
-            speaker = await self._speaker_repo.get_by_id(row.representative_speaker_id)
-            if speaker and speaker.politician_id is None:
+        # 3. 同名Speaker全件を紐付け
+        same_name_speakers = await self._speaker_repo.search_by_name(row.speaker_name)
+        for speaker in same_name_speakers:
+            if speaker.name != row.speaker_name:
+                continue
+            if speaker.politician_id is not None:
+                continue
+            if not dry_run and official:
                 speaker.government_official_id = official.id
                 speaker.is_politician = False
                 speaker.skip_reason = "government_official"
                 await self._speaker_repo.update(speaker)
-                output.linked_speakers_count += 1
-        elif dry_run:
-            output.created_positions_count += 1
             output.linked_speakers_count += 1
