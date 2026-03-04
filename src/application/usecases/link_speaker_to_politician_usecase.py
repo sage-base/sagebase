@@ -73,6 +73,7 @@ class LinkSpeakerToPoliticianUseCase:
         speaker.is_politician = True
         speaker.is_manually_verified = True
         speaker.skip_reason = None
+        speaker.government_official_id = None
 
         # 更新をリポジトリに反映（既にget_by_idで取得済みなので直接update）
         await self.speaker_repository.update(speaker)

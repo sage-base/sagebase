@@ -278,6 +278,35 @@ _SPEAKERS = BQTableDef(
         BQColumnDef("matching_reason", "STRING", description="マッチング理由"),
         BQColumnDef("is_manually_verified", "BOOL", description="手動検証済みフラグ"),
         BQColumnDef("name_yomi", "STRING", description="氏名よみ"),
+        BQColumnDef("government_official_id", "INT64", description="政府関係者ID"),
+        BQColumnDef("created_at", "TIMESTAMP", description="作成日時"),
+        BQColumnDef("updated_at", "TIMESTAMP", description="更新日時"),
+    ),
+)
+
+_GOVERNMENT_OFFICIALS = BQTableDef(
+    table_id="government_officials",
+    description="政府関係者マスタ",
+    columns=(
+        BQColumnDef("id", "INT64", "REQUIRED", "政府関係者ID"),
+        BQColumnDef("name", "STRING", "REQUIRED", "氏名"),
+        BQColumnDef("name_yomi", "STRING", description="氏名よみ"),
+        BQColumnDef("created_at", "TIMESTAMP", description="作成日時"),
+        BQColumnDef("updated_at", "TIMESTAMP", description="更新日時"),
+    ),
+)
+
+_GOVERNMENT_OFFICIAL_POSITIONS = BQTableDef(
+    table_id="government_official_positions",
+    description="政府関係者の役職履歴",
+    columns=(
+        BQColumnDef("id", "INT64", "REQUIRED", "役職履歴ID"),
+        BQColumnDef("government_official_id", "INT64", "REQUIRED", "政府関係者ID"),
+        BQColumnDef("organization", "STRING", "REQUIRED", "所属組織"),
+        BQColumnDef("position", "STRING", "REQUIRED", "役職名"),
+        BQColumnDef("start_date", "DATE", description="開始日"),
+        BQColumnDef("end_date", "DATE", description="終了日"),
+        BQColumnDef("source_note", "STRING", description="出典メモ"),
         BQColumnDef("created_at", "TIMESTAMP", description="作成日時"),
         BQColumnDef("updated_at", "TIMESTAMP", description="更新日時"),
     ),
@@ -395,7 +424,7 @@ _PROPOSAL_JUDGE_POLITICIANS = BQTableDef(
     ),
 )
 
-# 全21テーブルのリスト
+# 全23テーブルのリスト
 GOLD_LAYER_TABLES: list[BQTableDef] = [
     _POLITICIANS,
     _POLITICAL_PARTIES,
@@ -411,6 +440,8 @@ GOLD_LAYER_TABLES: list[BQTableDef] = [
     _MINUTES,
     _CONVERSATIONS,
     _SPEAKERS,
+    _GOVERNMENT_OFFICIALS,
+    _GOVERNMENT_OFFICIAL_POSITIONS,
     _PROPOSALS,
     _PROPOSAL_SUBMITTERS,
     _PROPOSAL_DELIBERATIONS,

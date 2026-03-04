@@ -354,3 +354,65 @@ class PartyMembershipHistoryModel(Base):
             f"end_date={self.end_date}"
             f")>"
         )
+
+
+class GovernmentOfficialModel(Base):
+    """SQLAlchemy model for government_officials table."""
+
+    __tablename__ = "government_officials"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    name_yomi: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    def __repr__(self) -> str:
+        return f"<GovernmentOfficialModel(id={self.id}, name={self.name})>"
+
+
+class GovernmentOfficialPositionModel(Base):
+    """SQLAlchemy model for government_official_positions table."""
+
+    __tablename__ = "government_official_positions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    government_official_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(
+            "government_officials.id",
+            ondelete="CASCADE",
+        ),
+    )
+    organization: Mapped[str] = mapped_column(String(200), nullable=False)
+    position: Mapped[str] = mapped_column(String(200), nullable=False)
+    start_date: Mapped[date | None] = mapped_column()
+    end_date: Mapped[date | None] = mapped_column()
+    source_note: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "end_date IS NULL OR end_date >= start_date",
+            name="chk_gop_end_date_after_start",
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<GovernmentOfficialPositionModel("
+            f"id={self.id}, "
+            f"government_official_id={self.government_official_id}, "
+            f"organization={self.organization}, "
+            f"position={self.position}"
+            f")>"
+        )
