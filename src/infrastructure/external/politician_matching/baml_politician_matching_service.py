@@ -269,9 +269,22 @@ class BAMLPoliticianMatchingService:
                 "name": c.name,
                 "party_name": c.party_name,
                 "furigana": c.furigana,
+                "kanji_name": c.kanji_name,
             }
             for c in candidates
         ]
+
+    @staticmethod
+    def _name_match_info(
+        politician: dict[str, Any], target_name: str
+    ) -> tuple[bool, str]:
+        """politicianのnameまたはkanji_nameがtarget_nameと一致するか判定し、reason接頭辞も返す."""
+        if politician["name"] == target_name:
+            return True, ""
+        kanji_name = politician.get("kanji_name")
+        if kanji_name and kanji_name == target_name:
+            return True, "漢字名(kanji_name)で"
+        return False, ""
 
     def _rule_based_matching(
         self,
@@ -281,47 +294,52 @@ class BAMLPoliticianMatchingService:
     ) -> PoliticianMatch:
         """従来のルールベースマッチング（高速パス）"""
 
-        # 1. 完全一致（名前と政党）
+        # 1. 完全一致（名前/漢字名と政党）
         if speaker_party:
             for politician in available_politicians:
-                if (
-                    politician["name"] == speaker_name
-                    and politician["party_name"] == speaker_party
-                ):
+                matched, prefix = self._name_match_info(politician, speaker_name)
+                if matched and politician["party_name"] == speaker_party:
                     return PoliticianMatch(
                         matched=True,
                         politician_id=politician["id"],
                         politician_name=politician["name"],
                         political_party_name=politician["party_name"],
                         confidence=1.0,
-                        reason="名前と政党が完全一致",
+                        reason=f"{prefix}名前と政党が完全一致",
                     )
 
-        # 2. 名前のみ完全一致
-        exact_matches = [p for p in available_politicians if p["name"] == speaker_name]
+        # 2. 名前/漢字名のみ完全一致
+        exact_matches = [
+            (p, pfx)
+            for p in available_politicians
+            for matched, pfx in [self._name_match_info(p, speaker_name)]
+            if matched
+        ]
         if len(exact_matches) == 1:
-            politician = exact_matches[0]
+            politician, prefix = exact_matches[0]
             return PoliticianMatch(
                 matched=True,
                 politician_id=politician["id"],
                 politician_name=politician["name"],
                 political_party_name=politician["party_name"],
                 confidence=0.9,
-                reason="名前が完全一致（唯一の候補）",
+                reason=f"{prefix}名前が完全一致（唯一の候補）",
             )
 
         # 3. 敬称を除去して検索
         cleaned_name = re.sub(r"(議員|氏|さん|様|先生)$", "", speaker_name)
         if cleaned_name != speaker_name:
             for politician in available_politicians:
-                if politician["name"] == cleaned_name:
+                matched, prefix = self._name_match_info(politician, cleaned_name)
+                if matched:
                     return PoliticianMatch(
                         matched=True,
                         politician_id=politician["id"],
                         politician_name=politician["name"],
                         political_party_name=politician["party_name"],
                         confidence=0.85,
-                        reason=f"敬称除去後に一致: {speaker_name} → {cleaned_name}",
+                        reason=f"{prefix}敬称除去後に一致: "
+                        f"{speaker_name} → {cleaned_name}",
                     )
 
         return PoliticianMatch(
@@ -340,32 +358,32 @@ class BAMLPoliticianMatchingService:
 
         # 敬称を除去
         cleaned_name = re.sub(r"(議員|氏|さん|様|先生)$", "", speaker_name)
+        speaker_parts = speaker_name.split()
 
         for politician in available_politicians:
             score = 0
 
-            # 完全一致
-            if politician["name"] == speaker_name:
-                score += 10
+            # name と kanji_name の両方で名前一致スコアを計算
+            candidate_names = [politician["name"]]
+            kanji_name = politician.get("kanji_name")
+            if kanji_name:
+                candidate_names.append(kanji_name)
 
-            # 敬称除去後の一致
-            if politician["name"] == cleaned_name:
-                score += 8
-
-            # 部分一致
-            if politician["name"] in speaker_name or speaker_name in politician["name"]:
-                score += 5
+            for cn in candidate_names:
+                if cn == speaker_name:
+                    score += 10
+                if cn == cleaned_name:
+                    score += 8
+                if cn in speaker_name or speaker_name in cn:
+                    score += 5
+                cn_parts = cn.split()
+                for sp in speaker_parts:
+                    if sp in cn_parts:
+                        score += 2
 
             # 政党一致
             if speaker_party and politician["party_name"] == speaker_party:
                 score += 3
-
-            # 姓または名の一致（スペースで分割）
-            speaker_parts = speaker_name.split()
-            politician_parts = politician["name"].split()
-            for sp in speaker_parts:
-                if sp in politician_parts:
-                    score += 2
 
             # 文字列長の類似性
             len_diff = abs(len(politician["name"]) - len(speaker_name))
@@ -386,6 +404,8 @@ class BAMLPoliticianMatchingService:
         formatted: list[str] = []
         for p in politicians:
             info = f"ID: {p['id']}, 名前: {p['name']}"
+            if p.get("kanji_name"):
+                info += f", 漢字名: {p['kanji_name']}"
             if p.get("furigana"):
                 info += f", ふりがな: {p['furigana']}"
             if p.get("party_name"):

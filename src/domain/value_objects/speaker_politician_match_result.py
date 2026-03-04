@@ -23,6 +23,7 @@ class PoliticianCandidate:
     name: str
     furigana: str | None = None
     party_name: str | None = None
+    kanji_name: str | None = None
 
 
 @dataclass(frozen=True)
