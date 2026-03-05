@@ -142,10 +142,13 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
         district: str,
         profile_url: str | None = None,
         user_id: UUID | None = None,
+        kanji_name: str | None = None,
     ) -> tuple[bool, int | None, str | None]:
         """Create a new politician."""
         return self._run_async(
-            self._create_async(name, prefecture, district, profile_url, user_id)
+            self._create_async(
+                name, prefecture, district, profile_url, user_id, kanji_name
+            )
         )
 
     async def _create_async(
@@ -155,6 +158,7 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
         district: str,
         profile_url: str | None = None,
         user_id: UUID | None = None,
+        kanji_name: str | None = None,
     ) -> tuple[bool, int | None, str | None]:
         """Create a new politician (async implementation)."""
         try:
@@ -165,7 +169,6 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                 if profile_url
                 else None
             )
-
             result = await self.use_case.create_politician(
                 CreatePoliticianInputDto(
                     name=normalized_name,
@@ -173,6 +176,7 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                     district=normalized_district,
                     profile_url=normalized_profile_url,
                     user_id=user_id,
+                    kanji_name=kanji_name or None,
                 )
             )
             if result.success and result.politician_id:
@@ -192,10 +196,13 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
         district: str,
         profile_url: str | None = None,
         user_id: UUID | None = None,
+        kanji_name: str | None = None,
     ) -> tuple[bool, str | None]:
         """Update an existing politician."""
         return self._run_async(
-            self._update_async(id, name, prefecture, district, profile_url, user_id)
+            self._update_async(
+                id, name, prefecture, district, profile_url, user_id, kanji_name
+            )
         )
 
     async def _update_async(
@@ -206,6 +213,7 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
         district: str,
         profile_url: str | None = None,
         user_id: UUID | None = None,
+        kanji_name: str | None = None,
     ) -> tuple[bool, str | None]:
         """Update an existing politician (async implementation)."""
         try:
@@ -216,7 +224,6 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                 if profile_url
                 else None
             )
-
             result = await self.use_case.update_politician(
                 UpdatePoliticianInputDto(
                     id=id,
@@ -225,6 +232,7 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                     district=normalized_district,
                     profile_url=normalized_profile_url,
                     user_id=user_id,
+                    kanji_name=kanji_name or None,
                 )
             )
             if result.success:
@@ -366,6 +374,7 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                 {
                     "ID": politician.id,
                     "名前": politician.name,
+                    "漢字名": politician.kanji_name or "",
                     "都道府県": politician.prefecture or "",
                     "政党": party_name,
                     "選挙区": politician.district or "",
@@ -386,6 +395,7 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                 kwargs.get("prefecture", ""),
                 kwargs.get("district", ""),
                 kwargs.get("profile_url"),
+                kanji_name=kwargs.get("kanji_name"),
             )
         elif action == "update":
             return self.update(
@@ -394,6 +404,7 @@ class PoliticianPresenter(BasePresenter[list[PoliticianOutputItem]]):
                 kwargs.get("prefecture", ""),
                 kwargs.get("district", ""),
                 kwargs.get("profile_url"),
+                kanji_name=kwargs.get("kanji_name"),
             )
         elif action == "delete":
             return self.delete(kwargs.get("id", 0))

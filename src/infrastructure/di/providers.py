@@ -32,8 +32,14 @@ from src.application.usecases.expand_group_judges_to_individual_usecase import (
 from src.application.usecases.extract_proposal_judges_usecase import (
     ExtractProposalJudgesUseCase,
 )
+from src.application.usecases.import_government_officials_csv_usecase import (
+    ImportGovernmentOfficialsCsvUseCase,
+)
 from src.application.usecases.import_kokkai_speeches_usecase import (
     ImportKokkaiSpeechesUseCase,
+)
+from src.application.usecases.link_speaker_to_government_official_usecase import (
+    LinkSpeakerToGovernmentOfficialUseCase,
 )
 from src.application.usecases.link_speaker_to_politician_usecase import (
     LinkSpeakerToPoliticianUseCase,
@@ -156,6 +162,12 @@ from src.infrastructure.persistence.extraction_log_repository_impl import (
 )
 from src.infrastructure.persistence.governing_body_repository_impl import (
     GoverningBodyRepositoryImpl,
+)
+from src.infrastructure.persistence.government_official_position_repository_impl import (
+    GovernmentOfficialPositionRepositoryImpl,
+)
+from src.infrastructure.persistence.government_official_repository_impl import (
+    GovernmentOfficialRepositoryImpl,
 )
 from src.infrastructure.persistence.llm_processing_history_repository_impl import (
     LLMProcessingHistoryRepositoryImpl,
@@ -482,6 +494,16 @@ class RepositoryContainer(containers.DeclarativeContainer):
         session=database.async_session,
     )
 
+    government_official_repository = providers.Factory(
+        GovernmentOfficialRepositoryImpl,
+        session=database.async_session,
+    )
+
+    government_official_position_repository = providers.Factory(
+        GovernmentOfficialPositionRepositoryImpl,
+        session=database.async_session,
+    )
+
 
 class ServiceContainer(containers.DeclarativeContainer):
     """Container for external service implementations."""
@@ -615,6 +637,23 @@ class UseCaseContainer(containers.DeclarativeContainer):
     # 発言者を非政治家として分類するユースケース
     mark_speaker_as_non_politician_usecase = providers.Factory(
         MarkSpeakerAsNonPoliticianUseCase,
+        speaker_repository=repositories.speaker_repository,
+    )
+
+    # Link Speaker to Government Official UseCase
+    # 発言者と政府関係者の紐付け用ユースケース
+    link_speaker_to_government_official_usecase = providers.Factory(
+        LinkSpeakerToGovernmentOfficialUseCase,
+        speaker_repository=repositories.speaker_repository,
+        government_official_repository=repositories.government_official_repository,
+    )
+
+    # Import Government Officials CSV UseCase
+    # Cowork結果CSVから政府関係者をインポートするユースケース
+    import_government_officials_csv_usecase = providers.Factory(
+        ImportGovernmentOfficialsCsvUseCase,
+        government_official_repository=repositories.government_official_repository,
+        government_official_position_repository=repositories.government_official_position_repository,
         speaker_repository=repositories.speaker_repository,
     )
 

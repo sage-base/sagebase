@@ -356,6 +356,7 @@ class TestPoliticianRepositoryImpl:
             party_position=None,
             district="東京1区",
             party_name="自民党",
+            kanji_name=None,
         )
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])

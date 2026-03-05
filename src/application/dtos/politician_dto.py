@@ -75,6 +75,9 @@ class PoliticianOutputItem:
     furigana: str | None
     profile_page_url: str | None
     party_position: str | None
+    is_lastname_hiragana: bool = False
+    is_firstname_hiragana: bool = False
+    kanji_name: str | None = None
 
     @classmethod
     def from_entity(cls, entity: Politician) -> "PoliticianOutputItem":
@@ -87,6 +90,9 @@ class PoliticianOutputItem:
             furigana=entity.furigana,
             profile_page_url=entity.profile_page_url,
             party_position=entity.party_position,
+            is_lastname_hiragana=entity.is_lastname_hiragana,
+            is_firstname_hiragana=entity.is_firstname_hiragana,
+            kanji_name=entity.kanji_name,
         )
 
 
@@ -106,6 +112,7 @@ class CreatePoliticianInputDto:
     district: str
     profile_url: str | None = None
     user_id: UUID | None = None  # 操作ユーザーID（ログ記録用）
+    kanji_name: str | None = None
 
 
 @dataclass
@@ -127,6 +134,7 @@ class UpdatePoliticianInputDto:
     district: str
     profile_url: str | None = None
     user_id: UUID | None = None  # 操作ユーザーID（ログ記録用）
+    kanji_name: str | None = None
 
 
 @dataclass

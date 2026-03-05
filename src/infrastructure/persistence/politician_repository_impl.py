@@ -168,11 +168,13 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         query = text("""
             INSERT INTO politicians (
                 name, prefecture,
-                district, profile_page_url, furigana
+                district, profile_page_url, furigana,
+                is_lastname_hiragana, is_firstname_hiragana, kanji_name
             )
             VALUES (
                 :name, :prefecture,
-                :district, :profile_page_url, :furigana
+                :district, :profile_page_url, :furigana,
+                :is_lastname_hiragana, :is_firstname_hiragana, :kanji_name
             )
             RETURNING *
         """)
@@ -183,6 +185,9 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             "district": entity.district,
             "profile_page_url": entity.profile_page_url,
             "furigana": entity.furigana,
+            "is_lastname_hiragana": entity.is_lastname_hiragana,
+            "is_firstname_hiragana": entity.is_firstname_hiragana,
+            "kanji_name": entity.kanji_name,
         }
 
         result = await self.session.execute(query, params)
@@ -203,7 +208,10 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
                 prefecture = :prefecture,
                 district = :district,
                 profile_page_url = :profile_page_url,
-                furigana = :furigana
+                furigana = :furigana,
+                is_lastname_hiragana = :is_lastname_hiragana,
+                is_firstname_hiragana = :is_firstname_hiragana,
+                kanji_name = :kanji_name
             WHERE id = :id
             RETURNING *
         """)
@@ -215,6 +223,9 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             "district": entity.district,
             "profile_page_url": entity.profile_page_url,
             "furigana": entity.furigana,
+            "is_lastname_hiragana": entity.is_lastname_hiragana,
+            "is_firstname_hiragana": entity.is_firstname_hiragana,
+            "kanji_name": entity.kanji_name,
         }
 
         result = await self.session.execute(query, params)
@@ -246,6 +257,9 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             profile_page_url=getattr(model, "profile_page_url", None),
             party_position=getattr(model, "party_position", None),
             id=getattr(model, "id", None),
+            is_lastname_hiragana=bool(getattr(model, "is_lastname_hiragana", False)),
+            is_firstname_hiragana=bool(getattr(model, "is_firstname_hiragana", False)),
+            kanji_name=getattr(model, "kanji_name", None),
         )
 
     def _to_model(self, entity: Politician) -> PoliticianModel:
@@ -256,6 +270,9 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             "district": entity.district,
             "profile_page_url": entity.profile_page_url,
             "furigana": entity.furigana,
+            "is_lastname_hiragana": entity.is_lastname_hiragana,
+            "is_firstname_hiragana": entity.is_firstname_hiragana,
+            "kanji_name": entity.kanji_name,
         }
         if entity.id is not None:
             data["id"] = entity.id
@@ -268,6 +285,9 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         model.district = entity.district
         model.profile_page_url = entity.profile_page_url
         model.furigana = entity.furigana
+        model.is_lastname_hiragana = entity.is_lastname_hiragana
+        model.is_firstname_hiragana = entity.is_firstname_hiragana
+        model.kanji_name = entity.kanji_name
 
     async def search_by_normalized_name(self, normalized_name: str) -> list[Politician]:
         """空白除去した名前で政治家を検索する."""
@@ -283,6 +303,7 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         """Get all politicians for matching purposes."""
         query = text("""
             SELECT p.id, p.name, p.furigana, p.party_position, p.district,
+                   p.kanji_name,
                    pp.name as party_name
             FROM politicians p
             LEFT JOIN party_membership_history pmh
@@ -301,6 +322,7 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
                 "party_position": row.party_position,
                 "district": row.district,
                 "party_name": row.party_name,
+                "kanji_name": row.kanji_name,
             }
             for row in rows
         ]

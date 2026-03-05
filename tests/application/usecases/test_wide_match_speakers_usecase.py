@@ -826,3 +826,69 @@ class TestWideMatchSpeakersUseCase:
         # speaker_name_yomiがBAMLサービスに渡されることを検証
         call_kwargs = mock_baml_service.find_best_match_from_candidates.call_args
         assert call_kwargs.kwargs["speaker_name_yomi"] == "たなか"
+
+    @pytest.mark.asyncio
+    async def test_election_filter_fallback_exact_match(
+        self, usecase: WideMatchSpeakersUseCase, mock_repos: dict[str, AsyncMock]
+    ) -> None:
+        """選挙候補に含まれないが全Politicianに存在する政治家がフォールバックでマッチ."""
+        _setup_meeting(mock_repos)
+        _setup_conference(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1])
+
+        # 田村貴昭: 選挙候補に含まれないがPoliticianテーブルには存在
+        speaker = Speaker(name="田村貴昭", id=1, is_politician=True)
+        _setup_speakers(mock_repos, [speaker])
+
+        # 選挙候補には別の政治家のみ
+        other_politician = Politician(
+            name="山田太郎", prefecture="東京都", district="東京1区", id=200
+        )
+        _setup_elections_and_members(mock_repos, [other_politician])
+
+        # 全Politicianフォールバックに田村貴昭が含まれる
+        mock_repos["politician_repository"].get_all_for_matching.return_value = [
+            {"id": 200, "name": "山田太郎"},
+            {"id": 36, "name": "田村貴昭", "furigana": "たむらたかあき"},
+        ]
+
+        result = await usecase.execute(_make_input())
+
+        assert result.success
+        assert result.auto_matched_count == 1
+        assert len(result.results) == 1
+        assert result.results[0].politician_id == 36
+        assert result.results[0].confidence == 1.0
+        assert result.results[0].match_method == MatchMethod.EXACT_NAME
+        mock_repos["politician_repository"].get_all_for_matching.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_election_filter_fallback_not_needed_when_election_matches(
+        self, usecase: WideMatchSpeakersUseCase, mock_repos: dict[str, AsyncMock]
+    ) -> None:
+        """選挙候補で完全一致する場合はフォールバックが不要."""
+        _setup_meeting(mock_repos)
+        _setup_conference(mock_repos)
+        _setup_minutes(mock_repos)
+        _setup_conversations(mock_repos, [1])
+
+        speaker = Speaker(name="山田太郎", id=1, is_politician=True)
+        _setup_speakers(mock_repos, [speaker])
+
+        politician = Politician(
+            name="山田太郎", prefecture="東京都", district="東京1区", id=100
+        )
+        _setup_elections_and_members(mock_repos, [politician])
+
+        # get_all_for_matchingもセットアップ（フォールバック候補構築用）
+        mock_repos["politician_repository"].get_all_for_matching.return_value = [
+            {"id": 100, "name": "山田太郎"},
+        ]
+
+        result = await usecase.execute(_make_input())
+
+        assert result.success
+        assert result.auto_matched_count == 1
+        assert result.results[0].politician_id == 100
+        assert result.results[0].confidence == 1.0
