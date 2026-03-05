@@ -22,6 +22,7 @@ class TestConferenceMemberRepositoryImpl:
         """Create mock async session."""
         session = MagicMock(spec=AsyncSession)
         session.execute = AsyncMock()
+        session.get = AsyncMock()
         session.commit = AsyncMock()
         session.rollback = AsyncMock()
         return session
@@ -52,17 +53,15 @@ class TestConferenceMemberRepositoryImpl:
         mock_session: MagicMock,
     ) -> None:
         """Test get_by_id returns entity when found."""
-        mock_row = MagicMock()
-        mock_row.id = 1
-        mock_row.politician_id = 100
-        mock_row.conference_id = 10
-        mock_row.role = "議員"
-        mock_row.start_date = date(2024, 1, 1)
-        mock_row.end_date = None
-
-        mock_result = MagicMock()
-        mock_result.fetchone = MagicMock(return_value=mock_row)
-        mock_session.execute.return_value = mock_result
+        mock_model = ConferenceMemberModel(
+            id=1,
+            politician_id=100,
+            conference_id=10,
+            role="議員",
+            start_date=date(2024, 1, 1),
+            end_date=None,
+        )
+        mock_session.get.return_value = mock_model
 
         result = await repository.get_by_id(1)
 
@@ -70,7 +69,7 @@ class TestConferenceMemberRepositoryImpl:
         assert result.id == 1
         assert result.politician_id == 100
         assert result.conference_id == 10
-        mock_session.execute.assert_called_once()
+        mock_session.get.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_by_id_not_found(
@@ -79,14 +78,12 @@ class TestConferenceMemberRepositoryImpl:
         mock_session: MagicMock,
     ) -> None:
         """Test get_by_id returns None when not found."""
-        mock_result = MagicMock()
-        mock_result.fetchone = MagicMock(return_value=None)
-        mock_session.execute.return_value = mock_result
+        mock_session.get.return_value = None
 
         result = await repository.get_by_id(999)
 
         assert result is None
-        mock_session.execute.assert_called_once()
+        mock_session.get.assert_called_once()
 
     # ========== create テスト ==========
 
