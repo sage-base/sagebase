@@ -22,6 +22,7 @@ class TestParliamentaryGroupRepositoryImpl:
         """Create mock async session."""
         session = MagicMock(spec=AsyncSession)
         session.execute = AsyncMock()
+        session.get = AsyncMock()
         session.commit = AsyncMock()
         session.rollback = AsyncMock()
         return session
@@ -450,24 +451,22 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_session: MagicMock,
     ) -> None:
         """Test get_by_id when group is found."""
-        mock_row = MagicMock()
-        mock_row.id = 1
-        mock_row.name = "自民党会派"
-        mock_row.governing_body_id = 10
-        mock_row.is_active = True
-        mock_row.start_date = None
-        mock_row.end_date = None
-
-        mock_result = MagicMock()
-        mock_result.fetchone = MagicMock(return_value=mock_row)
-        mock_session.execute.return_value = mock_result
+        model = ParliamentaryGroupModel(
+            id=1,
+            name="自民党会派",
+            governing_body_id=10,
+            is_active=True,
+            start_date=None,
+            end_date=None,
+        )
+        mock_session.get.return_value = model
 
         result = await repository.get_by_id(1)
 
         assert result is not None
         assert result.id == 1
         assert result.name == "自民党会派"
-        mock_session.execute.assert_called_once()
+        mock_session.get.assert_called_once_with(ParliamentaryGroupModel, 1)
 
     @pytest.mark.asyncio
     async def test_get_by_id_not_found(
@@ -476,17 +475,17 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_session: MagicMock,
     ) -> None:
         """Test get_by_id when group is not found."""
-        mock_result = MagicMock()
-        mock_result.fetchone = MagicMock(return_value=None)
-        mock_session.execute.return_value = mock_result
+        mock_session.get.return_value = None
 
         result = await repository.get_by_id(999)
 
         assert result is None
-        mock_session.execute.assert_called_once()
+        mock_session.get.assert_called_once_with(ParliamentaryGroupModel, 999)
 
-    def test_row_to_entity(self, repository: ParliamentaryGroupRepositoryImpl) -> None:
-        """Test _row_to_entity converts row to entity correctly."""
+    def test_to_entity_from_row(
+        self, repository: ParliamentaryGroupRepositoryImpl
+    ) -> None:
+        """Test _to_entity converts row-like object to entity correctly."""
         mock_row = MagicMock()
         mock_row.id = 1
         mock_row.name = "自民党会派"
@@ -498,7 +497,7 @@ class TestParliamentaryGroupRepositoryImpl:
         mock_row.start_date = None
         mock_row.end_date = None
 
-        entity = repository._row_to_entity(mock_row)
+        entity = repository._to_entity(mock_row)
 
         assert isinstance(entity, ParliamentaryGroup)
         assert entity.id == 1
@@ -572,29 +571,33 @@ class TestParliamentaryGroupRepositoryImpl:
         repository: ParliamentaryGroupRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test get_by_ids returns parliamentary groups for given IDs."""
-        mock_row1 = MagicMock()
-        mock_row1.id = 1
-        mock_row1.name = "自民党会派"
-        mock_row1.governing_body_id = 10
-        mock_row1.url = "https://example.com/group"
-        mock_row1.description = "自由民主党の会派"
-        mock_row1.is_active = True
-        mock_row1.start_date = None
-        mock_row1.end_date = None
+        """Test get_by_ids returns groups for given IDs."""
+        model1 = ParliamentaryGroupModel(
+            id=1,
+            name="自民党会派",
+            governing_body_id=10,
+            url="https://example.com/group",
+            description="自由民主党の会派",
+            is_active=True,
+            start_date=None,
+            end_date=None,
+        )
 
-        mock_row2 = MagicMock()
-        mock_row2.id = 2
-        mock_row2.name = "民主党会派"
-        mock_row2.governing_body_id = 10
-        mock_row2.url = None
-        mock_row2.description = "民主党の会派"
-        mock_row2.is_active = True
-        mock_row2.start_date = None
-        mock_row2.end_date = None
+        model2 = ParliamentaryGroupModel(
+            id=2,
+            name="民主党会派",
+            governing_body_id=10,
+            url=None,
+            description="民主党の会派",
+            is_active=True,
+            start_date=None,
+            end_date=None,
+        )
 
+        mock_scalars = MagicMock()
+        mock_scalars.all = MagicMock(return_value=[model1, model2])
         mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
+        mock_result.scalars = MagicMock(return_value=mock_scalars)
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_by_ids([1, 2])
@@ -655,9 +658,11 @@ class TestParliamentaryGroupRepositoryImpl:
         repository: ParliamentaryGroupRepositoryImpl,
         mock_session: MagicMock,
     ) -> None:
-        """Test get_by_ids returns empty list when no groups found."""
+        """Test get_by_ids returns empty list when not found."""
+        mock_scalars = MagicMock()
+        mock_scalars.all = MagicMock(return_value=[])
         mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[])
+        mock_result.scalars = MagicMock(return_value=mock_scalars)
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_by_ids([999])

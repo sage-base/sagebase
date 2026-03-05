@@ -65,23 +65,13 @@ def sample_meeting_dict():
 class TestMeetingRepositoryImplInitialization:
     """Test repository initialization with different session types"""
 
-    def test_sync_session_initialization(self):
-        """Test that sync session is properly initialized"""
-        sync_session = MagicMock()
-        repo = MeetingRepositoryImpl(session=sync_session)
-
-        assert repo.sync_session == sync_session
-        assert repo.async_session is None
-        assert repo.session_adapter is None
-
     @pytest.mark.asyncio
     async def test_async_session_initialization(self):
         """Test that async session is properly initialized"""
         async_session = AsyncMock(spec=AsyncSession)
         repo = MeetingRepositoryImpl(session=async_session)
 
-        assert repo.async_session == async_session
-        assert repo.sync_session is None
+        assert repo.session == async_session
 
 
 class TestMeetingRepositoryImplConversions:
@@ -89,11 +79,20 @@ class TestMeetingRepositoryImplConversions:
 
     def test_to_entity_complete_data(self, async_repository, sample_meeting_dict):
         """Test converting model to entity with complete data"""
-        mock_model = MagicMock()
-        for key, value in sample_meeting_dict.items():
-            setattr(mock_model, key, value)
+        from src.infrastructure.persistence.sqlalchemy_models import MeetingModel
 
-        entity = async_repository._to_entity(mock_model)
+        model = MeetingModel(
+            id=1,
+            conference_id=100,
+            date=sample_meeting_dict["date"],
+            url=sample_meeting_dict["url"],
+            name=sample_meeting_dict["name"],
+            gcs_pdf_uri=sample_meeting_dict["gcs_pdf_uri"],
+            gcs_text_uri=sample_meeting_dict["gcs_text_uri"],
+            attendees_mapping=sample_meeting_dict["attendees_mapping"],
+        )
+
+        entity = async_repository._to_entity(model)
 
         assert isinstance(entity, Meeting)
         assert entity.id == 1
@@ -102,17 +101,14 @@ class TestMeetingRepositoryImplConversions:
 
     def test_to_entity_minimal_data(self, async_repository):
         """Test converting model to entity with minimal data"""
-        mock_model = MagicMock()
-        mock_model.id = 1
-        mock_model.conference_id = 100
-        mock_model.date = None
-        mock_model.url = None
-        mock_model.name = None
-        mock_model.gcs_pdf_uri = None
-        mock_model.gcs_text_uri = None
-        mock_model.attendees_mapping = None
+        from src.infrastructure.persistence.sqlalchemy_models import MeetingModel
 
-        entity = async_repository._to_entity(mock_model)
+        model = MeetingModel(
+            id=1,
+            conference_id=100,
+        )
+
+        entity = async_repository._to_entity(model)
 
         assert entity.id == 1
         assert entity.conference_id == 100
@@ -154,25 +150,13 @@ class TestMeetingRepositoryImplConversions:
 
         assert mock_model.conference_id == 100
 
-    def test_dict_to_entity_success(self, async_repository, sample_meeting_dict):
-        """Test converting dict to entity"""
-        entity = async_repository._dict_to_entity(sample_meeting_dict)
+    def test_to_entity_from_row(self, async_repository, sample_meeting_dict):
+        """Test converting row with _mapping to entity"""
+        mock_row = MagicMock()
+        mock_row._mapping = sample_meeting_dict
+
+        entity = async_repository._to_entity(mock_row)
 
         assert isinstance(entity, Meeting)
         assert entity.id == 1
         assert entity.conference_id == 100
-
-    def test_pydantic_to_entity_success(self, async_repository):
-        """Test converting Pydantic model to entity"""
-        mock_pydantic = MagicMock()
-        mock_pydantic.model_dump = MagicMock(
-            return_value={
-                "id": 1,
-                "conference_id": 100,
-                "name": "Pydantic Meeting",
-            }
-        )
-
-        entity = async_repository._pydantic_to_entity(mock_pydantic)
-
-        assert isinstance(entity, Meeting)

@@ -6,39 +6,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from sqlalchemy import Column, Date, Integer, String, Table
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import registry
 
 from src.domain.entities.meeting import Meeting
 from src.infrastructure.persistence.meeting_repository_impl import (
     MeetingRepositoryImpl,
 )
-
-
-# Create a simple SQLAlchemy model for testing
-mapper_registry = registry()
-
-
-@mapper_registry.mapped
-class MeetingModel:
-    """Test Meeting model."""
-
-    __table__ = Table(
-        "meetings",
-        mapper_registry.metadata,
-        Column("id", Integer, primary_key=True),
-        Column("conference_id", Integer),
-        Column("name", String),
-        Column("date", Date),
-        Column("url", String),
-        Column("gcs_pdf_uri", String),
-        Column("gcs_text_uri", String),
-        Column("attendees_mapping", JSONB),
-        Column("summary", String),
-        Column("uploaded_file_name", String),
-    )
+from src.infrastructure.persistence.sqlalchemy_models import MeetingModel
 
 
 class TestMeetingRepositoryImpl:
@@ -49,7 +23,9 @@ class TestMeetingRepositoryImpl:
         """Create mock async session."""
         session = MagicMock(spec=AsyncSession)
         session.execute = AsyncMock()
+        session.get = AsyncMock()
         session.commit = AsyncMock()
+        session.flush = AsyncMock()
         session.rollback = AsyncMock()
         session.add = MagicMock()
         return session
@@ -57,7 +33,7 @@ class TestMeetingRepositoryImpl:
     @pytest.fixture
     def repository(self, mock_session: MagicMock) -> MeetingRepositoryImpl:
         """Create meeting repository."""
-        return MeetingRepositoryImpl(mock_session, model_class=MeetingModel)
+        return MeetingRepositoryImpl(mock_session)
 
     @pytest.fixture
     def sample_meeting_dict(self) -> dict[str, Any]:
@@ -87,6 +63,22 @@ class TestMeetingRepositoryImpl:
             gcs_pdf_uri="gs://bucket/meeting.pdf",
             gcs_text_uri="gs://bucket/meeting.txt",
         )
+
+    @pytest.fixture
+    def sample_meeting_model(self) -> MeetingModel:
+        """Sample meeting ORM model."""
+        return MeetingModel(
+            id=1,
+            conference_id=10,
+            date=date(2024, 1, 15),
+            url="https://example.com/meeting",
+            name="本会議",
+            gcs_pdf_uri="gs://bucket/meeting.pdf",
+            gcs_text_uri="gs://bucket/meeting.txt",
+            attendees_mapping=None,
+        )
+
+    # ========== get_by_conference_and_date テスト ==========
 
     @pytest.mark.asyncio
     async def test_get_by_conference_and_date_found(
@@ -124,6 +116,8 @@ class TestMeetingRepositoryImpl:
         assert result is None
         mock_session.execute.assert_called_once()
 
+    # ========== get_by_conference テスト ==========
+
     @pytest.mark.asyncio
     async def test_get_by_conference(
         self,
@@ -135,7 +129,7 @@ class TestMeetingRepositoryImpl:
         mock_row = MagicMock()
         mock_row._mapping = sample_meeting_dict
         mock_result = MagicMock()
-        mock_result.__iter__ = MagicMock(return_value=iter([mock_row]))
+        mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_by_conference(10)
@@ -150,7 +144,7 @@ class TestMeetingRepositoryImpl:
     ) -> None:
         """Test get_by_conference with limit."""
         mock_result = MagicMock()
-        mock_result.__iter__ = MagicMock(return_value=iter([]))
+        mock_result.fetchall = MagicMock(return_value=[])
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_by_conference(10, limit=5)
@@ -159,30 +153,49 @@ class TestMeetingRepositoryImpl:
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_get_by_conference_empty(
+        self,
+        repository: MeetingRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test get_by_conference returns empty list when no meetings exist."""
+        mock_result = MagicMock()
+        mock_result.fetchall = MagicMock(return_value=[])
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_conference(10)
+
+        assert result == []
+        mock_session.execute.assert_called_once()
+
+    # ========== get_unprocessed テスト ==========
+
+    @pytest.mark.asyncio
     async def test_get_unprocessed(
         self, repository: MeetingRepositoryImpl, mock_session: MagicMock
     ) -> None:
         """Test get_unprocessed returns meetings without minutes."""
-        mock_meeting = MagicMock()
-        mock_meeting.id = 1
-        mock_meeting.conference_id = 10
-        mock_meeting.date = date(2024, 1, 15)
-        mock_meeting.url = "https://example.com/meeting"
-        mock_meeting.name = "本会議"
-        mock_meeting.gcs_pdf_uri = None
-        mock_meeting.gcs_text_uri = None
-        mock_meeting.attendees_mapping = None
-
+        mock_row = MagicMock()
+        mock_row._mapping = {
+            "id": 1,
+            "conference_id": 10,
+            "date": date(2024, 1, 15),
+            "url": "https://example.com/meeting",
+            "name": "本会議",
+            "gcs_pdf_uri": None,
+            "gcs_text_uri": None,
+            "attendees_mapping": None,
+        }
         mock_result = MagicMock()
-        mock_result.scalars = MagicMock(
-            return_value=MagicMock(all=MagicMock(return_value=[mock_meeting]))
-        )
+        mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_unprocessed()
 
         assert len(result) == 1
         mock_session.execute.assert_called_once()
+
+    # ========== update_gcs_uris テスト ==========
 
     @pytest.mark.asyncio
     async def test_update_gcs_uris_success(
@@ -243,6 +256,8 @@ class TestMeetingRepositoryImpl:
         assert result is True
         mock_session.execute.assert_called_once()
 
+    # ========== get_meetings_with_filters テスト ==========
+
     @pytest.mark.asyncio
     async def test_get_meetings_with_filters(
         self, repository: MeetingRepositoryImpl, mock_session: MagicMock
@@ -279,6 +294,8 @@ class TestMeetingRepositoryImpl:
         assert len(meetings) == 1
         assert total == 1
         assert mock_session.execute.call_count == 2
+
+    # ========== get_meeting_by_id_with_info テスト ==========
 
     @pytest.mark.asyncio
     async def test_get_meeting_by_id_with_info_found(
@@ -319,6 +336,8 @@ class TestMeetingRepositoryImpl:
         assert result is None
         mock_session.execute.assert_called_once()
 
+    # ========== create テスト ==========
+
     @pytest.mark.asyncio
     async def test_create_success(
         self,
@@ -355,6 +374,8 @@ class TestMeetingRepositoryImpl:
 
         with pytest.raises(RuntimeError, match="Failed to create meeting"):
             await repository.create(sample_meeting_entity)
+
+    # ========== update テスト ==========
 
     @pytest.mark.asyncio
     async def test_update_success(
@@ -393,6 +414,8 @@ class TestMeetingRepositoryImpl:
         with pytest.raises(RuntimeError, match="Failed to update meeting"):
             await repository.update(sample_meeting_entity)
 
+    # ========== delete テスト ==========
+
     @pytest.mark.asyncio
     async def test_delete_success(
         self, repository: MeetingRepositoryImpl, mock_session: MagicMock
@@ -429,39 +452,132 @@ class TestMeetingRepositoryImpl:
         mock_session.commit.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_delete_not_found(
+        self,
+        repository: MeetingRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test delete returns False when meeting not found."""
+        mock_count_result = MagicMock()
+        mock_count_result.scalar = MagicMock(return_value=0)
+        mock_delete_result = MagicMock()
+        mock_delete_result.rowcount = 0
+
+        mock_session.execute = AsyncMock(
+            side_effect=[mock_count_result, mock_delete_result]
+        )
+
+        result = await repository.delete(999)
+
+        assert result is False
+        assert mock_session.execute.call_count == 2
+        mock_session.flush.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_delete_with_related_minutes(
+        self,
+        repository: MeetingRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test delete fails when meeting has related minutes."""
+        mock_count_result = MagicMock()
+        mock_count_result.scalar = MagicMock(return_value=5)
+        mock_session.execute.return_value = mock_count_result
+
+        result = await repository.delete(1)
+
+        assert result is False
+        mock_session.execute.assert_called_once()
+        mock_session.commit.assert_not_called()
+
+    # ========== get_by_id テスト（BaseRepositoryImpl経由） ==========
+
+    @pytest.mark.asyncio
     async def test_get_by_id_found(
         self,
         repository: MeetingRepositoryImpl,
         mock_session: MagicMock,
-        sample_meeting_dict: dict[str, Any],
+        sample_meeting_model: MeetingModel,
     ) -> None:
         """Test get_by_id when meeting is found."""
-        mock_row = MagicMock()
-        mock_row._mapping = sample_meeting_dict
-        mock_result = MagicMock()
-        mock_result.first = MagicMock(return_value=mock_row)
-        mock_session.execute.return_value = mock_result
+        mock_session.get.return_value = sample_meeting_model
 
         result = await repository.get_by_id(1)
 
         assert result is not None
         assert result.id == 1
         assert result.conference_id == 10
-        mock_session.execute.assert_called_once()
+        mock_session.get.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_by_id_not_found(
         self, repository: MeetingRepositoryImpl, mock_session: MagicMock
     ) -> None:
         """Test get_by_id when meeting is not found."""
-        mock_result = MagicMock()
-        mock_result.first = MagicMock(return_value=None)
-        mock_session.execute.return_value = mock_result
+        mock_session.get.return_value = None
 
         result = await repository.get_by_id(999)
 
         assert result is None
+        mock_session.get.assert_called_once()
+
+    # ========== get_by_ids テスト（BaseRepositoryImpl経由） ==========
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_found(
+        self,
+        repository: MeetingRepositoryImpl,
+        mock_session: MagicMock,
+        sample_meeting_model: MeetingModel,
+    ) -> None:
+        """Test get_by_ids returns meetings for given IDs."""
+        model2 = MeetingModel(
+            id=2,
+            conference_id=10,
+            name="委員会",
+        )
+        mock_scalars = MagicMock()
+        mock_scalars.all = MagicMock(return_value=[sample_meeting_model, model2])
+        mock_result = MagicMock()
+        mock_result.scalars = MagicMock(return_value=mock_scalars)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_ids([1, 2])
+
+        assert len(result) == 2
+        assert result[0].id == 1
+        assert result[0].name == "本会議"
+        assert result[1].id == 2
+        assert result[1].name == "委員会"
         mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_empty_list(
+        self, repository: MeetingRepositoryImpl, mock_session: MagicMock
+    ) -> None:
+        """Test get_by_ids returns empty list for empty input."""
+        result = await repository.get_by_ids([])
+
+        assert result == []
+        mock_session.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_get_by_ids_not_found(
+        self, repository: MeetingRepositoryImpl, mock_session: MagicMock
+    ) -> None:
+        """Test get_by_ids returns empty list when no meetings found."""
+        mock_scalars = MagicMock()
+        mock_scalars.all = MagicMock(return_value=[])
+        mock_result = MagicMock()
+        mock_result.scalars = MagicMock(return_value=mock_scalars)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.get_by_ids([999])
+
+        assert result == []
+        mock_session.execute.assert_called_once()
+
+    # ========== get_all テスト ==========
 
     @pytest.mark.asyncio
     async def test_get_all(
@@ -474,7 +590,7 @@ class TestMeetingRepositoryImpl:
         mock_row = MagicMock()
         mock_row._mapping = sample_meeting_dict
         mock_result = MagicMock()
-        mock_result.__iter__ = MagicMock(return_value=iter([mock_row]))
+        mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_all()
@@ -489,13 +605,15 @@ class TestMeetingRepositoryImpl:
     ) -> None:
         """Test get_all with limit and offset."""
         mock_result = MagicMock()
-        mock_result.__iter__ = MagicMock(return_value=iter([]))
+        mock_result.fetchall = MagicMock(return_value=[])
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_all(limit=10, offset=5)
 
         assert result == []
         mock_session.execute.assert_called_once()
+
+    # ========== count テスト（BaseRepositoryImpl経由） ==========
 
     @pytest.mark.asyncio
     async def test_count(
@@ -524,202 +642,7 @@ class TestMeetingRepositoryImpl:
 
         assert result == 0
 
-    def test_to_entity(self, repository: MeetingRepositoryImpl) -> None:
-        """Test _to_entity converts model to entity correctly."""
-
-        class MockModel:
-            id = 1
-            conference_id = 10
-            date = date(2024, 1, 15)
-            url = "https://example.com/meeting"
-            name = "本会議"
-            gcs_pdf_uri = "gs://bucket/meeting.pdf"
-            gcs_text_uri = "gs://bucket/meeting.txt"
-            attendees_mapping = None
-
-        model = MockModel()
-        entity = repository._to_entity(model)
-
-        assert isinstance(entity, Meeting)
-        assert entity.id == 1
-        assert entity.conference_id == 10
-        assert entity.date == date(2024, 1, 15)
-
-    def test_to_model(
-        self, repository: MeetingRepositoryImpl, sample_meeting_entity: Meeting
-    ) -> None:
-        """Test _to_model converts entity to model correctly."""
-        model = repository._to_model(sample_meeting_entity)
-
-        assert model.id == 1
-        assert model.conference_id == 10
-        assert model.date == date(2024, 1, 15)
-
-    def test_update_model(
-        self, repository: MeetingRepositoryImpl, sample_meeting_entity: Meeting
-    ) -> None:
-        """Test _update_model updates model fields from entity."""
-
-        class MockModel:
-            id = 1
-            conference_id = 5
-            date = date(2023, 1, 1)
-            url = "https://old.com"
-            name = "旧会議"
-            gcs_pdf_uri = None
-            gcs_text_uri = None
-            attendees_mapping = None
-
-        model = MockModel()
-        repository._update_model(model, sample_meeting_entity)
-
-        assert model.conference_id == 10
-        assert model.date == date(2024, 1, 15)
-        assert model.name == "本会議"
-        assert model.gcs_pdf_uri == "gs://bucket/meeting.pdf"
-
-    def test_dict_to_entity(
-        self, repository: MeetingRepositoryImpl, sample_meeting_dict: dict[str, Any]
-    ) -> None:
-        """Test _dict_to_entity converts dictionary to entity correctly."""
-        entity = repository._dict_to_entity(sample_meeting_dict)
-
-        assert isinstance(entity, Meeting)
-        assert entity.id == 1
-        assert entity.conference_id == 10
-        assert entity.date == date(2024, 1, 15)
-
-    def test_pydantic_to_entity(self, repository: MeetingRepositoryImpl) -> None:
-        """Test _pydantic_to_entity converts Pydantic model to entity correctly."""
-
-        class MockPydanticModel:
-            id = 1
-            conference_id = 10
-            date = date(2024, 1, 15)
-            url = "https://example.com/meeting"
-            name = "本会議"
-            gcs_pdf_uri = "gs://bucket/meeting.pdf"
-            gcs_text_uri = "gs://bucket/meeting.txt"
-            attendees_mapping = None
-
-        model = MockPydanticModel()
-        entity = repository._pydantic_to_entity(model)
-
-        assert isinstance(entity, Meeting)
-        assert entity.id == 1
-        assert entity.conference_id == 10
-
-    def test_to_entity_with_none(self, repository: MeetingRepositoryImpl) -> None:
-        """Test _to_entity raises ValueError when model is None."""
-        with pytest.raises(ValueError, match="Cannot convert None to Meeting entity"):
-            repository._to_entity(None)
-
-    @pytest.mark.asyncio
-    async def test_get_by_conference_empty(
-        self,
-        repository: MeetingRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test get_by_conference returns empty list when no meetings exist."""
-        mock_result = MagicMock()
-        mock_result.all = MagicMock(return_value=[])
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.get_by_conference(10)
-
-        assert result == []
-        mock_session.execute.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_delete_not_found(
-        self,
-        repository: MeetingRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test delete returns False when meeting not found."""
-        # Mock count check (no related minutes)
-        mock_count_result = MagicMock()
-        mock_count_result.scalar = MagicMock(return_value=0)
-
-        # Mock delete result (rowcount=0, not found)
-        mock_delete_result = MagicMock()
-        mock_delete_result.rowcount = 0
-
-        mock_session.execute.side_effect = [mock_count_result, mock_delete_result]
-
-        result = await repository.delete(999)
-
-        assert result is False
-        assert mock_session.execute.call_count == 2
-        mock_session.flush.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_delete_with_related_minutes(
-        self,
-        repository: MeetingRepositoryImpl,
-        mock_session: MagicMock,
-    ) -> None:
-        """Test delete fails when meeting has related minutes."""
-        # Mock count check (has related minutes)
-        mock_count_result = MagicMock()
-        mock_count_result.scalar = MagicMock(return_value=5)
-        mock_session.execute.return_value = mock_count_result
-
-        result = await repository.delete(1)
-
-        assert result is False
-        mock_session.execute.assert_called_once()
-        mock_session.commit.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_get_by_ids_found(
-        self,
-        repository: MeetingRepositoryImpl,
-        mock_session: MagicMock,
-        sample_meeting_dict: dict[str, Any],
-    ) -> None:
-        """Test get_by_ids returns meetings for given IDs."""
-        mock_row1 = MagicMock()
-        mock_row1._mapping = sample_meeting_dict
-        mock_row2_dict = {**sample_meeting_dict, "id": 2, "name": "委員会"}
-        mock_row2 = MagicMock()
-        mock_row2._mapping = mock_row2_dict
-        mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.get_by_ids([1, 2])
-
-        assert len(result) == 2
-        assert result[0].id == 1
-        assert result[0].name == "本会議"
-        assert result[1].id == 2
-        assert result[1].name == "委員会"
-        mock_session.execute.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_get_by_ids_empty_list(
-        self, repository: MeetingRepositoryImpl, mock_session: MagicMock
-    ) -> None:
-        """Test get_by_ids returns empty list for empty input."""
-        result = await repository.get_by_ids([])
-
-        assert result == []
-        mock_session.execute.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_get_by_ids_not_found(
-        self, repository: MeetingRepositoryImpl, mock_session: MagicMock
-    ) -> None:
-        """Test get_by_ids returns empty list when no meetings found."""
-        mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[])
-        mock_session.execute.return_value = mock_result
-
-        result = await repository.get_by_ids([999])
-
-        assert result == []
-        mock_session.execute.assert_called_once()
+    # ========== get_by_chamber_and_date_range テスト ==========
 
     @pytest.mark.asyncio
     async def test_get_by_chamber_and_date_range(
@@ -732,7 +655,7 @@ class TestMeetingRepositoryImpl:
         mock_row = MagicMock()
         mock_row._mapping = sample_meeting_dict
         mock_result = MagicMock()
-        mock_result.__iter__ = MagicMock(return_value=iter([mock_row]))
+        mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_by_chamber_and_date_range(
@@ -749,7 +672,7 @@ class TestMeetingRepositoryImpl:
     ) -> None:
         """該当なしで空リストを返す."""
         mock_result = MagicMock()
-        mock_result.__iter__ = MagicMock(return_value=iter([]))
+        mock_result.fetchall = MagicMock(return_value=[])
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_by_chamber_and_date_range(
@@ -758,3 +681,77 @@ class TestMeetingRepositoryImpl:
 
         assert result == []
         mock_session.execute.assert_called_once()
+
+    # ========== 変換メソッドテスト ==========
+
+    def test_to_entity(
+        self,
+        repository: MeetingRepositoryImpl,
+        sample_meeting_model: MeetingModel,
+    ) -> None:
+        """Test _to_entity converts model to entity correctly."""
+        entity = repository._to_entity(sample_meeting_model)
+
+        assert isinstance(entity, Meeting)
+        assert entity.id == 1
+        assert entity.conference_id == 10
+        assert entity.date == date(2024, 1, 15)
+
+    def test_to_entity_from_row(self, repository: MeetingRepositoryImpl) -> None:
+        """Test _to_entity converts row with _mapping to entity."""
+        mock_row = MagicMock()
+        mock_row._mapping = {
+            "id": 2,
+            "conference_id": 20,
+            "date": date(2024, 3, 1),
+            "url": None,
+            "name": "委員会",
+            "gcs_pdf_uri": None,
+            "gcs_text_uri": None,
+            "attendees_mapping": None,
+        }
+
+        entity = repository._to_entity(mock_row)
+
+        assert isinstance(entity, Meeting)
+        assert entity.id == 2
+        assert entity.conference_id == 20
+
+    def test_to_model(
+        self,
+        repository: MeetingRepositoryImpl,
+        sample_meeting_entity: Meeting,
+    ) -> None:
+        """Test _to_model converts entity to model correctly."""
+        model = repository._to_model(sample_meeting_entity)
+
+        assert isinstance(model, MeetingModel)
+        assert model.id == 1
+        assert model.conference_id == 10
+        assert model.date == date(2024, 1, 15)
+
+    def test_update_model(
+        self,
+        repository: MeetingRepositoryImpl,
+        sample_meeting_entity: Meeting,
+    ) -> None:
+        """Test _update_model updates model fields from entity."""
+        model = MeetingModel(
+            id=1,
+            conference_id=5,
+            date=date(2023, 1, 1),
+            url="https://old.com",
+            name="旧会議",
+        )
+
+        repository._update_model(model, sample_meeting_entity)
+
+        assert model.conference_id == 10
+        assert model.date == date(2024, 1, 15)
+        assert model.name == "本会議"
+        assert model.gcs_pdf_uri == "gs://bucket/meeting.pdf"
+
+    def test_to_entity_with_none(self, repository: MeetingRepositoryImpl) -> None:
+        """Test _to_entity raises ValueError when model is None."""
+        with pytest.raises(ValueError, match="Cannot convert None to Meeting entity"):
+            repository._to_entity(None)

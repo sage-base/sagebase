@@ -12,11 +12,14 @@ from uuid import UUID
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
+    Text,
     Uuid,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -94,12 +97,29 @@ class UserModel(Base):
 
 
 class PoliticianModel(Base):
-    """SQLAlchemy model for politicians table (minimal definition for FK support)."""
+    """SQLAlchemy model for politicians table."""
 
     __tablename__ = "politicians"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(200))
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    prefecture: Mapped[str | None] = mapped_column(String(10))
+    furigana: Mapped[str | None] = mapped_column(String)
+    district: Mapped[str | None] = mapped_column(String)
+    profile_page_url: Mapped[str | None] = mapped_column(String)
+    is_lastname_hiragana: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+    is_firstname_hiragana: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+    kanji_name: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     def __repr__(self) -> str:
         return f"<PoliticianModel(id={self.id}, name={self.name})>"
@@ -356,6 +376,95 @@ class PartyMembershipHistoryModel(Base):
         )
 
 
+class PoliticalPartyModel(Base):
+    """SQLAlchemy model for political_parties table."""
+
+    __tablename__ = "political_parties"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    members_list_url: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    def __repr__(self) -> str:
+        return f"<PoliticalPartyModel(id={self.id}, name={self.name})>"
+
+
+class GoverningBodyModel(Base):
+    """SQLAlchemy model for governing_bodies table."""
+
+    __tablename__ = "governing_bodies"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    type: Mapped[str | None] = mapped_column(String)
+    organization_code: Mapped[str | None] = mapped_column(String(6), unique=True)
+    organization_type: Mapped[str | None] = mapped_column(String(20))
+    prefecture: Mapped[str | None] = mapped_column(String(10))
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    def __repr__(self) -> str:
+        return f"<GoverningBodyModel(id={self.id}, name={self.name})>"
+
+
+class ConferenceMemberModel(Base):
+    """SQLAlchemy model for conference_members table."""
+
+    __tablename__ = "conference_members"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    politician_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("politicians.id", use_alter=True, name="fk_cm_politician"),
+        nullable=False,
+    )
+    conference_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("conferences.id", use_alter=True, name="fk_cm_conference"),
+        nullable=False,
+    )
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    role: Mapped[str | None] = mapped_column(String(100))
+    is_manually_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    latest_extraction_log_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("extraction_logs.id", use_alter=True, name="fk_cm_extraction_log"),
+    )
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "end_date IS NULL OR end_date >= start_date",
+            name="chk_cm_end_date_after_start",
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ConferenceMemberModel("
+            f"id={self.id}, "
+            f"politician_id={self.politician_id}, "
+            f"conference_id={self.conference_id}"
+            f")>"
+        )
+
+
 class GovernmentOfficialModel(Base):
     """SQLAlchemy model for government_officials table."""
 
@@ -416,3 +525,83 @@ class GovernmentOfficialPositionModel(Base):
             f"position={self.position}"
             f")>"
         )
+
+
+class SpeakerModel(Base):
+    """SQLAlchemy model for speakers table."""
+
+    __tablename__ = "speakers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    type: Mapped[str | None] = mapped_column(String)
+    political_party_name: Mapped[str | None] = mapped_column(String)
+    position: Mapped[str | None] = mapped_column(String)
+    is_politician: Mapped[bool] = mapped_column(Boolean, default=False)
+    politician_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("politicians.id", use_alter=True, name="fk_speaker_politician"),
+    )
+    matching_process_id: Mapped[int | None] = mapped_column(Integer)
+    matching_confidence: Mapped[float | None] = mapped_column(Numeric(3, 2))
+    matching_reason: Mapped[str | None] = mapped_column(Text)
+    matched_by_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("users.user_id", use_alter=True, name="fk_speaker_user"),
+    )
+    is_manually_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    latest_extraction_log_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey(
+            "extraction_logs.id",
+            use_alter=True,
+            name="fk_speaker_extraction_log",
+        ),
+    )
+    name_yomi: Mapped[str | None] = mapped_column(String)
+    skip_reason: Mapped[str | None] = mapped_column(String)
+    government_official_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey(
+            "government_officials.id",
+            use_alter=True,
+            name="fk_speaker_gov_official",
+        ),
+    )
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    def __repr__(self) -> str:
+        return f"<SpeakerModel(id={self.id}, name={self.name})>"
+
+
+class MeetingModel(Base):
+    """SQLAlchemy model for meetings table."""
+
+    __tablename__ = "meetings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conference_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("conferences.id", use_alter=True, name="fk_meeting_conference"),
+        nullable=False,
+    )
+    date: Mapped["date | None"] = mapped_column(Date)
+    url: Mapped[str | None] = mapped_column(String)
+    name: Mapped[str | None] = mapped_column(String)
+    gcs_pdf_uri: Mapped[str | None] = mapped_column(String(512))
+    gcs_text_uri: Mapped[str | None] = mapped_column(String(512))
+    attendees_mapping: Mapped[Any | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    def __repr__(self) -> str:
+        return f"<MeetingModel(id={self.id}, conference_id={self.conference_id})>"

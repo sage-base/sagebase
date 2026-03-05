@@ -1,5 +1,6 @@
 """Tests for PoliticianRepositoryImpl."""
 
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -10,9 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.domain.entities.politician import Politician
 from src.infrastructure.exceptions import UpdateError
 from src.infrastructure.persistence.politician_repository_impl import (
-    PoliticianModel,
     PoliticianRepositoryImpl,
 )
+from src.infrastructure.persistence.sqlalchemy_models import PoliticianModel
 
 
 class TestPoliticianRepositoryImpl:
@@ -28,6 +29,7 @@ class TestPoliticianRepositoryImpl:
         session.add = MagicMock()
         session.flush = AsyncMock()
         session.refresh = AsyncMock()
+        session.get = AsyncMock()
         return session
 
     @pytest.fixture
@@ -70,8 +72,7 @@ class TestPoliticianRepositoryImpl:
         sample_politician_dict: dict[str, Any],
     ) -> None:
         """Test get_by_name when politician is found."""
-        mock_row = MagicMock()
-        mock_row._mapping = sample_politician_dict
+        mock_row = SimpleNamespace(**sample_politician_dict)
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
@@ -106,8 +107,7 @@ class TestPoliticianRepositoryImpl:
         sample_politician_dict: dict[str, Any],
     ) -> None:
         """Test get_by_name searches by name only."""
-        mock_row = MagicMock()
-        mock_row._mapping = sample_politician_dict
+        mock_row = SimpleNamespace(**sample_politician_dict)
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
@@ -126,8 +126,7 @@ class TestPoliticianRepositoryImpl:
         sample_politician_dict: dict[str, Any],
     ) -> None:
         """Test search_by_name with pattern matching."""
-        mock_row = MagicMock()
-        mock_row._mapping = sample_politician_dict
+        mock_row = SimpleNamespace(**sample_politician_dict)
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
@@ -173,8 +172,7 @@ class TestPoliticianRepositoryImpl:
         sample_politician_dict: dict[str, Any],
     ) -> None:
         """Test get_all with limit and offset."""
-        mock_row = MagicMock()
-        mock_row._mapping = {**sample_politician_dict, "party_name": "自民党"}
+        mock_row = SimpleNamespace(**{**sample_politician_dict, "party_name": "自民党"})
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
@@ -193,8 +191,7 @@ class TestPoliticianRepositoryImpl:
         sample_politician_dict: dict[str, Any],
     ) -> None:
         """Test get_all without limit."""
-        mock_row = MagicMock()
-        mock_row._mapping = {**sample_politician_dict, "party_name": "自民党"}
+        mock_row = SimpleNamespace(**{**sample_politician_dict, "party_name": "自民党"})
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
@@ -209,35 +206,36 @@ class TestPoliticianRepositoryImpl:
         self,
         repository: PoliticianRepositoryImpl,
         mock_session: MagicMock,
-        sample_politician_dict: dict[str, Any],
     ) -> None:
         """Test get_by_id when politician is found."""
-        mock_row = MagicMock()
-        mock_row._mapping = {**sample_politician_dict, "party_name": "自民党"}
-        mock_result = MagicMock()
-        mock_result.fetchone = MagicMock(return_value=mock_row)
-        mock_session.execute.return_value = mock_result
+        mock_model = PoliticianModel(
+            id=1,
+            name="山田太郎",
+            district="東京1区",
+            profile_page_url="https://example.com/yamada",
+            furigana="やまだたろう",
+            prefecture="東京都",
+        )
+        mock_session.get.return_value = mock_model
 
         result = await repository.get_by_id(1)
 
         assert result is not None
         assert result.id == 1
         assert result.name == "山田太郎"
-        mock_session.execute.assert_called_once()
+        mock_session.get.assert_called_once_with(PoliticianModel, 1)
 
     @pytest.mark.asyncio
     async def test_get_by_id_not_found(
         self, repository: PoliticianRepositoryImpl, mock_session: MagicMock
     ) -> None:
         """Test get_by_id when politician is not found."""
-        mock_result = MagicMock()
-        mock_result.fetchone = MagicMock(return_value=None)
-        mock_session.execute.return_value = mock_result
+        mock_session.get.return_value = None
 
         result = await repository.get_by_id(999)
 
         assert result is None
-        mock_session.execute.assert_called_once()
+        mock_session.get.assert_called_once_with(PoliticianModel, 999)
 
     @pytest.mark.asyncio
     async def test_create_success(
@@ -248,8 +246,7 @@ class TestPoliticianRepositoryImpl:
         sample_politician_dict: dict[str, Any],
     ) -> None:
         """Test create successfully creates a politician."""
-        mock_row = MagicMock()
-        mock_row._mapping = sample_politician_dict
+        mock_row = SimpleNamespace(**sample_politician_dict)
         mock_result = MagicMock()
         mock_result.first = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
@@ -285,8 +282,9 @@ class TestPoliticianRepositoryImpl:
         sample_politician_dict: dict[str, Any],
     ) -> None:
         """Test update successfully updates a politician."""
-        mock_row = MagicMock()
-        mock_row._mapping = {**sample_politician_dict, "name": "山田太郎（更新）"}
+        mock_row = SimpleNamespace(
+            **{**sample_politician_dict, "name": "山田太郎（更新）"}
+        )
         mock_result = MagicMock()
         mock_result.first = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
@@ -351,13 +349,15 @@ class TestPoliticianRepositoryImpl:
         self, repository: PoliticianRepositoryImpl, mock_session: MagicMock
     ) -> None:
         """Test get_all_for_matching returns politicians for matching."""
-        mock_row = MagicMock()
-        mock_row.id = 1
-        mock_row.name = "山田太郎"
-        mock_row.position = "議員"
-        mock_row.prefecture = "東京都"
-        mock_row.electoral_district = "東京1区"
-        mock_row.party_name = "自民党"
+        mock_row = SimpleNamespace(
+            id=1,
+            name="山田太郎",
+            furigana="やまだたろう",
+            party_position=None,
+            district="東京1区",
+            party_name="自民党",
+            kanji_name=None,
+        )
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
@@ -417,63 +417,29 @@ class TestPoliticianRepositoryImpl:
         assert model.profile_page_url == "https://example.com/yamada"
         assert model.furigana == "やまだたろう"
 
-    def test_row_to_entity_with_mapping(
-        self,
-        repository: PoliticianRepositoryImpl,
-        sample_politician_dict: dict[str, Any],
-    ) -> None:
-        """Test _row_to_entity with row._mapping."""
-        mock_row = MagicMock()
-        mock_row._mapping = sample_politician_dict
-
-        entity = repository._row_to_entity(mock_row)
-
-        assert isinstance(entity, Politician)
-        assert entity.id == 1
-        assert entity.name == "山田太郎"
-        assert entity.district == "東京1区"
-
-    def test_row_to_entity_with_dict(
-        self,
-        repository: PoliticianRepositoryImpl,
-        sample_politician_dict: dict[str, Any],
-    ) -> None:
-        """Test _row_to_entity with dict."""
-        entity = repository._row_to_entity(sample_politician_dict)
-
-        assert isinstance(entity, Politician)
-        assert entity.id == 1
-        assert entity.name == "山田太郎"
-
-    def test_row_to_entity_with_none(
-        self, repository: PoliticianRepositoryImpl
-    ) -> None:
-        """Test _row_to_entity raises error with None."""
-        with pytest.raises(
-            ValueError, match="Cannot convert None to Politician entity"
-        ):
-            repository._row_to_entity(None)
-
     @pytest.mark.asyncio
     async def test_get_by_ids_found(
         self,
         repository: PoliticianRepositoryImpl,
         mock_session: MagicMock,
-        sample_politician_dict: dict[str, Any],
     ) -> None:
         """Test get_by_ids returns politicians for given IDs."""
-        mock_row1 = MagicMock()
-        mock_row1._mapping = {**sample_politician_dict, "party_name": "自民党"}
-        mock_row2_dict = {
-            **sample_politician_dict,
-            "id": 2,
-            "name": "鈴木花子",
-            "party_name": "自民党",
-        }
-        mock_row2 = MagicMock()
-        mock_row2._mapping = mock_row2_dict
+        mock_model1 = PoliticianModel(
+            id=1,
+            name="山田太郎",
+            district="東京1区",
+            prefecture="東京都",
+        )
+        mock_model2 = PoliticianModel(
+            id=2,
+            name="鈴木花子",
+            district="東京2区",
+            prefecture="東京都",
+        )
+        mock_scalars = MagicMock()
+        mock_scalars.all = MagicMock(return_value=[mock_model1, mock_model2])
         mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[mock_row1, mock_row2])
+        mock_result.scalars = MagicMock(return_value=mock_scalars)
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_by_ids([1, 2])
@@ -500,8 +466,10 @@ class TestPoliticianRepositoryImpl:
         self, repository: PoliticianRepositoryImpl, mock_session: MagicMock
     ) -> None:
         """Test get_by_ids returns empty list when no politicians found."""
+        mock_scalars = MagicMock()
+        mock_scalars.all = MagicMock(return_value=[])
         mock_result = MagicMock()
-        mock_result.fetchall = MagicMock(return_value=[])
+        mock_result.scalars = MagicMock(return_value=mock_scalars)
         mock_session.execute.return_value = mock_result
 
         result = await repository.get_by_ids([999])
