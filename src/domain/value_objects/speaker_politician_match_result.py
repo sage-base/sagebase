@@ -8,6 +8,7 @@ class MatchMethod(Enum):
     """マッチング方法."""
 
     EXACT_NAME = "exact_name"
+    EXACT_KANJI_NAME = "exact_kanji_name"
     YOMI = "yomi"
     KANJI_SURNAME = "kanji_surname"
     SURNAME_ONLY = "surname_only"

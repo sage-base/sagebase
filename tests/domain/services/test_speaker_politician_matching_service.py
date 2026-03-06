@@ -138,6 +138,66 @@ class TestSpeakerPoliticianMatchingService:
         assert result.confidence == 0.0
         assert result.match_method == MatchMethod.NONE
 
+    # --- kanji_name完全一致フォールバックテスト ---
+
+    def test_kanji_name_fallback_match(self) -> None:
+        """candidate.nameが不一致でもkanji_nameで完全一致すればマッチする."""
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1,
+                name="武村のぶひで",
+                kanji_name="武村正義",
+            ),
+        ]
+        result = self.service.match(
+            speaker_id=10,
+            speaker_name="武村正義",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert result.politician_id == 1
+        assert result.politician_name == "武村のぶひで"
+        assert result.confidence == 1.0
+        assert result.match_method == MatchMethod.EXACT_KANJI_NAME
+
+    def test_kanji_name_not_used_when_name_matches(self) -> None:
+        """name完全一致が優先され、kanji_nameフォールバックは使われない."""
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1,
+                name="武村正義",
+                kanji_name="武村正義",
+            ),
+        ]
+        result = self.service.match(
+            speaker_id=10,
+            speaker_name="武村正義",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert result.politician_id == 1
+        assert result.confidence == 1.0
+        assert result.match_method == MatchMethod.EXACT_NAME
+
+    def test_kanji_name_none_skipped(self) -> None:
+        """kanji_nameがNoneの候補はスキップされマッチなしになる."""
+        candidates = [
+            PoliticianCandidate(
+                politician_id=1,
+                name="武村のぶひで",
+                kanji_name=None,
+            ),
+        ]
+        result = self.service.match(
+            speaker_id=10,
+            speaker_name="武村正義",
+            speaker_name_yomi=None,
+            candidates=candidates,
+        )
+        assert result.politician_id is None
+        assert result.confidence == 0.0
+        assert result.match_method == MatchMethod.NONE
+
     # --- マッチなしテスト ---
 
     def test_no_candidates(self) -> None:

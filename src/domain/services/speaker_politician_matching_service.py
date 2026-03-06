@@ -30,8 +30,8 @@ class SpeakerPoliticianMatchingService:
     ) -> SpeakerPoliticianMatchResult:
         """発言者名を候補政治家リストとマッチングする（完全一致のみ）.
 
-        正規化後の完全一致判定のみを行う。
-        中間ルール（ふりがな、漢字姓、姓のみ）は廃止され、
+        candidate.nameおよびcandidate.kanji_nameに対する正規化後の完全一致判定を行う。
+        candidate.name一致を優先し、不一致時にkanji_nameフォールバックを試行する。
         完全一致しないケースはLLM判定（BAML）に委譲する。
 
         Args:
@@ -60,6 +60,20 @@ class SpeakerPoliticianMatchingService:
                     confidence=1.0,
                     match_method=MatchMethod.EXACT_NAME,
                 )
+
+        # kanji_name完全一致フォールバック
+        for candidate in candidates:
+            if candidate.kanji_name:
+                normalized_kanji = self.normalize_name(candidate.kanji_name)
+                if normalized_name == normalized_kanji:
+                    return SpeakerPoliticianMatchResult(
+                        speaker_id=speaker_id,
+                        speaker_name=speaker_name,
+                        politician_id=candidate.politician_id,
+                        politician_name=candidate.name,
+                        confidence=1.0,
+                        match_method=MatchMethod.EXACT_KANJI_NAME,
+                    )
 
         return self._no_match(speaker_id, speaker_name)
 
