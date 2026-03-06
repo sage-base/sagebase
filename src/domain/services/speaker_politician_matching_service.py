@@ -61,6 +61,20 @@ class SpeakerPoliticianMatchingService:
                     match_method=MatchMethod.EXACT_NAME,
                 )
 
+        # kanji_name完全一致フォールバック
+        for candidate in candidates:
+            if candidate.kanji_name:
+                normalized_kanji = self.normalize_name(candidate.kanji_name)
+                if normalized_name == normalized_kanji:
+                    return SpeakerPoliticianMatchResult(
+                        speaker_id=speaker_id,
+                        speaker_name=speaker_name,
+                        politician_id=candidate.politician_id,
+                        politician_name=candidate.name,
+                        confidence=1.0,
+                        match_method=MatchMethod.EXACT_KANJI_NAME,
+                    )
+
         return self._no_match(speaker_id, speaker_name)
 
     def filter_candidates_for_llm(
