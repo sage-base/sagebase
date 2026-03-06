@@ -30,8 +30,8 @@ class SpeakerPoliticianMatchingService:
     ) -> SpeakerPoliticianMatchResult:
         """発言者名を候補政治家リストとマッチングする（完全一致のみ）.
 
-        正規化後の完全一致判定のみを行う。
-        中間ルール（ふりがな、漢字姓、姓のみ）は廃止され、
+        candidate.nameおよびcandidate.kanji_nameに対する正規化後の完全一致判定を行う。
+        candidate.name一致を優先し、不一致時にkanji_nameフォールバックを試行する。
         完全一致しないケースはLLM判定（BAML）に委譲する。
 
         Args:
