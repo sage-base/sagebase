@@ -43,6 +43,7 @@ if [ "$GOVERNING_BODIES_COUNT" = "0" ]; then
         "database/seed_politicians_generated.sql"
         "database/seed_election_members_generated.sql"
         "database/seed_parliamentary_group_memberships_generated.sql"
+        "database/seed_party_membership_history_generated.sql"
     )
 
     for seed_file in "${SEED_FILES[@]}"; do
@@ -83,5 +84,13 @@ else
         echo "  📦 Parliamentary group parties data missing, loading..."
         load_seed "database/seed_parliamentary_group_parties_generated.sql"
         echo "  ✅ Parliamentary group parties data loaded!"
+    fi
+
+    # party_membership_history は後から追加されたSEEDのため、個別にチェック
+    PMH_COUNT=$(psql_count "SELECT COUNT(*) FROM party_membership_history;")
+    if [ "$PMH_COUNT" = "0" ]; then
+        echo "  📦 Party membership history data missing, loading..."
+        load_seed "database/seed_party_membership_history_generated.sql"
+        echo "  ✅ Party membership history data loaded!"
     fi
 fi
