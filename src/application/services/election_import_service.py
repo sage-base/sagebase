@@ -8,6 +8,8 @@
 """
 
 import logging
+import re
+import unicodedata
 
 from datetime import date
 from typing import Literal
@@ -28,10 +30,60 @@ logger = logging.getLogger(__name__)
 
 MatchStatus = Literal["matched", "not_found", "ambiguous"]
 
+# 政党名の略称→正式名マッピング
+_PARTY_ALIAS_MAP: dict[str, str] = {
+    "自民": "自由民主党",
+    "自民党": "自由民主党",
+    "公明": "公明党",
+    "共産": "日本共産党",
+    "共産党": "日本共産党",
+    "社民": "社会民主党",
+    "社民党": "社会民主党",
+    "立憲": "立憲民主党",
+    "民主": "民主党",
+    "民進": "民進党",
+    "参政": "参政党",
+    "れ新": "れいわ新選組",
+    "維新": "日本維新の会",
+    "維新の会": "日本維新の会",
+    "日本維新": "日本維新の会",
+    "幸福": "幸福実現党",
+    "幸福実現等": "幸福実現党",
+    "日本のこころを": "日本のこころを大切にする党",
+    "保守": "保守党",
+}
+
 
 def normalize_name(name: str) -> str:
     """候補者名の空白を全て除去して正規化する."""
     return name.replace(" ", "").replace("\u3000", "")
+
+
+def normalize_party_name(name: str) -> str:
+    """政党名を正規化する.
+
+    1. NFKC正規化（全角英数→半角）
+    2. 括弧除去
+    3. 空白除去・改行除去
+    4. 略称→正式名変換
+    """
+    if not name:
+        return name
+
+    # NFKC正規化（ＮＨＫ→NHK等）
+    normalized = unicodedata.normalize("NFKC", name)
+
+    # 先頭・末尾の括弧除去: (xxx), （xxx）, [xxx]
+    normalized = re.sub(r"^[(\[（](.+?)[)\]）]$", r"\1", normalized)
+
+    # 空白・改行除去
+    normalized = normalized.replace("\u3000", "").replace(" ", "").replace("\n", "")
+
+    # 略称→正式名
+    if normalized in _PARTY_ALIAS_MAP:
+        return _PARTY_ALIAS_MAP[normalized]
+
+    return normalized
 
 
 class ElectionImportService:
@@ -61,27 +113,34 @@ class ElectionImportService:
     ) -> tuple[PoliticalParty | None, bool]:
         """政党名からPoliticalPartyエンティティを取得/作成する.
 
+        政党名は正規化される（括弧除去、略称→正式名変換、NFKC正規化）。
+
         Returns:
             (政党エンティティ, 新規作成フラグ)
         """
         if not party_name:
             return None, False
 
+        # 政党名を正規化
+        normalized = normalize_party_name(party_name)
+        if not normalized:
+            return None, False
+
         # キャッシュチェック
-        if party_name in self._party_cache:
-            return self._party_cache[party_name], False
+        if normalized in self._party_cache:
+            return self._party_cache[normalized], False
 
         # DB検索
-        party = await self._party_repo.get_by_name(party_name)
+        party = await self._party_repo.get_by_name(normalized)
         if party:
-            self._party_cache[party_name] = party
+            self._party_cache[normalized] = party
             return party, False
 
         # 新規作成
-        logger.info("政党を新規作成: %s", party_name)
-        new_party = PoliticalParty(name=party_name)
+        logger.info("政党を新規作成: %s (元: %s)", normalized, party_name)
+        new_party = PoliticalParty(name=normalized)
         created = await self._party_repo.create(new_party)
-        self._party_cache[party_name] = created
+        self._party_cache[normalized] = created
         return created, True
 
     async def match_politician(
