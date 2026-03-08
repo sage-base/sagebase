@@ -78,6 +78,40 @@ class TestNormalize:
         """眞→真 の変換."""
         assert NameNormalizer.normalize("眞鍋勝") == "真鍋勝"
 
+    # --- Issue #1322: 旧字体テーブル拡充（衞・莊・權・澁・禪・禰） ---
+
+    def test_kyujitai_1322_ei(self) -> None:
+        """衞→衛 の変換."""
+        assert NameNormalizer.normalize("木島喜兵衞") == "木島喜兵衛"
+
+    def test_kyujitai_1322_sou(self) -> None:
+        """莊→荘 の変換."""
+        assert NameNormalizer.normalize("臼井莊一") == "臼井荘一"
+
+    def test_kyujitai_1322_ken(self) -> None:
+        """權→権 の変換."""
+        assert NameNormalizer.normalize("石山權作") == "石山権作"
+
+    def test_kyujitai_1322_shibu(self) -> None:
+        """澁→渋 の変換（藏→蔵も同時変換）."""
+        assert NameNormalizer.normalize("澁谷直藏") == "渋谷直蔵"
+
+    def test_kyujitai_1322_zen(self) -> None:
+        """禪→禅 の変換（廣→広も同時変換）."""
+        assert NameNormalizer.normalize("廣川弘禪") == "広川弘禅"
+
+    def test_kyujitai_1322_ne(self) -> None:
+        """禰→祢 の変換（曾→曽も同時変換）."""
+        assert NameNormalizer.normalize("曾禰益") == "曽祢益"
+
+    def test_kyujitai_1322_ei_single(self) -> None:
+        """衞→衛 の単独変換（他の旧字体を含まないケース）."""
+        assert NameNormalizer.normalize("衞藤太郎") == "衛藤太郎"
+
+    def test_kyujitai_1322_ne_single(self) -> None:
+        """禰→祢 の単独変換."""
+        assert NameNormalizer.normalize("禰宜田太郎") == "祢宜田太郎"
+
     # --- NFKC正規化 ---
 
     def test_nfkc_fullwidth_space(self) -> None:
