@@ -72,6 +72,15 @@ _ROWSPAN_RE = re.compile(r'rowspan="?\d+"?\s*\|\s*(.*)')
 # 定数行（!8人区 等）
 _TEISU_HEADER_RE = re.compile(r"^!\s*(?:colspan[^|]*\|)?\s*\d+人区")
 
+# 改選定数ヘッダ（テーブルタイトル行としてスキップ）
+_KAISEN_TEISU_RE = re.compile(r"^!\s*(?:colspan[^|]*\|)?\s*改選定数")
+
+# 繰上当選セクション見出し
+_KURIAGE_SECTION_RE = re.compile(r"={3,4}\s*繰上当選\s*={3,4}")
+
+# 次のサブセクション見出し（レベル2〜4）
+_NEXT_SUBSECTION_RE = re.compile(r"\n={2,4}[^=]")
+
 # colspan値
 _COLSPAN_RE = re.compile(r'colspan[= ]"?(\d+)"?\s*\|\s*(.*)')
 
@@ -89,14 +98,15 @@ def parse_sangiin_wikitext(
     wikitext: str,
     election_number: int,
 ) -> list[CandidateRecord]:
-    """参議院選挙のWikitextから選挙区+比例/全国区の全当選者を抽出する."""
+    """参議院選挙のWikitextから選挙区+比例/全国区+繰上当選の全当選者を抽出する."""
     color_to_party = _build_color_to_party(wikitext, election_number)
 
     district = _parse_district_winners(wikitext, color_to_party)
     proportional = _parse_proportional_winners(
         wikitext, election_number, color_to_party
     )
-    return district + proportional
+    kuriage = _parse_kuriage_winners(wikitext, color_to_party)
+    return district + proportional + kuriage
 
 
 def _build_color_to_party(wikitext: str, election_number: int) -> dict[str, str]:
@@ -271,35 +281,49 @@ def _parse_district_wikitable(
 ) -> list[CandidateRecord]:
     """wikitable形式の選挙区当選者をパースする.
 
-    セクション見出し配下のwikitableを探し、ヘッダ行から選挙区名を抽出する。
-
-    構造例:
-        === 選挙区当選者 ===
-        {| class="wikitable"
-        |-
-        !colspan=4|[[北海道選挙区|北海道]]!![[青森県選挙区|青森県]]
-        |-
-        |style="background-color:#9e9"|[[名前]]||style="background-color:#0ff"|[[名前]]
-        |}
+    2つのフォーマットに対応:
+    1. 横並びヘッダ形式: ヘッダ行に選挙区名が横並び
+    2. 改選定数別テーブル形式: 定数ごとに分割されたテーブル
     """
     # セクションを探す
     section_text = _extract_section(wikitext, _DISTRICT_SECTION_RE)
     if not section_text:
         return []
 
-    # wikitableを抽出
-    table_match = _WIKITABLE_EXTRACT_RE.search(section_text)
-    if not table_match:
+    # セクション内のすべてのwikitableを抽出
+    tables = list(_WIKITABLE_EXTRACT_RE.finditer(section_text))
+    if not tables:
         return []
 
-    table_text = table_match.group(1)
+    # 改選定数別テーブル形式を検出（セクション内に「改選定数」が含まれるか）
+    if "改選定数" in section_text:
+        candidates: list[CandidateRecord] = []
+        for table_match in tables:
+            candidates.extend(
+                _parse_kaisen_teisu_table(table_match.group(1), color_to_party)
+            )
+        return candidates
+
+    # 横並びヘッダ形式（単一テーブル）
+    first_table_text = tables[0].group(1)
+    districts = _extract_district_columns(first_table_text)
+    if districts:
+        return _parse_horizontal_district_table(
+            first_table_text, districts, color_to_party
+        )
+
+    return []
+
+
+def _parse_horizontal_district_table(
+    table_text: str,
+    districts: list[str],
+    color_to_party: dict[str, str],
+) -> list[CandidateRecord]:
+    """横並びヘッダ形式のwikitableから選挙区当選者をパースする."""
     candidates: list[CandidateRecord] = []
-
-    # ヘッダ行から選挙区名の列マッピングを構築
-    districts = _extract_district_columns(table_text)
-
-    # データ行を処理
     col_index = 0
+
     for line in table_text.split("\n"):
         line = line.strip()
         if not line:
@@ -317,7 +341,7 @@ def _parse_district_wikitable(
         if not line.startswith("|"):
             continue
 
-        # セル行を処理（line.startswith("|") はガード済み）
+        # セル行を処理
         cells = line[1:].split("||")
 
         for cell_text in cells:
@@ -351,6 +375,69 @@ def _parse_district_wikitable(
                         )
                     )
             col_index += 1
+
+    return candidates
+
+
+def _parse_kaisen_teisu_table(
+    table_text: str,
+    color_to_party: dict[str, str],
+) -> list[CandidateRecord]:
+    """改選定数別テーブル形式の選挙区当選者をパースする.
+
+    行内の ! [[選挙区名]] で現在の選挙区を切り替え、
+    | style="background-color:..." | [[名前]] を当選者として抽出する。
+    """
+    candidates: list[CandidateRecord] = []
+    current_district = ""
+
+    for line in table_text.split("\n"):
+        line = line.strip()
+        if not line or line == "|-":
+            continue
+
+        if line.startswith("!"):
+            # 改選定数タイトルはスキップ
+            if _KAISEN_TEISU_RE.match(line):
+                continue
+
+            # 選挙区名を抽出
+            wl_match = _DISTRICT_WIKILINK_RE.search(line)
+            if wl_match:
+                display = wl_match.group(2) or wl_match.group(1)
+                current_district = display.strip()
+            continue
+
+        if not line.startswith("|"):
+            continue
+
+        # セル行を処理
+        cells = line[1:].split("||")
+        for cell_text in cells:
+            cell_text = cell_text.strip()
+
+            cell_match = _WIKITABLE_CELL_RE.match(cell_text)
+            if cell_match and current_district:
+                color = normalize_color(cell_match.group(1))
+                name_part = cell_match.group(2)
+                name = extract_name_from_wikilink(name_part)
+
+                if name:
+                    party = _resolve_party(color, color_to_party)
+                    prefecture = _extract_prefecture_from_sangiin_district(
+                        current_district
+                    )
+                    candidates.append(
+                        CandidateRecord(
+                            name=name,
+                            party_name=party,
+                            district_name=_normalize_sangiin_district(current_district),
+                            prefecture=prefecture,
+                            total_votes=0,
+                            rank=1,
+                            is_elected=True,
+                        )
+                    )
 
     return candidates
 
@@ -606,6 +693,110 @@ def _parse_proportional_wikitable(
                 rank_offset += 1  # 空セルもカラムカウントに含める
 
     return candidates
+
+
+# --- 繰上当選パーサー ---
+
+
+def _parse_kuriage_winners(
+    wikitext: str,
+    color_to_party: dict[str, str],
+) -> list[CandidateRecord]:
+    """繰上当選セクションから当選者を抽出する.
+
+    テーブル構造:
+        !年!!月日!!新旧別!!当選者!!所属党派!!欠員!!欠員事由
+    当選者カラム（index 3）から名前、所属党派カラム（index 4）から政党名を抽出する。
+    """
+    match = _KURIAGE_SECTION_RE.search(wikitext)
+    if not match:
+        return []
+
+    start = match.end()
+    next_section = _NEXT_SUBSECTION_RE.search(wikitext[start:])
+    if next_section:
+        section_text = wikitext[start : start + next_section.start()]
+    else:
+        section_text = wikitext[start:]
+
+    table_match = _WIKITABLE_EXTRACT_RE.search(section_text)
+    if not table_match:
+        return []
+
+    table_text = table_match.group(1)
+    candidates: list[CandidateRecord] = []
+
+    # 各行のセルを収集してパース
+    row_cells: list[str] = []
+    for line in table_text.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+
+        if line == "|-":
+            candidate = _extract_kuriage_candidate(row_cells, color_to_party)
+            if candidate:
+                candidates.append(candidate)
+            row_cells = []
+            continue
+
+        if line.startswith("!"):
+            continue
+
+        if not line.startswith("|"):
+            continue
+
+        # セル行のセルを分割して追加
+        cells = line[1:].split("||")
+        row_cells.extend(c.strip() for c in cells)
+
+    # 最後の行を処理
+    candidate = _extract_kuriage_candidate(row_cells, color_to_party)
+    if candidate:
+        candidates.append(candidate)
+
+    return candidates
+
+
+def _extract_kuriage_candidate(
+    row_cells: list[str],
+    color_to_party: dict[str, str],
+) -> CandidateRecord | None:
+    """繰上当選テーブルの1行からCandidateRecordを生成する.
+
+    カラム: 年(0), 月日(1), 新旧別(2), 当選者(3), 所属党派(4), 欠員(5), 欠員事由(6)
+    """
+    if len(row_cells) < 5:
+        return None
+
+    # 当選者セル（index 3）
+    candidate_cell = row_cells[3]
+    cell_match = _WIKITABLE_CELL_RE.match(candidate_cell)
+    if not cell_match:
+        return None
+
+    color = normalize_color(cell_match.group(1))
+    name_part = cell_match.group(2)
+    name = extract_name_from_wikilink(name_part)
+    if not name:
+        return None
+
+    # 所属党派カラム（index 4）から政党名を取得、なければカラーマッピング
+    party_text = row_cells[4].strip() if len(row_cells) > 4 else ""
+    if party_text and not party_text.startswith("style="):
+        party = party_text
+    else:
+        party = _resolve_party(color, color_to_party)
+
+    return CandidateRecord(
+        name=name,
+        party_name=party,
+        district_name="",
+        prefecture="",
+        total_votes=0,
+        rank=1,
+        is_elected=True,
+    )
 
 
 # --- ユーティリティ ---

@@ -7,6 +7,7 @@ from src.infrastructure.importers.wikipedia_sangiin_election_wikitext_parser imp
     _normalize_sangiin_district,
     _parse_district_template,
     _parse_district_wikitable,
+    _parse_kuriage_winners,
     _parse_proportional_template,
     _parse_proportional_wikitable,
     parse_sangiin_wikitext,
@@ -557,3 +558,239 @@ class TestNormalizePrefecture:
 
     def test_already_has_suffix(self) -> None:
         assert normalize_prefecture("青森県") == "青森県"
+
+
+class TestParseKaisenTeisuTable:
+    """改選定数別テーブル形式のパーステスト."""
+
+    WIKITEXT_KAISEN_TEISU = (
+        "=== 選挙区当選者 ===\n"
+        "{{colorbox|#9E9|自由民主党}} {{colorbox|#fdf|公明党}} "
+        "{{colorbox|#f9b|民主党}} {{colorbox|#F66|日本共産党}}\n"
+        '{| class="wikitable"\n'
+        "|-\n"
+        '! colspan="6" | 改選定数3以上\n'
+        "|-\n"
+        "! [[東京都選挙区|東京都]]\n"
+        '| style="background-color:#9E9" | [[保坂三蔵]]\n'
+        '| style="background-color:#fdf" | [[山口那津男]]\n'
+        '| style="background-color:#f9b" | [[鈴木寛]]\n'
+        '| style="background-color:#F66" | [[緒方靖夫]]\n'
+        "|-\n"
+        "! [[埼玉県選挙区|埼玉県]]\n"
+        '| style="background-color:#9E9" | [[関口昌一]]\n'
+        '| style="background-color:#f9b" | [[山根隆治]]\n'
+        '| style="background-color:#9E9" | [[山本保]]\n'
+        "|}\n"
+        '{| class="wikitable"\n'
+        "|-\n"
+        '! colspan="9" | 改選定数2\n'
+        "|-\n"
+        "! [[北海道選挙区|北海道]]\n"
+        '| style="background-color:#9E9" | [[伊達忠一]]\n'
+        '| style="background-color:#f9b" | [[小川勝也]]\n'
+        "! [[宮城県選挙区|宮城県]]\n"
+        '| style="background-color:#f9b" | [[岡崎トミ子]]\n'
+        '| style="background-color:#9E9" | [[愛知治郎]]\n'
+        "|}\n"
+        '{| class="wikitable"\n'
+        "|-\n"
+        '! colspan="10" | 改選定数1\n'
+        "|-\n"
+        "! [[青森県選挙区|青森県]]\n"
+        '| style="background-color:#9E9" | [[山崎力]]\n'
+        "! [[岩手県選挙区|岩手県]]\n"
+        '| style="background-color:#f9b" | [[平野達男]]\n'
+        "|}\n"
+    )
+
+    COLOR_MAP = {
+        "9E9": "自由民主党",
+        "FDF": "公明党",
+        "F9B": "民主党",
+        "F66": "日本共産党",
+    }
+
+    def test_teisu3_tokyo(self) -> None:
+        """改選定数3以上: 東京都の4名が正しく抽出される."""
+        result = _parse_district_wikitable(self.WIKITEXT_KAISEN_TEISU, self.COLOR_MAP)
+        tokyo = [c for c in result if "東京" in c.district_name]
+        assert len(tokyo) == 4
+        assert tokyo[0].name == "保坂三蔵"
+        assert tokyo[0].party_name == "自由民主党"
+        assert tokyo[0].district_name == "東京都選挙区"
+        assert tokyo[0].prefecture == "東京都"
+        assert tokyo[3].name == "緒方靖夫"
+        assert tokyo[3].party_name == "日本共産党"
+
+    def test_teisu3_saitama(self) -> None:
+        """改選定数3以上: 埼玉県の3名が正しく抽出される."""
+        result = _parse_district_wikitable(self.WIKITEXT_KAISEN_TEISU, self.COLOR_MAP)
+        saitama = [c for c in result if "埼玉" in c.district_name]
+        assert len(saitama) == 3
+        assert saitama[0].name == "関口昌一"
+        assert saitama[0].district_name == "埼玉県選挙区"
+
+    def test_teisu2_multiple_districts_in_row(self) -> None:
+        """改選定数2: 同一テーブル行内の複数選挙区が正しく分離される."""
+        result = _parse_district_wikitable(self.WIKITEXT_KAISEN_TEISU, self.COLOR_MAP)
+        hokkaido = [c for c in result if "北海道" in c.district_name]
+        miyagi = [c for c in result if "宮城" in c.district_name]
+        assert len(hokkaido) == 2
+        assert len(miyagi) == 2
+        assert hokkaido[0].name == "伊達忠一"
+        assert miyagi[0].name == "岡崎トミ子"
+
+    def test_teisu1_single_candidates(self) -> None:
+        """改選定数1: 各選挙区1名ずつが正しく抽出される."""
+        result = _parse_district_wikitable(self.WIKITEXT_KAISEN_TEISU, self.COLOR_MAP)
+        aomori = [c for c in result if "青森" in c.district_name]
+        iwate = [c for c in result if "岩手" in c.district_name]
+        assert len(aomori) == 1
+        assert len(iwate) == 1
+        assert aomori[0].name == "山崎力"
+        assert iwate[0].name == "平野達男"
+
+    def test_total_count(self) -> None:
+        """全テーブルの合計当選者数が正しい（4+3+2+2+1+1=13）."""
+        result = _parse_district_wikitable(self.WIKITEXT_KAISEN_TEISU, self.COLOR_MAP)
+        assert len(result) == 13
+
+
+class TestParseKuriageWinners:
+    """繰上当選パーサーのテスト."""
+
+    WIKITEXT_KURIAGE = (
+        "==== 繰上当選 ====\n"
+        '{| class="wikitable"\n'
+        "|-\n"
+        "!年!!月日!!新旧別!!当選者!!所属党派!!欠員!!欠員事由\n"
+        "|-\n"
+        '| align="right" | 2001\n'
+        '| align="right" | 10.3\n'
+        '| align="center" | 元\n'
+        '| style="background-color:#9E9" | [[中島啓雄]] || 自由民主党\n'
+        '| style="background-color:#9E9" | [[高祖憲治]]\n'
+        "| 2001.9.25辞職\n"
+        "|-\n"
+        '| align="right" | 2003\n'
+        '| align="right" | 4.28\n'
+        '| align="center" | 新\n'
+        '| style="background-color:#fdf" | [[ツルネン・マルテイ]] || 民主党\n'
+        '| style="background-color:#fdf" | [[中村敦夫]]\n'
+        "| 2003.3.31辞職\n"
+        "|}\n"
+    )
+
+    def test_parse_kuriage_basic(self) -> None:
+        """繰上当選者が正しく抽出される."""
+        result = _parse_kuriage_winners(
+            self.WIKITEXT_KURIAGE,
+            {"9E9": "自由民主党", "FDF": "公明党"},
+        )
+        assert len(result) == 2
+        assert result[0].name == "中島啓雄"
+        assert result[0].party_name == "自由民主党"
+        assert result[1].name == "ツルネン・マルテイ"
+        assert result[1].party_name == "民主党"
+
+    def test_kuriage_empty_district(self) -> None:
+        """繰上当選者のdistrict_nameは空文字."""
+        result = _parse_kuriage_winners(
+            self.WIKITEXT_KURIAGE,
+            {"9E9": "自由民主党"},
+        )
+        assert all(c.district_name == "" for c in result)
+        assert all(c.prefecture == "" for c in result)
+
+    def test_kuriage_section_not_found(self) -> None:
+        """繰上当選セクションがない場合は空リスト."""
+        result = _parse_kuriage_winners("=== 選挙区当選者 ===\nテキスト", {})
+        assert result == []
+
+    def test_kuriage_all_elected(self) -> None:
+        """繰上当選者は全員is_elected=True."""
+        result = _parse_kuriage_winners(
+            self.WIKITEXT_KURIAGE,
+            {"9E9": "自由民主党"},
+        )
+        assert all(c.is_elected for c in result)
+
+
+class TestParseSangiinWikitextWithKuriage:
+    """統合テスト: parse_sangiin_wikitextが繰上当選を含む."""
+
+    WIKITEXT_WITH_KURIAGE = (
+        "{{colorbox|#9E9|自由民主党}} {{colorbox|#0ff|日本社会党}}\n"
+        "\n"
+        "=== 選挙区当選者 ===\n"
+        "{{参院選挙区当選者\n"
+        "|北海道=\n"
+        "9e9:[[北海太郎]]\n"
+        "}}\n"
+        "\n"
+        "=== 比例区当選者 ===\n"
+        "{{参院比例当選者|\n"
+        "9e9:[[比例一郎]]\n"
+        "}}\n"
+        "\n"
+        "==== 繰上当選 ====\n"
+        '{| class="wikitable"\n'
+        "|-\n"
+        "!年!!月日!!新旧別!!当選者!!所属党派!!欠員!!欠員事由\n"
+        "|-\n"
+        '| align="right" | 2001\n'
+        '| align="right" | 10.3\n'
+        '| align="center" | 元\n'
+        '| style="background-color:#9E9" | [[繰上太郎]] || 自由民主党\n'
+        '| style="background-color:#9E9" | [[欠員太郎]]\n'
+        "| 辞職\n"
+        "|}\n"
+    )
+
+    def test_combined_with_kuriage(self) -> None:
+        """選挙区+比例区+繰上当選を統合して返す."""
+        result = parse_sangiin_wikitext(self.WIKITEXT_WITH_KURIAGE, 26)
+        assert len(result) == 3
+
+        district = [c for c in result if "選挙区" in c.district_name]
+        proportional = [c for c in result if c.district_name == "比例区"]
+        kuriage = [c for c in result if c.district_name == ""]
+
+        assert len(district) == 1
+        assert len(proportional) == 1
+        assert len(kuriage) == 1
+        assert kuriage[0].name == "繰上太郎"
+
+
+class TestKaisenTeisuBackwardCompatibility:
+    """改選定数別テーブル対応が既存の横並びヘッダ形式と互換性を維持するテスト."""
+
+    WIKITEXT_HORIZONTAL = (
+        "=== 選挙区当選者 ===\n"
+        "{{colorbox|#9E9|自由民主党}} {{colorbox|#0ff|日本社会党}}\n"
+        '{| class="wikitable" style="margin-right:0px"\n'
+        "|-\n"
+        "!colspan=4|[[北海道選挙区|北海道]]"
+        "!![[青森県選挙区|青森県]]"
+        "!!colspan=2|[[東京都選挙区|東京都]]\n"
+        "|-\n"
+        '|style="background-color:#9e9" |[[板谷順助]]'
+        '||style="background-color:#0ff" |[[千葉信]]'
+        '||style="background-color:#9e9" |[[井川伊平]]'
+        '||style="background-color:#0ff" |[[米田勲]]'
+        '||style="background-color:#9e9" |[[佐藤尚武]]'
+        '||style="background-color:#9e9" |[[山本利壽]]'
+        '||style="background-color:#0ff" |[[椿繁夫]]\n'
+        "|}\n"
+    )
+
+    def test_horizontal_format_still_works(self) -> None:
+        """既存の横並びヘッダ形式が引き続き正しく動作する."""
+        result = _parse_district_wikitable(
+            self.WIKITEXT_HORIZONTAL,
+            {"9E9": "自由民主党", "0FF": "日本社会党"},
+        )
+        assert len(result) == 7
+        hokkaido = [c for c in result if "北海道" in c.district_name]
+        assert len(hokkaido) == 4
