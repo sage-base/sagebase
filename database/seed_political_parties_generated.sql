@@ -1,4 +1,4 @@
--- Generated from database on 2026-03-08 03:37:03
+-- Generated from database on 2026-03-08 05:55:50
 -- political_parties seed data
 
 INSERT INTO political_parties (name, members_list_url) VALUES
@@ -25,6 +25,9 @@ INSERT INTO political_parties (name, members_list_url) VALUES
 ('ファーストの会', NULL),
 ('フェア党', NULL),
 ('メタバース党＠信州長野県芽野市を元氣にする会', NULL),
+('不明(EE0)', NULL),
+('不明(FDA)', NULL),
+('不明(FF0)', NULL),
 ('世界経済共同体党', NULL),
 ('中国進歩党', NULL),
 ('中央交渉会', NULL),
@@ -135,6 +138,7 @@ INSERT INTO political_parties (name, members_list_url) VALUES
 ('森海党', NULL),
 ('次世代の党', NULL),
 ('民主党', NULL),
+('民主改革連合', NULL),
 ('民主自由党', NULL),
 ('民社党', NULL),
 ('民進党', NULL),
@@ -183,6 +187,7 @@ INSERT INTO political_parties (name, members_list_url) VALUES
 ('農民協同党', NULL),
 ('農民新党', NULL),
 ('近畿倶楽部', NULL),
+('連合の会', NULL),
 ('進歩党', NULL),
 ('過剰なコロナ対策と緊急事態条項に反対し選択の自由を保障する共和党', NULL),
 ('都政を改革する会', NULL),
