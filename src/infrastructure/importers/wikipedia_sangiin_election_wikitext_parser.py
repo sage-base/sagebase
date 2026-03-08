@@ -407,13 +407,14 @@ def _parse_kaisen_teisu_table(
 
     N人区テーブル（rowspan=2）では、下段（! ヘッダなしの行）の候補者を
     上段のdistrict順序と候補者数に基づいて位置ベースで割り当てる。
+    各ブロック（|-で区切られた行グループ対）ごとにdistrictを独立追跡する。
     """
     candidates: list[CandidateRecord] = []
     current_district = ""
 
-    # N人区テーブルのrowspan下段対応用
-    district_order: list[str] = []
-    candidates_per_district: dict[str, int] = {}
+    # ブロック単位のdistrict追跡（rowspan下段対応用）
+    block_districts: list[str] = []
+    block_counts: dict[str, int] = {}
     row_has_district_headers = False
     second_row_district_idx = 0
     second_row_cell_count = 0
@@ -424,17 +425,17 @@ def _parse_kaisen_teisu_table(
             continue
 
         if line == "|-":
-            # 行区切り: 下段行の位置ベース割当を準備
-            if row_has_district_headers and district_order:
+            if row_has_district_headers and block_districts:
+                # 上段→下段の遷移: 下段の位置ベース割当を準備
                 row_has_district_headers = False
                 second_row_district_idx = 0
                 second_row_cell_count = 0
-                current_district = district_order[0]
-            elif district_order:
-                # さらに次の行区切り: district位置をリセット
-                second_row_district_idx = 0
-                second_row_cell_count = 0
-                current_district = district_order[0]
+                current_district = block_districts[0]
+            else:
+                # 下段→次ブロックの遷移: ブロックをリセット
+                block_districts = []
+                block_counts = {}
+                row_has_district_headers = False
             continue
 
         if line.startswith("!"):
@@ -448,9 +449,9 @@ def _parse_kaisen_teisu_table(
                 display = wl_match.group(2) or wl_match.group(1)
                 current_district = display.strip()
                 row_has_district_headers = True
-                if current_district not in candidates_per_district:
-                    district_order.append(current_district)
-                    candidates_per_district[current_district] = 0
+                if current_district not in block_counts:
+                    block_districts.append(current_district)
+                    block_counts[current_district] = 0
             continue
 
         if not line.startswith("|"):
@@ -470,9 +471,10 @@ def _parse_kaisen_teisu_table(
                 if name:
                     if row_has_district_headers:
                         # 上段: 候補者数を追跡
-                        candidates_per_district[current_district] = (
-                            candidates_per_district.get(current_district, 0) + 1
+                        block_counts[current_district] = (
+                            block_counts.get(current_district, 0) + 1
                         )
+
                     party = _resolve_party(color, color_to_party)
                     prefecture = _extract_prefecture_from_sangiin_district(
                         current_district
@@ -489,19 +491,19 @@ def _parse_kaisen_teisu_table(
                         )
                     )
 
-                    if not row_has_district_headers and district_order:
+                    if not row_has_district_headers and block_districts:
                         second_row_cell_count += 1
                         # 現districtの候補者数に達したら次のdistrictへ
-                        expected = candidates_per_district.get(
-                            district_order[second_row_district_idx], 0
+                        expected = block_counts.get(
+                            block_districts[second_row_district_idx], 0
                         )
                         if (
                             second_row_cell_count >= expected
-                            and second_row_district_idx + 1 < len(district_order)
+                            and second_row_district_idx + 1 < len(block_districts)
                         ):
                             second_row_district_idx += 1
                             second_row_cell_count = 0
-                            current_district = district_order[second_row_district_idx]
+                            current_district = block_districts[second_row_district_idx]
 
     return candidates
 
