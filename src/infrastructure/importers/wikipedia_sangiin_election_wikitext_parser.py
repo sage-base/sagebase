@@ -99,6 +99,10 @@ _SINGLE_RANK_RE = re.compile(r"^!(\d+)\s*$")
 # 次のセクション見出し
 _NEXT_SECTION_RE = re.compile(r"\n==(?!=)")
 
+# wikitextテンプレート/タグ除去（政党名クリーニング用）
+_WIKITEXT_TEMPLATE_RE = re.compile(r"\{\{[^}]*\}\}")
+_WIKITEXT_TAG_RE = re.compile(r"<[^>]+>")
+
 
 def parse_sangiin_wikitext(
     wikitext: str,
@@ -871,7 +875,7 @@ def _extract_kuriage_candidate(
     party_idx = candidate_idx + 1
     party_text = row_cells[party_idx].strip() if len(row_cells) > party_idx else ""
     if party_text and not party_text.startswith("style="):
-        party = party_text
+        party = _clean_party_text(party_text)
     else:
         party = _resolve_party(color, color_to_party)
 
@@ -1014,7 +1018,7 @@ def _extract_hoketsu_candidate(
     party_idx = candidate_idx + 1
     party_text = row_cells[party_idx].strip() if len(row_cells) > party_idx else ""
     if party_text and not party_text.startswith("style="):
-        party = party_text
+        party = _clean_party_text(party_text)
     else:
         party = _resolve_party(color, color_to_party)
 
@@ -1031,6 +1035,17 @@ def _extract_hoketsu_candidate(
         rank=1,
         is_elected=True,
     )
+
+
+def _clean_party_text(text: str) -> str:
+    """政党テキストからwikitext脚注・タグを除去する.
+
+    例: "自由党{{efn2|注釈テキスト}}" → "自由党"
+        "民主党<ref>脚注</ref>" → "民主党"
+    """
+    text = _WIKITEXT_TEMPLATE_RE.sub("", text)
+    text = _WIKITEXT_TAG_RE.sub("", text)
+    return text.strip()
 
 
 # --- ユーティリティ ---
