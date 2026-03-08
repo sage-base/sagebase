@@ -7,6 +7,7 @@ from src.infrastructure.importers.wikipedia_sangiin_election_wikitext_parser imp
     _normalize_sangiin_district,
     _parse_district_template,
     _parse_district_wikitable,
+    _parse_hoketsu_winners,
     _parse_kuriage_winners,
     _parse_proportional_template,
     _parse_proportional_wikitable,
@@ -794,3 +795,277 @@ class TestKaisenTeisuBackwardCompatibility:
         assert len(result) == 7
         hokkaido = [c for c in result if "北海道" in c.district_name]
         assert len(hokkaido) == 4
+
+
+class TestParseTeisuBetsuTable:
+    """定数別テーブル（N人区）形式のパーステスト."""
+
+    WIKITEXT_TEISU_BETSU = (
+        "=== 地方区当選者 ===\n"
+        "{{colorbox|#9ca|自由党}} {{colorbox|#bbf|民主党}} "
+        "{{colorbox|#0ff|日本社会党}}\n"
+        '{| class="wikitable" style="margin-right:0px;"\n'
+        "|-\n"
+        '! colspan="10" | 4人区\n'
+        "|-\n"
+        '! rowspan="2" | [[北海道選挙区|北海道]]\n'
+        '| style="background-color:#9ca" | [[板谷順助]]\n'
+        '| style="background-color:#0ff" | [[千葉信]]\n'
+        '! rowspan="2" | [[東京都選挙区|東京都]]\n'
+        '| style="background-color:#bbf" | [[桜内辰郎]]\n'
+        '| style="background-color:#0ff" | [[吉川末次郎]]\n'
+        "|-\n"
+        '| style="background-color:#bbf" | [[若木勝蔵]]\n'
+        '| style="background-color:#9ca" | [[堀末治]]\n'
+        '| style="background-color:#0ff" | [[島清]]\n'
+        '| style="background-color:#9ca" | [[黒川武雄]]\n'
+        "|}\n"
+    )
+
+    COLOR_MAP = {
+        "9CA": "自由党",
+        "BBF": "民主党",
+        "0FF": "日本社会党",
+    }
+
+    def test_first_row_hokkaido(self) -> None:
+        """上段: 北海道の2名が正しく抽出される."""
+        result = _parse_district_wikitable(self.WIKITEXT_TEISU_BETSU, self.COLOR_MAP)
+        hokkaido = [c for c in result if "北海道" in c.district_name]
+        assert len(hokkaido) == 4
+        assert hokkaido[0].name == "板谷順助"
+        assert hokkaido[0].party_name == "自由党"
+        assert hokkaido[0].district_name == "北海道選挙区"
+        assert hokkaido[0].prefecture == "北海道"
+
+    def test_first_row_tokyo(self) -> None:
+        """上段: 東京都の2名が正しく抽出される."""
+        result = _parse_district_wikitable(self.WIKITEXT_TEISU_BETSU, self.COLOR_MAP)
+        tokyo = [c for c in result if "東京" in c.district_name]
+        assert len(tokyo) == 4
+        assert tokyo[0].name == "桜内辰郎"
+        assert tokyo[0].party_name == "民主党"
+        assert tokyo[0].district_name == "東京都選挙区"
+
+    def test_second_row_assignment(self) -> None:
+        """下段: rowspan 2行目の候補者が正しいdistrictに割り当てられる."""
+        result = _parse_district_wikitable(self.WIKITEXT_TEISU_BETSU, self.COLOR_MAP)
+        hokkaido = [c for c in result if "北海道" in c.district_name]
+        tokyo = [c for c in result if "東京" in c.district_name]
+        # 上段2 + 下段2 = 4
+        assert len(hokkaido) == 4
+        assert len(tokyo) == 4
+        # 下段の北海道候補者
+        assert hokkaido[2].name == "若木勝蔵"
+        assert hokkaido[3].name == "堀末治"
+        # 下段の東京候補者
+        assert tokyo[2].name == "島清"
+        assert tokyo[3].name == "黒川武雄"
+
+    def test_total_count(self) -> None:
+        """全体の当選者数が正しい（北海道4+東京4=8）."""
+        result = _parse_district_wikitable(self.WIKITEXT_TEISU_BETSU, self.COLOR_MAP)
+        assert len(result) == 8
+
+    def test_multiple_teisu_tables(self) -> None:
+        """複数の定数テーブル（4人区+2人区）を統合してパースする."""
+        wikitext = (
+            "=== 地方区当選者 ===\n"
+            '{| class="wikitable"\n'
+            "|-\n"
+            '! colspan="6" | 4人区\n'
+            "|-\n"
+            "! [[北海道選挙区|北海道]]\n"
+            '| style="background-color:#9ca" | [[候補A]]\n'
+            '| style="background-color:#0ff" | [[候補B]]\n'
+            "|}\n"
+            '{| class="wikitable"\n'
+            "|-\n"
+            '! colspan="6" | 2人区\n'
+            "|-\n"
+            "! [[青森県選挙区|青森県]]\n"
+            '| style="background-color:#9ca" | [[候補C]]\n'
+            "|}\n"
+        )
+        result = _parse_district_wikitable(
+            wikitext, {"9CA": "自由党", "0FF": "日本社会党"}
+        )
+        assert len(result) == 3
+        hokkaido = [c for c in result if "北海道" in c.district_name]
+        aomori = [c for c in result if "青森" in c.district_name]
+        assert len(hokkaido) == 2
+        assert len(aomori) == 1
+
+
+class TestProportionalWidthAttribute:
+    """width属性付きrank headerのパーステスト."""
+
+    WIKITEXT_WIDTH_RANK = (
+        "=== 全国区当選者 ===\n"
+        "{{colorbox|#9E9|自由民主党}} {{colorbox|#bbf|民主党}}\n"
+        '{| class="wikitable" style="margin-right:0px;"\n'
+        "|-\n"
+        '! width="70px" | 1-10\n'
+        '|style="background-color:#9e9" |[[星一]]\n'
+        '|style="background-color:#bbf" |[[柳川宗左衛門]]\n'
+        "|-\n"
+        "!11-20\n"
+        '|style="background-color:#9e9" |[[堀越儀郎]]\n'
+        "|}\n"
+    )
+
+    def test_width_attribute_rank_header(self) -> None:
+        """! width="70px" | 1-10 形式のrank headerが正しく処理される."""
+        result = _parse_proportional_wikitable(
+            self.WIKITEXT_WIDTH_RANK,
+            1,
+            {"9E9": "自由民主党", "BBF": "民主党"},
+        )
+        assert len(result) == 3
+        assert result[0].name == "星一"
+        assert result[0].rank == 1
+        assert result[0].district_name == "全国区"
+        assert result[1].name == "柳川宗左衛門"
+        assert result[1].rank == 2
+
+    def test_mixed_rank_headers(self) -> None:
+        """width属性付きと属性なしのrank headerが混在しても正しく処理される."""
+        result = _parse_proportional_wikitable(
+            self.WIKITEXT_WIDTH_RANK,
+            1,
+            {"9E9": "自由民主党", "BBF": "民主党"},
+        )
+        # 11-20行の候補者
+        assert result[2].name == "堀越儀郎"
+        assert result[2].rank == 11
+
+    def test_existing_format_still_works(self) -> None:
+        """既存の !1-10 形式が引き続き正しく動作する."""
+        wikitext = (
+            "=== 全国区当選者 ===\n"
+            '{| class="wikitable"\n'
+            "|-\n"
+            "!1-10\n"
+            '|style="background-color:#9e9" |[[テスト太郎]]\n'
+            "|}\n"
+        )
+        result = _parse_proportional_wikitable(wikitext, 1, {"9E9": "自由民主党"})
+        assert len(result) == 1
+        assert result[0].name == "テスト太郎"
+        assert result[0].rank == 1
+
+
+class TestParseHoketsuWinners:
+    """補欠当選パーサーのテスト."""
+
+    WIKITEXT_HOKETSU = (
+        "==== 補欠当選 ====\n"
+        '{| class="wikitable"\n'
+        "|-\n"
+        "!年!!月日!!選挙区!!当選者!!所属党派!!欠員!!所属党派!!欠員事由\n"
+        "|-\n"
+        '| align="right" rowspan="2" | 1947\n'
+        '| align="right" | 8.1\n'
+        "! 滋賀県\n"
+        '| style="background-color:#9CA" | [[西川甚五郎]] || 日本自由党\n'
+        '| style="background-color:#89E" | [[猪飼清六]] || 緑風会\n'
+        "| 1947.7.2辞職\n"
+        "|-\n"
+        '| align="right" | 10.15\n'
+        "! 宮城県\n"
+        '| style="background-color:#0FF" | [[岡田宗司]] || 日本社会党\n'
+        '| style="background-color:#9CA" | [[内海安吉]] || 日本自由党\n'
+        "| 1947.9.15死去\n"
+        "|}\n"
+    )
+
+    def test_parse_hoketsu_basic(self) -> None:
+        """補欠当選者が正しく抽出される."""
+        result = _parse_hoketsu_winners(
+            self.WIKITEXT_HOKETSU,
+            {"9CA": "日本自由党", "89E": "緑風会", "0FF": "日本社会党"},
+        )
+        assert len(result) == 2
+        assert result[0].name == "西川甚五郎"
+        assert result[0].party_name == "日本自由党"
+        assert result[1].name == "岡田宗司"
+        assert result[1].party_name == "日本社会党"
+
+    def test_hoketsu_district(self) -> None:
+        """補欠当選者の選挙区が正しく設定される."""
+        result = _parse_hoketsu_winners(
+            self.WIKITEXT_HOKETSU,
+            {"9CA": "日本自由党", "89E": "緑風会", "0FF": "日本社会党"},
+        )
+        assert result[0].district_name == "滋賀県選挙区"
+        assert result[0].prefecture == "滋賀県"
+        assert result[1].district_name == "宮城県選挙区"
+        assert result[1].prefecture == "宮城県"
+
+    def test_hoketsu_section_not_found(self) -> None:
+        """補欠当選セクションがない場合は空リスト."""
+        result = _parse_hoketsu_winners("=== 選挙区当選者 ===\nテキスト", {})
+        assert result == []
+
+    def test_hoketsu_all_elected(self) -> None:
+        """補欠当選者は全員is_elected=True."""
+        result = _parse_hoketsu_winners(
+            self.WIKITEXT_HOKETSU,
+            {"9CA": "日本自由党"},
+        )
+        assert all(c.is_elected for c in result)
+
+
+class TestParseSangiinWikitextWithHoketsu:
+    """統合テスト: parse_sangiin_wikitextが補欠当選を含む."""
+
+    WIKITEXT_WITH_HOKETSU = (
+        "{{colorbox|#9E9|自由民主党}} {{colorbox|#0ff|日本社会党}}\n"
+        "\n"
+        "=== 地方区当選者 ===\n"
+        "{{参院選挙区当選者\n"
+        "|北海道=\n"
+        "9e9:[[北海太郎]]\n"
+        "}}\n"
+        "\n"
+        "=== 全国区当選者 ===\n"
+        '{| class="wikitable"\n'
+        "|-\n"
+        '! width="70px" | 1-10\n'
+        '|style="background-color:#9e9" |[[全国一郎]]\n'
+        "|}\n"
+        "\n"
+        "==== 補欠当選 ====\n"
+        '{| class="wikitable"\n'
+        "|-\n"
+        "!年!!月日!!選挙区!!当選者!!所属党派!!欠員!!欠員事由\n"
+        "|-\n"
+        "| 1947 | 8.1\n"
+        "! 滋賀県\n"
+        '| style="background-color:#9E9" | [[補欠太郎]] || 自由民主党\n'
+        '| style="background-color:#9E9" | [[欠員太郎]]\n'
+        "| 辞職\n"
+        "|}\n"
+    )
+
+    def test_combined_with_hoketsu(self) -> None:
+        """地方区+全国区+補欠当選を統合して返す."""
+        result = parse_sangiin_wikitext(self.WIKITEXT_WITH_HOKETSU, 1)
+        assert len(result) == 3
+
+        district = [c for c in result if "選挙区" in c.district_name]
+        zenkoku = [c for c in result if c.district_name == "全国区"]
+        hoketsu = [
+            c
+            for c in result
+            if c.district_name not in ("全国区", "")
+            and "選挙区" in c.district_name
+            and c.name == "補欠太郎"
+        ]
+
+        assert len(district) == 2  # 北海太郎 + 補欠太郎
+        assert len(zenkoku) == 1
+        assert zenkoku[0].name == "全国一郎"
+        assert zenkoku[0].rank == 1
+        assert len(hoketsu) == 1
+        assert hoketsu[0].district_name == "滋賀県選挙区"
