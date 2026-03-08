@@ -290,6 +290,11 @@ def _parse_district_wikitable(
     if not section_text:
         return []
 
+    # 補欠選挙等・繰上当選サブセクション以降を除外
+    subsection_match = re.search(r"\n={4}\s*(?:補欠選挙|繰上当選)", section_text)
+    if subsection_match:
+        section_text = section_text[: subsection_match.start()]
+
     # セクション内のすべてのwikitableを抽出
     tables = list(_WIKITABLE_EXTRACT_RE.finditer(section_text))
     if not tables:
@@ -764,13 +769,26 @@ def _extract_kuriage_candidate(
 ) -> CandidateRecord | None:
     """繰上当選テーブルの1行からCandidateRecordを生成する.
 
-    カラム: 年(0), 月日(1), 新旧別(2), 当選者(3), 所属党派(4), 欠員(5), 欠員事由(6)
+    rowspanにより列数が可変のため、background-colorスタイル付きセルを動的に検出する。
+    最初のbackground-colorセルが当選者、その直後のセルが所属党派。
     """
-    if len(row_cells) < 5:
+    if len(row_cells) < 3:
         return None
 
-    # 当選者セル（index 3）
-    candidate_cell = row_cells[3]
+    # background-colorスタイル付きの最初のセルを当選者として検出
+    candidate_idx = None
+    for i, cell in enumerate(row_cells):
+        cell_match = _WIKITABLE_CELL_RE.match(cell)
+        if cell_match:
+            name = extract_name_from_wikilink(cell_match.group(2))
+            if name:
+                candidate_idx = i
+                break
+
+    if candidate_idx is None:
+        return None
+
+    candidate_cell = row_cells[candidate_idx]
     cell_match = _WIKITABLE_CELL_RE.match(candidate_cell)
     if not cell_match:
         return None
@@ -781,8 +799,9 @@ def _extract_kuriage_candidate(
     if not name:
         return None
 
-    # 所属党派カラム（index 4）から政党名を取得、なければカラーマッピング
-    party_text = row_cells[4].strip() if len(row_cells) > 4 else ""
+    # 直後のセルから所属党派を取得、なければカラーマッピング
+    party_idx = candidate_idx + 1
+    party_text = row_cells[party_idx].strip() if len(row_cells) > party_idx else ""
     if party_text and not party_text.startswith("style="):
         party = party_text
     else:
