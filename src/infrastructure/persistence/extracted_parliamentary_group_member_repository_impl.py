@@ -57,7 +57,7 @@ class ExtractedParliamentaryGroupMemberRepositoryImpl(
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def get_pending_members(
         self, parliamentary_group_id: int | None = None
@@ -79,7 +79,7 @@ class ExtractedParliamentaryGroupMemberRepositoryImpl(
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def get_matched_members(
         self,
@@ -107,7 +107,7 @@ class ExtractedParliamentaryGroupMemberRepositoryImpl(
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def update_matching_result(
         self,
@@ -155,7 +155,7 @@ class ExtractedParliamentaryGroupMemberRepositoryImpl(
         result = await self.session.execute(query, {"group_id": parliamentary_group_id})
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def get_extraction_summary(
         self, parliamentary_group_id: int | None = None
@@ -236,7 +236,7 @@ class ExtractedParliamentaryGroupMemberRepositoryImpl(
                 )
                 row = result.fetchone()
                 if row:
-                    created_members.append(self._row_to_entity(row))
+                    created_members.append(self._to_entity(row))
 
             except IntegrityError:
                 # In case of any integrity error, just skip this member
@@ -315,27 +315,7 @@ class ExtractedParliamentaryGroupMemberRepositoryImpl(
         await self.session.flush()
         return saved_count
 
-    def _row_to_entity(self, row: Any) -> ExtractedParliamentaryGroupMember:
-        """Convert database row to domain entity."""
-        return ExtractedParliamentaryGroupMember(
-            id=row.id,
-            parliamentary_group_id=row.parliamentary_group_id,
-            extracted_name=row.extracted_name,
-            source_url=row.source_url,
-            extracted_role=getattr(row, "extracted_role", None),
-            extracted_party_name=getattr(row, "extracted_party_name", None),
-            extracted_district=getattr(row, "extracted_district", None),
-            extracted_at=row.extracted_at,
-            matched_politician_id=getattr(row, "matched_politician_id", None),
-            matching_confidence=getattr(row, "matching_confidence", None),
-            matching_status=row.matching_status,
-            matched_at=getattr(row, "matched_at", None),
-            additional_info=getattr(row, "additional_info", None),
-        )
-
-    def _to_entity(
-        self, model: ExtractedParliamentaryGroupMemberModel
-    ) -> ExtractedParliamentaryGroupMember:
+    def _to_entity(self, model: Any) -> ExtractedParliamentaryGroupMember:
         """Convert database model to domain entity."""
         return ExtractedParliamentaryGroupMember(
             id=model.id,

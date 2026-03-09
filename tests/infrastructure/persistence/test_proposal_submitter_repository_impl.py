@@ -71,7 +71,8 @@ class TestProposalSubmitterRepositoryImpl:
         """Create a mock database row."""
         mock_row = MagicMock()
         mock_row._mapping = data
-        mock_row._asdict = MagicMock(return_value=data)
+        for key, value in data.items():
+            setattr(mock_row, key, value)
         return mock_row
 
     @pytest.mark.asyncio
@@ -411,13 +412,16 @@ class TestProposalSubmitterRepositoryImpl:
         assert len(result) == 1
         mock_session.execute.assert_called_once()
 
-    def test_dict_to_entity(
+    def test_to_entity_from_row(
         self,
         repository: ProposalSubmitterRepositoryImpl,
         sample_submitter_dict: dict[str, Any],
     ) -> None:
-        """Test _dict_to_entity converts dict to entity correctly."""
-        entity = repository._dict_to_entity(sample_submitter_dict)
+        """Test _to_entity converts row to entity correctly."""
+        from types import SimpleNamespace
+
+        row = SimpleNamespace(**sample_submitter_dict)
+        entity = repository._to_entity(row)
 
         assert entity.id == 1
         assert entity.proposal_id == 10

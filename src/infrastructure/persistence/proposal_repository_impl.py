@@ -85,21 +85,6 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             model_class=ProposalModel,
         )
 
-    def _row_to_dict(self, row: Any) -> dict[str, Any]:
-        """Convert SQLAlchemy result row to dictionary.
-
-        Args:
-            row: SQLAlchemy result row
-
-        Returns:
-            Row data as dictionary
-        """
-        if hasattr(row, "_asdict"):
-            return row._asdict()
-        elif hasattr(row, "_mapping"):
-            return dict(row._mapping)
-        return dict(row)
-
     async def get_all(
         self, limit: int | None = None, offset: int | None = 0
     ) -> list[Proposal]:
@@ -127,7 +112,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             result = await self.session.execute(text(query_text), params)
             rows = result.fetchall()
 
-            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+            return [self._to_entity(row) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting all proposals: {e}")
@@ -153,7 +138,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             row = result.fetchone()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
             return None
 
         except SQLAlchemyError as e:
@@ -218,7 +203,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             await self.session.commit()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
 
             raise DatabaseError("Failed to create proposal", {"entity": entity})
 
@@ -291,7 +276,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             await self.session.commit()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
 
             raise DatabaseError(
                 f"Proposal with ID {entity.id} not found", {"entity": entity}
@@ -352,33 +337,26 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             logger.error(f"Database error counting proposals: {e}")
             raise DatabaseError("Failed to count proposals", {"error": str(e)}) from e
 
-    def _to_entity(self, model: ProposalModel) -> Proposal:
-        """Convert database model to domain entity.
-
-        Args:
-            model: Database model
-
-        Returns:
-            Domain entity
-        """
+    def _to_entity(self, model: Any) -> Proposal:
+        """Convert database model/row to domain entity."""
         return Proposal(
-            id=model.id,
+            id=getattr(model, "id", None),
             title=model.title,
-            detail_url=model.detail_url,
-            status_url=model.status_url,
-            votes_url=model.votes_url,
-            meeting_id=model.meeting_id,
-            conference_id=model.conference_id,
-            proposal_category=model.proposal_category,
-            proposal_type=model.proposal_type,
-            governing_body_id=model.governing_body_id,
-            session_number=model.session_number,
-            proposal_number=model.proposal_number,
-            external_id=model.external_id,
-            deliberation_status=model.deliberation_status,
-            deliberation_result=model.deliberation_result,
-            submitted_date=model.submitted_date,
-            voted_date=model.voted_date,
+            detail_url=getattr(model, "detail_url", None),
+            status_url=getattr(model, "status_url", None),
+            votes_url=getattr(model, "votes_url", None),
+            meeting_id=getattr(model, "meeting_id", None),
+            conference_id=getattr(model, "conference_id", None),
+            proposal_category=getattr(model, "proposal_category", None),
+            proposal_type=getattr(model, "proposal_type", None),
+            governing_body_id=getattr(model, "governing_body_id", None),
+            session_number=getattr(model, "session_number", None),
+            proposal_number=getattr(model, "proposal_number", None),
+            external_id=getattr(model, "external_id", None),
+            deliberation_status=getattr(model, "deliberation_status", None),
+            deliberation_result=getattr(model, "deliberation_result", None),
+            submitted_date=getattr(model, "submitted_date", None),
+            voted_date=getattr(model, "voted_date", None),
         )
 
     def _to_model(self, entity: Proposal) -> ProposalModel:
@@ -434,35 +412,6 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
         model.submitted_date = entity.submitted_date
         model.voted_date = entity.voted_date
 
-    def _dict_to_entity(self, data: dict[str, Any]) -> Proposal:
-        """Convert dictionary to entity.
-
-        Args:
-            data: Dictionary with entity data
-
-        Returns:
-            Proposal entity
-        """
-        return Proposal(
-            id=data.get("id"),
-            title=data["title"],
-            detail_url=data.get("detail_url"),
-            status_url=data.get("status_url"),
-            votes_url=data.get("votes_url"),
-            meeting_id=data.get("meeting_id"),
-            conference_id=data.get("conference_id"),
-            proposal_category=data.get("proposal_category"),
-            proposal_type=data.get("proposal_type"),
-            governing_body_id=data.get("governing_body_id"),
-            session_number=data.get("session_number"),
-            proposal_number=data.get("proposal_number"),
-            external_id=data.get("external_id"),
-            deliberation_status=data.get("deliberation_status"),
-            deliberation_result=data.get("deliberation_result"),
-            submitted_date=data.get("submitted_date"),
-            voted_date=data.get("voted_date"),
-        )
-
     async def get_by_meeting_id(self, meeting_id: int) -> list[Proposal]:
         """Get proposals by meeting ID.
 
@@ -483,7 +432,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             result = await self.session.execute(query, {"meeting_id": meeting_id})
             rows = result.fetchall()
 
-            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+            return [self._to_entity(row) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting proposals by meeting ID: {e}")
@@ -512,7 +461,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             result = await self.session.execute(query, {"conference_id": conference_id})
             rows = result.fetchall()
 
-            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+            return [self._to_entity(row) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting proposals by conference ID: {e}")
@@ -564,7 +513,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             result = await self.session.execute(query, params)
             rows = result.fetchall()
 
-            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+            return [self._to_entity(row) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting paginated proposals: {e}")
@@ -642,7 +591,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             row = result.fetchone()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
             return None
 
         except SQLAlchemyError as e:
@@ -694,7 +643,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
             row = result.fetchone()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
             return None
 
         except SQLAlchemyError as e:
@@ -768,9 +717,7 @@ class ProposalRepositoryImpl(BaseRepositoryImpl[Proposal], ProposalRepository):
                 )
                 row = result.fetchone()
                 if row:
-                    created_proposals.append(
-                        self._dict_to_entity(self._row_to_dict(row))
-                    )
+                    created_proposals.append(self._to_entity(row))
 
             await self.session.commit()
             return created_proposals

@@ -16,6 +16,15 @@ from src.infrastructure.persistence.proposal_judge_repository_impl import (
 )
 
 
+def _make_row(data: dict[str, Any]) -> MagicMock:
+    """Create a mock database row with attribute access."""
+    row = MagicMock()
+    row._mapping = data
+    for key, value in data.items():
+        setattr(row, key, value)
+    return row
+
+
 class TestProposalJudgeRepositoryImpl:
     """Test cases for ProposalJudgeRepositoryImpl."""
 
@@ -71,9 +80,7 @@ class TestProposalJudgeRepositoryImpl:
     ) -> None:
         """Test get_by_proposal returns list of judges."""
         # Setup mock result
-        mock_row = MagicMock()
-        mock_row._mapping = sample_judge_dict
-        mock_row._asdict = MagicMock(return_value=sample_judge_dict)
+        mock_row = _make_row(sample_judge_dict)
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
@@ -98,9 +105,7 @@ class TestProposalJudgeRepositoryImpl:
     ) -> None:
         """Test get_by_politician returns list of judges."""
         # Setup mock result
-        mock_row = MagicMock()
-        mock_row._mapping = sample_judge_dict
-        mock_row._asdict = MagicMock(return_value=sample_judge_dict)
+        mock_row = _make_row(sample_judge_dict)
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
@@ -125,9 +130,7 @@ class TestProposalJudgeRepositoryImpl:
     ) -> None:
         """Test get_by_proposal_and_politician when judge is found."""
         # Setup mock result
-        mock_row = MagicMock()
-        mock_row._mapping = sample_judge_dict
-        mock_row._asdict = MagicMock(return_value=sample_judge_dict)
+        mock_row = _make_row(sample_judge_dict)
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
@@ -193,9 +196,7 @@ class TestProposalJudgeRepositoryImpl:
 
         mock_results = []
         for result_dict in result_dicts:
-            mock_row = MagicMock()
-            mock_row._mapping = result_dict
-            mock_row._asdict = MagicMock(return_value=result_dict)
+            mock_row = _make_row(result_dict)
             mock_result = MagicMock()
             mock_result.fetchone = MagicMock(return_value=mock_row)
             mock_results.append(mock_result)
@@ -248,9 +249,7 @@ class TestProposalJudgeRepositoryImpl:
     ) -> None:
         """Test create proposal judge."""
         # Setup mock result
-        mock_row = MagicMock()
-        mock_row._mapping = sample_judge_dict
-        mock_row._asdict = MagicMock(return_value=sample_judge_dict)
+        mock_row = _make_row(sample_judge_dict)
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
@@ -291,9 +290,7 @@ class TestProposalJudgeRepositoryImpl:
             "created_at": None,
             "updated_at": None,
         }
-        mock_row = MagicMock()
-        mock_row._mapping = updated_dict
-        mock_row._asdict = MagicMock(return_value=updated_dict)
+        mock_row = _make_row(updated_dict)
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
@@ -444,9 +441,7 @@ class TestProposalJudgeRepositoryImpl:
             "created_at": None,
             "updated_at": None,
         }
-        mock_row = MagicMock()
-        mock_row._mapping = result_dict
-        mock_row._asdict = MagicMock(return_value=result_dict)
+        mock_row = _make_row(result_dict)
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
@@ -511,9 +506,7 @@ class TestProposalJudgeRepositoryImpl:
         sample_judge_dict: dict[str, Any],
     ) -> None:
         """Test get_by_ids returns matching judges."""
-        mock_row = MagicMock()
-        mock_row._mapping = sample_judge_dict
-        mock_row._asdict = MagicMock(return_value=sample_judge_dict)
+        mock_row = _make_row(sample_judge_dict)
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result

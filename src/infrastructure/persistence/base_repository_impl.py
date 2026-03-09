@@ -39,7 +39,6 @@ class BaseRepositoryImpl[T: BaseEntity](BaseRepository[T]):
 
         非ORMモデル（Pydantic/動的モデル）を使用するリポジトリでは、
         _table_nameプロパティをオーバーライドしてテーブル名を指定すること。
-        _raw_row_to_entityは既存の_row_to_entity/_dict_to_entityに自動委譲する。
     """
 
     def __init__(
@@ -69,26 +68,8 @@ class BaseRepositoryImpl[T: BaseEntity](BaseRepository[T]):
 
     @cached_property
     def _row_converter(self) -> Callable[[Any], T]:
-        """非ORMフォールバック用の行変換関数を解決（初回アクセス時にキャッシュ）.
-
-        サブクラスの既存メソッドに以下の優先順位で委譲する:
-        1. _row_to_entity(row) — Rowオブジェクトを直接処理
-        2. _dict_to_entity(dict) — Rowをdict化して処理
-        3. _to_entity(row) — 最終フォールバック
-        """
-        if hasattr(self, "_row_to_entity"):
-            return self._row_to_entity
-        if hasattr(self, "_dict_to_entity"):
-            return self._convert_row_via_dict
+        """非ORMフォールバック用の行変換関数を解決（初回アクセス時にキャッシュ）."""
         return self._to_entity
-
-    def _convert_row_via_dict(self, row: Any) -> T:
-        """Rowをdict化して_dict_to_entityに委譲する変換アダプタ."""
-        if hasattr(row, "_mapping"):
-            return self._dict_to_entity(dict(row._mapping))
-        elif hasattr(row, "_asdict"):
-            return self._dict_to_entity(row._asdict())
-        return self._dict_to_entity(dict(row))
 
     async def get_by_id(self, entity_id: int) -> T | None:
         """Get entity by ID."""

@@ -71,13 +71,6 @@ class ProposalSubmitterRepositoryImpl(
             model_class=ProposalSubmitterModel,
         )
 
-    def _row_to_dict(self, row: Any) -> dict[str, Any]:
-        if hasattr(row, "_asdict"):
-            return row._asdict()  # type: ignore[attr-defined]
-        elif hasattr(row, "_mapping"):
-            return dict(row._mapping)  # type: ignore[attr-defined]
-        return dict(row)
-
     async def get_by_proposal(self, proposal_id: int) -> list[ProposalSubmitter]:
         """Get all submitters for a specific proposal.
 
@@ -97,7 +90,7 @@ class ProposalSubmitterRepositoryImpl(
 
             result = await self.session.execute(query, {"proposal_id": proposal_id})
             rows = result.fetchall()
-            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+            return [self._to_entity(row) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting submitters by proposal: {e}")
@@ -125,7 +118,7 @@ class ProposalSubmitterRepositoryImpl(
 
             result = await self.session.execute(query, {"politician_id": politician_id})
             rows = result.fetchall()
-            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+            return [self._to_entity(row) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting submitters by politician: {e}")
@@ -157,7 +150,7 @@ class ProposalSubmitterRepositoryImpl(
                 query, {"parliamentary_group_id": parliamentary_group_id}
             )
             rows = result.fetchall()
-            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+            return [self._to_entity(row) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(
@@ -216,9 +209,7 @@ class ProposalSubmitterRepositoryImpl(
                 )
                 row = result.fetchone()
                 if row:
-                    created_submitters.append(
-                        self._dict_to_entity(self._row_to_dict(row))
-                    )
+                    created_submitters.append(self._to_entity(row))
 
             await self.session.commit()
             return created_submitters
@@ -284,7 +275,7 @@ class ProposalSubmitterRepositoryImpl(
 
             submitters_map: dict[int, list[ProposalSubmitter]] = {}
             for row in rows:
-                entity = self._dict_to_entity(self._row_to_dict(row))
+                entity = self._to_entity(row)
                 if entity.proposal_id not in submitters_map:
                     submitters_map[entity.proposal_id] = []
                 submitters_map[entity.proposal_id].append(entity)
@@ -324,7 +315,7 @@ class ProposalSubmitterRepositoryImpl(
 
             result = await self.session.execute(text(query_text), params)
             rows = result.fetchall()
-            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+            return [self._to_entity(row) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting all submitters: {e}")
@@ -352,7 +343,7 @@ class ProposalSubmitterRepositoryImpl(
             row = result.fetchone()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
             return None
 
         except SQLAlchemyError as e:
@@ -405,7 +396,7 @@ class ProposalSubmitterRepositoryImpl(
             await self.session.commit()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
 
             raise DatabaseError("Failed to create submitter", {"entity": str(entity)})
 
@@ -465,7 +456,7 @@ class ProposalSubmitterRepositoryImpl(
             await self.session.commit()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
 
             raise DatabaseError(
                 f"ProposalSubmitter with ID {entity.id} not found",
@@ -504,25 +495,18 @@ class ProposalSubmitterRepositoryImpl(
                 {"id": entity_id, "error": str(e)},
             ) from e
 
-    def _to_entity(self, model: ProposalSubmitterModel) -> ProposalSubmitter:
-        """Convert database model to domain entity.
-
-        Args:
-            model: Database model
-
-        Returns:
-            Domain entity
-        """
+    def _to_entity(self, model: Any) -> ProposalSubmitter:
+        """Convert database model/row to domain entity."""
         return ProposalSubmitter(
-            id=model.id,
+            id=getattr(model, "id", None),
             proposal_id=model.proposal_id,
             submitter_type=SubmitterType(model.submitter_type),
-            politician_id=model.politician_id,
-            parliamentary_group_id=model.parliamentary_group_id,
-            conference_id=model.conference_id,
-            raw_name=model.raw_name,
-            is_representative=model.is_representative,
-            display_order=model.display_order,
+            politician_id=getattr(model, "politician_id", None),
+            parliamentary_group_id=getattr(model, "parliamentary_group_id", None),
+            conference_id=getattr(model, "conference_id", None),
+            raw_name=getattr(model, "raw_name", None),
+            is_representative=getattr(model, "is_representative", False),
+            display_order=getattr(model, "display_order", 0),
         )
 
     def _to_model(self, entity: ProposalSubmitter) -> ProposalSubmitterModel:
@@ -565,24 +549,3 @@ class ProposalSubmitterRepositoryImpl(
         model.raw_name = entity.raw_name
         model.is_representative = entity.is_representative
         model.display_order = entity.display_order
-
-    def _dict_to_entity(self, data: dict[str, Any]) -> ProposalSubmitter:
-        """Convert dictionary to entity.
-
-        Args:
-            data: Dictionary with entity data
-
-        Returns:
-            ProposalSubmitter entity
-        """
-        return ProposalSubmitter(
-            id=data.get("id"),
-            proposal_id=data["proposal_id"],
-            submitter_type=SubmitterType(data["submitter_type"]),
-            politician_id=data.get("politician_id"),
-            parliamentary_group_id=data.get("parliamentary_group_id"),
-            conference_id=data.get("conference_id"),
-            raw_name=data.get("raw_name"),
-            is_representative=data.get("is_representative", False),
-            display_order=data.get("display_order", 0),
-        )

@@ -182,7 +182,7 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
 
             results = []
             for row in rows:
-                row_dict = self._row_to_dict(row)
+                row_dict = dict(row._mapping)  # type: ignore[reportPrivateUsage]
                 judge_id = row_dict["id"]
 
                 # 関連IDを取得
@@ -190,7 +190,7 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
                 row_dict["parliamentary_group_ids"] = pg_ids
                 row_dict["politician_ids"] = pol_ids
 
-                results.append(self._dict_to_entity(row_dict))
+                results.append(self._to_entity(row_dict))
             return results
 
         except SQLAlchemyError as e:
@@ -236,14 +236,14 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
 
             results = []
             for row in rows:
-                row_dict = self._row_to_dict(row)
+                row_dict = dict(row._mapping)  # type: ignore[reportPrivateUsage]
                 judge_id = row_dict["id"]
 
                 pg_ids, pol_ids = await self._fetch_related_ids(judge_id)
                 row_dict["parliamentary_group_ids"] = pg_ids
                 row_dict["politician_ids"] = pol_ids
 
-                results.append(self._dict_to_entity(row_dict))
+                results.append(self._to_entity(row_dict))
             return results
 
         except SQLAlchemyError as e:
@@ -295,12 +295,12 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
             row = result.fetchone()
 
             if row:
-                row_dict = self._row_to_dict(row)
+                row_dict = dict(row._mapping)  # type: ignore[reportPrivateUsage]
                 judge_id = row_dict["id"]
                 pg_ids, pol_ids = await self._fetch_related_ids(judge_id)
                 row_dict["parliamentary_group_ids"] = pg_ids
                 row_dict["politician_ids"] = pol_ids
-                return self._dict_to_entity(row_dict)
+                return self._to_entity(row_dict)
             return None
 
         except SQLAlchemyError as e:
@@ -355,12 +355,12 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
             row = result.fetchone()
 
             if row:
-                row_dict = self._row_to_dict(row)
+                row_dict = dict(row._mapping)  # type: ignore[reportPrivateUsage]
                 judge_id = row_dict["id"]
                 pg_ids, pol_ids = await self._fetch_related_ids(judge_id)
                 row_dict["parliamentary_group_ids"] = pg_ids
                 row_dict["politician_ids"] = pol_ids
-                return self._dict_to_entity(row_dict)
+                return self._to_entity(row_dict)
             return None
 
         except SQLAlchemyError as e:
@@ -408,14 +408,14 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
 
             results = []
             for row in rows:
-                row_dict = self._row_to_dict(row)
+                row_dict = dict(row._mapping)  # type: ignore[reportPrivateUsage]
                 judge_id = row_dict["id"]
 
                 pg_ids, pol_ids = await self._fetch_related_ids(judge_id)
                 row_dict["parliamentary_group_ids"] = pg_ids
                 row_dict["politician_ids"] = pol_ids
 
-                results.append(self._dict_to_entity(row_dict))
+                results.append(self._to_entity(row_dict))
             return results
 
         except SQLAlchemyError as e:
@@ -466,7 +466,7 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
                 )
                 row = result.fetchone()
                 if row:
-                    row_dict = self._row_to_dict(row)
+                    row_dict = dict(row._mapping)  # type: ignore[reportPrivateUsage]
                     judge_id = row_dict["id"]
 
                     # 中間テーブルに関連IDを挿入
@@ -476,7 +476,7 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
 
                     row_dict["parliamentary_group_ids"] = judge.parliamentary_group_ids
                     row_dict["politician_ids"] = judge.politician_ids
-                    created_judges.append(self._dict_to_entity(row_dict))
+                    created_judges.append(self._to_entity(row_dict))
 
             await self.session.commit()
             return created_judges
@@ -528,14 +528,14 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
 
             results = []
             for row in rows:
-                row_dict = self._row_to_dict(row)
+                row_dict = dict(row._mapping)  # type: ignore[reportPrivateUsage]
                 judge_id = row_dict["id"]
 
                 pg_ids, pol_ids = await self._fetch_related_ids(judge_id)
                 row_dict["parliamentary_group_ids"] = pg_ids
                 row_dict["politician_ids"] = pol_ids
 
-                results.append(self._dict_to_entity(row_dict))
+                results.append(self._to_entity(row_dict))
             return results
 
         except SQLAlchemyError as e:
@@ -572,14 +572,14 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
             row = result.fetchone()
 
             if row:
-                row_dict = self._row_to_dict(row)
+                row_dict = dict(row._mapping)  # type: ignore[reportPrivateUsage]
                 judge_id = row_dict["id"]
 
                 pg_ids, pol_ids = await self._fetch_related_ids(judge_id)
                 row_dict["parliamentary_group_ids"] = pg_ids
                 row_dict["politician_ids"] = pol_ids
 
-                return self._dict_to_entity(row_dict)
+                return self._to_entity(row_dict)
             return None
 
         except SQLAlchemyError as e:
@@ -626,7 +626,7 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
             row = result.fetchone()
 
             if row:
-                row_dict = self._row_to_dict(row)
+                row_dict = dict(row._mapping)  # type: ignore[reportPrivateUsage]
                 judge_id = row_dict["id"]
 
                 # 中間テーブルに関連IDを挿入
@@ -638,7 +638,7 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
 
                 row_dict["parliamentary_group_ids"] = entity.parliamentary_group_ids
                 row_dict["politician_ids"] = entity.politician_ids
-                return self._dict_to_entity(row_dict)
+                return self._to_entity(row_dict)
 
             raise DatabaseError(
                 "Failed to create parliamentary group judge", {"entity": str(entity)}
@@ -703,10 +703,10 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
 
                 await self.session.commit()
 
-                row_dict = self._row_to_dict(row)
+                row_dict = dict(row._mapping)  # type: ignore[reportPrivateUsage]
                 row_dict["parliamentary_group_ids"] = entity.parliamentary_group_ids
                 row_dict["politician_ids"] = entity.politician_ids
-                return self._dict_to_entity(row_dict)
+                return self._to_entity(row_dict)
 
             raise DatabaseError(
                 f"ProposalParliamentaryGroupJudge with ID {entity.id} not found",
@@ -749,42 +749,29 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
                 {"id": entity_id, "error": str(e)},
             ) from e
 
-    def _row_to_dict(self, row: Any) -> dict[str, Any]:
-        """Convert a database row to a dictionary.
-
-        Args:
-            row: Database row
-
-        Returns:
-            Dictionary representation
-        """
-        if hasattr(row, "_asdict"):
-            return row._asdict()  # type: ignore[attr-defined]
-        elif hasattr(row, "_mapping"):
-            return dict(row._mapping)  # type: ignore[attr-defined]
-        else:
-            return dict(row)
-
-    def _to_entity(
-        self, model: ProposalParliamentaryGroupJudgeModel
-    ) -> ProposalParliamentaryGroupJudge:
-        """Convert database model to domain entity.
-
-        Args:
-            model: Database model
-
-        Returns:
-            Domain entity
-        """
+    def _to_entity(self, model: Any) -> ProposalParliamentaryGroupJudge:
+        """Convert database model/row/dict to domain entity."""
+        if isinstance(model, dict):
+            judge_type_str = model.get("judge_type", "parliamentary_group")
+            return ProposalParliamentaryGroupJudge(
+                id=model.get("id"),
+                proposal_id=model["proposal_id"],
+                judgment=model["judgment"],
+                judge_type=JudgeType(judge_type_str),
+                parliamentary_group_ids=model.get("parliamentary_group_ids", []),
+                politician_ids=model.get("politician_ids", []),
+                member_count=model.get("member_count"),
+                note=model.get("note"),
+            )
         return ProposalParliamentaryGroupJudge(
-            id=model.id,
+            id=getattr(model, "id", None),
             proposal_id=model.proposal_id,
             judgment=model.judgment,
             judge_type=JudgeType(model.judge_type),
             parliamentary_group_ids=[],
             politician_ids=[],
-            member_count=model.member_count,
-            note=model.note,
+            member_count=getattr(model, "member_count", None),
+            note=getattr(model, "note", None),
         )
 
     def _to_model(
@@ -823,24 +810,3 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
         model.judgment = entity.judgment
         model.member_count = entity.member_count
         model.note = entity.note
-
-    def _dict_to_entity(self, data: dict[str, Any]) -> ProposalParliamentaryGroupJudge:
-        """Convert dictionary to entity.
-
-        Args:
-            data: Dictionary with entity data
-
-        Returns:
-            ProposalParliamentaryGroupJudge entity
-        """
-        judge_type_str = data.get("judge_type", "parliamentary_group")
-        return ProposalParliamentaryGroupJudge(
-            id=data.get("id"),
-            proposal_id=data["proposal_id"],
-            judgment=data["judgment"],
-            judge_type=JudgeType(judge_type_str),
-            parliamentary_group_ids=data.get("parliamentary_group_ids", []),
-            politician_ids=data.get("politician_ids", []),
-            member_count=data.get("member_count"),
-            note=data.get("note"),
-        )
