@@ -369,17 +369,14 @@ class TestProposalParliamentaryGroupJudgeRepositoryImpl:
             "updated_at": None,
         }
 
-        # _row_to_dictが_asdict()を呼び出すので、それが辞書を返すようにする
-        # MagicMockの代わりにSimpleNamespaceを使って明示的に辞書を返す
-        from types import SimpleNamespace
-
-        mock_row_1 = SimpleNamespace()
-        mock_row_1._asdict = lambda: result_dict_1
+        # dict(row._mapping)でrowを辞書に変換するので、_mappingを設定する
+        mock_row_1 = MagicMock()
+        mock_row_1._mapping = result_dict_1
         mock_result_1 = MagicMock()
         mock_result_1.fetchone = MagicMock(return_value=mock_row_1)
 
-        mock_row_2 = SimpleNamespace()
-        mock_row_2._asdict = lambda: result_dict_2
+        mock_row_2 = MagicMock()
+        mock_row_2._mapping = result_dict_2
         mock_result_2 = MagicMock()
         mock_result_2.fetchone = MagicMock(return_value=mock_row_2)
 
@@ -784,10 +781,10 @@ class TestProposalParliamentaryGroupJudgeRepositoryImpl:
         assert "Failed to delete parliamentary group judge" in str(exc_info.value)
         mock_session.rollback.assert_called_once()
 
-    def test_dict_to_entity(
+    def test_to_entity(
         self, repository: ProposalParliamentaryGroupJudgeRepositoryImpl
     ) -> None:
-        """Test _dict_to_entity conversion."""
+        """Test _to_entity conversion."""
         data = {
             "id": 1,
             "proposal_id": 10,
@@ -799,7 +796,7 @@ class TestProposalParliamentaryGroupJudgeRepositoryImpl:
             "politician_ids": [],
         }
 
-        entity = repository._dict_to_entity(data)
+        entity = repository._to_entity(data)
 
         assert entity.id == 1
         assert entity.proposal_id == 10
@@ -809,10 +806,10 @@ class TestProposalParliamentaryGroupJudgeRepositoryImpl:
         assert entity.member_count == 5
         assert entity.note == "テスト"
 
-    def test_dict_to_entity_minimal(
+    def test_to_entity_minimal(
         self, repository: ProposalParliamentaryGroupJudgeRepositoryImpl
     ) -> None:
-        """Test _dict_to_entity with minimal data."""
+        """Test _to_entity with minimal data."""
         data = {
             "proposal_id": 10,
             "judge_type": "parliamentary_group",
@@ -821,7 +818,7 @@ class TestProposalParliamentaryGroupJudgeRepositoryImpl:
             "politician_ids": [],
         }
 
-        entity = repository._dict_to_entity(data)
+        entity = repository._to_entity(data)
 
         assert entity.id is None
         assert entity.proposal_id == 10

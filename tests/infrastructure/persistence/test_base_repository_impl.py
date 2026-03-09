@@ -58,21 +58,17 @@ class NonOrmMockModel:
 
 
 class NonOrmMockRepositoryImpl(BaseRepositoryImpl[MockEntity]):
-    """非ORMテストリポジトリ（_row_to_entity使用）."""
+    """非ORMテストリポジトリ."""
 
     @property
     def _table_name(self) -> str:
         return "mock_entities"
 
     def _to_entity(self, model) -> MockEntity:
-        return MockEntity(id=model.id, name=model.name)
-
-    def _row_to_entity(self, row) -> MockEntity:
-        if hasattr(row, "_mapping"):
-            d = dict(row._mapping)
-        else:
-            d = {"id": getattr(row, "id", None), "name": getattr(row, "name", "")}
-        return MockEntity(id=d.get("id"), name=d.get("name", ""))
+        return MockEntity(
+            id=getattr(model, "id", None),
+            name=getattr(model, "name", ""),
+        )
 
     def _to_model(self, entity: MockEntity):
         return NonOrmMockModel(id=entity.id, name=entity.name)
@@ -476,76 +472,17 @@ class TestRowConverter:
     def mock_session(self):
         return AsyncMock(spec=AsyncSession)
 
-    def test_delegates_to_row_to_entity(self, mock_session):
-        """_row_to_entityが定義されている場合、そちらに委譲されることを確認."""
+    def test_delegates_to_to_entity(self, mock_session):
+        """_row_converterが_to_entityに委譲されることを確認."""
         repo = NonOrmMockRepositoryImpl(mock_session, MockEntity, NonOrmMockModel)
         mock_row = MagicMock()
         mock_row.id = 5
         mock_row.name = "Test"
-        # _mappingを削除してgetattr fallbackを使わせる
-        mock_row._mapping = None
-        del mock_row._mapping
 
         result = repo._row_converter(mock_row)
 
         assert result.id == 5
         assert result.name == "Test"
-
-    def test_delegates_to_dict_to_entity(self, mock_session):
-        """_dict_to_entityが定義されている場合、Rowをdict化して委譲されることを確認."""
-
-        class DictBasedRepositoryImpl(BaseRepositoryImpl[MockEntity]):
-            @property
-            def _table_name(self) -> str:
-                return "test"
-
-            def _dict_to_entity(self, data: dict) -> MockEntity:
-                return MockEntity(id=data.get("id"), name=data.get("name", ""))
-
-            def _to_entity(self, model) -> MockEntity:
-                return MockEntity(id=model.id, name=model.name)
-
-            def _to_model(self, entity):
-                pass
-
-            def _update_model(self, model, entity):
-                pass
-
-        repo = DictBasedRepositoryImpl(mock_session, MockEntity, NonOrmMockModel)
-        mock_row = MagicMock()
-        mock_row._mapping = {"id": 10, "name": "DictTest"}
-
-        result = repo._row_converter(mock_row)
-
-        assert result.id == 10
-        assert result.name == "DictTest"
-
-    def test_fallback_to_to_entity(self, mock_session):
-        """_row_to_entityも_dict_to_entityもない場合、_to_entityにフォールバックすることを確認."""
-
-        class MinimalRepositoryImpl(BaseRepositoryImpl[MockEntity]):
-            @property
-            def _table_name(self) -> str:
-                return "test"
-
-            def _to_entity(self, model) -> MockEntity:
-                return MockEntity(id=model.id, name=model.name)
-
-            def _to_model(self, entity):
-                pass
-
-            def _update_model(self, model, entity):
-                pass
-
-        repo = MinimalRepositoryImpl(mock_session, MockEntity, NonOrmMockModel)
-        mock_row = MagicMock()
-        mock_row.id = 7
-        mock_row.name = "Fallback"
-
-        result = repo._row_converter(mock_row)
-
-        assert result.id == 7
-        assert result.name == "Fallback"
 
     def test_converter_is_cached(self, mock_session):
         """_row_converterが初回アクセス後にキャッシュされることを確認."""

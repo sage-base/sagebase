@@ -160,7 +160,7 @@ class ConversationRepositoryImpl(
             params = {"minutes_id": minutes_id, "limit": limit or 999999}
             result = await self.async_session.execute(query, params)
             rows = result.fetchall()
-            return [self._row_to_entity(row) for row in rows]
+            return [self._to_entity(row) for row in rows]
         elif self.sync_session is not None:
             # ISessionAdapter implementation - execute is always async
             query = text("""
@@ -172,7 +172,7 @@ class ConversationRepositoryImpl(
             params = {"minutes_id": minutes_id, "limit": limit or 999999}
             result = await self.sync_session.execute(query, params)
             rows = result.fetchall()
-            return [self._row_to_entity(row) for row in rows]
+            return [self._to_entity(row) for row in rows]
         else:
             # This should never happen as one session must exist
             return []
@@ -193,11 +193,11 @@ class ConversationRepositoryImpl(
         if self.async_session is not None:
             result = await self.async_session.execute(query, params)
             rows = result.fetchall()
-            return [self._row_to_entity(row) for row in rows]
+            return [self._to_entity(row) for row in rows]
         elif self.sync_session is not None:
             result = await self.sync_session.execute(query, params)
             rows = result.fetchall()
-            return [self._row_to_entity(row) for row in rows]
+            return [self._to_entity(row) for row in rows]
         else:
             return []
 
@@ -215,7 +215,7 @@ class ConversationRepositoryImpl(
             params = {"speaker_id": speaker_id, "limit": limit or 999999}
             result = await self.async_session.execute(query, params)
             rows = result.fetchall()
-            return [self._row_to_entity(row) for row in rows]
+            return [self._to_entity(row) for row in rows]
         elif self.sync_session is not None:
             # ISessionAdapter implementation - execute is always async
             query = text("""
@@ -227,7 +227,7 @@ class ConversationRepositoryImpl(
             params = {"speaker_id": speaker_id, "limit": limit or 999999}
             result = await self.sync_session.execute(query, params)
             rows = result.fetchall()
-            return [self._row_to_entity(row) for row in rows]
+            return [self._to_entity(row) for row in rows]
         else:
             # This should never happen as one session must exist
             return []
@@ -244,7 +244,7 @@ class ConversationRepositoryImpl(
             params = {"limit": limit or 999999}
             result = await self.async_session.execute(query, params)
             rows = result.fetchall()
-            return [self._row_to_entity(row) for row in rows]
+            return [self._to_entity(row) for row in rows]
         elif self.sync_session is not None:
             # ISessionAdapter implementation - execute is always async
             query = text("""
@@ -256,7 +256,7 @@ class ConversationRepositoryImpl(
             params = {"limit": limit or 999999}
             result = await self.sync_session.execute(query, params)
             rows = result.fetchall()
-            return [self._row_to_entity(row) for row in rows]
+            return [self._to_entity(row) for row in rows]
         else:
             # This should never happen as one session must exist
             return []
@@ -710,21 +710,6 @@ class ConversationRepositoryImpl(
         result = await self.session.execute(query)
         count = result.scalar()
         return count if count is not None else 0
-
-    def _row_to_entity(self, row: Any) -> Conversation:
-        """Convert database row to domain entity."""
-        return Conversation(
-            id=row.id,
-            comment=row.comment,
-            sequence_number=row.sequence_number,
-            minutes_id=row.minutes_id,
-            speaker_id=row.speaker_id,
-            speaker_name=row.speaker_name,
-            chapter_number=row.chapter_number,
-            sub_chapter_number=row.sub_chapter_number,
-            is_manually_verified=bool(getattr(row, "is_manually_verified", False)),
-            latest_extraction_log_id=getattr(row, "latest_extraction_log_id", None),
-        )
 
     def _to_entity(self, model: Any) -> Conversation:
         """Convert database model to domain entity."""

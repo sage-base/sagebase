@@ -62,17 +62,9 @@ class ProposalJudgeRepositoryImpl(
             model_class=ProposalJudgeModel,
         )
 
-    def _row_to_dict(self, row: Any) -> dict[str, Any]:
-        """Convert a database row to a dictionary."""
-        if hasattr(row, "_asdict"):
-            return row._asdict()  # type: ignore[attr-defined]
-        elif hasattr(row, "_mapping"):
-            return dict(row._mapping)  # type: ignore[attr-defined]
-        return dict(row)
-
     def _rows_to_entities(self, rows: Any) -> list[ProposalJudge]:
         """Convert multiple database rows to entities."""
-        return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def get_by_proposal(self, proposal_id: int) -> list[ProposalJudge]:
         """Get all judges for a proposal.
@@ -154,7 +146,7 @@ class ProposalJudgeRepositoryImpl(
             row = result.fetchone()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
             return None
 
         except SQLAlchemyError as e:
@@ -213,7 +205,7 @@ class ProposalJudgeRepositoryImpl(
                 result = await self.session.execute(query, value)
                 row = result.fetchone()
                 if row:
-                    created_judges.append(self._dict_to_entity(self._row_to_dict(row)))
+                    created_judges.append(self._to_entity(row))
 
             await self.session.commit()
             return created_judges
@@ -310,7 +302,7 @@ class ProposalJudgeRepositoryImpl(
             row = result.fetchone()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
             return None
 
         except SQLAlchemyError as e:
@@ -402,7 +394,7 @@ class ProposalJudgeRepositoryImpl(
             await self.session.commit()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
 
             raise DatabaseError("Failed to create proposal judge", {"entity": entity})
 
@@ -455,7 +447,7 @@ class ProposalJudgeRepositoryImpl(
             await self.session.commit()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
 
             raise DatabaseError(
                 f"ProposalJudge with ID {entity.id} not found", {"entity": entity}
@@ -535,7 +527,7 @@ class ProposalJudgeRepositoryImpl(
                 )
                 row = result.fetchone()
                 if row:
-                    updated.append(self._dict_to_entity(self._row_to_dict(row)))
+                    updated.append(self._to_entity(row))
 
             await self.session.commit()
             return updated
@@ -548,26 +540,19 @@ class ProposalJudgeRepositoryImpl(
                 {"count": len(judges), "error": str(e)},
             ) from e
 
-    def _to_entity(self, model: ProposalJudgeModel) -> ProposalJudge:
-        """Convert database model to domain entity.
-
-        Args:
-            model: Database model
-
-        Returns:
-            Domain entity
-        """
+    def _to_entity(self, model: Any) -> ProposalJudge:
+        """Convert database model/row to domain entity."""
         entity = ProposalJudge(
-            id=model.id,
+            id=getattr(model, "id", None),
             proposal_id=model.proposal_id,
             politician_id=model.politician_id,
-            approve=model.approve,
-            source_type=model.source_type,
-            source_group_judge_id=model.source_group_judge_id,
-            is_defection=model.is_defection,
+            approve=getattr(model, "approve", None),
+            source_type=getattr(model, "source_type", None),
+            source_group_judge_id=getattr(model, "source_group_judge_id", None),
+            is_defection=getattr(model, "is_defection", None),
         )
-        entity.created_at = model.created_at
-        entity.updated_at = model.updated_at
+        entity.created_at = getattr(model, "created_at", None)
+        entity.updated_at = getattr(model, "updated_at", None)
         return entity
 
     def _to_model(self, entity: ProposalJudge) -> ProposalJudgeModel:
@@ -602,25 +587,3 @@ class ProposalJudgeRepositoryImpl(
         model.source_type = entity.source_type
         model.source_group_judge_id = entity.source_group_judge_id
         model.is_defection = entity.is_defection
-
-    def _dict_to_entity(self, data: dict[str, Any]) -> ProposalJudge:
-        """Convert dictionary to entity.
-
-        Args:
-            data: Dictionary with entity data
-
-        Returns:
-            ProposalJudge entity
-        """
-        entity = ProposalJudge(
-            id=data.get("id"),
-            proposal_id=data["proposal_id"],
-            politician_id=data["politician_id"],
-            approve=data.get("approve"),
-            source_type=data.get("source_type"),
-            source_group_judge_id=data.get("source_group_judge_id"),
-            is_defection=data.get("is_defection"),
-        )
-        entity.created_at = data.get("created_at")
-        entity.updated_at = data.get("updated_at")
-        return entity

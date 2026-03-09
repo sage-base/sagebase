@@ -119,7 +119,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     row_dict = dict(row._mapping)  # type: ignore[attr-defined]
                 else:
                     row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._to_entity(row_dict)
             return None
 
         except SQLAlchemyError as e:
@@ -171,7 +171,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     row_dict = dict(row._mapping)  # type: ignore[attr-defined]
                 else:
                     row_dict = dict(row)
-                results.append(self._dict_to_entity(row_dict))
+                results.append(self._to_entity(row_dict))
             return results
 
         except SQLAlchemyError as e:
@@ -226,7 +226,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     row_dict = dict(row._mapping)  # type: ignore[attr-defined]
                 else:
                     row_dict = dict(row)
-                results.append(self._dict_to_entity(row_dict))
+                results.append(self._to_entity(row_dict))
             return results
 
         except SQLAlchemyError as e:
@@ -268,7 +268,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     row_dict = dict(row._mapping)  # type: ignore[attr-defined]
                 else:
                     row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._to_entity(row_dict)
             return None
 
         except SQLAlchemyError as e:
@@ -316,7 +316,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     row_dict = dict(row._mapping)  # type: ignore[attr-defined]
                 else:
                     row_dict = dict(row)
-                conferences.append(self._dict_to_entity(row_dict))
+                conferences.append(self._to_entity(row_dict))
             return conferences
 
         except SQLAlchemyError as e:
@@ -371,7 +371,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     row_dict = dict(row._mapping)  # type: ignore[attr-defined]
                 else:
                     row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._to_entity(row_dict)
             raise RuntimeError("Failed to create conference")
 
         except SQLAlchemyError as e:
@@ -422,7 +422,7 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
                     row_dict = dict(row._mapping)  # type: ignore[attr-defined]
                 else:
                     row_dict = dict(row)
-                return self._dict_to_entity(row_dict)
+                return self._to_entity(row_dict)
             raise UpdateError(f"Conference with ID {entity.id} not found")
 
         except SQLAlchemyError as e:
@@ -472,14 +472,22 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
         count = result.scalar()
         return count if count is not None else 0
 
-    def _to_entity(self, model: ConferenceModel) -> Conference:
-        """Convert database model to domain entity."""
+    def _to_entity(self, model: Any) -> Conference:
+        """Convert database model/row/dict to domain entity."""
+        if isinstance(model, dict):
+            return Conference(
+                id=model.get("id"),
+                name=model["name"],
+                governing_body_id=model["governing_body_id"],
+                term=model.get("term"),
+                election_id=model.get("election_id"),
+            )
         return Conference(
-            id=model.id,
+            id=getattr(model, "id", None),
             name=model.name,
             governing_body_id=model.governing_body_id,
-            term=model.term,
-            election_id=model.election_id,
+            term=getattr(model, "term", None),
+            election_id=getattr(model, "election_id", None),
         )
 
     def _to_model(self, entity: Conference) -> ConferenceModel:
@@ -498,13 +506,3 @@ class ConferenceRepositoryImpl(BaseRepositoryImpl[Conference], ConferenceReposit
         model.governing_body_id = entity.governing_body_id
         model.term = entity.term
         model.election_id = entity.election_id
-
-    def _dict_to_entity(self, data: dict[str, Any]) -> Conference:
-        """Convert dictionary to entity."""
-        return Conference(
-            id=data.get("id"),
-            name=data["name"],
-            governing_body_id=data["governing_body_id"],
-            term=data.get("term"),
-            election_id=data.get("election_id"),
-        )

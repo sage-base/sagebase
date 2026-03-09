@@ -29,7 +29,7 @@ class UserRepositoryImpl(IUserRepository):
         """
         self.session = session
 
-    def _row_to_entity(self, row: Any) -> User:
+    def _to_entity(self, row: Any) -> User:
         """Convert database row to User entity.
 
         Args:
@@ -56,7 +56,7 @@ class UserRepositoryImpl(IUserRepository):
         """)
         result = await self.session.execute(query, {"user_id": user_id})
         row = result.fetchone()
-        return self._row_to_entity(row) if row else None
+        return self._to_entity(row) if row else None
 
     async def get_by_email(self, email: str) -> User | None:
         """Get user by email address."""
@@ -67,7 +67,7 @@ class UserRepositoryImpl(IUserRepository):
         """)
         result = await self.session.execute(query, {"email": email})
         row = result.fetchone()
-        return self._row_to_entity(row) if row else None
+        return self._to_entity(row) if row else None
 
     async def get_all(
         self, limit: int | None = None, offset: int | None = None
@@ -91,7 +91,7 @@ class UserRepositoryImpl(IUserRepository):
         query = text(query_str)
         result = await self.session.execute(query, params)
         rows = result.fetchall()
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def create(self, user: User) -> User:
         """Create a new user."""
@@ -114,7 +114,7 @@ class UserRepositoryImpl(IUserRepository):
             row = result.fetchone()
             if not row:
                 raise RuntimeError("Failed to create user")
-            return self._row_to_entity(row)
+            return self._to_entity(row)
         except SQLIntegrityError as e:
             await self.session.rollback()
             logger.error(f"Failed to create user: {e}")
@@ -147,7 +147,7 @@ class UserRepositoryImpl(IUserRepository):
             row = result.fetchone()
             if not row:
                 raise RuntimeError(f"User not found: {user.user_id}")
-            return self._row_to_entity(row)
+            return self._to_entity(row)
         except SQLIntegrityError as e:
             await self.session.rollback()
             logger.error(f"Failed to update user: {e}")

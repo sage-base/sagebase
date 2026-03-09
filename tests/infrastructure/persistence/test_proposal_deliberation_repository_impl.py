@@ -44,8 +44,9 @@ class TestProposalDeliberationRepositoryImpl:
 
     def _make_mock_row(self, data: dict[str, Any]) -> MagicMock:
         row = MagicMock()
-        row._asdict = MagicMock(return_value=data)
         row._mapping = data
+        for key, value in data.items():
+            setattr(row, key, value)
         return row
 
     @pytest.mark.asyncio

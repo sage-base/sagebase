@@ -16,6 +16,15 @@ from src.infrastructure.persistence.proposal_repository_impl import (
 )
 
 
+def _make_row(data: dict[str, Any]) -> MagicMock:
+    """Create a mock database row with attribute access."""
+    row = MagicMock()
+    row._mapping = data
+    for key, value in data.items():
+        setattr(row, key, value)
+    return row
+
+
 class TestProposalRepositoryImpl:
     """Test cases for ProposalRepositoryImpl."""
 
@@ -70,9 +79,7 @@ class TestProposalRepositoryImpl:
     ) -> None:
         """Test get_by_id when proposal is found."""
         # Setup mock result
-        mock_row = MagicMock()
-        mock_row._mapping = sample_proposal_dict
-        mock_row._asdict = MagicMock(return_value=sample_proposal_dict)
+        mock_row = _make_row(sample_proposal_dict)
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
@@ -112,9 +119,7 @@ class TestProposalRepositoryImpl:
     ) -> None:
         """Test create proposal."""
         # Setup mock result
-        mock_row = MagicMock()
-        mock_row._mapping = sample_proposal_dict
-        mock_row._asdict = MagicMock(return_value=sample_proposal_dict)
+        mock_row = _make_row(sample_proposal_dict)
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
@@ -160,9 +165,7 @@ class TestProposalRepositoryImpl:
             "created_at": None,
             "updated_at": None,
         }
-        mock_row = MagicMock()
-        mock_row._mapping = updated_dict
-        mock_row._asdict = MagicMock(return_value=updated_dict)
+        mock_row = _make_row(updated_dict)
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
@@ -246,9 +249,7 @@ class TestProposalRepositoryImpl:
     ) -> None:
         """Test get_all with limit."""
         # Setup mock result
-        mock_row = MagicMock()
-        mock_row._mapping = sample_proposal_dict
-        mock_row._asdict = MagicMock(return_value=sample_proposal_dict)
+        mock_row = _make_row(sample_proposal_dict)
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
@@ -400,9 +401,7 @@ class TestProposalRepositoryImpl:
     ) -> None:
         """Test get_by_meeting_id returns list of proposals."""
         # Setup mock result
-        mock_row = MagicMock()
-        mock_row._mapping = sample_proposal_dict
-        mock_row._asdict = MagicMock(return_value=sample_proposal_dict)
+        mock_row = _make_row(sample_proposal_dict)
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
@@ -425,9 +424,7 @@ class TestProposalRepositoryImpl:
     ) -> None:
         """Test get_by_conference_id returns list of proposals."""
         # Setup mock result
-        mock_row = MagicMock()
-        mock_row._mapping = sample_proposal_dict
-        mock_row._asdict = MagicMock(return_value=sample_proposal_dict)
+        mock_row = _make_row(sample_proposal_dict)
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result
@@ -489,8 +486,7 @@ class TestProposalRepositoryImpl:
             "created_at": None,
             "updated_at": None,
         }
-        mock_row = MagicMock()
-        mock_row._asdict = MagicMock(return_value=found_dict)
+        mock_row = _make_row(found_dict)
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
@@ -599,8 +595,7 @@ class TestProposalRepositoryImpl:
 
         mock_results = []
         for d in created_dicts:
-            mock_row = MagicMock()
-            mock_row._asdict = MagicMock(return_value=d)
+            mock_row = _make_row(d)
             mock_result = MagicMock()
             mock_result.fetchone = MagicMock(return_value=mock_row)
             mock_results.append(mock_result)
@@ -671,8 +666,7 @@ class TestProposalRepositoryImpl:
         sample_proposal_dict: dict[str, Any],
     ) -> None:
         """Test find_by_url when proposal is found."""
-        mock_row = MagicMock()
-        mock_row._asdict = MagicMock(return_value=sample_proposal_dict)
+        mock_row = _make_row(sample_proposal_dict)
         mock_result = MagicMock()
         mock_result.fetchone = MagicMock(return_value=mock_row)
         mock_session.execute.return_value = mock_result
@@ -720,8 +714,7 @@ class TestProposalRepositoryImpl:
         sample_proposal_dict: dict[str, Any],
     ) -> None:
         """Test get_all without limit."""
-        mock_row = MagicMock()
-        mock_row._asdict = MagicMock(return_value=sample_proposal_dict)
+        mock_row = _make_row(sample_proposal_dict)
         mock_result = MagicMock()
         mock_result.fetchall = MagicMock(return_value=[mock_row])
         mock_session.execute.return_value = mock_result

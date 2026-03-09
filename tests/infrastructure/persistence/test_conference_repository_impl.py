@@ -290,14 +290,14 @@ class TestConferenceRepositoryImpl:
         assert model.name == "本会議"
         assert model.governing_body_id == 10
 
-    def test_dict_to_entity(
+    def test_to_entity_from_dict(
         self,
         repository: ConferenceRepositoryImpl,
         sample_conference_dict: dict[str, Any],
     ) -> None:
-        """Test _dict_to_entity converts dictionary to entity correctly."""
+        """Test _to_entity converts dictionary to entity correctly."""
         # Convert
-        entity = repository._dict_to_entity(sample_conference_dict)  # type: ignore[reportPrivateUsage]
+        entity = repository._to_entity(sample_conference_dict)  # type: ignore[reportPrivateUsage]
 
         # Assert
         assert isinstance(entity, Conference)
@@ -305,10 +305,10 @@ class TestConferenceRepositoryImpl:
         assert entity.name == "本会議"
         assert entity.governing_body_id == 10
 
-    def test_dict_to_entity_with_missing_optional_fields(
+    def test_to_entity_from_dict_with_missing_optional_fields(
         self, repository: ConferenceRepositoryImpl
     ) -> None:
-        """Test _dict_to_entity handles missing optional fields."""
+        """Test _to_entity handles missing optional fields."""
         # Dictionary with only required fields
         data: dict[str, Any] = {
             "name": "本会議",
@@ -316,7 +316,7 @@ class TestConferenceRepositoryImpl:
         }
 
         # Convert
-        entity = repository._dict_to_entity(data)  # type: ignore[reportPrivateUsage]
+        entity = repository._to_entity(data)  # type: ignore[reportPrivateUsage]
 
         # Assert
         assert isinstance(entity, Conference)
@@ -471,10 +471,10 @@ class TestConferenceRepositoryImpl:
         assert isinstance(model, ConferenceModel)
         assert model.term == "第220回"
 
-    def test_dict_to_entity_with_term(
+    def test_to_entity_from_dict_with_term(
         self, repository: ConferenceRepositoryImpl
     ) -> None:
-        """Test _dict_to_entity handles term field."""
+        """Test _to_entity handles term field from dict."""
         # Dictionary with term
         data: dict[str, Any] = {
             "id": 1,
@@ -484,7 +484,7 @@ class TestConferenceRepositoryImpl:
         }
 
         # Convert
-        entity = repository._dict_to_entity(data)  # type: ignore[reportPrivateUsage]
+        entity = repository._to_entity(data)  # type: ignore[reportPrivateUsage]
 
         # Assert
         assert entity.term == "第220回"
