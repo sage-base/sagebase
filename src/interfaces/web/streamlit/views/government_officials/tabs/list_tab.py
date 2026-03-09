@@ -59,8 +59,6 @@ def _render_official_detail(
         st.markdown("**基本情報**")
         st.write(f"ID: {official.id}")
         st.write(f"名前: {official.name}")
-        st.write(f"読み仮名: {official.name_yomi or '未設定'}")
-
         # 役職履歴
         if official.positions:
             st.markdown("**役職履歴**")
@@ -101,13 +99,11 @@ def _render_edit_form(
     st.markdown("**編集**")
     with st.form(key=f"edit_official_{official.id}"):
         new_name = st.text_input("名前", value=official.name)
-        new_yomi = st.text_input("読み仮名", value=official.name_yomi or "")
 
         if st.form_submit_button("更新"):
             success, error = presenter.update(
                 id=official.id,
                 name=new_name,
-                name_yomi=new_yomi or None,
             )
             if success:
                 st.success("更新しました")

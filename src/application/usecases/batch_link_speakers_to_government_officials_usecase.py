@@ -56,14 +56,10 @@ class BatchLinkSpeakersToGovernmentOfficialsUseCase:
         # 1. 全GovernmentOfficialを取得
         officials = await self.government_official_repository.get_all()
 
-        # 2. 未紐付きSpeaker取得（politician_id IS NULL）
-        all_non_politician_speakers = (
-            await self.speaker_repository.get_speakers_not_linked_to_politicians()
+        # 2. 未紐付きSpeaker取得
+        unlinked = (
+            await self.speaker_repository.get_speakers_not_linked_to_government_officials()  # noqa: E501
         )
-        # さらにgovernment_official_idが未設定のものだけ対象
-        unlinked = [
-            s for s in all_non_politician_speakers if s.government_official_id is None
-        ]
 
         # 3. GovernmentOfficialの正規化名マップを構築
         official_map: dict[str, GovernmentOfficial] = {}

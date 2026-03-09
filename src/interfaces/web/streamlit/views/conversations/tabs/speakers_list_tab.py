@@ -316,8 +316,6 @@ def _render_government_official_link_section(
                 col_name, col_btn = st.columns([3, 1])
                 with col_name:
                     st.write(f"**{candidate.name}**")
-                    if candidate.name_yomi:
-                        st.caption(candidate.name_yomi)
                 with col_btn:
                     if st.button(
                         "紐付け",

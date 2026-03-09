@@ -46,11 +46,15 @@ class TestLoadData:
         official = GovernmentOfficial(id=1, name="田中太郎")
         presenter.official_repo.get_all = AsyncMock(return_value=[official])
         presenter.position_repo.get_by_official = AsyncMock(return_value=[])
+        presenter.speaker_repo.get_linked_government_official_ids = AsyncMock(
+            return_value={1}
+        )
 
         result = presenter.load_data()
 
         assert len(result) == 1
         assert result[0].name == "田中太郎"
+        assert result[0].has_linked_speaker is True
 
     def test_load_data_empty(self, presenter: GovernmentOfficialPresenter) -> None:
         """データがない場合は空リストを返すこと."""
@@ -79,11 +83,15 @@ class TestSearch:
         official = GovernmentOfficial(id=1, name="田中太郎")
         presenter.official_repo.search_by_name = AsyncMock(return_value=[official])
         presenter.position_repo.get_by_official = AsyncMock(return_value=[])
+        presenter.speaker_repo.get_linked_government_official_ids = AsyncMock(
+            return_value=set()
+        )
 
         result = presenter.search("田中")
 
         assert len(result) == 1
         assert result[0].name == "田中太郎"
+        assert result[0].has_linked_speaker is False
 
     def test_search_empty(self, presenter: GovernmentOfficialPresenter) -> None:
         """該当なしの場合は空リストを返すこと."""
@@ -278,9 +286,7 @@ class TestToDataframe:
     def test_to_dataframe(self, presenter: GovernmentOfficialPresenter) -> None:
         """DataFrameに変換できること."""
         officials = [
-            GovernmentOfficialOutputItem(
-                id=1, name="田中太郎", name_yomi="たなかたろう"
-            ),
+            GovernmentOfficialOutputItem(id=1, name="田中太郎"),
         ]
 
         df = presenter.to_dataframe(officials)

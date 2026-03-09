@@ -75,23 +75,30 @@ class GovernmentOfficialPresenter(BasePresenter[list[GovernmentOfficialOutputIte
         officials: list[GovernmentOfficial],
     ) -> list[GovernmentOfficialOutputItem]:
         """GovernmentOfficialエンティティリストをDTO リストに変換する."""
+        linked_ids = await self.speaker_repo.get_linked_government_official_ids()
         result = []
         for official in officials:
             positions = await self.position_repo.get_by_official(official.id)
-            result.append(GovernmentOfficialOutputItem.from_entity(official, positions))
+            result.append(
+                GovernmentOfficialOutputItem.from_entity(
+                    official,
+                    positions,
+                    has_linked_speaker=official.id in linked_ids,
+                )
+            )
         return result
 
     def create(
-        self, name: str, name_yomi: str | None = None
+        self, name: str
     ) -> tuple[bool, GovernmentOfficialOutputItem | None, str | None]:
         """政府関係者を新規作成する."""
-        return self._run_async(self._create_async(name, name_yomi))
+        return self._run_async(self._create_async(name))
 
     async def _create_async(
-        self, name: str, name_yomi: str | None = None
+        self, name: str
     ) -> tuple[bool, GovernmentOfficialOutputItem | None, str | None]:
         try:
-            entity = GovernmentOfficial(name=name, name_yomi=name_yomi)
+            entity = GovernmentOfficial(name=name)
             created = await self.official_repo.create(entity)
             dto = GovernmentOfficialOutputItem.from_entity(created)
             return True, dto, None
@@ -100,21 +107,16 @@ class GovernmentOfficialPresenter(BasePresenter[list[GovernmentOfficialOutputIte
             self.logger.error(error_msg)
             return False, None, error_msg
 
-    def update(
-        self, id: int, name: str, name_yomi: str | None = None
-    ) -> tuple[bool, str | None]:
+    def update(self, id: int, name: str) -> tuple[bool, str | None]:
         """政府関係者を更新する."""
-        return self._run_async(self._update_async(id, name, name_yomi))
+        return self._run_async(self._update_async(id, name))
 
-    async def _update_async(
-        self, id: int, name: str, name_yomi: str | None = None
-    ) -> tuple[bool, str | None]:
+    async def _update_async(self, id: int, name: str) -> tuple[bool, str | None]:
         try:
             entity = await self.official_repo.get_by_id(id)
             if entity is None:
                 return False, f"ID {id} の政府関係者が見つかりません"
             entity.name = name
-            entity.name_yomi = name_yomi
             await self.official_repo.update(entity)
             return True, None
         except Exception as e:
@@ -256,8 +258,8 @@ class GovernmentOfficialPresenter(BasePresenter[list[GovernmentOfficialOutputIte
                 {
                     "ID": o.id,
                     "名前": o.name,
-                    "読み仮名": o.name_yomi or "-",
                     "役職数": len(o.positions),
+                    "Speaker紐付": o.has_linked_speaker,
                 }
             )
         return pd.DataFrame(data)
@@ -269,13 +271,11 @@ class GovernmentOfficialPresenter(BasePresenter[list[GovernmentOfficialOutputIte
         elif action == "create":
             return self.create(
                 name=kwargs.get("name", ""),
-                name_yomi=kwargs.get("name_yomi"),
             )
         elif action == "update":
             return self.update(
                 id=kwargs.get("id", 0),
                 name=kwargs.get("name", ""),
-                name_yomi=kwargs.get("name_yomi"),
             )
         elif action == "delete":
             return self.delete(id=kwargs.get("id", 0))
