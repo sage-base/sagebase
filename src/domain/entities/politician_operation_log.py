@@ -20,6 +20,9 @@ class PoliticianOperationType(str, Enum):
     DELETE = "delete"
     """削除"""
 
+    MERGE = "merge"
+    """統合"""
+
 
 class PoliticianOperationLog(BaseEntity):
     """政治家操作ログエンティティ.

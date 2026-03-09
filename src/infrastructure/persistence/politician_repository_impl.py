@@ -388,3 +388,129 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             results[table] = result.rowcount  # type: ignore[attr-defined]
 
         return results
+
+    async def merge_politicians(self, source_id: int, target_id: int) -> dict[str, int]:
+        """統合元の全リレーションを統合先に付け替え、統合元を削除する."""
+        results: dict[str, int] = {}
+
+        # --- Nullableカラム: source → target に付け替え ---
+        nullable_tables = [
+            ("speakers", "politician_id"),
+            ("extracted_parliamentary_group_members", "matched_politician_id"),
+            ("extracted_proposal_judges", "matched_politician_id"),
+        ]
+
+        for table, column in nullable_tables:
+            query = text(
+                f"UPDATE {table} SET {column} = :target_id WHERE {column} = :source_id"
+            )
+            result = await self.session.execute(
+                query, {"target_id": target_id, "source_id": source_id}
+            )
+            results[table] = result.rowcount  # type: ignore[attr-defined]
+
+        # --- NOT NULLカラム（UNIQUE制約あり）: 重複を先にDELETEしてからUPDATE ---
+        # election_members: UNIQUE(election_id, politician_id)
+        delete_dup_query = text(
+            "DELETE FROM election_members "
+            "WHERE politician_id = :source_id "
+            "AND election_id IN ("
+            "  SELECT election_id FROM election_members "
+            "  WHERE politician_id = :target_id"
+            ")"
+        )
+        dup_result = await self.session.execute(
+            delete_dup_query, {"source_id": source_id, "target_id": target_id}
+        )
+        update_query = text(
+            "UPDATE election_members SET politician_id = :target_id "
+            "WHERE politician_id = :source_id"
+        )
+        upd_result = await self.session.execute(
+            update_query, {"target_id": target_id, "source_id": source_id}
+        )
+        results["election_members"] = (
+            dup_result.rowcount + upd_result.rowcount  # type: ignore[attr-defined]
+        )
+
+        # proposal_judge_politicians: UNIQUE(judge_id, politician_id)
+        delete_dup_query = text(
+            "DELETE FROM proposal_judge_politicians "
+            "WHERE politician_id = :source_id "
+            "AND judge_id IN ("
+            "  SELECT judge_id FROM proposal_judge_politicians "
+            "  WHERE politician_id = :target_id"
+            ")"
+        )
+        dup_result = await self.session.execute(
+            delete_dup_query, {"source_id": source_id, "target_id": target_id}
+        )
+        update_query = text(
+            "UPDATE proposal_judge_politicians SET politician_id = :target_id "
+            "WHERE politician_id = :source_id"
+        )
+        upd_result = await self.session.execute(
+            update_query, {"target_id": target_id, "source_id": source_id}
+        )
+        results["proposal_judge_politicians"] = (
+            dup_result.rowcount + upd_result.rowcount  # type: ignore[attr-defined]
+        )
+
+        # proposal_submitters: UNIQUE(proposal_id, COALESCE(politician_id, -1), ...)
+        delete_dup_query = text(
+            "DELETE FROM proposal_submitters "
+            "WHERE politician_id = :source_id "
+            "AND proposal_id IN ("
+            "  SELECT proposal_id FROM proposal_submitters "
+            "  WHERE politician_id = :target_id"
+            ")"
+        )
+        dup_result = await self.session.execute(
+            delete_dup_query, {"source_id": source_id, "target_id": target_id}
+        )
+        update_query = text(
+            "UPDATE proposal_submitters SET politician_id = :target_id "
+            "WHERE politician_id = :source_id"
+        )
+        upd_result = await self.session.execute(
+            update_query, {"target_id": target_id, "source_id": source_id}
+        )
+        results["proposal_submitters"] = (
+            dup_result.rowcount + upd_result.rowcount  # type: ignore[attr-defined]
+        )
+
+        # --- NOT NULLカラム（UNIQUE制約なし）: 単純にUPDATE ---
+        simple_update_tables = [
+            ("parliamentary_group_memberships", "politician_id"),
+            ("party_membership_history", "politician_id"),
+            ("conference_members", "politician_id"),
+            ("pledges", "politician_id"),
+            ("proposal_judges", "politician_id"),
+        ]
+
+        for table, column in simple_update_tables:
+            query = text(
+                f"UPDATE {table} SET {column} = :target_id WHERE {column} = :source_id"
+            )
+            result = await self.session.execute(
+                query, {"target_id": target_id, "source_id": source_id}
+            )
+            results[table] = result.rowcount  # type: ignore[attr-defined]
+
+        # --- FK制約なし: politician_operation_logs ---
+        query = text(
+            "UPDATE politician_operation_logs SET politician_id = :target_id "
+            "WHERE politician_id = :source_id"
+        )
+        result = await self.session.execute(
+            query, {"target_id": target_id, "source_id": source_id}
+        )
+        results["politician_operation_logs"] = result.rowcount  # type: ignore[attr-defined]
+
+        # --- 統合元の政治家レコードを削除 ---
+        delete_query = text("DELETE FROM politicians WHERE id = :source_id")
+        await self.session.execute(delete_query, {"source_id": source_id})
+
+        await self.session.commit()
+
+        return results

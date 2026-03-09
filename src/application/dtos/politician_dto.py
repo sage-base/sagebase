@@ -170,6 +170,7 @@ class MergePoliticiansInputDto:
 
     source_id: int
     target_id: int
+    user_id: UUID | None = None
 
 
 @dataclass
