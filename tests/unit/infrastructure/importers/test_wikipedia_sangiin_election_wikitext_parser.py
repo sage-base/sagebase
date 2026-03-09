@@ -7,10 +7,12 @@ from src.infrastructure.importers.wikipedia_sangiin_election_wikitext_parser imp
     _normalize_sangiin_district,
     _parse_district_template,
     _parse_district_wikitable,
+    _parse_hoketsu_list,
     _parse_hoketsu_winners,
     _parse_kuriage_winners,
     _parse_proportional_template,
     _parse_proportional_wikitable,
+    _split_template_entries,
     parse_sangiin_wikitext,
 )
 
@@ -1069,3 +1071,219 @@ class TestParseSangiinWikitextWithHoketsu:
         assert zenkoku[0].rank == 1
         assert len(hoketsu) == 1
         assert hoketsu[0].district_name == "滋賀県選挙区"
+
+
+class TestMultiHeaderHorizontalTable:
+    """複数ヘッダ行を持つ横並びテーブルのパーステスト（第9回〜第12回形式）."""
+
+    WIKITEXT_MULTI_HEADER = (
+        "=== この選挙で選挙区当選 ===\n"
+        "{{colorbox|#9E9|自民党}} {{colorbox|#0ff|社会党}}\n"
+        '{| class="wikitable" style="margin-right:0px"\n'
+        "|-\n"
+        "!colspan=2|[[北海道選挙区|北海道]]"
+        "!![[青森県選挙区|青森県]]"
+        "!![[岩手県選挙区|岩手県]]\n"
+        "|-\n"
+        '|style="background-color:#9e9" |[[北海一郎]]'
+        '||style="background-color:#0ff" |[[北海二郎]]'
+        '||style="background-color:#9e9" |[[青森太郎]]'
+        '||style="background-color:#0ff" |[[岩手太郎]]\n'
+        "|-\n"
+        "!colspan=2|[[福島県選挙区|福島県]]"
+        "!![[茨城県選挙区|茨城県]]"
+        "!![[大阪府選挙区|大阪府]]\n"
+        "|-\n"
+        '|style="background-color:#0ff" |[[福島一郎]]'
+        '||style="background-color:#9e9" |[[福島二郎]]'
+        '||style="background-color:#9e9" |[[茨城太郎]]'
+        '||style="background-color:#0ff" |[[大阪太郎]]\n'
+        "|}\n"
+    )
+
+    COLOR_MAP = {"9E9": "自民党", "0FF": "社会党"}
+
+    def test_first_block_districts(self) -> None:
+        """最初のヘッダブロックの選挙区が正しくマッピングされる."""
+        result = _parse_district_wikitable(self.WIKITEXT_MULTI_HEADER, self.COLOR_MAP)
+        hokkaido = [c for c in result if "北海道" in c.district_name]
+        aomori = [c for c in result if "青森" in c.district_name]
+        iwate = [c for c in result if "岩手" in c.district_name]
+        assert len(hokkaido) == 2
+        assert len(aomori) == 1
+        assert len(iwate) == 1
+        assert hokkaido[0].name == "北海一郎"
+        assert aomori[0].name == "青森太郎"
+
+    def test_second_block_districts(self) -> None:
+        """2番目のヘッダブロックの選挙区が正しくマッピングされる."""
+        result = _parse_district_wikitable(self.WIKITEXT_MULTI_HEADER, self.COLOR_MAP)
+        fukushima = [c for c in result if "福島" in c.district_name]
+        ibaraki = [c for c in result if "茨城" in c.district_name]
+        osaka = [c for c in result if "大阪" in c.district_name]
+        assert len(fukushima) == 2
+        assert len(ibaraki) == 1
+        assert len(osaka) == 1
+        assert fukushima[0].name == "福島一郎"
+        assert ibaraki[0].name == "茨城太郎"
+        assert osaka[0].name == "大阪太郎"
+
+    def test_total_count(self) -> None:
+        """全ブロック合計の当選者数が正しい."""
+        result = _parse_district_wikitable(self.WIKITEXT_MULTI_HEADER, self.COLOR_MAP)
+        assert len(result) == 8
+
+    def test_backward_compatible_with_single_header(self) -> None:
+        """単一ヘッダ行のテーブルが引き続き正しく動作する."""
+        wikitext = (
+            "=== 選挙区当選者 ===\n"
+            '{| class="wikitable"\n'
+            "|-\n"
+            "!colspan=2|[[北海道選挙区|北海道]]"
+            "!![[青森県選挙区|青森県]]\n"
+            "|-\n"
+            '|style="background-color:#9e9" |[[候補A]]'
+            '||style="background-color:#0ff" |[[候補B]]'
+            '||style="background-color:#9e9" |[[候補C]]\n'
+            "|}\n"
+        )
+        result = _parse_district_wikitable(wikitext, self.COLOR_MAP)
+        assert len(result) == 3
+        hokkaido = [c for c in result if "北海道" in c.district_name]
+        assert len(hokkaido) == 2
+
+
+class TestHoketsuListFormat:
+    """補欠当選リスト形式のパーステスト（第2回〜第12回形式）."""
+
+    WIKITEXT_HOKETSU_LIST = (
+        "=== 補欠当選 ===\n"
+        "* 和歌山選挙区 [[徳川頼貞]]（1954.4.17死去）"
+        "→[[野村吉三郎]]（1954.6.3補欠当選）\n"
+        "* 島根選挙区 [[大達茂雄]]（1955.9.25死去）"
+        "→[[佐野広]]（1955.11.11補欠当選）\n"
+        "* 大阪選挙区 [[中山福蔵]]（1957.3.5死去）"
+        "→[[大川光三]]（1957.4.23補欠当選）\n"
+    )
+
+    def test_parse_hoketsu_list_basic(self) -> None:
+        """リスト形式の補欠当選者が正しく抽出される."""
+        result = _parse_hoketsu_winners(self.WIKITEXT_HOKETSU_LIST, {})
+        assert len(result) == 3
+        assert result[0].name == "野村吉三郎"
+        assert result[1].name == "佐野広"
+        assert result[2].name == "大川光三"
+
+    def test_hoketsu_list_district(self) -> None:
+        """補欠当選者の選挙区が正しく設定される."""
+        result = _parse_hoketsu_winners(self.WIKITEXT_HOKETSU_LIST, {})
+        assert result[0].district_name == "和歌山県選挙区"
+        assert result[0].prefecture == "和歌山県"
+        assert result[1].district_name == "島根県選挙区"
+        assert result[2].district_name == "大阪府選挙区"
+
+    def test_hoketsu_list_display_name(self) -> None:
+        """[[リンク先|表示名]]形式のwikilinkで表示名が使用される."""
+        section_text = (
+            "* 秋田選挙区 [[鈴木一 (政治家)|鈴木一]]"
+            "（辞職）→[[松野孝一 (政治家)|松野孝一]]（補欠当選）\n"
+        )
+        result = _parse_hoketsu_list(section_text, {})
+        assert len(result) == 1
+        assert result[0].name == "松野孝一"
+
+    def test_hoketsu_list_all_elected(self) -> None:
+        """リスト形式の補欠当選者は全員is_elected=True."""
+        result = _parse_hoketsu_winners(self.WIKITEXT_HOKETSU_LIST, {})
+        assert all(c.is_elected for c in result)
+
+    def test_wikitable_format_preferred(self) -> None:
+        """wikitable形式が存在する場合はそちらが優先される."""
+        wikitext = (
+            "==== 補欠当選 ====\n"
+            '{| class="wikitable"\n'
+            "|-\n"
+            "!年!!月日!!選挙区!!当選者!!所属党派!!欠員!!欠員事由\n"
+            "|-\n"
+            "| 1947 | 8.1\n"
+            "! 滋賀県\n"
+            '| style="background-color:#9CA" | [[テスト太郎]] || テスト党\n'
+            '| style="background-color:#9CA" | [[欠員太郎]]\n'
+            "| 辞職\n"
+            "|}\n"
+        )
+        result = _parse_hoketsu_winners(wikitext, {"9CA": "テスト党"})
+        assert len(result) == 1
+        assert result[0].name == "テスト太郎"
+
+
+class TestSplitTemplateEntries:
+    """テンプレートエントリ分割のテスト."""
+
+    def test_single_entry(self) -> None:
+        """単一エントリは1要素リストを返す."""
+        result = _split_template_entries("78d:[[中山福蔵]]")
+        assert result == ["78d:[[中山福蔵]]"]
+
+    def test_multi_entries(self) -> None:
+        """複数エントリが|で分割される."""
+        result = _split_template_entries("78d:[[中山福蔵]]|cff:[[亀田得治]]")
+        assert len(result) == 2
+        assert result[0] == "78d:[[中山福蔵]]"
+        assert result[1] == "cff:[[亀田得治]]"
+
+    def test_wikilink_pipe_preserved(self) -> None:
+        """[[リンク先|表示名]]内の|は分割されない."""
+        result = _split_template_entries("78d:[[佐藤 (政治家)|佐藤]]")
+        assert len(result) == 1
+        assert result[0] == "78d:[[佐藤 (政治家)|佐藤]]"
+
+    def test_template_multi_entry_integration(self) -> None:
+        """テンプレートパーサーが複数エントリ行を正しく処理する."""
+        wikitext = """
+{{参院選挙区当選者
+|大阪=
+6cf:[[森下政一]]
+78d:[[中山福蔵]]|cff:[[亀田得治]]
+}}
+"""
+        result = _parse_district_template(
+            wikitext,
+            {"6CF": "右派社会党", "78D": "緑風会", "CFF": "左派社会党"},
+        )
+        osaka = [c for c in result if "大阪" in c.district_name]
+        assert len(osaka) == 3
+        names = [c.name for c in osaka]
+        assert "森下政一" in names
+        assert "中山福蔵" in names
+        assert "亀田得治" in names
+
+
+class TestRankHeaderWithIchi:
+    """「位」接尾辞付き順位ヘッダのパーステスト."""
+
+    def test_rank_with_ichi_suffix(self) -> None:
+        """!1位-10位 形式のrank headerが正しく処理される."""
+        wikitext = (
+            "=== この選挙で全国区当選 ===\n"
+            '{| class="wikitable"\n'
+            "|-\n"
+            "!1位-10位\n"
+            '|style="background-color:#9e9" |[[田中太郎]]'
+            '||style="background-color:#0ff" |[[山田花子]]\n'
+            "|-\n"
+            "!11位-20位\n"
+            '|style="background-color:#9e9" |[[佐藤一郎]]\n'
+            "|}\n"
+        )
+        result = _parse_proportional_wikitable(
+            wikitext, 9, {"9E9": "自民党", "0FF": "社会党"}
+        )
+        assert len(result) == 3
+        assert result[0].name == "田中太郎"
+        assert result[0].rank == 1
+        assert result[1].name == "山田花子"
+        assert result[1].rank == 2
+        assert result[2].name == "佐藤一郎"
+        assert result[2].rank == 11
+        assert result[0].district_name == "全国区"
