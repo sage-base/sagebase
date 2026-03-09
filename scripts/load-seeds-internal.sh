@@ -50,6 +50,8 @@ if [ "$GOVERNING_BODIES_COUNT" = "0" ]; then
         "database/seed_election_members_generated.sql"
         "database/seed_parliamentary_group_memberships_generated.sql"
         "database/seed_party_membership_history_generated.sql"
+        "database/seed_government_officials.sql"
+        "database/seed_government_official_speaker_links.sql"
     )
 
     for seed_file in "${SEED_FILES[@]}"; do
@@ -98,5 +100,14 @@ else
         echo "  📦 Party membership history data missing, loading..."
         load_seed "database/seed_party_membership_history_generated.sql"
         echo "  ✅ Party membership history data loaded!"
+    fi
+
+    # government_officials は後から追加されたSEEDのため、個別にチェック
+    GO_COUNT=$(psql_count "SELECT COUNT(*) FROM government_officials;")
+    if [ "$GO_COUNT" = "0" ]; then
+        echo "  📦 Government officials data missing, loading..."
+        load_seed "database/seed_government_officials.sql"
+        load_seed "database/seed_government_official_speaker_links.sql"
+        echo "  ✅ Government officials data loaded!"
     fi
 fi
