@@ -107,7 +107,6 @@ INSERT INTO politicians (name, prefecture, furigana, district, profile_page_url)
 ('森大地', '宮崎県', NULL, '宮崎県', NULL),
 ('池田順一', '香川県', NULL, '香川県', NULL),
 ('浜田さとし', '北海道', NULL, '北海道', NULL),
-('浜田聡', NULL, NULL, NULL, NULL),
 ('浜田聡', NULL, 'はまださとし', NULL, NULL),
 ('渡辺としみつ', '広島県', NULL, '広島県', NULL),
 ('渡邉晋宏', NULL, NULL, NULL, NULL),
@@ -131,7 +130,6 @@ INSERT INTO politicians (name, prefecture, furigana, district, profile_page_url)
 ('黒木一郎', '山梨県', NULL, '山梨県', NULL),
 ('黒瀬信明', '鳥取県・島根県', NULL, '鳥取県・島根県', NULL),
 ('齊藤健一郎', NULL, 'さいとうけんいちろう', NULL, NULL),
-('齊藤健一郎', NULL, NULL, NULL, NULL),
 
 -- おおさか維新の会
 ('森上しんぺい', '福岡県', NULL, '福岡県', NULL),
@@ -279,7 +277,6 @@ INSERT INTO politicians (name, prefecture, furigana, district, profile_page_url)
 ('青木茂', '比例区', 'あおきしげる', '比例区', NULL),
 
 -- スポーツ平和党
-('アントニオ猪木', '北海道', NULL, '比例区', NULL),
 ('江本孟紀', '比例区', 'えもとたけのり', '比例区', NULL),
 
 -- チャレンジド日本
@@ -7687,7 +7684,6 @@ INSERT INTO politicians (name, prefecture, furigana, district, profile_page_url)
 ('宮崎高四', '熊本県', NULL, '熊本県2区', NULL),
 ('宮川一貫', '福岡県', NULL, '福岡県1区', NULL),
 ('宮幡靖', '静岡県', 'みやはたやすし', '静岡県2区', NULL),
-('宮本しゅうじ', NULL, NULL, '比例代表', NULL),
 ('宮本一三', '兵庫県', 'みやもといちぞう', '兵庫県2区', NULL),
 ('宮本嘉楽', '埼玉県', NULL, '埼玉県全県', NULL),
 ('宮本岳志', '大阪府', NULL, '大阪府選挙区', NULL),
@@ -8216,7 +8212,6 @@ INSERT INTO politicians (name, prefecture, furigana, district, profile_page_url)
 ('岡井藤之丞', '岐阜県', NULL, '岐阜県岐阜', NULL),
 ('岡井藤志郎', '愛媛県', 'おかいとうしろう', '愛媛県1区', NULL),
 ('岡元直熊', '鹿児島県', NULL, '鹿児島県大島', NULL),
-('岡元義人', NULL, NULL, NULL, NULL),
 ('岡八', '三重県', NULL, '三重県四日市', NULL),
 ('岡山兼吉', '静岡県', NULL, '静岡県3区', NULL),
 ('岡島正之', '千葉県', 'おかじままさゆき', '千葉県1区', NULL),
