@@ -32,8 +32,9 @@ docker/docker-compose.override.yml
 # Serena cache
 .serena/cache/
 
-# Playwright MCP screenshots (動作確認用の画像を無視)
+# Playwright関連の作業ファイル
 .playwright-mcp/
+.playwright-cli/
 
 # Local knowledge accumulation layer
 _docs/
