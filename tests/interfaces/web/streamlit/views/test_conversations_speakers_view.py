@@ -29,7 +29,12 @@ def test_render_speakers_list_tab_displays_placeholder(mock_st, mock_repo_adapte
     mock_speaker_repo = MagicMock()
     mock_speaker_repo.get_speakers_with_conversation_count.return_value = []
     mock_politician_repo = MagicMock()
-    mock_repo_adapter.side_effect = [mock_speaker_repo, mock_politician_repo]
+    mock_official_repo = MagicMock()
+    mock_repo_adapter.side_effect = [
+        mock_speaker_repo,
+        mock_politician_repo,
+        mock_official_repo,
+    ]
 
     # st.columns()のモック
     mock_cols = [MagicMock() for _ in range(4)]
@@ -183,7 +188,7 @@ def test_render_speakers_list_tab_with_data(mock_st, mock_repo_adapter):
         ),
     ]
 
-    # RepositoryAdapterのモック（speaker_repo, politician_repo + 官僚タブ用）
+    # RepositoryAdapterのモック（speaker_repo, politician_repo, official_repo）
     mock_speaker_repo = MagicMock()
     mock_speaker_repo.get_speakers_with_conversation_count.return_value = speakers
     mock_politician_repo = MagicMock()
@@ -193,7 +198,6 @@ def test_render_speakers_list_tab_with_data(mock_st, mock_repo_adapter):
     mock_repo_adapter.side_effect = [
         mock_speaker_repo,
         mock_politician_repo,
-        mock_official_repo,
         mock_official_repo,
     ]
 

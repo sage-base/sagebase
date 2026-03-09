@@ -18,6 +18,7 @@ from src.application.usecases.batch_link_speakers_to_government_officials_usecas
 from src.common.logging import get_logger
 from src.domain.entities.government_official import GovernmentOfficial
 from src.domain.entities.government_official_position import GovernmentOfficialPosition
+from src.domain.services.speaker_classifier import SkipReason
 from src.domain.value_objects.speaker_with_conversation_count import (
     SpeakerWithConversationCount,
 )
@@ -52,13 +53,7 @@ class GovernmentOfficialPresenter(BasePresenter[list[GovernmentOfficialOutputIte
     async def _load_data_async(self) -> list[GovernmentOfficialOutputItem]:
         try:
             officials = await self.official_repo.get_all()
-            result = []
-            for official in officials:
-                positions = await self.position_repo.get_by_official(official.id)
-                result.append(
-                    GovernmentOfficialOutputItem.from_entity(official, positions)
-                )
-            return result
+            return await self._to_output_items(officials)
         except Exception as e:
             self.logger.error(f"政府関係者の読み込みに失敗: {e}")
             return []
@@ -70,16 +65,21 @@ class GovernmentOfficialPresenter(BasePresenter[list[GovernmentOfficialOutputIte
     async def _search_async(self, name: str) -> list[GovernmentOfficialOutputItem]:
         try:
             officials = await self.official_repo.search_by_name(name)
-            result = []
-            for official in officials:
-                positions = await self.position_repo.get_by_official(official.id)
-                result.append(
-                    GovernmentOfficialOutputItem.from_entity(official, positions)
-                )
-            return result
+            return await self._to_output_items(officials)
         except Exception as e:
             self.logger.error(f"政府関係者の検索に失敗: {e}")
             return []
+
+    async def _to_output_items(
+        self,
+        officials: list[GovernmentOfficial],
+    ) -> list[GovernmentOfficialOutputItem]:
+        """GovernmentOfficialエンティティリストをDTO リストに変換する."""
+        result = []
+        for official in officials:
+            positions = await self.position_repo.get_by_official(official.id)
+            result.append(GovernmentOfficialOutputItem.from_entity(official, positions))
+        return result
 
     def create(
         self, name: str, name_yomi: str | None = None
@@ -217,9 +217,9 @@ class GovernmentOfficialPresenter(BasePresenter[list[GovernmentOfficialOutputIte
         self, official_id: int
     ) -> list[SpeakerWithConversationCount]:
         try:
-            # skip_reason="government_official"でフィルタし、Python側でofficial_idを照合
+            # SkipReason.GOVERNMENT_OFFICIALでフィルタし、Python側でofficial_idを照合
             speakers = await self.speaker_repo.get_speakers_with_conversation_count(
-                skip_reason="government_official",
+                skip_reason=SkipReason.GOVERNMENT_OFFICIAL.value,
             )
             return [s for s in speakers if s.government_official_id == official_id]
         except Exception as e:
