@@ -160,3 +160,61 @@ async def test_whitespace_normalization(
     result = await usecase.execute(dry_run=False)
 
     assert result.linked_count == 1
+
+
+@pytest.mark.asyncio
+async def test_duplicate_normalized_name_last_wins(
+    usecase: BatchLinkSpeakersToGovernmentOfficialsUseCase,
+    speaker_repo: AsyncMock,
+    official_repo: AsyncMock,
+) -> None:
+    """同じ正規化名の複数GovernmentOfficialがある場合、後勝ちでマッチすること."""
+    official_repo.get_all.return_value = [
+        _make_official(1, "斎藤一郎"),
+        _make_official(2, "齋藤一郎"),  # 正規化後に同一名
+    ]
+    speaker_repo.get_speakers_not_linked_to_politicians.return_value = [
+        _make_speaker(10, "斎藤一郎"),
+    ]
+
+    result = await usecase.execute(dry_run=False)
+
+    assert result.linked_count == 1
+    # 後勝ち: id=2がマッチする
+    assert result.details[0].government_official_id == 2
+
+
+@pytest.mark.asyncio
+async def test_empty_officials_and_speakers(
+    usecase: BatchLinkSpeakersToGovernmentOfficialsUseCase,
+    speaker_repo: AsyncMock,
+    official_repo: AsyncMock,
+) -> None:
+    """GovernmentOfficialもSpeakerも空の場合は0件で正常終了すること."""
+    official_repo.get_all.return_value = []
+    speaker_repo.get_speakers_not_linked_to_politicians.return_value = []
+
+    result = await usecase.execute(dry_run=False)
+
+    assert result.linked_count == 0
+    assert result.skipped_count == 0
+    assert result.details == []
+    speaker_repo.update.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_called_with_correct_government_official_id(
+    usecase: BatchLinkSpeakersToGovernmentOfficialsUseCase,
+    speaker_repo: AsyncMock,
+    official_repo: AsyncMock,
+) -> None:
+    """更新時にspeakerのgovernment_official_idが正しく設定されること."""
+    official_repo.get_all.return_value = [_make_official(1, "田中太郎")]
+    speaker = _make_speaker(10, "田中太郎")
+    speaker_repo.get_speakers_not_linked_to_politicians.return_value = [speaker]
+
+    await usecase.execute(dry_run=False)
+
+    speaker_repo.update.assert_called_once()
+    updated_speaker = speaker_repo.update.call_args[0][0]
+    assert updated_speaker.government_official_id == 1

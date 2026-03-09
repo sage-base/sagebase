@@ -83,17 +83,18 @@ class GovernmentOfficialPresenter(BasePresenter[list[GovernmentOfficialOutputIte
 
     def create(
         self, name: str, name_yomi: str | None = None
-    ) -> tuple[bool, GovernmentOfficial | None, str | None]:
+    ) -> tuple[bool, GovernmentOfficialOutputItem | None, str | None]:
         """政府関係者を新規作成する."""
         return self._run_async(self._create_async(name, name_yomi))
 
     async def _create_async(
         self, name: str, name_yomi: str | None = None
-    ) -> tuple[bool, GovernmentOfficial | None, str | None]:
+    ) -> tuple[bool, GovernmentOfficialOutputItem | None, str | None]:
         try:
             entity = GovernmentOfficial(name=name, name_yomi=name_yomi)
             created = await self.official_repo.create(entity)
-            return True, created, None
+            dto = GovernmentOfficialOutputItem.from_entity(created)
+            return True, dto, None
         except Exception as e:
             error_msg = f"政府関係者の作成に失敗: {e}"
             self.logger.error(error_msg)
