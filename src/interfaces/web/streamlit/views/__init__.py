@@ -8,6 +8,7 @@ from .conversations import render_conversations_page
 from .election_members_view import render_election_members_page
 from .extraction_logs_view import render_extraction_logs_page
 from .governing_bodies_view import render_governing_bodies_page
+from .government_officials import render_government_officials_page
 from .llm_history_view import render_llm_history_page
 from .meetings_view import render_meetings_page
 from .parliamentary_groups import render_parliamentary_groups_page
@@ -27,5 +28,6 @@ __all__ = [
     "render_parliamentary_groups_page",
     "render_political_parties_page",
     "render_politicians_page",
+    "render_government_officials_page",
     "render_proposals_page",
 ]

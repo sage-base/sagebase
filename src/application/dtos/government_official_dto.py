@@ -41,24 +41,25 @@ class GovernmentOfficialOutputItem:
 
     id: int
     name: str
-    name_yomi: str | None = None
     positions: list[GovernmentOfficialPositionOutputItem] = field(default_factory=list)
+    has_linked_speaker: bool = False
 
     @classmethod
     def from_entity(
         cls,
         entity: GovernmentOfficial,
         positions: list[GovernmentOfficialPosition] | None = None,
+        has_linked_speaker: bool = False,
     ) -> "GovernmentOfficialOutputItem":
         assert entity.id is not None, "DTOへの変換にはIDが必要です"
         return cls(
             id=entity.id,
             name=entity.name,
-            name_yomi=entity.name_yomi,
             positions=[
                 GovernmentOfficialPositionOutputItem.from_entity(p)
                 for p in (positions or [])
             ],
+            has_linked_speaker=has_linked_speaker,
         )
 
 

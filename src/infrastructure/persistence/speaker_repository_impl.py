@@ -291,6 +291,28 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
         return [self._to_entity(row) for row in rows]
 
+    async def get_linked_government_official_ids(self) -> set[int]:
+        """Speakerが紐付いているgovernment_official_idの集合を返す."""
+        query = text("""
+            SELECT DISTINCT government_official_id
+            FROM speakers
+            WHERE government_official_id IS NOT NULL
+        """)
+        result = await self.session.execute(query)
+        return {row.government_official_id for row in result.fetchall()}
+
+    async def get_speakers_not_linked_to_government_officials(self) -> list[Speaker]:
+        """politician_idとgovernment_official_idが両方NULLのSpeakerを取得する."""
+        query = text("""
+            SELECT * FROM speakers
+            WHERE politician_id IS NULL
+              AND government_official_id IS NULL
+            ORDER BY name
+        """)
+        result = await self.session.execute(query)
+        rows = result.fetchall()
+        return [self._to_entity(row) for row in rows]
+
     async def get_all(
         self, limit: int | None = None, offset: int | None = 0
     ) -> list[Speaker]:
