@@ -22,6 +22,34 @@ logger = logging.getLogger(__name__)
 class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianRepository):
     """Async-only implementation of politician repository using SQLAlchemy ORM."""
 
+    # --- 政治家に紐づくリレーションテーブル定義 ---
+    # NULLableカラム（削除時はNULL設定、マージ時は付け替え）
+    _NULLABLE_FK_TABLES: list[tuple[str, str]] = [
+        ("speakers", "politician_id"),
+        ("extracted_parliamentary_group_members", "matched_politician_id"),
+        ("extracted_proposal_judges", "matched_politician_id"),
+    ]
+
+    # NOT NULLカラム + UNIQUE制約あり（マージ時は重複DELETE後にUPDATE）
+    # (テーブル名, FKカラム名, UNIQUE制約のパートナーカラム名)
+    _UNIQUE_CONSTRAINT_TABLES: list[tuple[str, str, str]] = [
+        ("election_members", "politician_id", "election_id"),
+        ("proposal_judge_politicians", "politician_id", "judge_id"),
+        ("proposal_submitters", "politician_id", "proposal_id"),
+    ]
+
+    # NOT NULLカラム + UNIQUE制約なし（削除時はDELETE、マージ時は単純UPDATE）
+    _NOT_NULL_FK_TABLES: list[tuple[str, str]] = [
+        ("parliamentary_group_memberships", "politician_id"),
+        ("party_membership_history", "politician_id"),
+        ("conference_members", "politician_id"),
+        ("pledges", "politician_id"),
+        ("proposal_judges", "politician_id"),
+    ]
+
+    # FK制約なし（操作ログ）
+    _LOG_TABLE = ("politician_operation_logs", "politician_id")
+
     def __init__(self, session: AsyncSession | ISessionAdapter):
         """Initialize repository."""
         super().__init__(session, Politician, PoliticianModel)
@@ -331,23 +359,13 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         """指定された政治家に紐づく関連データの件数を取得する."""
         counts: dict[str, int] = {}
 
-        tables_with_politician_id = [
-            ("speakers", "politician_id"),
-            ("parliamentary_group_memberships", "politician_id"),
-            ("pledges", "politician_id"),
-            ("party_membership_history", "politician_id"),
-            ("proposal_judges", "politician_id"),
-            ("conference_members", "politician_id"),
-        ]
+        all_tables = (
+            self._NULLABLE_FK_TABLES
+            + [(t, col) for t, col, _ in self._UNIQUE_CONSTRAINT_TABLES]
+            + self._NOT_NULL_FK_TABLES
+        )
 
-        tables_with_matched_politician_id = [
-            ("extracted_parliamentary_group_members", "matched_politician_id"),
-            ("extracted_proposal_judges", "matched_politician_id"),
-        ]
-
-        for table, column in (
-            tables_with_politician_id + tables_with_matched_politician_id
-        ):
+        for table, column in all_tables:
             query = text(
                 f"SELECT COUNT(*) FROM {table} WHERE {column} = :politician_id"
             )
@@ -361,46 +379,59 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         """指定された政治家に紐づく関連データを削除・解除する."""
         results: dict[str, int] = {}
 
-        nullable_tables = [
-            ("speakers", "politician_id"),
-            ("extracted_parliamentary_group_members", "matched_politician_id"),
-            ("extracted_proposal_judges", "matched_politician_id"),
-        ]
-
-        for table, column in nullable_tables:
+        for table, column in self._NULLABLE_FK_TABLES:
             query = text(
                 f"UPDATE {table} SET {column} = NULL WHERE {column} = :politician_id"
             )
             result = await self.session.execute(query, {"politician_id": politician_id})
             results[table] = result.rowcount  # type: ignore[attr-defined]
 
-        not_null_tables = [
-            "parliamentary_group_memberships",
-            "pledges",
-            "party_membership_history",
-            "proposal_judges",
-            "conference_members",
-        ]
+        all_not_null = [
+            (t, col) for t, col, _ in self._UNIQUE_CONSTRAINT_TABLES
+        ] + self._NOT_NULL_FK_TABLES
 
-        for table in not_null_tables:
-            query = text(f"DELETE FROM {table} WHERE politician_id = :politician_id")
+        for table, column in all_not_null:
+            query = text(f"DELETE FROM {table} WHERE {column} = :politician_id")
             result = await self.session.execute(query, {"politician_id": politician_id})
             results[table] = result.rowcount  # type: ignore[attr-defined]
 
         return results
+
+    async def _reassign_with_dedup(
+        self,
+        table: str,
+        fk_column: str,
+        unique_partner_column: str,
+        source_id: int,
+        target_id: int,
+    ) -> int:
+        """UNIQUE制約付きテーブルで重複DELETEしてからUPDATEする."""
+        delete_dup_query = text(
+            f"DELETE FROM {table} "
+            f"WHERE {fk_column} = :source_id "
+            f"AND {unique_partner_column} IN ("
+            f"  SELECT {unique_partner_column} FROM {table} "
+            f"  WHERE {fk_column} = :target_id"
+            f")"
+        )
+        dup_result = await self.session.execute(
+            delete_dup_query, {"source_id": source_id, "target_id": target_id}
+        )
+        update_query = text(
+            f"UPDATE {table} SET {fk_column} = :target_id "
+            f"WHERE {fk_column} = :source_id"
+        )
+        upd_result = await self.session.execute(
+            update_query, {"target_id": target_id, "source_id": source_id}
+        )
+        return dup_result.rowcount + upd_result.rowcount  # type: ignore[attr-defined]
 
     async def merge_politicians(self, source_id: int, target_id: int) -> dict[str, int]:
         """統合元の全リレーションを統合先に付け替え、統合元を削除する."""
         results: dict[str, int] = {}
 
         # --- Nullableカラム: source → target に付け替え ---
-        nullable_tables = [
-            ("speakers", "politician_id"),
-            ("extracted_parliamentary_group_members", "matched_politician_id"),
-            ("extracted_proposal_judges", "matched_politician_id"),
-        ]
-
-        for table, column in nullable_tables:
+        for table, column in self._NULLABLE_FK_TABLES:
             query = text(
                 f"UPDATE {table} SET {column} = :target_id WHERE {column} = :source_id"
             )
@@ -409,86 +440,14 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             )
             results[table] = result.rowcount  # type: ignore[attr-defined]
 
-        # --- NOT NULLカラム（UNIQUE制約あり）: 重複を先にDELETEしてからUPDATE ---
-        # election_members: UNIQUE(election_id, politician_id)
-        delete_dup_query = text(
-            "DELETE FROM election_members "
-            "WHERE politician_id = :source_id "
-            "AND election_id IN ("
-            "  SELECT election_id FROM election_members "
-            "  WHERE politician_id = :target_id"
-            ")"
-        )
-        dup_result = await self.session.execute(
-            delete_dup_query, {"source_id": source_id, "target_id": target_id}
-        )
-        update_query = text(
-            "UPDATE election_members SET politician_id = :target_id "
-            "WHERE politician_id = :source_id"
-        )
-        upd_result = await self.session.execute(
-            update_query, {"target_id": target_id, "source_id": source_id}
-        )
-        results["election_members"] = (
-            dup_result.rowcount + upd_result.rowcount  # type: ignore[attr-defined]
-        )
-
-        # proposal_judge_politicians: UNIQUE(judge_id, politician_id)
-        delete_dup_query = text(
-            "DELETE FROM proposal_judge_politicians "
-            "WHERE politician_id = :source_id "
-            "AND judge_id IN ("
-            "  SELECT judge_id FROM proposal_judge_politicians "
-            "  WHERE politician_id = :target_id"
-            ")"
-        )
-        dup_result = await self.session.execute(
-            delete_dup_query, {"source_id": source_id, "target_id": target_id}
-        )
-        update_query = text(
-            "UPDATE proposal_judge_politicians SET politician_id = :target_id "
-            "WHERE politician_id = :source_id"
-        )
-        upd_result = await self.session.execute(
-            update_query, {"target_id": target_id, "source_id": source_id}
-        )
-        results["proposal_judge_politicians"] = (
-            dup_result.rowcount + upd_result.rowcount  # type: ignore[attr-defined]
-        )
-
-        # proposal_submitters: UNIQUE(proposal_id, COALESCE(politician_id, -1), ...)
-        delete_dup_query = text(
-            "DELETE FROM proposal_submitters "
-            "WHERE politician_id = :source_id "
-            "AND proposal_id IN ("
-            "  SELECT proposal_id FROM proposal_submitters "
-            "  WHERE politician_id = :target_id"
-            ")"
-        )
-        dup_result = await self.session.execute(
-            delete_dup_query, {"source_id": source_id, "target_id": target_id}
-        )
-        update_query = text(
-            "UPDATE proposal_submitters SET politician_id = :target_id "
-            "WHERE politician_id = :source_id"
-        )
-        upd_result = await self.session.execute(
-            update_query, {"target_id": target_id, "source_id": source_id}
-        )
-        results["proposal_submitters"] = (
-            dup_result.rowcount + upd_result.rowcount  # type: ignore[attr-defined]
-        )
+        # --- UNIQUE制約あり: 重複DELETE後にUPDATE ---
+        for table, fk_col, unique_col in self._UNIQUE_CONSTRAINT_TABLES:
+            results[table] = await self._reassign_with_dedup(
+                table, fk_col, unique_col, source_id, target_id
+            )
 
         # --- NOT NULLカラム（UNIQUE制約なし）: 単純にUPDATE ---
-        simple_update_tables = [
-            ("parliamentary_group_memberships", "politician_id"),
-            ("party_membership_history", "politician_id"),
-            ("conference_members", "politician_id"),
-            ("pledges", "politician_id"),
-            ("proposal_judges", "politician_id"),
-        ]
-
-        for table, column in simple_update_tables:
+        for table, column in self._NOT_NULL_FK_TABLES:
             query = text(
                 f"UPDATE {table} SET {column} = :target_id WHERE {column} = :source_id"
             )
@@ -497,15 +456,16 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
             )
             results[table] = result.rowcount  # type: ignore[attr-defined]
 
-        # --- FK制約なし: politician_operation_logs ---
+        # --- 操作ログ ---
+        log_table, log_column = self._LOG_TABLE
         query = text(
-            "UPDATE politician_operation_logs SET politician_id = :target_id "
-            "WHERE politician_id = :source_id"
+            f"UPDATE {log_table} SET {log_column} = :target_id "
+            f"WHERE {log_column} = :source_id"
         )
         result = await self.session.execute(
             query, {"target_id": target_id, "source_id": source_id}
         )
-        results["politician_operation_logs"] = result.rowcount  # type: ignore[attr-defined]
+        results[log_table] = result.rowcount  # type: ignore[attr-defined]
 
         # --- 統合元の政治家レコードを削除 ---
         delete_query = text("DELETE FROM politicians WHERE id = :source_id")
