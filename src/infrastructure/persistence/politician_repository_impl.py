@@ -511,6 +511,4 @@ class PoliticianRepositoryImpl(BaseRepositoryImpl[Politician], PoliticianReposit
         delete_query = text("DELETE FROM politicians WHERE id = :source_id")
         await self.session.execute(delete_query, {"source_id": source_id})
 
-        await self.session.commit()
-
         return results

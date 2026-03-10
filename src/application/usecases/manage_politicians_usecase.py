@@ -289,6 +289,13 @@ class ManagePoliticiansUseCase:
     ) -> MergePoliticiansOutputDto:
         """統合元の全リレーションを統合先に付け替え、統合元を削除する."""
         try:
+            # 同一IDチェック（DBアクセス不要）
+            if input_dto.source_id == input_dto.target_id:
+                return MergePoliticiansOutputDto(
+                    success=False,
+                    error_message="マージ元とマージ先に同じ政治家を指定できません。",
+                )
+
             # 両方の政治家が存在するか確認
             source = await self.politician_repository.get_by_id(input_dto.source_id)
             target = await self.politician_repository.get_by_id(input_dto.target_id)
@@ -300,12 +307,6 @@ class ManagePoliticiansUseCase:
             if not target:
                 return MergePoliticiansOutputDto(
                     success=False, error_message="マージ先の政治家が見つかりません。"
-                )
-
-            if input_dto.source_id == input_dto.target_id:
-                return MergePoliticiansOutputDto(
-                    success=False,
-                    error_message="マージ元とマージ先に同じ政治家を指定できません。",
                 )
 
             # リレーションの付け替え + 統合元の削除（1トランザクション）
