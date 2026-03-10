@@ -1188,7 +1188,7 @@ class TestHoketsuListFormat:
             "* 秋田選挙区 [[鈴木一 (政治家)|鈴木一]]"
             "（辞職）→[[松野孝一 (政治家)|松野孝一]]（補欠当選）\n"
         )
-        result = _parse_hoketsu_list(section_text, {})
+        result = _parse_hoketsu_list(section_text)
         assert len(result) == 1
         assert result[0].name == "松野孝一"
 

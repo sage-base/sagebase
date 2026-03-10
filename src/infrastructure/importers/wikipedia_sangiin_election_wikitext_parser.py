@@ -103,6 +103,11 @@ _NEXT_SECTION_RE = re.compile(r"\n==(?!=)")
 _WIKITEXT_TEMPLATE_RE = re.compile(r"\{\{[^}]*\}\}")
 _WIKITEXT_TAG_RE = re.compile(r"<[^>]+>")
 
+# 補欠当選リスト形式: * 選挙区名 [[辞任者]]（事由）→[[当選者]]（日付+補欠当選）
+_HOKETSU_LIST_RE = re.compile(
+    r"\*\s*(.+?)選挙区?\s+\[\[.+?\]\].*?[→⇒]\[\[(.+?)(?:\|(.+?))?\]\]"
+)
+
 
 def parse_sangiin_wikitext(
     wikitext: str,
@@ -259,6 +264,8 @@ def _parse_entry_line(
     """
     # |で分割して各部分を処理（ただし[[...]]内の|は保護）
     parts = _split_template_entries(line)
+    district = _normalize_sangiin_district(pref_name)
+    prefecture = _extract_prefecture_from_sangiin_district(pref_name)
 
     for part in parts:
         entry_match = _ENTRY_RE.match(part)
@@ -278,8 +285,6 @@ def _parse_entry_line(
             continue
 
         party = _resolve_party(color, color_to_party)
-        district = _normalize_sangiin_district(pref_name)
-        prefecture = _extract_prefecture_from_sangiin_district(pref_name)
 
         candidates.append(
             CandidateRecord(
@@ -305,7 +310,7 @@ def _split_template_entries(line: str) -> list[str]:
             depth += 1
             current.append(char)
         elif char == "]":
-            depth -= 1
+            depth = max(0, depth - 1)
             current.append(char)
         elif char == "|" and depth == 0:
             parts.append("".join(current).strip())
@@ -605,57 +610,22 @@ def _extract_district_columns(table_text: str) -> list[str]:
     ヘッダの構造例:
         !colspan=4|[[北海道選挙区|北海道]]!![[青森県選挙区|青森県]]!!colspan=2|[[東京都選挙区|東京都]]
     colspanの値に応じて同じ選挙区名を複数列に展開する。
+    最初の有効なヘッダ行のみ使用。
     """
-    districts: list[str] = []
-
     for line in table_text.split("\n"):
         line = line.strip()
         if not line.startswith("!"):
             continue
 
-        # 選挙区名のヘッダ行を検出（wikilinkを含む行）
+        # 選挙区名のヘッダ行を検出（wikilinkまたは「選挙区」を含む行）
         if "選挙区" not in line and "[[" not in line:
             continue
 
-        # 定数行（数字のみ）はスキップ
-        # 例: !8人区 や !colspan=10|8人区
-        if _TEISU_HEADER_RE.match(line):
-            continue
-
-        parts = line.split("!!")
-        for i, part in enumerate(parts):
-            part = part.strip()
-            if i == 0:
-                # 最初のパートは先頭の ! を除去
-                part = part.lstrip("!").strip()
-
-            if not part:
-                continue
-
-            # colspan値を取得
-            colspan = 1
-            colspan_match = _COLSPAN_RE.match(part)
-            if colspan_match:
-                colspan = int(colspan_match.group(1))
-                part = colspan_match.group(2).strip()
-
-            # wikilinkから選挙区名を取得
-            wl_match = _DISTRICT_WIKILINK_RE.search(part)
-            if wl_match:
-                display = wl_match.group(2) or wl_match.group(1)
-                # [[北海道選挙区|北海道]] → "北海道"
-                district_name = display.strip()
-            else:
-                district_name = part.strip()
-
-            # colspan分だけ繰り返す
-            for _ in range(colspan):
-                districts.append(district_name)
-
+        districts = _extract_district_columns_from_header(line)
         if districts:
-            break  # 最初のヘッダ行のみ使用
+            return districts
 
-    return districts
+    return []
 
 
 # --- 比例代表/全国区パーサー ---
@@ -1005,7 +975,7 @@ def _parse_hoketsu_winners(
     table_match = _WIKITABLE_EXTRACT_RE.search(section_text)
     if not table_match:
         # wikitableがなければリスト形式にフォールバック
-        return _parse_hoketsu_list(section_text, color_to_party)
+        return _parse_hoketsu_list(section_text)
 
     table_text = table_match.group(1)
     candidates: list[CandidateRecord] = []
@@ -1125,15 +1095,8 @@ def _extract_hoketsu_candidate(
     )
 
 
-# 補欠当選リスト形式: * 選挙区名 [[辞任者]]（事由）→[[当選者]]（日付+補欠当選）
-_HOKETSU_LIST_RE = re.compile(
-    r"\*\s*(.+?)選挙区?\s+\[\[.+?\]\].*?[→⇒]\[\[(.+?)(?:\|(.+?))?\]\]"
-)
-
-
 def _parse_hoketsu_list(
     section_text: str,
-    color_to_party: dict[str, str],
 ) -> list[CandidateRecord]:
     """リスト形式の補欠当選を抽出する.
 
