@@ -287,9 +287,16 @@ class ManagePoliticiansUseCase:
     async def merge_politicians(
         self, input_dto: MergePoliticiansInputDto
     ) -> MergePoliticiansOutputDto:
-        """Merge two politicians."""
+        """統合元の全リレーションを統合先に付け替え、統合元を削除する."""
         try:
-            # Check if both politicians exist
+            # 同一IDチェック（DBアクセス不要）
+            if input_dto.source_id == input_dto.target_id:
+                return MergePoliticiansOutputDto(
+                    success=False,
+                    error_message="マージ元とマージ先に同じ政治家を指定できません。",
+                )
+
+            # 両方の政治家が存在するか確認
             source = await self.politician_repository.get_by_id(input_dto.source_id)
             target = await self.politician_repository.get_by_id(input_dto.target_id)
 
@@ -302,10 +309,42 @@ class ManagePoliticiansUseCase:
                     success=False, error_message="マージ先の政治家が見つかりません。"
                 )
 
-            # マージ機能は現時点では不要と判断し、未実装のまま
-            return MergePoliticiansOutputDto(
-                success=False, error_message="マージ機能は現在実装されていません。"
+            # リレーションの付け替え + 統合元の削除（1トランザクション）
+            merge_results = await self.politician_repository.merge_politicians(
+                source_id=input_dto.source_id,
+                target_id=input_dto.target_id,
             )
+
+            # 操作ログを記録（target側に記録）
+            await self._log_operation(
+                politician_id=input_dto.target_id,
+                politician_name=target.name,
+                operation_type=PoliticianOperationType.MERGE,
+                user_id=input_dto.user_id,
+                details={
+                    "source_id": input_dto.source_id,
+                    "source_name": source.name,
+                    "target_id": input_dto.target_id,
+                    "target_name": target.name,
+                    "reassigned_counts": merge_results,
+                },
+            )
+
+            logger.info(
+                f"政治家統合完了: source_id={input_dto.source_id} "
+                f"({source.name}) → target_id={input_dto.target_id} "
+                f"({target.name}), 付け替え結果={merge_results}"
+            )
+
+            return MergePoliticiansOutputDto(success=True)
         except Exception as e:
+            error_msg = str(e)
+            # UNIQUE制約違反を検知
+            if "unique" in error_msg.lower() or "duplicate" in error_msg.lower():
+                logger.error(f"統合時にUNIQUE制約違反: {e}")
+                return MergePoliticiansOutputDto(
+                    success=False,
+                    error_message="統合先に既に同じデータが存在するため、統合できませんでした。",
+                )
             logger.error(f"Failed to merge politicians: {e}")
-            return MergePoliticiansOutputDto(success=False, error_message=str(e))
+            return MergePoliticiansOutputDto(success=False, error_message=error_msg)

@@ -71,6 +71,24 @@ class PoliticianRepository(BaseRepository[Politician]):
         pass
 
     @abstractmethod
+    async def merge_politicians(self, source_id: int, target_id: int) -> dict[str, int]:
+        """統合元の全リレーションを統合先に付け替え、統合元を削除する.
+
+        1トランザクション内で以下を実行:
+        1. 全リレーションテーブルのpolitician_idをtarget_idにUPDATE
+        2. UNIQUE制約違反する重複レコードは事前にDELETE
+        3. 統合元のpoliticianレコードをDELETE
+
+        Args:
+            source_id: 統合元の政治家ID
+            target_id: 統合先の政治家ID
+
+        Returns:
+            テーブル名をキー、付け替え件数を値とする辞書
+        """
+        pass
+
+    @abstractmethod
     async def delete_related_data(self, politician_id: int) -> dict[str, int]:
         """指定された政治家に紐づく関連データを削除・解除する.
 

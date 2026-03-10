@@ -458,10 +458,10 @@ class TestManagePoliticiansUseCase:
         mock_politician_repository.delete.assert_called_once_with(1)
 
     @pytest.mark.asyncio
-    async def test_merge_politicians_not_implemented(
+    async def test_merge_politicians_success(
         self, use_case, mock_politician_repository
     ):
-        """Test that merge functionality is not yet implemented."""
+        """正常系: 統合が成功し、全リレーションが付け替えられる."""
         # Arrange
         source_politician = Politician(
             id=1,
@@ -479,19 +479,67 @@ class TestManagePoliticiansUseCase:
             source_politician,
             target_politician,
         ]
+        mock_politician_repository.merge_politicians.return_value = {
+            "speakers": 3,
+            "parliamentary_group_memberships": 1,
+            "election_members": 2,
+        }
 
-        input_dto = MergePoliticiansInputDto(
-            source_id=1,
-            target_id=2,
-        )
+        input_dto = MergePoliticiansInputDto(source_id=1, target_id=2)
 
         # Act
         result = await use_case.merge_politicians(input_dto)
 
         # Assert
         assert isinstance(result, MergePoliticiansOutputDto)
+        assert result.success is True
+        assert result.error_message is None
+        mock_politician_repository.merge_politicians.assert_called_once_with(
+            source_id=1, target_id=2
+        )
+
+    @pytest.mark.asyncio
+    async def test_merge_politicians_same_id(
+        self, use_case, mock_politician_repository
+    ):
+        """異常系: 同じ政治家を指定した場合."""
+        # Arrange
+        politician = Politician(
+            id=1, name="山田太郎", prefecture="東京都", district="東京1区"
+        )
+        mock_politician_repository.get_by_id.return_value = politician
+
+        input_dto = MergePoliticiansInputDto(source_id=1, target_id=1)
+
+        # Act
+        result = await use_case.merge_politicians(input_dto)
+
+        # Assert
         assert result.success is False
-        assert "実装されていません" in result.error_message
+        assert "同じ政治家" in result.error_message
+        mock_politician_repository.merge_politicians.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_merge_politicians_unique_constraint_error(
+        self, use_case, mock_politician_repository
+    ):
+        """異常系: UNIQUE制約違反時に適切なエラーメッセージが返る."""
+        # Arrange
+        source = Politician(id=1, name="A", prefecture="", district="")
+        target = Politician(id=2, name="B", prefecture="", district="")
+        mock_politician_repository.get_by_id.side_effect = [source, target]
+        mock_politician_repository.merge_politicians.side_effect = Exception(
+            "UNIQUE constraint violated: duplicate key"
+        )
+
+        input_dto = MergePoliticiansInputDto(source_id=1, target_id=2)
+
+        # Act
+        result = await use_case.merge_politicians(input_dto)
+
+        # Assert
+        assert result.success is False
+        assert "既に同じデータが存在" in result.error_message
 
     @pytest.mark.asyncio
     async def test_merge_politicians_source_not_found(
@@ -760,6 +808,41 @@ class TestManagePoliticiansUseCaseWithLogging:
         # Assert - main operation should still succeed
         assert result.success is True
         assert result.politician_id == 1
+
+    @pytest.mark.asyncio
+    async def test_merge_politician_logs_operation(
+        self,
+        use_case_with_logging,
+        mock_politician_repository,
+        mock_operation_log_repository,
+    ):
+        """Test that merging politicians logs the operation."""
+        # Arrange
+        user_id = uuid4()
+        source = Politician(
+            id=1, name="山田太郎A", prefecture="東京都", district="東京1区"
+        )
+        target = Politician(
+            id=2, name="山田太郎B", prefecture="東京都", district="東京2区"
+        )
+        mock_politician_repository.get_by_id.side_effect = [source, target]
+        mock_politician_repository.merge_politicians.return_value = {"speakers": 2}
+
+        input_dto = MergePoliticiansInputDto(source_id=1, target_id=2, user_id=user_id)
+
+        # Act
+        result = await use_case_with_logging.merge_politicians(input_dto)
+
+        # Assert
+        assert result.success is True
+        mock_operation_log_repository.create.assert_called_once()
+        log_call = mock_operation_log_repository.create.call_args[0][0]
+        assert log_call.politician_id == 2  # target側に記録
+        assert log_call.politician_name == "山田太郎B"
+        assert log_call.operation_type == PoliticianOperationType.MERGE
+        assert log_call.user_id == user_id
+        assert log_call.operation_details["source_id"] == 1
+        assert log_call.operation_details["source_name"] == "山田太郎A"
 
     @pytest.mark.asyncio
     async def test_usecase_without_log_repository_still_works(
