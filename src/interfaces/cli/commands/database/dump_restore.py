@@ -1,7 +1,7 @@
 """データベースのJSONダンプ/リストアコマンド.
 
-スキーマ変更（Alembic migration）時にDockerボリュームが削除されても、
-Seedファイルで復旧できないフロー情報を保全するための機能。
+全データをJSON形式でダンプし、GCSに保存して開発者間で共有する。
+Alembic revisionと紐付けてスキーマ互換性を管理する。
 """
 
 import json
@@ -22,6 +22,12 @@ logger = logging.getLogger(__name__)
 
 # プロジェクトルートのdumps/ディレクトリ
 DUMPS_BASE_DIR = Path(__file__).parent.parent.parent.parent.parent.parent / "dumps"
+
+# GCSのダンプ保存先プレフィックス
+GCS_DUMPS_PREFIX = "database-dumps/"
+
+# 現在のメタデータフォーマットバージョン
+DUMP_FORMAT_VERSION = 1
 
 # FK制約を考慮した投入順序（固定リスト）
 TABLE_INSERT_ORDER = [
@@ -97,6 +103,42 @@ def get_ordered_tables(all_tables: list[str]) -> list[str]:
     return known + [t for t in unknown if t != "alembic_version"]
 
 
+def get_current_alembic_revision(engine: Any) -> str | None:
+    """現在のDBのAlembic revisionを取得."""
+    try:
+        inspector = inspect(engine)
+        if "alembic_version" not in inspector.get_table_names():
+            return None
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT version_num FROM alembic_version"))
+            row = result.fetchone()
+            return row[0] if row else None
+    except Exception:
+        return None
+
+
+def _get_gcs_storage() -> Any:
+    """GCSStorageインスタンスを取得. GCS未設定の場合はNoneを返す."""
+    try:
+        from src.infrastructure.config.settings import get_settings
+        from src.infrastructure.storage.gcs_client import HAS_GCS, GCSStorage
+
+        if not HAS_GCS:
+            return None
+
+        settings = get_settings()
+        if not settings.gcs_upload_enabled:
+            return None
+
+        return GCSStorage(
+            bucket_name=settings.gcs_bucket_name,
+            project_id=settings.gcs_project_id,
+        )
+    except Exception as e:
+        logger.warning(f"GCSStorage初期化失敗: {e}")
+        return None
+
+
 class DumpCommand(Command, BaseCommand):
     """データベースをJSON形式でダンプするコマンド."""
 
@@ -105,6 +147,8 @@ class DumpCommand(Command, BaseCommand):
         from src.infrastructure.config.database import get_db_engine
 
         tables_arg: str | None = kwargs.get("tables")
+        use_gcs: bool = kwargs.get("gcs", False)
+        description: str | None = kwargs.get("description")
         engine = get_db_engine()
 
         # テーブル一覧を取得
@@ -132,13 +176,7 @@ class DumpCommand(Command, BaseCommand):
         self.show_progress(f"ダンプ先: {dump_dir}")
 
         # Alembic revisionを取得
-        alembic_revision = None
-        if "alembic_version" in all_tables:
-            with engine.connect() as conn:
-                result = conn.execute(text("SELECT version_num FROM alembic_version"))
-                row = result.fetchone()
-                if row:
-                    alembic_revision = row[0]
+        alembic_revision = get_current_alembic_revision(engine)
 
         total_records = 0
         table_stats: dict[str, int] = {}
@@ -165,12 +203,16 @@ class DumpCommand(Command, BaseCommand):
 
         # メタデータを出力
         metadata: dict[str, Any] = {
+            "dump_version": DUMP_FORMAT_VERSION,
             "dump_timestamp": datetime.now().isoformat(),
+            "alembic_revision": alembic_revision,
             "table_count": len(target_tables),
             "total_records": total_records,
-            "alembic_revision": alembic_revision,
             "tables": table_stats,
         }
+        if description:
+            metadata["description"] = description
+
         metadata_path = dump_dir / "_metadata.json"
         with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
@@ -179,6 +221,31 @@ class DumpCommand(Command, BaseCommand):
             f"ダンプ完了: {len(target_tables)} テーブル, "
             f"{total_records} レコード -> {dump_dir}"
         )
+
+        # GCSへアップロード
+        if use_gcs:
+            self._upload_to_gcs(dump_dir, timestamp)
+
+    def _upload_to_gcs(self, dump_dir: Path, timestamp: str) -> None:
+        """ダンプディレクトリをGCSにアップロード."""
+        gcs = _get_gcs_storage()
+        if not gcs:
+            self.warning("GCSが利用できないため、ローカルダンプのみ作成しました")
+            return
+
+        self.show_progress("GCSにアップロード中...")
+        gcs_prefix = f"{GCS_DUMPS_PREFIX}{timestamp}"
+
+        for file_path in dump_dir.iterdir():
+            if file_path.is_file():
+                gcs_path = f"{gcs_prefix}/{file_path.name}"
+                gcs.upload_file(
+                    local_path=file_path,
+                    gcs_path=gcs_path,
+                    content_type="application/json",
+                )
+
+        self.success(f"GCSアップロード完了: {gcs_prefix}")
 
 
 class RestoreDumpCommand(Command, BaseCommand):
@@ -190,33 +257,33 @@ class RestoreDumpCommand(Command, BaseCommand):
 
         dump_dir_str: str | None = kwargs.get("dump_dir")
         truncate: bool = kwargs.get("truncate", False)
+        force: bool = kwargs.get("force", False)
 
         if not dump_dir_str:
             self.error("ダンプディレクトリを指定してください")
             return
 
-        dump_dir = Path(dump_dir_str)
-        if not dump_dir.is_absolute():
-            dump_dir = DUMPS_BASE_DIR / dump_dir_str
+        # GCS URIの場合はダウンロード
+        if dump_dir_str.startswith("gs://"):
+            dump_dir = self._download_from_gcs(dump_dir_str)
+            if not dump_dir:
+                return
+        else:
+            dump_dir = Path(dump_dir_str)
+            if not dump_dir.is_absolute():
+                dump_dir = DUMPS_BASE_DIR / dump_dir_str
 
         if not dump_dir.exists():
             self.error(f"ダンプディレクトリが見つかりません: {dump_dir}")
             return
 
-        # メタデータ読み込み
-        metadata_path = dump_dir / "_metadata.json"
-        if metadata_path.exists():
-            with open(metadata_path, encoding="utf-8") as f:
-                metadata = json.load(f)
-            self.show_progress("ダンプ情報:")
-            self.show_progress(f"  日時: {metadata.get('dump_timestamp', '不明')}")
-            self.show_progress(f"  テーブル数: {metadata.get('table_count', '不明')}")
-            self.show_progress(f"  レコード数: {metadata.get('total_records', '不明')}")
-            self.show_progress(
-                f"  Alembic revision: {metadata.get('alembic_revision', '不明')}"
-            )
-
         engine = get_db_engine()
+
+        # メタデータ読み込みとrevisionチェック
+        metadata = self._load_and_check_metadata(dump_dir, engine, force)
+        if metadata is False:
+            return
+
         inspector = inspect(engine)
         current_tables = inspector.get_table_names()
 
@@ -235,13 +302,7 @@ class RestoreDumpCommand(Command, BaseCommand):
             if not self.confirm("既存データを削除してからリストアしますか？"):
                 self.show_progress("キャンセルしました")
                 return
-            self.show_progress("既存データを削除中...")
-            # 逆順でTRUNCATE（FK制約を考慮）
-            with engine.begin() as conn:
-                for table_name in reversed(ordered_tables):
-                    if table_name in current_tables:
-                        conn.execute(text(f'TRUNCATE TABLE "{table_name}" CASCADE'))
-                        self.show_progress(f"  TRUNCATE: {table_name}")
+            self._truncate_tables(engine, ordered_tables, current_tables)
 
         total_inserted = 0
 
@@ -261,51 +322,152 @@ class RestoreDumpCommand(Command, BaseCommand):
                 self.show_progress(f"  スキップ（空）: {table_name}")
                 continue
 
-            # 現在のカラム一覧を取得
-            current_columns = {col["name"] for col in inspector.get_columns(table_name)}
-
-            # 最初のレコードのキーと現在のカラムの交差を取得
-            dump_columns = set(records[0].keys())
-            valid_columns = dump_columns & current_columns
-            skipped_columns = dump_columns - current_columns
-
-            if skipped_columns:
-                cols = ", ".join(sorted(skipped_columns))
-                self.warning(f"  {table_name}: 存在しないカラムをスキップ: {cols}")
-
-            if not valid_columns:
-                self.warning(f"  {table_name}: 有効なカラムがありません（スキップ）")
-                continue
-
-            # INSERT実行
-            sorted_columns = sorted(valid_columns)
-            columns_str = ", ".join(f'"{c}"' for c in sorted_columns)
-            placeholders = ", ".join(f":{c}" for c in sorted_columns)
-            insert_sql = (
-                f'INSERT INTO "{table_name}" ({columns_str}) VALUES ({placeholders})'
-            )
-
-            inserted = 0
-            with engine.begin() as conn:
-                for record in records:
-                    params = {
-                        c: self._adapt_value(record.get(c)) for c in sorted_columns
-                    }
-                    try:
-                        conn.execute(text(insert_sql), params)
-                        inserted += 1
-                    except Exception as e:
-                        self.warning(f"  {table_name}: レコード挿入エラー: {e}")
-                        logger.warning(f"INSERT失敗 ({table_name}): {e}")
-
-            # シーケンスリセット（idカラムがある場合）
-            if "id" in valid_columns:
-                self._reset_sequence(engine, table_name)
-
+            inserted = self._insert_records(engine, inspector, table_name, records)
             total_inserted += inserted
             self.show_progress(f"  リストア: {table_name} ({inserted} レコード)")
 
         self.success(f"リストア完了: {total_inserted} レコード")
+
+    def _load_and_check_metadata(
+        self, dump_dir: Path, engine: Any, force: bool
+    ) -> dict[str, Any] | bool:
+        """メタデータを読み込み、revision互換性をチェック.
+
+        Returns:
+            メタデータdict（成功時）、False（チェック失敗で中断時）
+        """
+        metadata_path = dump_dir / "_metadata.json"
+        if not metadata_path.exists():
+            self.warning("メタデータファイルがありません（revisionチェックをスキップ）")
+            return {}
+
+        with open(metadata_path, encoding="utf-8") as f:
+            metadata = json.load(f)
+
+        self.show_progress("ダンプ情報:")
+        self.show_progress(f"  日時: {metadata.get('dump_timestamp', '不明')}")
+        self.show_progress(f"  テーブル数: {metadata.get('table_count', '不明')}")
+        self.show_progress(f"  レコード数: {metadata.get('total_records', '不明')}")
+        self.show_progress(
+            f"  Alembic revision: {metadata.get('alembic_revision', '不明')}"
+        )
+        if metadata.get("description"):
+            self.show_progress(f"  説明: {metadata['description']}")
+
+        # Alembic revision互換性チェック
+        dump_revision = metadata.get("alembic_revision")
+        if dump_revision:
+            current_revision = get_current_alembic_revision(engine)
+            if current_revision and dump_revision != current_revision:
+                self.warning(
+                    f"Alembic revisionが一致しません: "
+                    f"DUMP={dump_revision}, DB={current_revision}"
+                )
+                if not force:
+                    self.error(
+                        "revisionが異なるためリストアを中断します。"
+                        "--force オプションで強制リストアできます"
+                    )
+                    return False
+                self.warning("--force が指定されたため、強制リストアを実行します")
+
+        return metadata
+
+    def _truncate_tables(
+        self, engine: Any, ordered_tables: list[str], current_tables: list[str]
+    ) -> None:
+        """テーブルをFK制約の逆順でTRUNCATE."""
+        self.show_progress("既存データを削除中...")
+        with engine.begin() as conn:
+            for table_name in reversed(ordered_tables):
+                if table_name in current_tables:
+                    conn.execute(text(f'TRUNCATE TABLE "{table_name}" CASCADE'))
+                    self.show_progress(f"  TRUNCATE: {table_name}")
+
+    def _insert_records(
+        self,
+        engine: Any,
+        inspector: Any,
+        table_name: str,
+        records: list[dict[str, Any]],
+    ) -> int:
+        """レコードをINSERTしてシーケンスをリセット."""
+        current_columns = {col["name"] for col in inspector.get_columns(table_name)}
+        dump_columns = set(records[0].keys())
+        valid_columns = dump_columns & current_columns
+        skipped_columns = dump_columns - current_columns
+
+        if skipped_columns:
+            cols = ", ".join(sorted(skipped_columns))
+            self.warning(f"  {table_name}: 存在しないカラムをスキップ: {cols}")
+
+        if not valid_columns:
+            self.warning(f"  {table_name}: 有効なカラムがありません（スキップ）")
+            return 0
+
+        sorted_columns = sorted(valid_columns)
+        columns_str = ", ".join(f'"{c}"' for c in sorted_columns)
+        placeholders = ", ".join(f":{c}" for c in sorted_columns)
+        insert_sql = (
+            f'INSERT INTO "{table_name}" ({columns_str}) VALUES ({placeholders})'
+        )
+
+        inserted = 0
+        with engine.begin() as conn:
+            for record in records:
+                params = {c: self._adapt_value(record.get(c)) for c in sorted_columns}
+                try:
+                    conn.execute(text(insert_sql), params)
+                    inserted += 1
+                except Exception as e:
+                    self.warning(f"  {table_name}: レコード挿入エラー: {e}")
+                    logger.warning(f"INSERT失敗 ({table_name}): {e}")
+
+        if "id" in valid_columns:
+            self._reset_sequence(engine, table_name)
+
+        return inserted
+
+    def _download_from_gcs(self, gcs_uri: str) -> Path | None:
+        """GCSからダンプをダウンロードしてローカルの一時ディレクトリに保存."""
+        gcs = _get_gcs_storage()
+        if not gcs:
+            self.error("GCSが利用できません")
+            return None
+
+        # gs://bucket/database-dumps/2026-03-08_090000 形式をパース
+        if not gcs_uri.startswith("gs://"):
+            self.error(f"無効なGCS URI: {gcs_uri}")
+            return None
+
+        uri_parts = gcs_uri[5:].split("/", 1)
+        if len(uri_parts) != 2:
+            self.error(f"無効なGCS URI: {gcs_uri}")
+            return None
+
+        prefix = uri_parts[1].rstrip("/") + "/"
+
+        self.show_progress(f"GCSからダウンロード中: {gcs_uri}")
+
+        # ファイル一覧を取得
+        files = gcs.list_files(prefix=prefix)
+        if not files:
+            self.error(f"GCSにダンプが見つかりません: {gcs_uri}")
+            return None
+
+        # ローカルにダウンロード
+        local_dir = DUMPS_BASE_DIR / "gcs_restore_tmp"
+        local_dir.mkdir(parents=True, exist_ok=True)
+
+        for gcs_path in files:
+            filename = gcs_path.split("/")[-1]
+            if not filename:
+                continue
+            local_path = local_dir / filename
+            gcs.download_file(gcs_path, local_path)
+
+        self.show_progress("ダウンロード完了")
+        return local_dir
 
     @staticmethod
     def _adapt_value(value: Any) -> Any:
@@ -338,11 +500,67 @@ class RestoreDumpCommand(Command, BaseCommand):
             logger.warning(f"シーケンスリセット失敗 ({table_name}): {e}")
 
 
+class RestoreLatestCommand(Command, BaseCommand):
+    """GCSから最新のダンプを取得してリストアするコマンド."""
+
+    def execute(self, **kwargs: Any) -> None:
+        """最新ダンプをリストア."""
+        force: bool = kwargs.get("force", False)
+        gcs = _get_gcs_storage()
+        if not gcs:
+            self.error("GCSが利用できません。GCS設定を確認してください")
+            return
+
+        self.show_progress("GCSから最新のダンプを検索中...")
+
+        # ダンプディレクトリの一覧を取得
+        files = gcs.list_files(prefix=GCS_DUMPS_PREFIX)
+        if not files:
+            self.error("GCSにダンプが見つかりません")
+            return
+
+        # _metadata.jsonを含むディレクトリ名を抽出
+        dump_dirs: set[str] = set()
+        for f in files:
+            parts = f.removeprefix(GCS_DUMPS_PREFIX).split("/")
+            if len(parts) >= 2 and parts[0]:
+                dump_dirs.add(parts[0])
+
+        if not dump_dirs:
+            self.error("GCSにダンプが見つかりません")
+            return
+
+        # タイムスタンプ順で最新を選択
+        latest_dir = sorted(dump_dirs)[-1]
+        from src.infrastructure.config.settings import get_settings
+
+        settings = get_settings()
+        gcs_uri = f"gs://{settings.gcs_bucket_name}/{GCS_DUMPS_PREFIX}{latest_dir}"
+
+        self.show_progress(f"最新ダンプ: {latest_dir}")
+
+        # RestoreDumpCommandに委譲
+        restore_cmd = RestoreDumpCommand()
+        restore_cmd.execute(dump_dir=gcs_uri, truncate=True, force=force)
+
+
 class ListDumpsCommand(Command, BaseCommand):
     """過去のダンプ一覧を表示するコマンド."""
 
     def execute(self, **kwargs: Any) -> None:
         """ダンプ一覧を表示."""
+        show_gcs: bool = kwargs.get("gcs", False)
+
+        # ローカルダンプ一覧
+        self._list_local_dumps()
+
+        # GCSダンプ一覧
+        if show_gcs:
+            self._list_gcs_dumps()
+
+    def _list_local_dumps(self) -> None:
+        """ローカルのダンプ一覧を表示."""
+        self.show_progress("--- ローカルダンプ ---")
         if not DUMPS_BASE_DIR.exists():
             self.show_progress("ダンプはまだありません")
             return
@@ -357,8 +575,59 @@ class ListDumpsCommand(Command, BaseCommand):
             return
 
         self.show_progress(f"ダンプ一覧 ({len(dump_dirs)} 件):")
+        self._display_dump_list(dump_dirs)
+
+    def _list_gcs_dumps(self) -> None:
+        """GCS上のダンプ一覧を表示."""
+        self.show_progress("")
+        self.show_progress("--- GCSダンプ ---")
+        gcs = _get_gcs_storage()
+        if not gcs:
+            self.warning("GCSが利用できません")
+            return
+
+        files = gcs.list_files(prefix=GCS_DUMPS_PREFIX)
+        if not files:
+            self.show_progress("GCSにダンプはまだありません")
+            return
+
+        # _metadata.jsonを持つディレクトリを検出
+        metadata_files = [f for f in files if f.endswith("_metadata.json")]
+
+        if not metadata_files:
+            self.show_progress("GCSにダンプはまだありません")
+            return
+
+        self.show_progress(f"ダンプ一覧 ({len(metadata_files)} 件):")
         self.show_progress("-" * 70)
 
+        for metadata_path in sorted(metadata_files, reverse=True):
+            dir_name = metadata_path.removeprefix(GCS_DUMPS_PREFIX).split("/")[0]
+            try:
+                content = gcs.download_content(
+                    f"gs://{gcs.bucket_name}/{metadata_path}"
+                )
+                if content:
+                    metadata = json.loads(content)
+                    table_count = metadata.get("table_count", "?")
+                    total_records = metadata.get("total_records", "?")
+                    revision = metadata.get("alembic_revision", "不明")
+                    desc = metadata.get("description", "")
+                    desc_str = f"  [{desc}]" if desc else ""
+                    self.show_progress(
+                        f"  {dir_name}  "
+                        f"テーブル: {table_count}, "
+                        f"レコード: {total_records}, "
+                        f"rev: {revision}{desc_str}"
+                    )
+                else:
+                    self.show_progress(f"  {dir_name}  (メタデータ読み込み失敗)")
+            except Exception:
+                self.show_progress(f"  {dir_name}  (メタデータ読み込み失敗)")
+
+    def _display_dump_list(self, dump_dirs: list[Path]) -> None:
+        """ダンプディレクトリ一覧を整形表示."""
+        self.show_progress("-" * 70)
         for dump_dir in dump_dirs:
             metadata_path = dump_dir / "_metadata.json"
             if metadata_path.exists():
@@ -367,11 +636,13 @@ class ListDumpsCommand(Command, BaseCommand):
                 table_count = metadata.get("table_count", "?")
                 total_records = metadata.get("total_records", "?")
                 revision = metadata.get("alembic_revision", "不明")
+                desc = metadata.get("description", "")
+                desc_str = f"  [{desc}]" if desc else ""
                 self.show_progress(
                     f"  {dump_dir.name}  "
                     f"テーブル: {table_count}, "
                     f"レコード: {total_records}, "
-                    f"revision: {revision}"
+                    f"rev: {revision}{desc_str}"
                 )
             else:
                 self.show_progress(f"  {dump_dir.name}  (メタデータなし)")

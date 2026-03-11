@@ -48,8 +48,14 @@ up-detached: _setup_worktree
 	echo "Running database migrations with Alembic..."
 	docker compose {{compose_cmd}} exec sagebase uv run alembic upgrade head 2>&1 || true
 	echo "✅ Migrations complete!"
-	# Load seed data (also runs in entrypoint, but kept for already-running containers)
-	./scripts/load-seeds.sh "{{compose_cmd}}"
+	# データが空の場合はリストアを案内
+	@GOVERNING_COUNT=$$(docker compose {{compose_cmd}} exec -T postgres psql -U sagebase_user -d sagebase_db -t -c "SELECT COUNT(*) FROM governing_bodies;" 2>/dev/null | tr -d ' ' || echo "0"); \
+	if [ "$$GOVERNING_COUNT" = "0" ]; then \
+		echo ""; \
+		echo "データベースが空です。以下のコマンドで最新のデータを投入してください:"; \
+		echo "  just restore-latest"; \
+		echo ""; \
+	fi
 	echo "Containers started in detached mode"
 	echo "Run 'just logs' to view logs"
 
@@ -65,8 +71,14 @@ up-fast: _setup_worktree
 	echo "Running database migrations with Alembic..."
 	docker compose {{compose_cmd}} exec sagebase uv run alembic upgrade head 2>&1 || true
 	echo "✅ Migrations complete!"
-	# Load seed data (also runs in entrypoint, but kept for already-running containers)
-	./scripts/load-seeds.sh "{{compose_cmd}}"
+	# データが空の場合はリストアを案内
+	@GOVERNING_COUNT=$$(docker compose {{compose_cmd}} exec -T postgres psql -U sagebase_user -d sagebase_db -t -c "SELECT COUNT(*) FROM governing_bodies;" 2>/dev/null | tr -d ' ' || echo "0"); \
+	if [ "$$GOVERNING_COUNT" = "0" ]; then \
+		echo ""; \
+		echo "データベースが空です。以下のコマンドで最新のデータを投入してください:"; \
+		echo "  just restore-latest"; \
+		echo ""; \
+	fi
 	# Run test-setup.sh if it exists (for initial database setup)
 	if [ -f scripts/test-setup.sh ] && docker compose {{compose_cmd}} exec postgres psql -U sagebase_user -d sagebase_db -c "SELECT COUNT(*) FROM meetings;" 2>/dev/null | grep -q "0"; then
 		echo "Setting up test data..."
@@ -108,8 +120,14 @@ up: _setup_worktree
 	echo "Running database migrations with Alembic..."
 	docker compose {{compose_cmd}} exec sagebase uv run alembic upgrade head 2>&1 || true
 	echo "✅ Migrations complete!"
-	# Load seed data (also runs in entrypoint, but kept for already-running containers)
-	./scripts/load-seeds.sh "{{compose_cmd}}"
+	# データが空の場合はリストアを案内
+	@GOVERNING_COUNT=$$(docker compose {{compose_cmd}} exec -T postgres psql -U sagebase_user -d sagebase_db -t -c "SELECT COUNT(*) FROM governing_bodies;" 2>/dev/null | tr -d ' ' || echo "0"); \
+	if [ "$$GOVERNING_COUNT" = "0" ]; then \
+		echo ""; \
+		echo "データベースが空です。以下のコマンドで最新のデータを投入してください:"; \
+		echo "  just restore-latest"; \
+		echo ""; \
+	fi
 	# Note: Playwright is pre-installed in Dockerfile, no need to install here
 	# Run test-setup.sh if it exists (for initial database setup)
 	if [ -f scripts/test-setup.sh ] && docker compose {{compose_cmd}} exec postgres psql -U sagebase_user -d sagebase_db -c "SELECT COUNT(*) FROM meetings;" 2>/dev/null | grep -q "0"; then
@@ -153,8 +171,14 @@ up-noauth: _setup_worktree
 	echo "Running database migrations with Alembic..."
 	docker compose {{compose_cmd}} exec sagebase uv run alembic upgrade head 2>&1 || true
 	echo "✅ Migrations complete!"
-	# Load seed data (also runs in entrypoint, but kept for already-running containers)
-	./scripts/load-seeds.sh "{{compose_cmd}}"
+	# データが空の場合はリストアを案内
+	@GOVERNING_COUNT=$$(docker compose {{compose_cmd}} exec -T postgres psql -U sagebase_user -d sagebase_db -t -c "SELECT COUNT(*) FROM governing_bodies;" 2>/dev/null | tr -d ' ' || echo "0"); \
+	if [ "$$GOVERNING_COUNT" = "0" ]; then \
+		echo ""; \
+		echo "データベースが空です。以下のコマンドで最新のデータを投入してください:"; \
+		echo "  just restore-latest"; \
+		echo ""; \
+	fi
 	# Detect actual host port from docker-compose.override.yml if it exists
 	if [ -f docker/docker-compose.override.yml ]; then
 		HOST_PORT=$(grep ":8501" docker/docker-compose.override.yml | awk -F'"' '{print $2}' | cut -d: -f1)
@@ -175,6 +199,18 @@ up-noauth: _setup_worktree
 	else
 		docker compose {{compose_cmd}} exec -e GOOGLE_OAUTH_DISABLED=true sagebase uv run sagebase streamlit
 	fi
+
+# GCSから最新ダンプをリストア
+restore-latest: _setup_worktree
+	docker compose {{compose_cmd}} exec sagebase uv run sagebase database restore-latest
+
+# 現在のDBをGCSにダンプ
+dump-gcs *args: _setup_worktree
+	docker compose {{compose_cmd}} exec sagebase uv run sagebase database dump --gcs {{args}}
+
+# GCS上のダンプ一覧を表示
+list-dumps: _setup_worktree
+	docker compose {{compose_cmd}} exec sagebase uv run sagebase database list-dumps --gcs
 
 # Connect to database
 db: _setup_worktree
@@ -303,7 +339,7 @@ exec *args: _setup_worktree
 clean: down
 	#!/bin/bash
 	echo "Taking database dump before clean..."
-	docker compose {{compose_cmd}} exec sagebase uv run sagebase database dump 2>/dev/null
+	docker compose {{compose_cmd}} exec sagebase uv run sagebase database dump --gcs 2>/dev/null
 	if [ $? -ne 0 ]; then
 		echo "⚠ Dump failed (database may not be running). Proceeding with clean..."
 	fi

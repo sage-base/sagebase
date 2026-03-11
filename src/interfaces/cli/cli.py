@@ -60,6 +60,7 @@ def register_clean_architecture_commands(cli_group: click.Group) -> None:
         reset,
         restore,
         restore_dump,
+        restore_latest,
         test_connection,
     )
 
@@ -71,6 +72,7 @@ def register_clean_architecture_commands(cli_group: click.Group) -> None:
     cli_group.add_command(reset, "reset-database")
     cli_group.add_command(dump, "dump-database")
     cli_group.add_command(restore_dump, "restore-dump")
+    cli_group.add_command(restore_latest, "restore-latest")
     cli_group.add_command(list_dumps, "list-dumps")
 
     # Register kokkai (国会会議録API) commands
