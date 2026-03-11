@@ -72,6 +72,14 @@ else
         echo "  ✅ Election members data loaded!"
     fi
 
+    # parliamentary_groups は後から追加されたSEEDのため、個別にチェック
+    PG_COUNT=$(psql_count "SELECT COUNT(*) FROM parliamentary_groups;")
+    if [ "$PG_COUNT" = "0" ]; then
+        echo "  📦 Parliamentary groups data missing, loading..."
+        load_seed "database/seed_parliamentary_groups_generated.sql"
+        echo "  ✅ Parliamentary groups data loaded!"
+    fi
+
     # parliamentary_group_memberships は後から追加されたSEEDのため、個別にチェック
     PGM_COUNT=$(psql_count "SELECT COUNT(*) FROM parliamentary_group_memberships;")
     if [ "$PGM_COUNT" = "0" ]; then
