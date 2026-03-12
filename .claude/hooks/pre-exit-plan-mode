@@ -13,8 +13,14 @@ set -euo pipefail
 # stdin から JSON を読み取る
 json_input=$(cat)
 
-# プロジェクトルートを特定
-PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+# 作業ディレクトリを特定（worktree対応）
+# stdinのJSONにcwdフィールドがある場合はそちらを優先（worktree環境で正しいパスを使用するため）
+HOOK_CWD=$(echo "$json_input" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("cwd",""))' 2>/dev/null || true)
+if [ -n "$HOOK_CWD" ] && [ -d "$HOOK_CWD" ]; then
+    PROJECT_ROOT="$HOOK_CWD"
+else
+    PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+fi
 
 # tmp/ ディレクトリの存在チェック
 if [ ! -d "$PROJECT_ROOT/tmp" ]; then
@@ -69,7 +75,7 @@ CODEX_REVIEW=$(
 実装計画:
 PROMPT_HEADER
     cat "$PLAN_FILE"
-} | codex exec - 2>&1
+} | (cd "$PROJECT_ROOT" && codex exec -) 2>&1
 ) || true
 
 CODEX_EXIT=${PIPESTATUS[0]:-$?}
