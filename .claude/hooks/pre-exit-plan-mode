@@ -22,6 +22,26 @@ else
     PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 fi
 
+# レビュー済みマーカーファイル（同一planファイルの再レビューを防止）
+REVIEW_MARKER="$PROJECT_ROOT/tmp/.codex_review_done"
+
+# 既にレビュー済みの場合はスキップ（無限ループ防止）
+if [ -f "$REVIEW_MARKER" ]; then
+    # マーカーを削除（次回のplan作成時にはレビューが走るように）
+    rm -f "$REVIEW_MARKER"
+    python3 -c '
+import json, sys
+json.dump({
+    "decision": "approve",
+    "hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "additionalContext": "✅ Codexレビューは前回実施済みです。追加レビューなしでplan modeを終了します。"
+    }
+}, sys.stdout)
+'
+    exit 0
+fi
+
 # tmp/ ディレクトリの存在チェック
 if [ ! -d "$PROJECT_ROOT/tmp" ]; then
     python3 -c '
@@ -86,6 +106,7 @@ CODEX_EXIT=${PIPESTATUS[0]:-$?}
 export PLAN_FILENAME
 export CODEX_REVIEW
 export CODEX_EXIT
+export REVIEW_MARKER
 
 python3 -c '
 import json, sys, os
@@ -102,6 +123,15 @@ if codex_exit != 0 or not codex_review.strip():
         "Codexレビューなしでplan modeを終了します。"
     )
 else:
+    # レビュー済みマーカーを作成（次回ExitPlanModeで再レビューしない）
+    review_marker = os.environ.get("REVIEW_MARKER", "")
+    if review_marker:
+        try:
+            with open(review_marker, "w") as f:
+                f.write(plan_filename)
+        except OSError:
+            pass
+
     context = (
         f"## 📋 Codex Plan Review\n\n"
         f"planファイル: {plan_filename}\n\n"
@@ -109,8 +139,12 @@ else:
         f"{codex_review}\n\n"
         "---\n"
         "上記はCodex CLIによるplanファイルのレビュー結果です（参考情報）。\n"
-        "レビュー指摘はplanファイルに反映してからplan modeを終了してください。\n"
-        "ユーザーが指摘を無視してplan mode終了を希望する場合は、そのまま終了してください。"
+        "**重要**: 以下の基準で対応を判断してください:\n"
+        "- 🔴 重大な問題（ロジックの誤り、アーキテクチャ違反、セキュリティリスク）→ planファイルに反映\n"
+        "- 🟡 軽微な改善提案（文言修正、フォーマット、好みの差異レベル）→ 無視してOK\n"
+        "- 🟢「問題なし」→ そのままplan modeを終了\n\n"
+        "軽微な指摘しかない場合は、修正せずそのままExitPlanModeしてください。\n"
+        "このレビューは1回のみ実施されます（再exit時にはスキップされます）。"
     )
 
 output = {
