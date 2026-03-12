@@ -27,6 +27,7 @@ if [ ! -d "$PROJECT_ROOT/tmp" ]; then
     python3 -c '
 import json, sys
 json.dump({
+    "decision": "approve",
     "hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "additionalContext": "⚠️ tmp/ ディレクトリが存在しません。planファイルの検出をスキップしました。"
@@ -43,6 +44,7 @@ if [ -z "$PLAN_FILE" ]; then
     python3 -c '
 import json, sys
 json.dump({
+    "decision": "approve",
     "hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "additionalContext": "⚠️ tmp/ ディレクトリにplanファイル(.md)が見つかりませんでした。Codexレビューをスキップします。"
@@ -106,10 +108,13 @@ else:
         f"### レビュー結果\n\n"
         f"{codex_review}\n\n"
         "---\n"
-        "上記はCodex CLIによるplanファイルのレビュー結果です。"
+        "上記はCodex CLIによるplanファイルのレビュー結果です（参考情報）。\n"
+        "レビュー指摘はplanファイルに反映してからplan modeを終了してください。\n"
+        "ユーザーが指摘を無視してplan mode終了を希望する場合は、そのまま終了してください。"
     )
 
 output = {
+    "decision": "approve",
     "hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "additionalContext": context
