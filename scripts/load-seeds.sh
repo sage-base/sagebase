@@ -35,17 +35,24 @@ if [ "$GOVERNING_BODIES_COUNT" = "0" ]; then
     SEED_FILES=(
         "database/seed_governing_bodies_generated.sql"
         "database/seed_elections_generated.sql"
+        "database/seed_hoketsu_elections.sql"
         "database/seed_political_parties_generated.sql"
         "database/seed_conferences_generated.sql"
         "database/seed_parliamentary_groups_generated.sql"
         "database/seed_parliamentary_group_parties_generated.sql"
         "database/seed_meetings_generated.sql"
         "database/seed_politicians_generated.sql"
+        "database/seed_hoketsu_politicians.sql"
         "database/seed_election_members_generated.sql"
+        "database/seed_hoketsu_election_members.sql"
         "database/seed_parliamentary_group_memberships_generated.sql"
         "database/seed_party_membership_history_generated.sql"
         "database/seed_government_officials.sql"
         "database/seed_government_official_speaker_links.sql"
+        "database/seed_speakers_generated.sql"
+        "database/seed_speaker_politician_links_generated.sql"
+        "database/seed_proposals_generated.sql"
+        "database/seed_conference_members_generated.sql"
     )
 
     for seed_file in "${SEED_FILES[@]}"; do
@@ -111,5 +118,44 @@ else
         load_seed "database/seed_government_officials.sql"
         load_seed "database/seed_government_official_speaker_links.sql"
         echo "  ✅ Government officials data loaded!"
+    fi
+
+    # 補欠選挙データは ON CONFLICT で安全にスキップされるため常に投入
+    echo "  📦 Loading hoketsu (supplementary election) seed data..."
+    load_seed "database/seed_hoketsu_politicians.sql"
+    load_seed "database/seed_hoketsu_elections.sql"
+    load_seed "database/seed_hoketsu_election_members.sql"
+    echo "  ✅ Hoketsu seed data loaded!"
+
+    # speakers は後から追加されたSEEDのため、個別にチェック
+    SPEAKERS_COUNT=$(psql_count "SELECT COUNT(*) FROM speakers;")
+    if [ "$SPEAKERS_COUNT" = "0" ]; then
+        echo "  📦 Speakers data missing, loading..."
+        load_seed "database/seed_speakers_generated.sql"
+        load_seed "database/seed_speaker_politician_links_generated.sql"
+        echo "  ✅ Speakers data loaded!"
+    fi
+
+    # speaker_politician_links は UPDATE WHERE 方式で冪等なため、speakersが存在する場合は常に投入
+    if [ "$SPEAKERS_COUNT" != "0" ]; then
+        echo "  📦 Updating speaker-politician links..."
+        load_seed "database/seed_speaker_politician_links_generated.sql"
+        echo "  ✅ Speaker-politician links updated!"
+    fi
+
+    # proposals は後から追加されたSEEDのため、個別にチェック
+    PROPOSALS_COUNT=$(psql_count "SELECT COUNT(*) FROM proposals;")
+    if [ "$PROPOSALS_COUNT" = "0" ]; then
+        echo "  📦 Proposals data missing, loading..."
+        load_seed "database/seed_proposals_generated.sql"
+        echo "  ✅ Proposals data loaded!"
+    fi
+
+    # conference_members は後から追加されたSEEDのため、個別にチェック
+    CM_COUNT=$(psql_count "SELECT COUNT(*) FROM conference_members;")
+    if [ "$CM_COUNT" = "0" ]; then
+        echo "  📦 Conference members data missing, loading..."
+        load_seed "database/seed_conference_members_generated.sql"
+        echo "  ✅ Conference members data loaded!"
     fi
 fi

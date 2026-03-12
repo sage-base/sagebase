@@ -83,6 +83,13 @@
     ],
     "deny": []
   },
+  "plansDirectory": "./tmp",
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": ["serena", "context7", "codex"],
+  "statusLine": {
+    "type": "command",
+    "command": ".claude/statusline.js"
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -108,12 +115,5 @@
         ]
       }
     ]
-  },
-  "plansDirectory": "./tmp",
-  "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["serena", "context7", "codex"],
-  "statusLine": {
-    "type": "command",
-    "command": ".claude/statusline.js"
   }
 }
