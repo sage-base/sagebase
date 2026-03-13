@@ -285,6 +285,7 @@ class RestoreDumpCommand(Command, BaseCommand):
         dump_dir_str: str | None = kwargs.get("dump_dir")
         truncate: bool = kwargs.get("truncate", False)
         force: bool = kwargs.get("force", False)
+        skip_confirm: bool = kwargs.get("skip_confirm", False)
 
         if not dump_dir_str:
             self.error("ダンプディレクトリを指定してください")
@@ -334,9 +335,10 @@ class RestoreDumpCommand(Command, BaseCommand):
 
         # truncateオプション
         if truncate:
-            if not self.confirm("既存データを削除してからリストアしますか？"):
-                self.show_progress("キャンセルしました")
-                return
+            if not skip_confirm:
+                if not self.confirm("既存データを削除してからリストアしますか？"):
+                    self.show_progress("キャンセルしました")
+                    return
             self._truncate_tables(engine, ordered_tables, current_tables)
 
         total_inserted = 0
@@ -695,9 +697,11 @@ class RestoreLatestCommand(Command, BaseCommand):
 
         self.show_progress(f"最新ダンプ: {latest_dir}")
 
-        # RestoreDumpCommandに委譲
+        # RestoreDumpCommandに委譲（confirmスキップ：restore-latestは明示的コマンド）
         restore_cmd = RestoreDumpCommand()
-        restore_cmd.execute(dump_dir=gcs_uri, truncate=True, force=force)
+        restore_cmd.execute(
+            dump_dir=gcs_uri, truncate=True, force=force, skip_confirm=True
+        )
 
 
 class ListDumpsCommand(Command, BaseCommand):
