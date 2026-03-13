@@ -334,16 +334,15 @@ class RestoreDumpCommand(Command, BaseCommand):
                 self.warning(f"テーブルが存在しません（スキップ）: {table_name}")
                 continue
 
-            with open(json_path, encoding="utf-8") as f:
-                records = json.load(f)
-
-            if not records:
+            self.show_progress(f"  リストア中: {table_name}...")
+            inserted = self._restore_table_streaming(
+                engine, inspector, table_name, json_path
+            )
+            if inserted == 0:
                 self.show_progress(f"  スキップ（空）: {table_name}")
-                continue
-
-            inserted = self._insert_records(engine, inspector, table_name, records)
+            else:
+                self.show_progress(f"  リストア: {table_name} ({inserted} レコード)")
             total_inserted += inserted
-            self.show_progress(f"  リストア: {table_name} ({inserted} レコード)")
 
         self.success(f"リストア完了: {total_inserted} レコード")
 
@@ -445,6 +444,118 @@ class RestoreDumpCommand(Command, BaseCommand):
         if "id" in valid_columns:
             self._reset_sequence(engine, table_name)
 
+        return inserted
+
+    def _restore_table_streaming(
+        self,
+        engine: Any,
+        inspector: Any,
+        table_name: str,
+        json_path: Path,
+        batch_size: int = 1000,
+    ) -> int:
+        """JSONファイルをストリーミングでパースしてバッチINSERTする.
+
+        ダンプ形式（1行1レコード: [{...},\\n{...},...\\n]）を行単位で読み込み、
+        メモリを節約する。小さなファイルは通常のjson.loadにフォールバック。
+        """
+        current_columns = {col["name"] for col in inspector.get_columns(table_name)}
+        insert_sql: str | None = None
+        sorted_columns: list[str] | None = None
+        skipped_logged = False
+        inserted = 0
+        batch: list[dict[str, Any]] = []
+
+        for record in self._iter_json_records(json_path):
+            # 初回レコードでSQL文を構築
+            if insert_sql is None:
+                dump_columns = set(record.keys())
+                valid_columns = dump_columns & current_columns
+                skipped_columns = dump_columns - current_columns
+
+                if skipped_columns and not skipped_logged:
+                    cols = ", ".join(sorted(skipped_columns))
+                    self.warning(f"  {table_name}: 存在しないカラムをスキップ: {cols}")
+                    skipped_logged = True
+
+                if not valid_columns:
+                    self.warning(
+                        f"  {table_name}: 有効なカラムがありません（スキップ）"
+                    )
+                    return 0
+
+                sorted_columns = sorted(valid_columns)
+                columns_str = ", ".join(f'"{c}"' for c in sorted_columns)
+                placeholders = ", ".join(f":{c}" for c in sorted_columns)
+                insert_sql = (
+                    f'INSERT INTO "{table_name}" ({columns_str})'
+                    f" VALUES ({placeholders})"
+                )
+
+            params = {
+                c: self._adapt_value(record.get(c))
+                for c in sorted_columns  # type: ignore[union-attr]
+            }
+            batch.append(params)
+
+            if len(batch) >= batch_size:
+                inserted += self._flush_batch(engine, insert_sql, batch, table_name)
+                batch = []
+
+        # 残りのバッチを処理
+        if batch and insert_sql:
+            inserted += self._flush_batch(engine, insert_sql, batch, table_name)
+
+        if sorted_columns and "id" in sorted_columns:
+            self._reset_sequence(engine, table_name)
+
+        return inserted
+
+    @staticmethod
+    def _iter_json_records(json_path: Path) -> Any:
+        """JSONファイルからレコードをストリーミングで読み出すジェネレータ.
+
+        ダンプ形式（1行1レコード）は行単位でパースし、
+        それ以外の形式はjson.loadにフォールバックする。
+        """
+        file_size = json_path.stat().st_size
+        # 10MB以下のファイルは通常のjson.loadで読み込む
+        if file_size < 10 * 1024 * 1024:
+            with open(json_path, encoding="utf-8") as f:
+                data = json.load(f)
+            yield from data
+            return
+
+        # 大きなファイルは行単位でストリーミングパース
+        with open(json_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip().rstrip(",")
+                if not line or line in ("[", "]"):
+                    continue
+                try:
+                    record = json.loads(line)
+                    if isinstance(record, dict):
+                        yield record
+                except json.JSONDecodeError:
+                    continue
+
+    def _flush_batch(
+        self,
+        engine: Any,
+        insert_sql: str,
+        batch: list[dict[str, Any]],
+        table_name: str,
+    ) -> int:
+        """バッチをまとめてINSERTする."""
+        inserted = 0
+        with engine.begin() as conn:
+            for params in batch:
+                try:
+                    conn.execute(text(insert_sql), params)
+                    inserted += 1
+                except Exception as e:
+                    self.warning(f"  {table_name}: レコード挿入エラー: {e}")
+                    logger.warning(f"INSERT失敗 ({table_name}): {e}")
         return inserted
 
     def _download_from_gcs(self, gcs_uri: str) -> Path | None:
