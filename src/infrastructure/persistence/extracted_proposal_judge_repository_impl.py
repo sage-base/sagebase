@@ -54,7 +54,7 @@ class ExtractedProposalJudgeRepositoryImpl(
         result = await self.session.execute(query, {"id": entity_id})
         row = result.fetchone()
         if row:
-            return self._row_to_entity(row)
+            return self._to_entity(row)
         return None
 
     async def delete(self, entity_id: int) -> bool:
@@ -123,7 +123,7 @@ class ExtractedProposalJudgeRepositoryImpl(
         await self.session.commit()
 
         if row:
-            return self._row_to_entity(row)
+            return self._to_entity(row)
         raise RuntimeError("Failed to update extracted proposal judge")
 
     async def create(self, entity: ExtractedProposalJudge) -> ExtractedProposalJudge:
@@ -174,7 +174,7 @@ class ExtractedProposalJudgeRepositoryImpl(
         await self.session.commit()
 
         if row:
-            return self._row_to_entity(row)
+            return self._to_entity(row)
         raise RuntimeError("Failed to create extracted proposal judge")
 
     async def get_all(
@@ -195,7 +195,7 @@ class ExtractedProposalJudgeRepositoryImpl(
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def get_pending_judges(
         self, proposal_id: int | None = None
@@ -217,7 +217,7 @@ class ExtractedProposalJudgeRepositoryImpl(
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def get_matched_judges(
         self, proposal_id: int | None = None, min_confidence: float | None = None
@@ -243,7 +243,7 @@ class ExtractedProposalJudgeRepositoryImpl(
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def get_needs_review_judges(
         self, proposal_id: int | None = None
@@ -265,7 +265,7 @@ class ExtractedProposalJudgeRepositoryImpl(
         result = await self.session.execute(query, params)
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def update_matching_result(
         self,
@@ -313,7 +313,7 @@ class ExtractedProposalJudgeRepositoryImpl(
         result = await self.session.execute(query, {"prop_id": proposal_id})
         rows = result.fetchall()
 
-        return [self._row_to_entity(row) for row in rows]
+        return [self._to_entity(row) for row in rows]
 
     async def get_extraction_summary(
         self, proposal_id: int | None = None
@@ -426,7 +426,7 @@ class ExtractedProposalJudgeRepositoryImpl(
             result = await self.session.execute(query, value)
             row = result.fetchone()
             if row:
-                created_judges.append(self._row_to_entity(row))
+                created_judges.append(self._to_entity(row))
 
         await self.session.commit()
         return created_judges
@@ -461,30 +461,7 @@ class ExtractedProposalJudgeRepositoryImpl(
 
         return result
 
-    def _row_to_entity(self, row: Any) -> ExtractedProposalJudge:
-        """Convert database row to domain entity."""
-        return ExtractedProposalJudge(
-            id=row.id,
-            proposal_id=row.proposal_id,
-            extracted_politician_name=getattr(row, "extracted_politician_name", None),
-            extracted_party_name=getattr(row, "extracted_party_name", None),
-            extracted_parliamentary_group_name=getattr(
-                row, "extracted_parliamentary_group_name", None
-            ),
-            extracted_judgment=getattr(row, "extracted_judgment", None),
-            source_url=getattr(row, "source_url", None),
-            extracted_at=row.extracted_at,
-            matched_politician_id=getattr(row, "matched_politician_id", None),
-            matched_parliamentary_group_id=getattr(
-                row, "matched_parliamentary_group_id", None
-            ),
-            matching_confidence=getattr(row, "matching_confidence", None),
-            matching_status=row.matching_status,
-            matched_at=getattr(row, "matched_at", None),
-            additional_data=getattr(row, "additional_data", None),
-        )
-
-    def _to_entity(self, model: ExtractedProposalJudgeModel) -> ExtractedProposalJudge:
+    def _to_entity(self, model: Any) -> ExtractedProposalJudge:
         """Convert database model to domain entity."""
         return ExtractedProposalJudge(
             id=model.id,

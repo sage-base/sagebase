@@ -14,8 +14,13 @@ file_path=$(echo "$json_input" | jq -r '.tool_output.file_path // empty')
 if [[ "$file_path" == *.py ]] && ([[ "$file_path" == */src/* ]] || [[ "$file_path" == */tests/* ]]); then
     echo "🧪 Running tests after editing: ${file_path##*/}"
 
-    # Navigate to project root
-    cd "$(dirname "$0")/../.." || exit 1
+    # 作業ディレクトリを特定（worktree対応）
+    HOOK_CWD=$(echo "$json_input" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("cwd",""))' 2>/dev/null || true)
+    if [ -n "$HOOK_CWD" ] && [ -d "$HOOK_CWD" ]; then
+        cd "$HOOK_CWD" || exit 1
+    else
+        cd "$(dirname "$0")/../.." || exit 1
+    fi
 
     # Run pytest with docker compose
     docker compose -f docker/docker-compose.yml exec -T polibase uv run pytest -x --tb=short

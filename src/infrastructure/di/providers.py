@@ -17,6 +17,9 @@ from src.application.usecases.backfill_role_name_mappings_usecase import (
 from src.application.usecases.batch_import_kokkai_speeches_usecase import (
     BatchImportKokkaiSpeechesUseCase,
 )
+from src.application.usecases.batch_link_speakers_to_government_officials_usecase import (  # noqa: E501
+    BatchLinkSpeakersToGovernmentOfficialsUseCase,
+)
 from src.application.usecases.classify_speakers_politician_usecase import (
     ClassifySpeakersPoliticianUseCase,
 )
@@ -650,6 +653,12 @@ class UseCaseContainer(containers.DeclarativeContainer):
 
     # Import Government Officials CSV UseCase
     # Cowork結果CSVから政府関係者をインポートするユースケース
+    batch_link_speakers_to_government_officials_usecase = providers.Factory(
+        BatchLinkSpeakersToGovernmentOfficialsUseCase,
+        speaker_repository=repositories.speaker_repository,
+        government_official_repository=repositories.government_official_repository,
+    )
+
     import_government_officials_csv_usecase = providers.Factory(
         ImportGovernmentOfficialsCsvUseCase,
         government_official_repository=repositories.government_official_repository,

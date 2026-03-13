@@ -162,6 +162,13 @@ _KYUJITAI_TO_SHINJITAI: dict[str, str] = {
     "遲": "遅",
     "鑄": "鋳",
     "雙": "双",
+    # --- Issue #1322: 未マッチSpeaker分析で特定された不足6文字 ---
+    "衞": "衛",
+    "莊": "荘",
+    "權": "権",
+    "澁": "渋",
+    "禪": "禅",
+    "禰": "祢",
 }
 
 _TRANSLATE_TABLE = str.maketrans(_KYUJITAI_TO_SHINJITAI)

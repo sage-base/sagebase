@@ -11,6 +11,9 @@ from uuid import UUID
 import pandas as pd
 import streamlit as st
 
+from src.application.dtos.government_official_dto import (
+    LinkSpeakerToGovernmentOfficialInputDto,
+)
 from src.application.usecases.authenticate_user_usecase import (
     AuthenticateUserUseCase,
 )
@@ -25,6 +28,9 @@ from src.domain.value_objects.speaker_with_conversation_count import (
     SpeakerWithConversationCount,
 )
 from src.infrastructure.di.container import Container
+from src.infrastructure.persistence.government_official_repository_impl import (
+    GovernmentOfficialRepositoryImpl,
+)
 from src.infrastructure.persistence.politician_repository_impl import (
     PoliticianRepositoryImpl,
 )
@@ -49,6 +55,7 @@ def render_speakers_list_tab() -> None:
 
     speaker_repo = RepositoryAdapter(SpeakerRepositoryImpl)
     politician_repo = RepositoryAdapter(PoliticianRepositoryImpl)
+    official_repo = RepositoryAdapter(GovernmentOfficialRepositoryImpl)
 
     # フィルタ行
     col1, col2, col3, col4 = st.columns(4)
@@ -146,7 +153,9 @@ def render_speakers_list_tab() -> None:
     st.dataframe(df, use_container_width=True, hide_index=True)
 
     # 詳細セクション
-    _render_speaker_detail_section(speakers, speaker_repo, politician_repo)
+    _render_speaker_detail_section(
+        speakers, speaker_repo, politician_repo, official_repo
+    )
 
 
 def _get_match_status(speaker: SpeakerWithConversationCount) -> str:
@@ -174,6 +183,7 @@ def _render_speaker_detail_section(
     speakers: list[SpeakerWithConversationCount],
     speaker_repo: RepositoryAdapter,
     politician_repo: RepositoryAdapter,
+    official_repo: RepositoryAdapter,
 ) -> None:
     """発言者の詳細操作セクションを表示する."""
     st.markdown("### 個別操作")
@@ -186,13 +196,16 @@ def _render_speaker_detail_section(
         with st.expander(
             f"{speaker.name}（発言{speaker.conversation_count}回）— {status}"
         ):
-            _render_speaker_actions(speaker, speaker_repo, politician_repo)
+            _render_speaker_actions(
+                speaker, speaker_repo, politician_repo, official_repo
+            )
 
 
 def _render_speaker_actions(
     speaker: SpeakerWithConversationCount,
     speaker_repo: RepositoryAdapter,
     politician_repo: RepositoryAdapter,
+    official_repo: RepositoryAdapter,
 ) -> None:
     """個別Speakerの操作UIを表示する."""
     # 現在の情報
@@ -208,10 +221,15 @@ def _render_speaker_actions(
             st.write(f"信頼度: {speaker.matching_confidence:.2f}")
 
     with col_action:
-        tab_match, tab_classify = st.tabs(["政治家にマッチ", "非政治家として分類"])
+        tab_match, tab_official, tab_classify = st.tabs(
+            ["政治家にマッチ", "官僚に紐付け", "非政治家として分類"]
+        )
 
         with tab_match:
             _render_politician_match_section(speaker, politician_repo)
+
+        with tab_official:
+            _render_government_official_link_section(speaker, official_repo)
 
         with tab_classify:
             _render_non_politician_section(speaker)
@@ -276,6 +294,65 @@ def _render_non_politician_section(
         type="secondary",
     ):
         _execute_mark_non_politician(speaker.id, skip_reason_choices[selected_reason])
+
+
+def _render_government_official_link_section(
+    speaker: SpeakerWithConversationCount,
+    official_repo: RepositoryAdapter,
+) -> None:
+    """官僚紐付けセクションを表示する."""
+    search_query = st.text_input(
+        "候補官僚を検索",
+        value=speaker.name,
+        key=f"official_search_{speaker.id}",
+        placeholder="官僚名を入力...",
+    )
+
+    if search_query:
+        candidates = official_repo.search_by_name(search_query)
+        if candidates:
+            st.caption(f"{len(candidates)}件の候補が見つかりました")
+            for candidate in candidates[:10]:
+                col_name, col_btn = st.columns([3, 1])
+                with col_name:
+                    st.write(f"**{candidate.name}**")
+                with col_btn:
+                    if st.button(
+                        "紐付け",
+                        key=f"link_official_{speaker.id}_{candidate.id}",
+                        type="primary",
+                    ):
+                        _execute_government_official_link(
+                            speaker.id, candidate.id, candidate.name
+                        )
+        else:
+            st.info("候補が見つかりません")
+
+
+def _execute_government_official_link(
+    speaker_id: int, official_id: int, official_name: str
+) -> None:
+    """官僚紐付けを実行する."""
+    try:
+        container = Container.create_for_environment()
+        usecase = container.use_cases.link_speaker_to_government_official_usecase()
+
+        result = asyncio.run(
+            usecase.execute(
+                LinkSpeakerToGovernmentOfficialInputDto(
+                    speaker_id=speaker_id,
+                    government_official_id=official_id,
+                )
+            )
+        )
+
+        if result.success:
+            st.success(f"{official_name} に紐付けました")
+            st.rerun()
+        else:
+            st.error(f"紐付けに失敗しました: {result.error_message}")
+    except Exception as e:
+        st.error(f"エラーが発生しました: {e}")
 
 
 def _execute_link(speaker_id: int, politician_id: int, politician_name: str) -> None:

@@ -23,6 +23,7 @@ from src.interfaces.web.streamlit.views import (
     render_election_members_page,
     render_extraction_logs_page,
     render_governing_bodies_page,
+    render_government_officials_page,
     render_llm_history_page,
     render_meetings_page,
     render_parliamentary_groups_page,
@@ -104,6 +105,12 @@ def main():
             title="選挙結果メンバー",
             icon="🗳️",
             url_path="election_members",
+        ),
+        st.Page(
+            render_government_officials_page,
+            title="官僚管理",
+            icon="🏢",
+            url_path="government_officials",
         ),
         st.Page(
             render_conversations_page,

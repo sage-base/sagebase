@@ -78,6 +78,16 @@ class SpeakerRepository(BaseRepository[Speaker]):
         pass
 
     @abstractmethod
+    async def get_speakers_not_linked_to_government_officials(self) -> list[Speaker]:
+        """politician_idとgovernment_official_idが両方NULLのSpeakerを取得する."""
+        pass
+
+    @abstractmethod
+    async def get_linked_government_official_ids(self) -> set[int]:
+        """Speakerが紐付いているgovernment_official_idの集合を返す."""
+        pass
+
+    @abstractmethod
     async def get_speakers_with_politician_info(self) -> list[dict[str, Any]]:
         """Get speakers with linked politician information."""
         pass

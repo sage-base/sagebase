@@ -60,35 +60,17 @@ class ProposalDeliberationRepositoryImpl(
             model_class=ProposalDeliberationModel,
         )
 
-    def _row_to_dict(self, row: Any) -> dict[str, Any]:
-        if hasattr(row, "_asdict"):
-            return row._asdict()
-        elif hasattr(row, "_mapping"):
-            return dict(row._mapping)
-        return dict(row)
-
-    def _dict_to_entity(self, data: dict[str, Any]) -> ProposalDeliberation:
+    def _to_entity(self, model: Any) -> ProposalDeliberation:
+        """Convert database model/row to domain entity."""
         entity = ProposalDeliberation(
-            id=data.get("id"),
-            proposal_id=data["proposal_id"],
-            conference_id=data["conference_id"],
-            meeting_id=data.get("meeting_id"),
-            stage=data.get("stage"),
-        )
-        entity.created_at = data.get("created_at")
-        entity.updated_at = data.get("updated_at")
-        return entity
-
-    def _to_entity(self, model: ProposalDeliberationModel) -> ProposalDeliberation:
-        entity = ProposalDeliberation(
-            id=model.id,
+            id=getattr(model, "id", None),
             proposal_id=model.proposal_id,
             conference_id=model.conference_id,
-            meeting_id=model.meeting_id,
-            stage=model.stage,
+            meeting_id=getattr(model, "meeting_id", None),
+            stage=getattr(model, "stage", None),
         )
-        entity.created_at = model.created_at
-        entity.updated_at = model.updated_at
+        entity.created_at = getattr(model, "created_at", None)
+        entity.updated_at = getattr(model, "updated_at", None)
         return entity
 
     def _to_model(self, entity: ProposalDeliberation) -> ProposalDeliberationModel:
@@ -126,7 +108,7 @@ class ProposalDeliberationRepositoryImpl(
             result = await self.session.execute(text(query_text), params)
             rows = result.fetchall()
 
-            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+            return [self._to_entity(row) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting all proposal_deliberations: {e}")
@@ -146,7 +128,7 @@ class ProposalDeliberationRepositoryImpl(
             row = result.fetchone()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
             return None
 
         except SQLAlchemyError as e:
@@ -172,7 +154,7 @@ class ProposalDeliberationRepositoryImpl(
             result = await self.session.execute(query, params)
             rows = result.fetchall()
 
-            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+            return [self._to_entity(row) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting proposal_deliberations by IDs: {e}")
@@ -206,7 +188,7 @@ class ProposalDeliberationRepositoryImpl(
             await self.session.commit()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
 
             raise DatabaseError(
                 "Failed to create proposal_deliberation", {"entity": entity}
@@ -250,7 +232,7 @@ class ProposalDeliberationRepositoryImpl(
             await self.session.commit()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
 
             raise DatabaseError(
                 f"ProposalDeliberation with ID {entity.id} not found",
@@ -306,7 +288,7 @@ class ProposalDeliberationRepositoryImpl(
             result = await self.session.execute(query, {"proposal_id": proposal_id})
             rows = result.fetchall()
 
-            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+            return [self._to_entity(row) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting deliberations by proposal_id: {e}")
@@ -329,7 +311,7 @@ class ProposalDeliberationRepositoryImpl(
             result = await self.session.execute(query, {"conference_id": conference_id})
             rows = result.fetchall()
 
-            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+            return [self._to_entity(row) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting deliberations by conference_id: {e}")
@@ -350,7 +332,7 @@ class ProposalDeliberationRepositoryImpl(
             result = await self.session.execute(query, {"meeting_id": meeting_id})
             rows = result.fetchall()
 
-            return [self._dict_to_entity(self._row_to_dict(row)) for row in rows]
+            return [self._to_entity(row) for row in rows]
 
         except SQLAlchemyError as e:
             logger.error(f"Database error getting deliberations by meeting_id: {e}")
@@ -400,7 +382,7 @@ class ProposalDeliberationRepositoryImpl(
             row = result.fetchone()
 
             if row:
-                return self._dict_to_entity(self._row_to_dict(row))
+                return self._to_entity(row)
             return None
 
         except SQLAlchemyError as e:

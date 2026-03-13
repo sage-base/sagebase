@@ -29,7 +29,6 @@ class GovernmentOfficialRepositoryImpl(
         entity = GovernmentOfficial(
             id=model.id,
             name=model.name,
-            name_yomi=model.name_yomi,
         )
         entity.created_at = model.created_at
         entity.updated_at = model.updated_at
@@ -39,14 +38,12 @@ class GovernmentOfficialRepositoryImpl(
         return GovernmentOfficialModel(
             id=entity.id,
             name=entity.name,
-            name_yomi=entity.name_yomi,
         )
 
     def _update_model(
         self, model: GovernmentOfficialModel, entity: GovernmentOfficial
     ) -> None:
         model.name = entity.name
-        model.name_yomi = entity.name_yomi
 
     async def get_by_name(self, name: str) -> GovernmentOfficial | None:
         query = select(GovernmentOfficialModel).where(

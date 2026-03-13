@@ -29,7 +29,12 @@ def test_render_speakers_list_tab_displays_placeholder(mock_st, mock_repo_adapte
     mock_speaker_repo = MagicMock()
     mock_speaker_repo.get_speakers_with_conversation_count.return_value = []
     mock_politician_repo = MagicMock()
-    mock_repo_adapter.side_effect = [mock_speaker_repo, mock_politician_repo]
+    mock_official_repo = MagicMock()
+    mock_repo_adapter.side_effect = [
+        mock_speaker_repo,
+        mock_politician_repo,
+        mock_official_repo,
+    ]
 
     # st.columns()のモック
     mock_cols = [MagicMock() for _ in range(4)]
@@ -183,12 +188,18 @@ def test_render_speakers_list_tab_with_data(mock_st, mock_repo_adapter):
         ),
     ]
 
-    # RepositoryAdapterのモック
+    # RepositoryAdapterのモック（speaker_repo, politician_repo, official_repo）
     mock_speaker_repo = MagicMock()
     mock_speaker_repo.get_speakers_with_conversation_count.return_value = speakers
     mock_politician_repo = MagicMock()
     mock_politician_repo.search_by_name.return_value = []
-    mock_repo_adapter.side_effect = [mock_speaker_repo, mock_politician_repo]
+    mock_official_repo = MagicMock()
+    mock_official_repo.search_by_name.return_value = []
+    mock_repo_adapter.side_effect = [
+        mock_speaker_repo,
+        mock_politician_repo,
+        mock_official_repo,
+    ]
 
     # st.columns()のモック（引数に応じた数の要素を返す）
     def columns_side_effect(spec, **kwargs):
@@ -209,10 +220,11 @@ def test_render_speakers_list_tab_with_data(mock_st, mock_repo_adapter):
     mock_st.expander.return_value.__enter__ = MagicMock(return_value=mock_expander)
     mock_st.expander.return_value.__exit__ = MagicMock(return_value=None)
 
-    # tabsのモック
+    # tabsのモック（政治家にマッチ、官僚に紐付け、非政治家として分類の3タブ）
     mock_tab1 = MagicMock()
     mock_tab2 = MagicMock()
-    mock_st.tabs.return_value = [mock_tab1, mock_tab2]
+    mock_tab3 = MagicMock()
+    mock_st.tabs.return_value = [mock_tab1, mock_tab2, mock_tab3]
 
     # Act
     render_speakers_list_tab()
