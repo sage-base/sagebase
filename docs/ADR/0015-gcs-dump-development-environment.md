@@ -112,7 +112,7 @@ just cloud-status
 
 ## References
 
-- [ARCHITECTURE.md: クラウドアーキテクチャ](../architecture/ARCHITECTURE.md) - GCSダンプ方式の詳細設計
+- [docs/guides/DEPLOYMENT.md](../guides/DEPLOYMENT.md) - デプロイ・クラウド運用手順
 - `scripts/cloud/` - セットアップ・テアダウンスクリプト
 - `scripts/cloud/README.md` - 運用詳細ドキュメント
 - Justfileコマンド: `cloud-up`, `cloud-down`, `cloud-status`, `cloud-backups`

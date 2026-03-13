@@ -82,6 +82,10 @@ PolibaseException (基底: error_code + message + details)
     └── UpdateError
 ```
 
+### Domain層に`RepositoryError`を配置する理由
+
+`RepositoryError`（DOM-008）はInfrastructure層ではなくDomain層に定義されています。これはClean Architectureの依存性ルールに基づく設計判断です。リポジトリインターフェースはDomain層に属するため（[ADR 0003](0003-repository-pattern.md)）、そのインターフェースが投げうる例外もDomain層に定義する必要があります。Infrastructure層のリポジトリ実装は、`SQLAlchemyError`等の技術的例外をcatchしてDomain層の`RepositoryError`に変換して投げます。これにより、Application層はInfrastructure層の技術的詳細を知らずにリポジトリエラーを処理できます。
+
 ### 設計原則
 
 #### 1. 基底例外クラスの構造化

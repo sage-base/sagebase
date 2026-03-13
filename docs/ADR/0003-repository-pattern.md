@@ -588,8 +588,8 @@ class PoliticianModel(Base):
 
 - [Repository Pattern (Martin Fowler)](https://martinfowler.com/eaaCatalog/repository.html)
 - [ADR 0001: Clean Architecture採用](0001-clean-architecture-adoption.md)
-- [docs/architecture/DOMAIN_LAYER.md](../architecture/DOMAIN_LAYER.md) - Domain層ガイド（リポジトリインターフェース）
-- [docs/architecture/INFRASTRUCTURE_LAYER.md](../architecture/INFRASTRUCTURE_LAYER.md) - Infrastructure層ガイド（リポジトリ実装）
+- [ADR 0007: リポジトリモデルパターン標準化](0007-repository-model-pattern-standardization.md) - モデルパターンの統一方針
+- `.claude/skills/clean-architecture-checker/` - 各層の実装ガイド
 - `src/domain/repositories/base.py` - BaseRepositoryインターフェース
 - `src/domain/repositories/session_adapter.py` - ISessionAdapterインターフェース
 - `src/infrastructure/persistence/base_repository_impl.py` - BaseRepositoryImpl実装

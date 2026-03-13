@@ -305,12 +305,9 @@ Clean Architectureへの移行は段階的に実施：
 ## References
 
 - [Clean Architecture by Robert C. Martin](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
-- [CLEAN_ARCHITECTURE_MIGRATION.md](../CLEAN_ARCHITECTURE_MIGRATION.md) - 移行計画
-- [docs/ARCHITECTURE.md](../ARCHITECTURE.md) - 全体アーキテクチャ
-- [docs/architecture/DOMAIN_LAYER.md](../architecture/DOMAIN_LAYER.md) - Domain層ガイド
-- [docs/architecture/APPLICATION_LAYER.md](../architecture/APPLICATION_LAYER.md) - Application層ガイド
-- [docs/architecture/INFRASTRUCTURE_LAYER.md](../architecture/INFRASTRUCTURE_LAYER.md) - Infrastructure層ガイド
-- [docs/architecture/INTERFACE_LAYER.md](../architecture/INTERFACE_LAYER.md) - Interface層ガイド
+- [ADR 0003: リポジトリパターン](0003-repository-pattern.md) - リポジトリ設計の詳細
+- [ADR 0007: リポジトリモデルパターン標準化](0007-repository-model-pattern-standardization.md) - モデルパターンの統一方針
+- `.claude/skills/clean-architecture-checker/` - 各層の実装ガイドとチェックリスト
 
 ## Notes
 
