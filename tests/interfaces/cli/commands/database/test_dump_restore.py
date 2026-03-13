@@ -144,10 +144,13 @@ class TestDumpCommand:
 
         dump_dir = dump_dirs[0]
 
-        json_file = dump_dir / "test_table.json"
+        json_file = dump_dir / "test_table.json.gz"
         assert json_file.exists()
 
-        data = json.loads(json_file.read_text(encoding="utf-8"))
+        import gzip
+
+        with gzip.open(json_file, "rt", encoding="utf-8") as f:
+            data = json.load(f)
         assert len(data) == 1
         assert data[0]["id"] == 1
         assert data[0]["name"] == "テスト"
@@ -199,8 +202,8 @@ class TestDumpCommand:
         dump_dirs = [d for d in tmp_path.iterdir() if d.is_dir()]
         dump_dir = dump_dirs[0]
 
-        assert (dump_dir / "table_a.json").exists()
-        assert not (dump_dir / "table_b.json").exists()
+        assert (dump_dir / "table_a.json.gz").exists()
+        assert not (dump_dir / "table_b.json.gz").exists()
 
     @patch("src.infrastructure.config.database.get_db_engine")
     def test_dump_empty_table(self, mock_get_engine: MagicMock, tmp_path: Path) -> None:
@@ -238,9 +241,13 @@ class TestDumpCommand:
         dump_dirs = [d for d in tmp_path.iterdir() if d.is_dir()]
         dump_dir = dump_dirs[0]
 
-        json_file = dump_dir / "empty_table.json"
+        json_file = dump_dir / "empty_table.json.gz"
         assert json_file.exists()
-        data = json.loads(json_file.read_text(encoding="utf-8"))
+
+        import gzip
+
+        with gzip.open(json_file, "rt", encoding="utf-8") as f:
+            data = json.load(f)
         assert data == []
 
 

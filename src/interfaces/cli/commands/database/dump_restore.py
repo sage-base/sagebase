@@ -4,6 +4,7 @@
 Alembic revisionと紐付けてスキーマ互換性を管理する。
 """
 
+import gzip
 import json
 import logging
 
@@ -183,7 +184,7 @@ class DumpCommand(Command, BaseCommand):
 
         for table_name in sorted(target_tables):
             self.show_progress(f"  ダンプ中: {table_name}...")
-            output_path = dump_dir / f"{table_name}.json"
+            output_path = dump_dir / f"{table_name}.json.gz"
             count = self._dump_table_streaming(engine, table_name, output_path)
             table_stats[table_name] = count
             total_records += count
@@ -216,11 +217,14 @@ class DumpCommand(Command, BaseCommand):
 
     @staticmethod
     def _dump_table_streaming(
-        engine: Any, table_name: str, output_path: Path, batch_size: int = 10000
+        engine: Any,
+        table_name: str,
+        output_path: Path,
+        batch_size: int = 10000,
     ) -> int:
-        """テーブルをサーバーサイドカーソル+ストリーミングでJSONファイルに書き出す."""
+        """テーブルをサーバーサイドカーソル+ストリーミングでgzip圧縮JSONに書き出す."""
         count = 0
-        with open(output_path, "w", encoding="utf-8") as f:
+        with gzip.open(output_path, "wt", encoding="utf-8") as f:
             f.write("[\n")
             first = True
             with engine.connect().execution_options(
@@ -258,10 +262,14 @@ class DumpCommand(Command, BaseCommand):
         for file_path in dump_dir.iterdir():
             if file_path.is_file():
                 gcs_path = f"{gcs_prefix}/{file_path.name}"
+                if file_path.suffix == ".gz":
+                    content_type = "application/gzip"
+                else:
+                    content_type = "application/json"
                 gcs.upload_file(
                     local_path=file_path,
                     gcs_path=gcs_path,
-                    content_type="application/json",
+                    content_type=content_type,
                 )
 
         self.success(f"GCSアップロード完了: {gcs_prefix}")
@@ -306,15 +314,23 @@ class RestoreDumpCommand(Command, BaseCommand):
         inspector = inspect(engine)
         current_tables = inspector.get_table_names()
 
-        # JSONファイル一覧を取得
-        json_files = [f for f in dump_dir.glob("*.json") if f.name != "_metadata.json"]
-        if not json_files:
+        # ダンプファイル一覧を取得（.json.gz優先、.jsonも後方互換でサポート）
+        dump_files: dict[str, Path] = {}
+        for f in dump_dir.iterdir():
+            if f.name == "_metadata.json" or not f.is_file():
+                continue
+            if f.name.endswith(".json.gz"):
+                table_name = f.name.removesuffix(".json.gz")
+                dump_files[table_name] = f
+            elif f.suffix == ".json" and f.stem not in dump_files:
+                dump_files[f.stem] = f
+
+        if not dump_files:
             self.error("ダンプファイルが見つかりません")
             return
 
         # FK制約を考慮した投入順序でソート
-        dump_table_names = [f.stem for f in json_files]
-        ordered_tables = get_ordered_tables(dump_table_names)
+        ordered_tables = get_ordered_tables(list(dump_files.keys()))
 
         # truncateオプション
         if truncate:
@@ -326,17 +342,17 @@ class RestoreDumpCommand(Command, BaseCommand):
         total_inserted = 0
 
         for table_name in ordered_tables:
-            json_path = dump_dir / f"{table_name}.json"
-            if not json_path.exists():
+            if table_name not in dump_files:
                 continue
 
             if table_name not in current_tables:
                 self.warning(f"テーブルが存在しません（スキップ）: {table_name}")
                 continue
 
+            file_path = dump_files[table_name]
             self.show_progress(f"  リストア中: {table_name}...")
             inserted = self._restore_table_streaming(
-                engine, inspector, table_name, json_path
+                engine, inspector, table_name, file_path
             )
             if inserted == 0:
                 self.show_progress(f"  スキップ（空）: {table_name}")
@@ -512,22 +528,32 @@ class RestoreDumpCommand(Command, BaseCommand):
         return inserted
 
     @staticmethod
+    def _open_dump_file(path: Path) -> Any:
+        """ダンプファイルを開く（.gz対応）."""
+        if path.name.endswith(".gz"):
+            return gzip.open(path, "rt", encoding="utf-8")
+        return open(path, encoding="utf-8")  # noqa: SIM115
+
+    @staticmethod
     def _iter_json_records(json_path: Path) -> Any:
         """JSONファイルからレコードをストリーミングで読み出すジェネレータ.
 
         ダンプ形式（1行1レコード）は行単位でパースし、
         それ以外の形式はjson.loadにフォールバックする。
+        .json.gzと.jsonの両方に対応。
         """
         file_size = json_path.stat().st_size
-        # 10MB以下のファイルは通常のjson.loadで読み込む
-        if file_size < 10 * 1024 * 1024:
+        is_gzip = json_path.name.endswith(".gz")
+        # 10MB以下（gzipの場合はファイルサイズが圧縮後なので常にストリーミング）
+        if not is_gzip and file_size < 10 * 1024 * 1024:
             with open(json_path, encoding="utf-8") as f:
                 data = json.load(f)
             yield from data
             return
 
-        # 大きなファイルは行単位でストリーミングパース
-        with open(json_path, encoding="utf-8") as f:
+        # 大きなファイル/gzipは行単位でストリーミングパース
+        opener = gzip.open if is_gzip else open
+        with opener(json_path, "rt", encoding="utf-8") as f:  # type: ignore[call-overload]
             for line in f:
                 line = line.strip().rstrip(",")
                 if not line or line in ("[", "]"):
