@@ -81,7 +81,10 @@ def _make_connect_side_effect(
     mock_result: MagicMock,
     mock_alembic_result: MagicMock,
 ) -> Any:
-    """テスト用のengine.connect()のside_effectを作成."""
+    """テスト用のengine.connect()のside_effectを作成.
+
+    ストリーミングダンプ用にexecution_optionsチェーンもサポート。
+    """
 
     def connect_side_effect() -> MagicMock:
         mock_conn = MagicMock()
@@ -94,6 +97,8 @@ def _make_connect_side_effect(
             return mock_result
 
         mock_conn.execute = MagicMock(side_effect=execute_side_effect)
+        # execution_options()チェーン対応（ストリーミングダンプ用）
+        mock_conn.execution_options = MagicMock(return_value=mock_conn)
         return mock_conn
 
     return connect_side_effect
@@ -118,7 +123,7 @@ class TestDumpCommand:
         ):
             mock_result = MagicMock()
             mock_result.keys.return_value = ["id", "name"]
-            mock_result.fetchall.return_value = [(1, "テスト")]
+            mock_result.__iter__ = MagicMock(return_value=iter([(1, "テスト")]))
 
             mock_alembic_result = MagicMock()
             mock_alembic_result.fetchone.return_value = ("abc123",)
@@ -175,7 +180,7 @@ class TestDumpCommand:
         ):
             mock_result = MagicMock()
             mock_result.keys.return_value = ["id"]
-            mock_result.fetchall.return_value = [(1,)]
+            mock_result.__iter__ = MagicMock(return_value=iter([(1,)]))
 
             mock_alembic_result = MagicMock()
             mock_alembic_result.fetchone.return_value = None
@@ -214,7 +219,7 @@ class TestDumpCommand:
         ):
             mock_result = MagicMock()
             mock_result.keys.return_value = ["id"]
-            mock_result.fetchall.return_value = []
+            mock_result.__iter__ = MagicMock(return_value=iter([]))
 
             mock_alembic_result = MagicMock()
             mock_alembic_result.fetchone.return_value = None
