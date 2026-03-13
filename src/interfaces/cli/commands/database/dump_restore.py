@@ -183,23 +183,11 @@ class DumpCommand(Command, BaseCommand):
 
         for table_name in sorted(target_tables):
             self.show_progress(f"  ダンプ中: {table_name}...")
-            with engine.connect() as conn:
-                result = conn.execute(text(f'SELECT * FROM "{table_name}"'))  # noqa: S608
-                columns = list(result.keys())
-                rows = [
-                    dict(zip(columns, row, strict=True)) for row in result.fetchall()
-                ]
-
-            # JSONファイルに出力
             output_path = dump_dir / f"{table_name}.json"
-            with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(
-                    rows, f, ensure_ascii=False, indent=2, default=json_serializer
-                )
-
-            table_stats[table_name] = len(rows)
-            total_records += len(rows)
-            self.show_progress(f"    {len(rows)} レコード")
+            count = self._dump_table_streaming(engine, table_name, output_path)
+            table_stats[table_name] = count
+            total_records += count
+            self.show_progress(f"    {count} レコード")
 
         # メタデータを出力
         metadata: dict[str, Any] = {
@@ -225,6 +213,37 @@ class DumpCommand(Command, BaseCommand):
         # GCSへアップロード
         if use_gcs:
             self._upload_to_gcs(dump_dir, timestamp)
+
+    @staticmethod
+    def _dump_table_streaming(
+        engine: Any, table_name: str, output_path: Path, batch_size: int = 10000
+    ) -> int:
+        """テーブルをサーバーサイドカーソル+ストリーミングでJSONファイルに書き出す."""
+        count = 0
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write("[\n")
+            first = True
+            with engine.connect().execution_options(
+                stream_results=True, yield_per=batch_size
+            ) as conn:
+                result = conn.execute(
+                    text(f'SELECT * FROM "{table_name}"')  # noqa: S608
+                )
+                columns = list(result.keys())
+                for row in result:
+                    record = dict(zip(columns, row, strict=True))
+                    if not first:
+                        f.write(",\n")
+                    json.dump(
+                        record,
+                        f,
+                        ensure_ascii=False,
+                        default=json_serializer,
+                    )
+                    first = False
+                    count += 1
+            f.write("\n]\n")
+        return count
 
     def _upload_to_gcs(self, dump_dir: Path, timestamp: str) -> None:
         """ダンプディレクトリをGCSにアップロード."""
