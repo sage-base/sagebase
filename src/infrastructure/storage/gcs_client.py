@@ -113,7 +113,11 @@ class GCSStorage:
             ) from e
 
     def upload_file(
-        self, local_path: str | Path, gcs_path: str, content_type: str | None = None
+        self,
+        local_path: str | Path,
+        gcs_path: str,
+        content_type: str | None = None,
+        timeout: int = 3600,
     ) -> str:
         """Upload a file to GCS.
 
@@ -121,6 +125,7 @@ class GCSStorage:
             local_path: Local file path to upload
             gcs_path: Destination path in GCS (without bucket name)
             content_type: MIME type of the file (auto-detected if not provided)
+            timeout: アップロードタイムアウト（秒）。大きなファイル用にデフォルト1時間
 
         Returns:
             Public URL of the uploaded file
@@ -138,7 +143,9 @@ class GCSStorage:
                 content_type = self._get_content_type(local_path.suffix)
 
             blob.upload_from_filename(
-                str(local_path), content_type=content_type or "application/octet-stream"
+                str(local_path),
+                content_type=content_type or "application/octet-stream",
+                timeout=timeout,
             )
             logger.info(f"Uploaded {local_path} to gs://{self.bucket_name}/{gcs_path}")
 
@@ -199,12 +206,15 @@ class GCSStorage:
                 {"gcs_path": gcs_path, "content_size": len(content), "error": str(e)},
             ) from e
 
-    def download_file(self, gcs_path: str, local_path: str | Path) -> None:
+    def download_file(
+        self, gcs_path: str, local_path: str | Path, timeout: int = 3600
+    ) -> None:
         """Download a file from GCS.
 
         Args:
             gcs_path: Source path in GCS (without bucket name)
             local_path: Local destination path
+            timeout: ダウンロードタイムアウト（秒）。大きなファイル用にデフォルト1時間
         """
         local_path = Path(local_path)
         local_path.parent.mkdir(parents=True, exist_ok=True)
@@ -216,7 +226,7 @@ class GCSStorage:
             if not exists:
                 raise PolibaseFileNotFoundError(f"gs://{self.bucket_name}/{gcs_path}")
 
-            blob.download_to_filename(str(local_path))
+            blob.download_to_filename(str(local_path), timeout=timeout)
             logger.info(
                 f"Downloaded gs://{self.bucket_name}/{gcs_path} to {local_path}"
             )
@@ -395,7 +405,7 @@ class GCSStorage:
             local_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Download file
-            blob.download_to_filename(str(local_path))
+            blob.download_to_filename(str(local_path), timeout=3600)
             logger.info(f"Downloaded file from GCS: {gcs_uri} to {local_path}")
             return True
 

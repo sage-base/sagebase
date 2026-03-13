@@ -186,7 +186,7 @@ class TestUploadFile:
         gcs_storage.upload_file(test_file, "test.json", content_type="application/json")
 
         mock_blob.upload_from_filename.assert_called_once_with(
-            str(test_file), content_type="application/json"
+            str(test_file), content_type="application/json", timeout=3600
         )
 
     def test_upload_file_auto_detect_content_type(self, gcs_storage, tmp_path):
@@ -200,7 +200,7 @@ class TestUploadFile:
         gcs_storage.upload_file(test_file, "test.pdf")
 
         mock_blob.upload_from_filename.assert_called_once_with(
-            str(test_file), content_type="application/pdf"
+            str(test_file), content_type="application/pdf", timeout=3600
         )
 
     def test_upload_file_not_found(self, gcs_storage):
@@ -349,7 +349,9 @@ class TestDownloadFile:
 
         gcs_storage.download_file("test.txt", local_path)
 
-        mock_blob.download_to_filename.assert_called_once_with(str(local_path))
+        mock_blob.download_to_filename.assert_called_once_with(
+            str(local_path), timeout=3600
+        )
 
     def test_download_file_creates_parent_dir(self, gcs_storage, tmp_path):
         """Test download creates parent directories."""
@@ -599,7 +601,9 @@ class TestDownloadFileFromUri:
         )
 
         assert result is True
-        mock_blob.download_to_filename.assert_called_once_with(str(local_path))
+        mock_blob.download_to_filename.assert_called_once_with(
+            str(local_path), timeout=3600
+        )
 
     def test_download_file_from_uri_creates_dir(self, gcs_storage, tmp_path):
         """Test download creates parent directory."""
