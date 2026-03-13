@@ -1,5 +1,7 @@
 # OpenTelemetryメトリクス運用ガイド
 
+> **設計判断の背景**: [ADR 0016: 監視・メトリクス統合戦略](../ADR/0016-monitoring-metrics-integration.md) を参照
+
 ## 概要
 
 Polibaseでは、OpenTelemetryを使用してアプリケーションのパフォーマンスメトリクスを収集しています。このドキュメントでは、メトリクスの設定、収集、モニタリング方法について説明します。
