@@ -122,6 +122,11 @@ src/
 
 - ADR作成ルール: `NNNN-kebab-case-title.md`形式、必須セクション（Status, Context, Decision, Consequences）
 - **ADR作成時の必須アクション**: 新しいADRを作成したら、`docs/ADR/`に配置し`ls docs/ADR/`で確認できる状態にすること
+- **ADR作成トリガー**: 以下に該当する変更を行う場合、ADRの作成を提案すること：
+  - 新しいアーキテクチャパターンや設計方針の導入
+  - 既存パターンからの意図的な逸脱
+  - 新しい外部サービス・ライブラリの採用
+  - 複数の選択肢を検討して判断した場合
 - 主要ADR（実装時に特に参照すべきもの）:
   - [ADR 0003](docs/ADR/0003-repository-pattern.md): リポジトリパターン + ISessionAdapter
   - [ADR 0005](docs/ADR/0005-extraction-layer-gold-layer-separation.md): Bronze Layer / Gold Layer分離
