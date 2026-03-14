@@ -574,15 +574,21 @@ class RestoreDumpCommand(Command, BaseCommand):
         batch: list[dict[str, Any]],
         table_name: str,
     ) -> int:
-        """バッチをまとめてINSERTする."""
+        """バッチをまとめてINSERTする.
+
+        SAVEPOINTを使い、1件のエラーが同一バッチ内の
+        他のレコードに影響しないようにする。
+        """
         inserted = 0
         with engine.begin() as conn:
             for params in batch:
+                nested = conn.begin_nested()
                 try:
                     conn.execute(text(insert_sql), params)
+                    nested.commit()
                     inserted += 1
                 except Exception as e:
-                    self.warning(f"  {table_name}: レコード挿入エラー: {e}")
+                    nested.rollback()
                     logger.warning(f"INSERT失敗 ({table_name}): {e}")
         return inserted
 
