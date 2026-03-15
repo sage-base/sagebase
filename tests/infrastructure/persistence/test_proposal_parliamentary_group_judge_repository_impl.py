@@ -826,3 +826,34 @@ class TestProposalParliamentaryGroupJudgeRepositoryImpl:
         assert entity.judgment == "賛成"
         assert entity.member_count is None
         assert entity.note is None
+
+    @pytest.mark.asyncio
+    async def test_count(
+        self,
+        repository: ProposalParliamentaryGroupJudgeRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test count returns total number of judges."""
+        mock_result = MagicMock()
+        mock_result.scalar = MagicMock(return_value=42)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.count()
+
+        assert result == 42
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_count_returns_zero_when_none(
+        self,
+        repository: ProposalParliamentaryGroupJudgeRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test count returns 0 when scalar returns None."""
+        mock_result = MagicMock()
+        mock_result.scalar = MagicMock(return_value=None)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.count()
+
+        assert result == 0

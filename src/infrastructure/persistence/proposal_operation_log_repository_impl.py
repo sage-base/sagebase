@@ -290,3 +290,12 @@ class ProposalOperationLogRepositoryImpl(
             )
 
         raise RuntimeError("Failed to create proposal operation log")
+
+    async def count(self) -> int:
+        """Count total number of proposal operation logs."""
+        from sqlalchemy import text
+
+        query = text("SELECT COUNT(*) FROM proposal_operation_logs")
+        result = await self.session.execute(query)
+        count = result.scalar()
+        return count if count is not None else 0
