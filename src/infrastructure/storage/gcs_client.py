@@ -138,6 +138,18 @@ class GCSStorage:
         try:
             blob: Any = self.bucket.blob(gcs_path)
 
+            # 大きなファイル（8MB超）はresumable uploadを使用
+            file_size = local_path.stat().st_size
+            if file_size > 8 * 1024 * 1024:
+                # chunk_sizeを設定するとresumable uploadが有効になる
+                # 256KB の倍数である必要がある（100MB chunks）
+                blob.chunk_size = 100 * 1024 * 1024
+                logger.info(
+                    f"Resumable upload: {local_path.name} "
+                    f"({file_size / 1024 / 1024:.1f}MB, "
+                    f"chunk={blob.chunk_size // 1024 // 1024}MB)"
+                )
+
             # Auto-detect content type if not provided
             if not content_type:
                 content_type = self._get_content_type(local_path.suffix)
@@ -226,6 +238,8 @@ class GCSStorage:
             if not exists:
                 raise PolibaseFileNotFoundError(f"gs://{self.bucket_name}/{gcs_path}")
 
+            # 大きなファイルのダウンロードを最適化
+            blob.chunk_size = 100 * 1024 * 1024
             blob.download_to_filename(str(local_path), timeout=timeout)
             logger.info(
                 f"Downloaded gs://{self.bucket_name}/{gcs_path} to {local_path}"
