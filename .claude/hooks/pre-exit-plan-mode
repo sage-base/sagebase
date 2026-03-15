@@ -26,16 +26,15 @@ fi
 REVIEW_MARKER="$PROJECT_ROOT/tmp/.codex_review_done"
 
 # 既にレビュー済みの場合はスキップ（無限ループ防止）
+# マーカーは削除しない（次のplan作成時にクリーンアップされる）
 if [ -f "$REVIEW_MARKER" ]; then
-    # マーカーを削除（次回のplan作成時にはレビューが走るように）
-    rm -f "$REVIEW_MARKER"
     python3 -c '
 import json, sys
 json.dump({
     "decision": "approve",
     "hookSpecificOutput": {
         "hookEventName": "PreToolUse",
-        "additionalContext": "✅ Codexレビューは前回実施済みです。追加レビューなしでplan modeを終了します。"
+        "additionalContext": "✅ Codexレビューは前回実施済みです。追加レビューなしでplan modeを終了します。planファイルを修正せず、このままExitPlanModeを完了してください。"
     }
 }, sys.stdout)
 '
@@ -75,6 +74,10 @@ json.dump({
 fi
 
 PLAN_FILENAME=$(basename "$PLAN_FILE")
+
+# 前回のレビューマーカーが残っていたらクリーンアップ（新しいplanファイルの場合）
+# ここに到達 = マーカーが無い状態 = 初回レビュー
+rm -f "$REVIEW_MARKER"
 
 # Codex CLI でレビューを実行
 # プロンプトを構築して stdin 経由で渡す
@@ -138,13 +141,9 @@ else:
         f"### レビュー結果\n\n"
         f"{codex_review}\n\n"
         "---\n"
-        "上記はCodex CLIによるplanファイルのレビュー結果です（参考情報）。\n"
-        "**重要**: 以下の基準で対応を判断してください:\n"
-        "- 🔴 重大な問題（ロジックの誤り、アーキテクチャ違反、セキュリティリスク）→ planファイルに反映\n"
-        "- 🟡 軽微な改善提案（文言修正、フォーマット、好みの差異レベル）→ 無視してOK\n"
-        "- 🟢「問題なし」→ そのままplan modeを終了\n\n"
-        "軽微な指摘しかない場合は、修正せずそのままExitPlanModeしてください。\n"
-        "このレビューは1回のみ実施されます（再exit時にはスキップされます）。"
+        "上記はCodex CLIによるplanファイルのレビュー結果です。\n"
+        "**⚠️ 重要: このレビュー結果は参考情報です。planファイルを修正せず、このままExitPlanModeを完了してください。**\n"
+        "レビュー内容はユーザーが実装時に参考にします。あなたがplanを修正する必要はありません。"
     )
 
 output = {

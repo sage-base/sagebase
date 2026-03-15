@@ -1,5 +1,7 @@
 # Grafana監視システムセットアップガイド
 
+> **設計判断の背景**: [ADR 0016: 監視・メトリクス統合戦略](../ADR/0016-monitoring-metrics-integration.md) を参照
+
 ## 概要
 
 Polibaseの監視システムは、Grafana、Prometheus、Lokiを使用してメトリクスとログを統合的に可視化します。

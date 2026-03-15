@@ -278,10 +278,33 @@ result = await mark_entity_as_verified_usecase.execute(
 )
 ```
 
+## 補足: Bronze Layerの分析基盤（2026-03-13追記）
+
+ExtractionLogRepositoryImplは、AI精度の継続的改善を支援する分析クエリを提供しています：
+
+- `get_count_grouped_by_entity_type()` - エンティティタイプ別の抽出件数
+- `get_count_grouped_by_pipeline_version()` - パイプラインバージョン別件数
+- `get_avg_confidence_grouped_by_pipeline_version()` - バージョン別の平均信頼度
+- `get_count_by_date()` - 日別の抽出件数推移
+
+これにより、LLMモデル更新時のA/Bテストやパイプラインバージョン間の精度比較が定量的に実施可能です。
+
+### extracted_* 中間テーブルの位置づけ
+
+Bronze LayerとGold Layerの間に、`extracted_*`中間テーブルが存在します：
+
+```
+extraction_logs（Bronze）→ extracted_parliamentary_group_members（中間）→ parliamentary_group_memberships（Gold）
+```
+
+中間テーブルはLLM出力の構造化データを保持し、人間のレビューを待つステージング領域として機能します。`VerifiableEntity`プロトコルを実装していますが、Bronze Layer扱いのため`can_be_updated_by_ai()`は常に`True`を返します。
+
 ## 関連ADR
 
 - [ADR 0001: Clean Architecture採用](0001-clean-architecture-adoption.md)
 - [ADR 0003: リポジトリパターン](0003-repository-pattern.md)
+- [ADR 0011: LLMサービスのデコレーターパターン](0011-llm-service-decorator-pattern.md) - InstrumentedLLMServiceによる処理履歴記録
+- [ADR 0016: 監視・メトリクス統合戦略](0016-monitoring-metrics-integration.md) - LLMメトリクスとの連携
 
 ## 関連Issue
 

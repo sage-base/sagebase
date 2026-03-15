@@ -55,15 +55,10 @@ tmp/
 
 ```
 docs/
-├── ADR/                    # アーキテクチャ決定記録
-├── architecture/           # 層別実装ガイド
-├── diagrams/               # アーキテクチャ図
-├── monitoring/             # 監視設定ガイド
-├── ARCHITECTURE.md         # システムアーキテクチャ
-├── BI_DASHBOARD.md         # BIダッシュボード
-├── CLEAN_ARCHITECTURE_MIGRATION.md
-├── DEPLOYMENT.md           # デプロイ手順
-└── DEVELOPMENT_GUIDE.md    # 開発ガイド
+├── ADR/                    # アーキテクチャ決定記録（設計判断の「なぜ」）
+├── diagrams/               # アーキテクチャ図（Mermaid）
+├── guides/                 # 運用ガイド（CICD, DEPLOYMENT, OPERATIONS, TROUBLESHOOTING）
+└── monitoring/             # 監視設定ガイド（Grafana, OpenTelemetry）
 ```
 
 **特徴**:
@@ -123,11 +118,8 @@ tmp/analysis_{topic}_{date}.md
    - 重要なアーキテクチャ決定は`docs/ADR/`に追加
    - 形式: `NNNN-kebab-case-title.md`
 
-2. **開発ガイドへの統合**
-   - 汎用的な開発プラクティスは`docs/DEVELOPMENT_GUIDE.md`に追加
-
-3. **層別ガイドへの統合**
-   - 層固有のガイドは該当する`docs/architecture/*.md`に追加
+2. **SKILLへの統合**
+   - 汎用的な開発プラクティスは該当する`.claude/skills/`のSKILLに追加
 
 ## テンプレート
 

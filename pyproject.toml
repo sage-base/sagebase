@@ -137,6 +137,8 @@ forced-separate = ["src"]
 "alembic/versions/*.py" = ["E501"]
 # 調査スクリプトのテストは日本語テスト名・SQL文字列リテラルを使用
 "tests/unit/scripts/test_investigate_kaiha_mapping.py" = ["N802", "E501"]
+# seed_generatorテストは日本語テスト名を使用
+"tests/unit/test_seed_generator.py" = ["N802"]
 
 # Pyright configuration moved to pyrightconfig.json
 

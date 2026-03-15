@@ -140,3 +140,13 @@ Entity ↔ Model 変換メソッドを`_to_entity()`に一本化します：
 - 本ADRは「方針の文書化」が主目的。コード変更（決定1・決定3の実装）は別Issueで実施する
 - 決定2（新規リポジトリ作成方針）は本ADR承認と同時に即時適用
 - `BaseRepositoryImpl`改善（決定1）の実装Issueは本ADR承認後に起票予定
+
+## 進捗記録（2026-03-13追記）
+
+### 決定3（変換メソッド統一）: 完了
+
+`_dict_to_entity()` / `_row_to_entity()` は全リポジトリから除去済み。現在31リポジトリすべてが `_to_entity()` のみを使用。
+
+### 決定1（BaseRepositoryImpl改善）: 部分的に対応
+
+`count()`のオーバーライドは8リポジトリで実施済み（conference, conversation, governing_body, minutes, proposal, proposal_deliberation, proposal_judge, user）。`BaseRepositoryImpl`本体の`_is_orm`フラグ改善は未実施。

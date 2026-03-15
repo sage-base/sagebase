@@ -1102,6 +1102,197 @@ class SeedGenerator:
             output.write(result_str)
         return result_str
 
+    def generate_speakers_seed(self, output: TextIO | None = None) -> str:
+        """speakersテーブルのSEEDファイルを生成する（名前でデデュプ）"""
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    SELECT DISTINCT ON (name) name, name_yomi
+                    FROM speakers
+                    ORDER BY name, (name_yomi IS NULL), name_yomi, id
+                """)
+            )
+            columns = result.keys()
+            speakers = [dict(zip(columns, row, strict=False)) for row in result]
+
+        if not speakers:
+            return ""
+
+        lines = [
+            "-- Speaker マスタシードデータ",
+            (f"-- Generated from database on {datetime.now().strftime('%Y-%m-%d')}"),
+            f"-- {len(speakers)} unique speakers (deduped by name)",
+            "-- 前提: なし（speakersは最初にロードされるマスタ）",
+            "",
+            "",
+        ]
+
+        for speaker in speakers:
+            name = self._escape_sql(speaker["name"])
+            name_yomi = speaker["name_yomi"]
+            if name_yomi is not None:
+                yomi_val = f"'{self._escape_sql(name_yomi)}'"
+            else:
+                yomi_val = "NULL"
+            lines.append(
+                f"INSERT INTO speakers (name, name_yomi) "
+                f"SELECT '{name}', {yomi_val} "
+                f"WHERE NOT EXISTS "
+                f"(SELECT 1 FROM speakers WHERE name = '{name}');"
+            )
+
+        result_str = "\n".join(lines) + "\n"
+        if output:
+            output.write(result_str)
+        return result_str
+
+    def generate_speaker_politician_links_seed(
+        self, output: TextIO | None = None
+    ) -> str:
+        """speaker-politician紐付けのSEEDファイルを生成する（名前ベース）"""
+        with self.engine.connect() as conn:
+            # 政治家紐付け: 手動検証済み → 高信頼度 → id順で優先
+            result = conn.execute(
+                text("""
+                    SELECT DISTINCT ON (s.name) s.name, p.name AS politician_name,
+                           s.matching_confidence, s.matching_reason,
+                           s.is_manually_verified
+                    FROM speakers s
+                    JOIN politicians p ON s.politician_id = p.id
+                    WHERE s.politician_id IS NOT NULL
+                    ORDER BY s.name,
+                             s.is_manually_verified DESC,
+                             s.matching_confidence DESC NULLS LAST,
+                             s.id
+                """)
+            )
+            columns = result.keys()
+            links = [dict(zip(columns, row, strict=False)) for row in result]
+
+            # 非政治家分類
+            result2 = conn.execute(
+                text("""
+                    SELECT DISTINCT ON (name) name, skip_reason
+                    FROM speakers
+                    WHERE is_politician = false
+                      AND skip_reason IS NOT NULL
+                      AND skip_reason != ''
+                      AND politician_id IS NULL
+                    ORDER BY name, id
+                """)
+            )
+            columns2 = result2.keys()
+            non_politicians = [
+                dict(zip(columns2, row, strict=False)) for row in result2
+            ]
+
+        if not links and not non_politicians:
+            return ""
+
+        lines = [
+            "-- Speaker-Politician 紐付けシードデータ（名前ベース）",
+            (f"-- Generated from database on {datetime.now().strftime('%Y-%m-%d')}"),
+            "-- Speaker.politician_id の設定（bulk-match-speakers + 手動紐付けの結果）",
+            "-- 前提: speakers テーブルと politicians テーブルがロード済みであること",
+            "-- 注意: speaker/politician ともに名前ベースで参照（ID非依存）",
+        ]
+
+        if links:
+            lines.append("")
+            lines.append(
+                f"-- === Speaker-Politician 紐付け ({len(links)} unique names) ==="
+            )
+            for link in links:
+                speaker_name = self._escape_sql(link["name"])
+                politician_name = self._escape_sql(link["politician_name"])
+                confidence = link["matching_confidence"]
+                reason = self._escape_sql(link["matching_reason"])
+                is_verified = link["is_manually_verified"]
+
+                confidence_val = (
+                    f"{float(confidence):.2f}" if confidence is not None else "1.00"
+                )
+
+                lines.append(
+                    f"UPDATE speakers SET\n"
+                    f"    politician_id = (SELECT id FROM politicians "
+                    f"WHERE name = '{politician_name}' LIMIT 1),\n"
+                    f"    is_politician = true,\n"
+                    f"    matching_confidence = {confidence_val},\n"
+                    f"    matching_reason = '{reason}',\n"
+                    f"    is_manually_verified = "
+                    f"{'true' if is_verified else 'false'}\n"
+                    f"WHERE name = '{speaker_name}';"
+                )
+
+        if non_politicians:
+            lines.append("")
+            lines.append("")
+            lines.append(
+                f"-- === 非政治家分類 ({len(non_politicians)} unique names) ==="
+            )
+            lines.append("")
+            for np in non_politicians:
+                name = self._escape_sql(np["name"])
+                skip_reason = self._escape_sql(np["skip_reason"])
+                lines.append(
+                    f"UPDATE speakers SET\n"
+                    f"    is_politician = false,\n"
+                    f"    skip_reason = '{skip_reason}'\n"
+                    f"WHERE name = '{name}';"
+                )
+
+        result_str = "\n".join(lines) + "\n"
+        if output:
+            output.write(result_str)
+        return result_str
+
+    def get_table_count(self, table_name: str) -> int:
+        """テーブルの行数を取得する（空テーブル安全対策用）"""
+        allowed_tables = {
+            "governing_bodies",
+            "elections",
+            "conferences",
+            "political_parties",
+            "parliamentary_groups",
+            "meetings",
+            "politicians",
+            "election_members",
+            "parliamentary_group_memberships",
+            "proposals",
+            "speakers",
+        }
+        if table_name not in allowed_tables:
+            raise ValueError(f"不正なテーブル名: {table_name}")
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                text(f"SELECT COUNT(*) FROM {table_name}")  # noqa: S608
+            )
+            row = result.fetchone()
+            return int(row[0]) if row else 0
+
+    def get_speaker_politician_link_count(self) -> int:
+        """speaker-politician紐付けの対象行数を取得する"""
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT COUNT(*) FROM speakers WHERE politician_id IS NOT NULL")
+            )
+            row = result.fetchone()
+            count = int(row[0]) if row else 0
+            # 非政治家分類もカウント
+            result2 = conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM speakers "
+                    "WHERE is_politician = false "
+                    "AND skip_reason IS NOT NULL "
+                    "AND skip_reason != '' "
+                    "AND politician_id IS NULL"
+                )
+            )
+            row2 = result2.fetchone()
+            count2 = int(row2[0]) if row2 else 0
+            return count + count2
+
     @staticmethod
     def _escape_sql(value: str | None) -> str:
         """SQL文字列のシングルクォートをエスケープする"""
@@ -1119,7 +1310,11 @@ class SeedGenerator:
 
 
 def generate_all_seeds(output_dir: str = "database") -> None:
-    """すべてのSEEDファイルを生成する"""
+    """すべてのSEEDファイルを生成する
+
+    空テーブル安全対策: テーブルが0件の場合は既存seedファイルを上書きせずスキップ。
+    本番DBからの再生成時にのみ使用される前提。
+    """
     import os
 
     generator = SeedGenerator()
@@ -1127,67 +1322,87 @@ def generate_all_seeds(output_dir: str = "database") -> None:
     # ディレクトリが/で終わっている場合は削除
     output_dir = output_dir.rstrip("/")
 
-    # governing_bodies
-    path = os.path.join(output_dir, "seed_governing_bodies_generated.sql")
-    with open(path, "w") as f:
-        generator.generate_governing_bodies_seed(f)
-        print(f"Generated: {path}")
+    # テーブル名・生成メソッド・出力ファイルの対応（依存順序で定義）
+    seed_configs: list[tuple[str, str, str]] = [
+        (
+            "governing_bodies",
+            "generate_governing_bodies_seed",
+            "seed_governing_bodies_generated.sql",
+        ),
+        ("elections", "generate_elections_seed", "seed_elections_generated.sql"),
+        ("conferences", "generate_conferences_seed", "seed_conferences_generated.sql"),
+        (
+            "political_parties",
+            "generate_political_parties_seed",
+            "seed_political_parties_generated.sql",
+        ),
+        (
+            "parliamentary_groups",
+            "generate_parliamentary_groups_seed",
+            "seed_parliamentary_groups_generated.sql",
+        ),
+        ("meetings", "generate_meetings_seed", "seed_meetings_generated.sql"),
+        ("politicians", "generate_politicians_seed", "seed_politicians_generated.sql"),
+        (
+            "election_members",
+            "generate_election_members_seed",
+            "seed_election_members_generated.sql",
+        ),
+        (
+            "parliamentary_group_memberships",
+            "generate_parliamentary_group_memberships_seed",
+            "seed_parliamentary_group_memberships_generated.sql",
+        ),
+        ("speakers", "generate_speakers_seed", "seed_speakers_generated.sql"),
+        # speaker_politician_links は特別扱い（条件付きCOUNT）
+        ("proposals", "generate_proposals_seed", "seed_proposals_generated.sql"),
+    ]
 
-    # elections
-    path = os.path.join(output_dir, "seed_elections_generated.sql")
-    with open(path, "w") as f:
-        generator.generate_elections_seed(f)
-        print(f"Generated: {path}")
+    skipped = 0
+    generated = 0
 
-    # conferences
-    path = os.path.join(output_dir, "seed_conferences_generated.sql")
-    with open(path, "w") as f:
-        generator.generate_conferences_seed(f)
-        print(f"Generated: {path}")
+    for table_name, method_name, filename in seed_configs:
+        path = os.path.join(output_dir, filename)
+        count = generator.get_table_count(table_name)
+        if count == 0:
+            print(
+                f"⚠️ {table_name} が0件のため "
+                f"{filename} の生成をスキップしました（既存ファイルを保護）"
+            )
+            skipped += 1
+            continue
 
-    # political_parties
-    path = os.path.join(output_dir, "seed_political_parties_generated.sql")
-    with open(path, "w") as f:
-        generator.generate_political_parties_seed(f)
-        print(f"Generated: {path}")
+        print(f"  {table_name}: {count}件 → 生成開始")
+        method = getattr(generator, method_name)
+        with open(path, "w") as f:
+            method(f)
+        print(f"  Generated: {path}")
+        generated += 1
 
-    # parliamentary_groups
-    path = os.path.join(output_dir, "seed_parliamentary_groups_generated.sql")
-    with open(path, "w") as f:
-        generator.generate_parliamentary_groups_seed(f)
-        print(f"Generated: {path}")
+    # speaker_politician_links は条件付きCOUNTで判定
+    sp_filename = "seed_speaker_politician_links_generated.sql"
+    sp_path = os.path.join(output_dir, sp_filename)
+    sp_count = generator.get_speaker_politician_link_count()
+    if sp_count == 0:
+        print(
+            f"⚠️ speaker_politician_links が0件のため "
+            f"{sp_filename} の生成をスキップしました（既存ファイルを保護）"
+        )
+        skipped += 1
+    else:
+        print(f"  speaker_politician_links: {sp_count}件 → 生成開始")
+        with open(sp_path, "w") as f:
+            generator.generate_speaker_politician_links_seed(f)
+        print(f"  Generated: {sp_path}")
+        generated += 1
 
-    # meetings
-    path = os.path.join(output_dir, "seed_meetings_generated.sql")
-    with open(path, "w") as f:
-        generator.generate_meetings_seed(f)
-        print(f"Generated: {path}")
-
-    # politicians
-    path = os.path.join(output_dir, "seed_politicians_generated.sql")
-    with open(path, "w") as f:
-        generator.generate_politicians_seed(f)
-        print(f"Generated: {path}")
-
-    # election_members
-    path = os.path.join(output_dir, "seed_election_members_generated.sql")
-    with open(path, "w") as f:
-        generator.generate_election_members_seed(f)
-        print(f"Generated: {path}")
-
-    # parliamentary_group_memberships
-    path = os.path.join(
-        output_dir, "seed_parliamentary_group_memberships_generated.sql"
-    )
-    with open(path, "w") as f:
-        generator.generate_parliamentary_group_memberships_seed(f)
-        print(f"Generated: {path}")
-
-    # proposals
-    path = os.path.join(output_dir, "seed_proposals_generated.sql")
-    with open(path, "w") as f:
-        generator.generate_proposals_seed(f)
-        print(f"Generated: {path}")
+    # サマリ表示
+    print(f"\n生成完了: {generated}件生成, {skipped}件スキップ")
+    if skipped > 0 and generated == 0:
+        print(
+            "⚠️ 全テーブルが空のため、すべてのseed生成がスキップされました。"
+            "DB接続先を確認してください。"
+        )
 
 
 if __name__ == "__main__":
