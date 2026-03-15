@@ -30,6 +30,13 @@ GCS_DUMPS_PREFIX = "database-dumps/"
 # 現在のメタデータフォーマットバージョン
 DUMP_FORMAT_VERSION = 1
 
+# ストリーミングダンプのバッチサイズ（サーバーサイドカーソルのyield_per）
+_DUMP_BATCH_SIZE = 10_000
+# リストアのバッチINSERTサイズ
+_RESTORE_BATCH_SIZE = 1_000
+# ストリーミングパースに切り替えるファイルサイズ閾値
+_STREAMING_THRESHOLD = 10 * 1024 * 1024  # 10MB
+
 # FK制約を考慮した投入順序（固定リスト）
 TABLE_INSERT_ORDER = [
     # 1. 独立テーブル（FK依存なし）
@@ -220,7 +227,7 @@ class DumpCommand(Command, BaseCommand):
         engine: Any,
         table_name: str,
         output_path: Path,
-        batch_size: int = 10000,
+        batch_size: int = _DUMP_BATCH_SIZE,
     ) -> int:
         """テーブルをサーバーサイドカーソル+ストリーミングでgzip圧縮JSONに書き出す."""
         count = 0
@@ -470,7 +477,7 @@ class RestoreDumpCommand(Command, BaseCommand):
         inspector: Any,
         table_name: str,
         json_path: Path,
-        batch_size: int = 1000,
+        batch_size: int = _RESTORE_BATCH_SIZE,
     ) -> int:
         """JSONファイルをストリーミングでパースしてバッチINSERTする.
 
@@ -547,7 +554,7 @@ class RestoreDumpCommand(Command, BaseCommand):
         file_size = json_path.stat().st_size
         is_gzip = json_path.name.endswith(".gz")
         # 10MB以下（gzipの場合はファイルサイズが圧縮後なので常にストリーミング）
-        if not is_gzip and file_size < 10 * 1024 * 1024:
+        if not is_gzip and file_size < _STREAMING_THRESHOLD:
             with open(json_path, encoding="utf-8") as f:
                 data = json.load(f)
             yield from data
@@ -775,21 +782,26 @@ class ListDumpsCommand(Command, BaseCommand):
                 )
                 if content:
                     metadata = json.loads(content)
-                    table_count = metadata.get("table_count", "?")
-                    total_records = metadata.get("total_records", "?")
-                    revision = metadata.get("alembic_revision", "不明")
-                    desc = metadata.get("description", "")
-                    desc_str = f"  [{desc}]" if desc else ""
-                    self.show_progress(
-                        f"  {dir_name}  "
-                        f"テーブル: {table_count}, "
-                        f"レコード: {total_records}, "
-                        f"rev: {revision}{desc_str}"
-                    )
+                    self.show_progress(self._format_dump_info(dir_name, metadata))
                 else:
                     self.show_progress(f"  {dir_name}  (メタデータ読み込み失敗)")
             except Exception:
                 self.show_progress(f"  {dir_name}  (メタデータ読み込み失敗)")
+
+    @staticmethod
+    def _format_dump_info(name: str, metadata: dict[str, Any]) -> str:
+        """ダンプのメタデータを1行の表示文字列にフォーマットする."""
+        table_count = metadata.get("table_count", "?")
+        total_records = metadata.get("total_records", "?")
+        revision = metadata.get("alembic_revision", "不明")
+        desc = metadata.get("description", "")
+        desc_str = f"  [{desc}]" if desc else ""
+        return (
+            f"  {name}  "
+            f"テーブル: {table_count}, "
+            f"レコード: {total_records}, "
+            f"rev: {revision}{desc_str}"
+        )
 
     def _display_dump_list(self, dump_dirs: list[Path]) -> None:
         """ダンプディレクトリ一覧を整形表示."""
@@ -799,16 +811,6 @@ class ListDumpsCommand(Command, BaseCommand):
             if metadata_path.exists():
                 with open(metadata_path, encoding="utf-8") as f:
                     metadata = json.load(f)
-                table_count = metadata.get("table_count", "?")
-                total_records = metadata.get("total_records", "?")
-                revision = metadata.get("alembic_revision", "不明")
-                desc = metadata.get("description", "")
-                desc_str = f"  [{desc}]" if desc else ""
-                self.show_progress(
-                    f"  {dump_dir.name}  "
-                    f"テーブル: {table_count}, "
-                    f"レコード: {total_records}, "
-                    f"rev: {revision}{desc_str}"
-                )
+                self.show_progress(self._format_dump_info(dump_dir.name, metadata))
             else:
                 self.show_progress(f"  {dump_dir.name}  (メタデータなし)")
