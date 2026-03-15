@@ -304,15 +304,15 @@ class TestRestoreDumpCommand:
             command = RestoreDumpCommand()
             command.execute(dump_dir=str(dump_dir))
 
-        # INSERT(2レコード) + シーケンスリセット(2クエリ) = 少なくとも4回
-        assert mock_conn.execute.call_count >= 2
+        # INSERT（一括 executemany）+ シーケンスリセット
+        assert mock_conn.execute.call_count >= 1
         # INSERT呼び出しを確認（TextClauseの.textプロパティで検証）
         insert_calls = [
             c
             for c in mock_conn.execute.call_args_list
             if hasattr(c[0][0], "text") and "INSERT" in c[0][0].text
         ]
-        assert len(insert_calls) == 2
+        assert len(insert_calls) >= 1
 
     @patch("src.infrastructure.config.database.get_db_engine")
     def test_restore_skips_missing_columns(

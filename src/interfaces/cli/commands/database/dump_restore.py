@@ -427,50 +427,6 @@ class RestoreDumpCommand(Command, BaseCommand):
                     conn.execute(text(f'TRUNCATE TABLE "{table_name}" CASCADE'))
                     self.show_progress(f"  TRUNCATE: {table_name}")
 
-    def _insert_records(
-        self,
-        engine: Any,
-        inspector: Any,
-        table_name: str,
-        records: list[dict[str, Any]],
-    ) -> int:
-        """レコードをINSERTしてシーケンスをリセット."""
-        current_columns = {col["name"] for col in inspector.get_columns(table_name)}
-        dump_columns = set(records[0].keys())
-        valid_columns = dump_columns & current_columns
-        skipped_columns = dump_columns - current_columns
-
-        if skipped_columns:
-            cols = ", ".join(sorted(skipped_columns))
-            self.warning(f"  {table_name}: 存在しないカラムをスキップ: {cols}")
-
-        if not valid_columns:
-            self.warning(f"  {table_name}: 有効なカラムがありません（スキップ）")
-            return 0
-
-        sorted_columns = sorted(valid_columns)
-        columns_str = ", ".join(f'"{c}"' for c in sorted_columns)
-        placeholders = ", ".join(f":{c}" for c in sorted_columns)
-        insert_sql = (
-            f'INSERT INTO "{table_name}" ({columns_str}) VALUES ({placeholders})'
-        )
-
-        inserted = 0
-        with engine.begin() as conn:
-            for record in records:
-                params = {c: self._adapt_value(record.get(c)) for c in sorted_columns}
-                try:
-                    conn.execute(text(insert_sql), params)
-                    inserted += 1
-                except Exception as e:
-                    self.warning(f"  {table_name}: レコード挿入エラー: {e}")
-                    logger.warning(f"INSERT失敗 ({table_name}): {e}")
-
-        if "id" in valid_columns:
-            self._reset_sequence(engine, table_name)
-
-        return inserted
-
     def _restore_table_streaming(
         self,
         engine: Any,
@@ -583,9 +539,18 @@ class RestoreDumpCommand(Command, BaseCommand):
     ) -> int:
         """バッチをまとめてINSERTする.
 
-        SAVEPOINTを使い、1件のエラーが同一バッチ内の
-        他のレコードに影響しないようにする。
+        まずバッチ全体を一括INSERTし、失敗した場合のみ
+        SAVEPOINTを使ったper-recordフォールバックに切り替える。
         """
+        # 一括INSERT（高速パス）
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(insert_sql), batch)
+            return len(batch)
+        except Exception:
+            pass
+
+        # フォールバック: per-record INSERT with SAVEPOINT
         inserted = 0
         with engine.begin() as conn:
             for params in batch:
