@@ -586,3 +586,19 @@ class TestProposalSubmitterRepositoryImpl:
         result = await repository.count()
 
         assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_count_database_error(
+        self,
+        repository: ProposalSubmitterRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test count raises DatabaseError on database failure."""
+        from sqlalchemy.exc import SQLAlchemyError
+
+        from src.infrastructure.exceptions import DatabaseError
+
+        mock_session.execute.side_effect = SQLAlchemyError("connection lost")
+
+        with pytest.raises(DatabaseError):
+            await repository.count()
