@@ -45,6 +45,29 @@ from src.infrastructure.exceptions import (
 
 logger = logging.getLogger(__name__)
 
+# Resumable upload閾値（これ以上のファイルでchunked uploadを使用）
+_RESUMABLE_THRESHOLD = 8 * 1024 * 1024  # 8MB
+# Resumable upload/downloadのチャンクサイズ（256KBの倍数）
+_CHUNK_SIZE = 100 * 1024 * 1024  # 100MB
+# デフォルトタイムアウト（大容量ファイル用）
+_DEFAULT_TIMEOUT = 3600  # 1時間
+
+
+def _parse_gcs_uri(gcs_uri: str) -> tuple[str, str] | None:
+    """GCS URIをバケット名とパスに分解する.
+
+    Returns:
+        (bucket_name, blob_path) のタプル。無効なURIの場合はNone
+    """
+    if not gcs_uri.startswith("gs://"):
+        logger.error(f"Invalid GCS URI format: {gcs_uri}")
+        return None
+    uri_parts = gcs_uri[5:].split("/", 1)
+    if len(uri_parts) != 2:
+        logger.error(f"Invalid GCS URI format: {gcs_uri}")
+        return None
+    return uri_parts[0], uri_parts[1]
+
 
 class GCSStorage:
     """Handle Google Cloud Storage operations for scraped minutes."""
@@ -113,7 +136,11 @@ class GCSStorage:
             ) from e
 
     def upload_file(
-        self, local_path: str | Path, gcs_path: str, content_type: str | None = None
+        self,
+        local_path: str | Path,
+        gcs_path: str,
+        content_type: str | None = None,
+        timeout: int = _DEFAULT_TIMEOUT,
     ) -> str:
         """Upload a file to GCS.
 
@@ -121,6 +148,7 @@ class GCSStorage:
             local_path: Local file path to upload
             gcs_path: Destination path in GCS (without bucket name)
             content_type: MIME type of the file (auto-detected if not provided)
+            timeout: アップロードタイムアウト（秒）。大きなファイル用にデフォルト1時間
 
         Returns:
             Public URL of the uploaded file
@@ -133,12 +161,24 @@ class GCSStorage:
         try:
             blob: Any = self.bucket.blob(gcs_path)
 
+            # 大きなファイルはresumable uploadを使用
+            file_size = local_path.stat().st_size
+            if file_size > _RESUMABLE_THRESHOLD:
+                blob.chunk_size = _CHUNK_SIZE
+                logger.info(
+                    f"Resumable upload: {local_path.name} "
+                    f"({file_size / 1024 / 1024:.1f}MB, "
+                    f"chunk={blob.chunk_size // 1024 // 1024}MB)"
+                )
+
             # Auto-detect content type if not provided
             if not content_type:
                 content_type = self._get_content_type(local_path.suffix)
 
             blob.upload_from_filename(
-                str(local_path), content_type=content_type or "application/octet-stream"
+                str(local_path),
+                content_type=content_type or "application/octet-stream",
+                timeout=timeout,
             )
             logger.info(f"Uploaded {local_path} to gs://{self.bucket_name}/{gcs_path}")
 
@@ -199,12 +239,15 @@ class GCSStorage:
                 {"gcs_path": gcs_path, "content_size": len(content), "error": str(e)},
             ) from e
 
-    def download_file(self, gcs_path: str, local_path: str | Path) -> None:
+    def download_file(
+        self, gcs_path: str, local_path: str | Path, timeout: int = _DEFAULT_TIMEOUT
+    ) -> None:
         """Download a file from GCS.
 
         Args:
             gcs_path: Source path in GCS (without bucket name)
             local_path: Local destination path
+            timeout: ダウンロードタイムアウト（秒）。大きなファイル用にデフォルト1時間
         """
         local_path = Path(local_path)
         local_path.parent.mkdir(parents=True, exist_ok=True)
@@ -216,7 +259,8 @@ class GCSStorage:
             if not exists:
                 raise PolibaseFileNotFoundError(f"gs://{self.bucket_name}/{gcs_path}")
 
-            blob.download_to_filename(str(local_path))
+            blob.chunk_size = _CHUNK_SIZE
+            blob.download_to_filename(str(local_path), timeout=timeout)
             logger.info(
                 f"Downloaded gs://{self.bucket_name}/{gcs_path} to {local_path}"
             )
@@ -308,6 +352,26 @@ class GCSStorage:
         }
         return content_types.get(suffix.lower())
 
+    def _get_blob_from_uri(self, gcs_uri: str) -> Any | None:
+        """GCS URIからblobオブジェクトを取得する.
+
+        Returns:
+            blobオブジェクト。URI無効またはオブジェクト未存在の場合はNone
+        """
+        parsed = _parse_gcs_uri(gcs_uri)
+        if not parsed:
+            return None
+
+        bucket_name, blob_path = parsed
+        bucket: Any = self.client.bucket(bucket_name)
+        blob: Any = bucket.blob(blob_path)
+
+        exists: bool = blob.exists()
+        if not exists:
+            logger.error(f"GCS object not found: {gcs_uri}")
+            return None
+        return blob
+
     def download_content(self, gcs_uri: str) -> str | None:
         """Download content from GCS URI
 
@@ -318,30 +382,10 @@ class GCSStorage:
             File content as string or None if failed
         """
         try:
-            # Parse GCS URI
-            if not gcs_uri.startswith("gs://"):
-                logger.error(f"Invalid GCS URI format: {gcs_uri}")
+            blob = self._get_blob_from_uri(gcs_uri)
+            if not blob:
                 return None
 
-            # Extract bucket and path
-            uri_parts = gcs_uri[5:].split("/", 1)
-            if len(uri_parts) != 2:
-                logger.error(f"Invalid GCS URI format: {gcs_uri}")
-                return None
-
-            bucket_name, blob_path = uri_parts
-
-            # Get bucket and blob
-            bucket: Any = self.client.bucket(bucket_name)
-            blob: Any = bucket.blob(blob_path)
-
-            # Check if blob exists
-            exists: bool = blob.exists()
-            if not exists:
-                logger.error(f"GCS object not found: {gcs_uri}")
-                return None
-
-            # Download content
             content = blob.download_as_text(encoding="utf-8")
             logger.info(f"Downloaded content from GCS: {gcs_uri}")
             return content
@@ -367,35 +411,15 @@ class GCSStorage:
             True if successful, False otherwise
         """
         try:
-            # Parse GCS URI
-            if not gcs_uri.startswith("gs://"):
-                logger.error(f"Invalid GCS URI format: {gcs_uri}")
+            blob = self._get_blob_from_uri(gcs_uri)
+            if not blob:
                 return False
 
-            # Extract bucket and path
-            uri_parts = gcs_uri[5:].split("/", 1)
-            if len(uri_parts) != 2:
-                logger.error(f"Invalid GCS URI format: {gcs_uri}")
-                return False
-
-            bucket_name, blob_path = uri_parts
-
-            # Get bucket and blob
-            bucket: Any = self.client.bucket(bucket_name)
-            blob: Any = bucket.blob(blob_path)
-
-            # Check if blob exists
-            exists: bool = blob.exists()
-            if not exists:
-                logger.error(f"GCS object not found: {gcs_uri}")
-                return False
-
-            # Ensure parent directory exists
             local_path = Path(local_path)
             local_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Download file
-            blob.download_to_filename(str(local_path))
+            blob.chunk_size = _CHUNK_SIZE
+            blob.download_to_filename(str(local_path), timeout=_DEFAULT_TIMEOUT)
             logger.info(f"Downloaded file from GCS: {gcs_uri} to {local_path}")
             return True
 

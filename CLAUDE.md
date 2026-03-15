@@ -132,6 +132,7 @@ src/
   - [ADR 0005](docs/ADR/0005-extraction-layer-gold-layer-separation.md): Bronze Layer / Gold Layer分離
   - [ADR 0007](docs/ADR/0007-repository-model-pattern-standardization.md): リポジトリモデルパターン標準化
   - [ADR 0010](docs/ADR/0010-application-layer-transaction-management.md): トランザクション管理（flush/commit分離）
+  - [ADR 0017](docs/ADR/0017-seed-dump-strategy.md): SEED廃止・DUMP一本化戦略
   - [ADR 0012](docs/ADR/0012-error-handling-three-layer-exception-hierarchy.md): エラーハンドリング3層例外体系
 
 ### Operations & Guides
@@ -157,7 +158,10 @@ src/
 - **CI/CD**: Create Issues for any skipped tests with `continue-on-error: true`
 
 ### Database
-- **Master Data**: Governing bodies and conferences are fixed master data
+- **データ管理**: SEED廃止、JSON DUMP一本化（[ADR 0010](docs/ADR/0017-seed-dump-strategy.md)）
+  - `just dump-gcs`: 現在のDBをGCSにダンプ
+  - `just restore-latest`: GCSから最新データをリストア
+  - `just list-dumps`: ダンプ一覧を表示
 - **Coverage**: All 1,966 Japanese municipalities tracked with organization codes
 - **Migrations**: Alembic統一方式（`alembic/versions/`配下のPythonファイル）。詳細は[ADR 0006](docs/ADR/0006-alembic-migration-unification.md)参照
 - **新規マイグレーション**: `just migrate-new "description"` でマイグレーションファイルを作成

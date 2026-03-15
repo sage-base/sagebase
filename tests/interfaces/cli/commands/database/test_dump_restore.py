@@ -81,7 +81,10 @@ def _make_connect_side_effect(
     mock_result: MagicMock,
     mock_alembic_result: MagicMock,
 ) -> Any:
-    """テスト用のengine.connect()のside_effectを作成."""
+    """テスト用のengine.connect()のside_effectを作成.
+
+    ストリーミングダンプ用にexecution_optionsチェーンもサポート。
+    """
 
     def connect_side_effect() -> MagicMock:
         mock_conn = MagicMock()
@@ -94,6 +97,8 @@ def _make_connect_side_effect(
             return mock_result
 
         mock_conn.execute = MagicMock(side_effect=execute_side_effect)
+        # execution_options()チェーン対応（ストリーミングダンプ用）
+        mock_conn.execution_options = MagicMock(return_value=mock_conn)
         return mock_conn
 
     return connect_side_effect
@@ -118,7 +123,7 @@ class TestDumpCommand:
         ):
             mock_result = MagicMock()
             mock_result.keys.return_value = ["id", "name"]
-            mock_result.fetchall.return_value = [(1, "テスト")]
+            mock_result.__iter__ = MagicMock(return_value=iter([(1, "テスト")]))
 
             mock_alembic_result = MagicMock()
             mock_alembic_result.fetchone.return_value = ("abc123",)
@@ -139,10 +144,13 @@ class TestDumpCommand:
 
         dump_dir = dump_dirs[0]
 
-        json_file = dump_dir / "test_table.json"
+        json_file = dump_dir / "test_table.json.gz"
         assert json_file.exists()
 
-        data = json.loads(json_file.read_text(encoding="utf-8"))
+        import gzip
+
+        with gzip.open(json_file, "rt", encoding="utf-8") as f:
+            data = json.load(f)
         assert len(data) == 1
         assert data[0]["id"] == 1
         assert data[0]["name"] == "テスト"
@@ -175,7 +183,7 @@ class TestDumpCommand:
         ):
             mock_result = MagicMock()
             mock_result.keys.return_value = ["id"]
-            mock_result.fetchall.return_value = [(1,)]
+            mock_result.__iter__ = MagicMock(return_value=iter([(1,)]))
 
             mock_alembic_result = MagicMock()
             mock_alembic_result.fetchone.return_value = None
@@ -194,8 +202,8 @@ class TestDumpCommand:
         dump_dirs = [d for d in tmp_path.iterdir() if d.is_dir()]
         dump_dir = dump_dirs[0]
 
-        assert (dump_dir / "table_a.json").exists()
-        assert not (dump_dir / "table_b.json").exists()
+        assert (dump_dir / "table_a.json.gz").exists()
+        assert not (dump_dir / "table_b.json.gz").exists()
 
     @patch("src.infrastructure.config.database.get_db_engine")
     def test_dump_empty_table(self, mock_get_engine: MagicMock, tmp_path: Path) -> None:
@@ -214,7 +222,7 @@ class TestDumpCommand:
         ):
             mock_result = MagicMock()
             mock_result.keys.return_value = ["id"]
-            mock_result.fetchall.return_value = []
+            mock_result.__iter__ = MagicMock(return_value=iter([]))
 
             mock_alembic_result = MagicMock()
             mock_alembic_result.fetchone.return_value = None
@@ -233,9 +241,13 @@ class TestDumpCommand:
         dump_dirs = [d for d in tmp_path.iterdir() if d.is_dir()]
         dump_dir = dump_dirs[0]
 
-        json_file = dump_dir / "empty_table.json"
+        json_file = dump_dir / "empty_table.json.gz"
         assert json_file.exists()
-        data = json.loads(json_file.read_text(encoding="utf-8"))
+
+        import gzip
+
+        with gzip.open(json_file, "rt", encoding="utf-8") as f:
+            data = json.load(f)
         assert data == []
 
 
@@ -292,15 +304,15 @@ class TestRestoreDumpCommand:
             command = RestoreDumpCommand()
             command.execute(dump_dir=str(dump_dir))
 
-        # INSERT(2レコード) + シーケンスリセット(2クエリ) = 少なくとも4回
-        assert mock_conn.execute.call_count >= 2
+        # INSERT（一括 executemany）+ シーケンスリセット
+        assert mock_conn.execute.call_count >= 1
         # INSERT呼び出しを確認（TextClauseの.textプロパティで検証）
         insert_calls = [
             c
             for c in mock_conn.execute.call_args_list
             if hasattr(c[0][0], "text") and "INSERT" in c[0][0].text
         ]
-        assert len(insert_calls) == 2
+        assert len(insert_calls) >= 1
 
     @patch("src.infrastructure.config.database.get_db_engine")
     def test_restore_skips_missing_columns(
