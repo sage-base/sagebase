@@ -559,3 +559,10 @@ class ExtractedProposalJudgeRepositoryImpl(
             WHERE id = :judge_id
         """)
         await self.session.execute(query, {"judge_id": judge_id})
+
+    async def count(self) -> int:
+        """Count total number of extracted proposal judges."""
+        query = text("SELECT COUNT(*) FROM extracted_proposal_judges")
+        result = await self.session.execute(query)
+        count = result.scalar()
+        return count if count is not None else 0

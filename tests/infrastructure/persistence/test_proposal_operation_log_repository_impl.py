@@ -422,6 +422,37 @@ class TestProposalOperationLogRepositoryImpl:
         assert len(results) == 1
         assert results[0]["count"] == 10
 
+    @pytest.mark.asyncio
+    async def test_count(
+        self,
+        repository: ProposalOperationLogRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test count returns total number of operation logs."""
+        mock_result = MagicMock()
+        mock_result.scalar = MagicMock(return_value=42)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.count()
+
+        assert result == 42
+        mock_session.execute.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_count_returns_zero_when_none(
+        self,
+        repository: ProposalOperationLogRepositoryImpl,
+        mock_session: MagicMock,
+    ) -> None:
+        """Test count returns 0 when scalar returns None."""
+        mock_result = MagicMock()
+        mock_result.scalar = MagicMock(return_value=None)
+        mock_session.execute.return_value = mock_result
+
+        result = await repository.count()
+
+        assert result == 0
+
 
 class TestProposalOperationLogModel:
     """ProposalOperationLogModelのテスト."""

@@ -549,3 +549,16 @@ class ProposalSubmitterRepositoryImpl(
         model.raw_name = entity.raw_name
         model.is_representative = entity.is_representative
         model.display_order = entity.display_order
+
+    async def count(self) -> int:
+        """Count total number of proposal submitters."""
+        try:
+            query = text("SELECT COUNT(*) FROM proposal_submitters")
+            result = await self.session.execute(query)
+            count = result.scalar()
+            return count if count is not None else 0
+        except SQLAlchemyError as e:
+            logger.error(f"Database error counting proposal submitters: {e}")
+            raise DatabaseError(
+                "Failed to count proposal submitters", {"error": str(e)}
+            ) from e

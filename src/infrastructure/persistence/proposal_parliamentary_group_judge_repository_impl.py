@@ -810,3 +810,19 @@ class ProposalParliamentaryGroupJudgeRepositoryImpl(
         model.judgment = entity.judgment
         model.member_count = entity.member_count
         model.note = entity.note
+
+    async def count(self) -> int:
+        """Count total number of proposal parliamentary group judges."""
+        try:
+            query = text("SELECT COUNT(*) FROM proposal_parliamentary_group_judges")
+            result = await self.session.execute(query)
+            count = result.scalar()
+            return count if count is not None else 0
+        except SQLAlchemyError as e:
+            logger.error(
+                f"Database error counting proposal parliamentary group judges: {e}"
+            )
+            raise DatabaseError(
+                "Failed to count proposal parliamentary group judges",
+                {"error": str(e)},
+            ) from e
