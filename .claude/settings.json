@@ -45,7 +45,9 @@
       "Bash(git rm:*)",
       "Bash(git clone:*)",
       "Bash(git check-ignore:*)",
-      "Bash(git reset:*)",
+      "Bash(git reset --soft:*)",
+      "Bash(git reset HEAD:*)",
+      "Bash(git reset --mixed:*)",
       "Bash(gh:*)",
       "Bash(./scripts/gemini_search.sh:*)",
       "Bash(docker compose:*)",
@@ -81,7 +83,24 @@
       "mcp__context7__resolve-library-id",
       "mcp__context7__get-library-docs"
     ],
-    "deny": []
+    "deny": [
+      "Bash(./scripts/deploy_to_cloud_run.sh:*)",
+      "Bash(./scripts/reset-database.sh:*)",
+      "Bash(./scripts/rollback.sh:*)",
+      "Bash(./scripts/migrate_to_cloud_sql.sh:*)",
+      "Bash(./scripts/cloud_sql_proxy_setup.sh:*)",
+      "Bash(./scripts/test_cloud_run_locally.sh:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push origin main:*)",
+      "Bash(git push origin master:*)",
+      "Bash(git push -u origin main:*)",
+      "Bash(git push -u origin master:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(docker compose down -v:*)",
+      "Bash(docker compose down --volumes:*)"
+    ],
+    "defaultMode": "auto"
   },
   "plansDirectory": "./tmp",
   "enableAllProjectMcpServers": true,
