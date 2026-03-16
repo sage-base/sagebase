@@ -28,7 +28,8 @@ def link_officials(dry_run: bool):
 async def _run_link_officials(dry_run: bool) -> None:
     from src.infrastructure.di.container import get_container, init_container
 
-    click.echo(f"=== 政府関係者紐付け {'(ドライラン)' if dry_run else ''} ===")
+    label = "政府関係者紐付け (ドライラン)" if dry_run else "政府関係者紐付け"
+    click.echo(f"=== {label} ===")
     click.echo()
 
     # DIコンテナ取得
