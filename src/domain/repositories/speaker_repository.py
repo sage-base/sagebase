@@ -51,6 +51,7 @@ class SpeakerRepository(BaseRepository[Speaker]):
         name_search: str | None = None,
         skip_reason: str | None = None,
         has_politician_id: bool | None = None,
+        has_government_official_id: bool | None = None,
         order_by: str = "conversation_count",
     ) -> list[SpeakerWithConversationCount]:
         """Get speakers with their conversation count.
@@ -63,6 +64,8 @@ class SpeakerRepository(BaseRepository[Speaker]):
             name_search: 名前検索（部分一致）
             skip_reason: スキップ理由フィルタ
             has_politician_id: マッチ状態フィルタ（True=マッチ済み、False=未マッチ）
+            has_government_official_id: 官僚紐付けフィルタ
+                （True=紐付け済み、False=未紐付け）
             order_by: ソートカラム（"conversation_count" or "name"）
         """
         pass

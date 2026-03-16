@@ -173,6 +173,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         name_search: str | None = None,
         skip_reason: str | None = None,
         has_politician_id: bool | None = None,
+        has_government_official_id: bool | None = None,
         order_by: str = "conversation_count",
     ) -> list[SpeakerWithConversationCount]:
         """Get speakers with their conversation count."""
@@ -205,6 +206,12 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 conditions.append("s.politician_id IS NOT NULL")
             else:
                 conditions.append("s.politician_id IS NULL")
+
+        if has_government_official_id is not None:
+            if has_government_official_id:
+                conditions.append("s.government_official_id IS NOT NULL")
+            else:
+                conditions.append("s.government_official_id IS NULL")
 
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
 
