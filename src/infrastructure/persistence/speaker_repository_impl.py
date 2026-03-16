@@ -174,6 +174,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         skip_reason: str | None = None,
         has_politician_id: bool | None = None,
         has_government_official_id: bool | None = None,
+        min_conversation_count: int | None = None,
         order_by: str = "conversation_count",
     ) -> list[SpeakerWithConversationCount]:
         """Get speakers with their conversation count."""
@@ -215,6 +216,11 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
 
+        having_clause = ""
+        if min_conversation_count is not None:
+            having_clause = "HAVING COUNT(c.id) >= :min_conversation_count"
+            params["min_conversation_count"] = min_conversation_count
+
         pagination_clause = ""
         if limit is not None:
             pagination_clause += " LIMIT :limit"
@@ -246,6 +252,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
             LEFT JOIN conversations c ON s.id = c.speaker_id
             {where_clause}
             GROUP BY s.id
+            {having_clause}
             {order_clause}
             {pagination_clause}
         """)
@@ -267,7 +274,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
                 politician_id=row.politician_id,
                 matching_confidence=row.matching_confidence,
                 is_manually_verified=row.is_manually_verified,
-                government_official_id=getattr(row, "government_official_id", None),
+                government_official_id=row.government_official_id,
             )
             for row in rows
         ]

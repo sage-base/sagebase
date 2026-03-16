@@ -46,15 +46,9 @@ async def _run_export(
     speakers = await speaker_repo.get_speakers_with_conversation_count(
         has_politician_id=False,
         has_government_official_id=False,
+        min_conversation_count=min_conversations,
+        limit=limit,
     )
-
-    # 最低発言数フィルタ
-    if min_conversations is not None:
-        speakers = [s for s in speakers if s.conversation_count >= min_conversations]
-
-    # 件数制限
-    if limit is not None:
-        speakers = speakers[:limit]
 
     if not speakers:
         click.echo("対象の未分類Speakerはいません。")

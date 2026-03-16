@@ -59,6 +59,8 @@ class TestExportUnclassifiedSpeakers:
         mock_repo.get_speakers_with_conversation_count.assert_called_once_with(
             has_politician_id=False,
             has_government_official_id=False,
+            min_conversation_count=None,
+            limit=None,
         )
 
     @patch(f"{_DI_PATH}.get_container")
@@ -83,7 +85,7 @@ class TestExportUnclassifiedSpeakers:
         assert lines[2] == "2,鈴木花子,30"
 
     @patch(f"{_DI_PATH}.get_container")
-    def test_limit_option(self, mock_get_container: MagicMock) -> None:
+    def test_limit_passed_to_repository(self, mock_get_container: MagicMock) -> None:
         mock_container = MagicMock()
         mock_get_container.return_value = mock_container
         mock_repo = _setup_repo_mock(mock_container)
@@ -91,7 +93,6 @@ class TestExportUnclassifiedSpeakers:
             return_value=[
                 _make_speaker(1, "発言者A", 100),
                 _make_speaker(2, "発言者B", 50),
-                _make_speaker(3, "発言者C", 10),
             ]
         )
 
@@ -99,22 +100,22 @@ class TestExportUnclassifiedSpeakers:
         result = runner.invoke(export_unclassified_speakers, ["--limit", "2"])
 
         assert result.exit_code == 0
-        assert "発言者A" in result.output
-        assert "発言者B" in result.output
-        assert "発言者C" not in result.output
-        assert "合計: 2件" in result.output
+        mock_repo.get_speakers_with_conversation_count.assert_called_once_with(
+            has_politician_id=False,
+            has_government_official_id=False,
+            min_conversation_count=None,
+            limit=2,
+        )
 
     @patch(f"{_DI_PATH}.get_container")
-    def test_min_conversations_filter(self, mock_get_container: MagicMock) -> None:
+    def test_min_conversations_passed_to_repository(
+        self, mock_get_container: MagicMock
+    ) -> None:
         mock_container = MagicMock()
         mock_get_container.return_value = mock_container
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speakers_with_conversation_count = AsyncMock(
-            return_value=[
-                _make_speaker(1, "発言者A", 100),
-                _make_speaker(2, "発言者B", 5),
-                _make_speaker(3, "発言者C", 1),
-            ]
+            return_value=[_make_speaker(1, "発言者A", 100)]
         )
 
         runner = CliRunner()
@@ -123,10 +124,44 @@ class TestExportUnclassifiedSpeakers:
         )
 
         assert result.exit_code == 0
+        mock_repo.get_speakers_with_conversation_count.assert_called_once_with(
+            has_politician_id=False,
+            has_government_official_id=False,
+            min_conversation_count=10,
+            limit=None,
+        )
+
+    @patch(f"{_DI_PATH}.get_container")
+    def test_limit_and_min_conversations_combined(
+        self, mock_get_container: MagicMock
+    ) -> None:
+        """--limit と --min-conversations を同時に指定した場合、
+        両方がリポジトリに渡されることを検証する."""
+        mock_container = MagicMock()
+        mock_get_container.return_value = mock_container
+        mock_repo = _setup_repo_mock(mock_container)
+        mock_repo.get_speakers_with_conversation_count = AsyncMock(
+            return_value=[
+                _make_speaker(1, "発言者A", 100),
+                _make_speaker(2, "発言者B", 50),
+            ]
+        )
+
+        runner = CliRunner()
+        result = runner.invoke(
+            export_unclassified_speakers,
+            ["--min-conversations", "10", "--limit", "5"],
+        )
+
+        assert result.exit_code == 0
+        mock_repo.get_speakers_with_conversation_count.assert_called_once_with(
+            has_politician_id=False,
+            has_government_official_id=False,
+            min_conversation_count=10,
+            limit=5,
+        )
         assert "発言者A" in result.output
-        assert "発言者B" not in result.output
-        assert "発言者C" not in result.output
-        assert "合計: 1件" in result.output
+        assert "発言者B" in result.output
 
     @patch(f"{_DI_PATH}.get_container")
     def test_no_data(self, mock_get_container: MagicMock) -> None:

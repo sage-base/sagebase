@@ -52,6 +52,7 @@ class SpeakerRepository(BaseRepository[Speaker]):
         skip_reason: str | None = None,
         has_politician_id: bool | None = None,
         has_government_official_id: bool | None = None,
+        min_conversation_count: int | None = None,
         order_by: str = "conversation_count",
     ) -> list[SpeakerWithConversationCount]:
         """Get speakers with their conversation count.
@@ -66,6 +67,7 @@ class SpeakerRepository(BaseRepository[Speaker]):
             has_politician_id: マッチ状態フィルタ（True=マッチ済み、False=未マッチ）
             has_government_official_id: 官僚紐付けフィルタ
                 （True=紐付け済み、False=未紐付け）
+            min_conversation_count: 最低発言数フィルタ
             order_by: ソートカラム（"conversation_count" or "name"）
         """
         pass
