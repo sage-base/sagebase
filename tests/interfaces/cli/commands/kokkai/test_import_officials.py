@@ -165,6 +165,21 @@ class TestImportOfficialsCommand:
         assert "エラー" in result.output
         assert "テストエラー1" in result.output
 
+    def test_invalid_representative_speaker_id(self) -> None:
+        csv_data = (
+            "speaker_name,representative_speaker_id,organization,position\n"
+            "山田太郎,abc,内閣府,大臣\n"
+        )
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            with open("bad_id.csv", "w") as f:
+                f.write(csv_data)
+            result = runner.invoke(import_officials, ["--csv", "bad_id.csv"])
+
+        assert result.exit_code != 0
+        assert "整数ではありません" in result.output
+        assert "abc" in result.output
+
     @patch(f"{_DI_PATH}.get_container", side_effect=RuntimeError)
     @patch(f"{_DI_PATH}.init_container")
     def test_falls_back_to_init_container(

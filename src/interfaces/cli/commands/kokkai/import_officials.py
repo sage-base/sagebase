@@ -61,16 +61,24 @@ async def _run_import_officials(csv_path: Path, dry_run: bool) -> None:
     click.echo()
 
     # DTO変換
-    csv_rows = [
-        GovernmentOfficialCsvRow(
-            speaker_name=row["speaker_name"],
-            representative_speaker_id=int(row["representative_speaker_id"]),
-            organization=row["organization"],
-            position=row["position"],
-            notes=row.get("notes") or None,
+    csv_rows: list[GovernmentOfficialCsvRow] = []
+    for i, row in enumerate(rows, start=2):  # ヘッダー行=1なのでデータは2行目から
+        try:
+            speaker_id = int(row["representative_speaker_id"])
+        except ValueError as e:
+            raise click.ClickException(
+                f"{i}行目: representative_speaker_idが整数ではありません: "
+                f"'{row['representative_speaker_id']}'"
+            ) from e
+        csv_rows.append(
+            GovernmentOfficialCsvRow(
+                speaker_name=row["speaker_name"],
+                representative_speaker_id=speaker_id,
+                organization=row["organization"],
+                position=row["position"],
+                notes=row.get("notes") or None,
+            )
         )
-        for row in rows
-    ]
 
     # DIコンテナ取得
     try:
