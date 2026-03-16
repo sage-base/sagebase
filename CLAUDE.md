@@ -118,7 +118,7 @@ src/
 
 ### Architecture Decision Records (ADR)
 
-設計判断の「なぜ」を記録。全ADRは `docs/ADR/` に格納（現在16本: 0001〜0016）。
+設計判断の「なぜ」を記録。全ADRは `docs/ADR/` に格納（現在17本: 0001〜0017）。
 
 - ADR作成ルール: `NNNN-kebab-case-title.md`形式、必須セクション（Status, Context, Decision, Consequences）
 - **ADR作成時の必須アクション**: 新しいADRを作成したら、`docs/ADR/`に配置し`ls docs/ADR/`で確認できる状態にすること
@@ -158,7 +158,7 @@ src/
 - **CI/CD**: Create Issues for any skipped tests with `continue-on-error: true`
 
 ### Database
-- **データ管理**: SEED廃止、JSON DUMP一本化（[ADR 0010](docs/ADR/0017-seed-dump-strategy.md)）
+- **データ管理**: SEED廃止、JSON DUMP一本化（[ADR 0017](docs/ADR/0017-seed-dump-strategy.md)）
   - `just dump-gcs`: 現在のDBをGCSにダンプ
   - `just restore-latest`: GCSから最新データをリストア
   - `just list-dumps`: ダンプ一覧を表示
