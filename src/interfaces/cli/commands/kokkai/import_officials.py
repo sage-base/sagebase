@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import click
 
+from src.application.exceptions import ProcessingError
 from src.interfaces.cli.base import with_error_handling
 
 
@@ -66,7 +67,7 @@ async def _run_import_officials(csv_path: Path, dry_run: bool) -> None:
         try:
             speaker_id = int(row["representative_speaker_id"])
         except ValueError as e:
-            raise click.ClickException(
+            raise ProcessingError(
                 f"{i}行目: representative_speaker_idが整数ではありません: "
                 f"'{row['representative_speaker_id']}'"
             ) from e
@@ -99,12 +100,12 @@ def _read_csv(csv_path: Path) -> list[dict[str, str]]:
     with csv_path.open(encoding="utf-8") as f:
         reader = csv.DictReader(f)
         if reader.fieldnames is None:
-            raise click.ClickException("CSVファイルのヘッダーを読み取れません。")
+            raise ProcessingError("CSVファイルのヘッダーを読み取れません。")
 
         actual_columns = set(reader.fieldnames)
         missing = REQUIRED_COLUMNS - actual_columns
         if missing:
-            raise click.ClickException(
+            raise ProcessingError(
                 f"CSVに必須カラムがありません: {', '.join(sorted(missing))}"
             )
 
