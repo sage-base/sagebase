@@ -3,6 +3,7 @@
 import click
 
 from src.interfaces.cli.commands.kokkai.bulk_match_speakers import bulk_match_speakers
+from src.interfaces.cli.commands.kokkai.import_officials import import_officials
 from src.interfaces.cli.commands.kokkai.import_speeches import import_speeches
 from src.interfaces.cli.commands.kokkai.stats import stats
 from src.interfaces.cli.commands.kokkai.survey import survey
@@ -18,3 +19,4 @@ kokkai.add_command(survey)
 kokkai.add_command(import_speeches, "import")
 kokkai.add_command(stats)
 kokkai.add_command(bulk_match_speakers, "bulk-match-speakers")
+kokkai.add_command(import_officials, "import-officials")
