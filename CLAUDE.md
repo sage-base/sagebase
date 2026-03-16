@@ -56,10 +56,10 @@ Sagebase follows **Clean Architecture** principles. **Status: 🟢 100% Complete
 
 ```
 src/
-├── domain/          # Entities, Repository Interfaces, Domain Services (99 files)
-├── application/     # Use Cases, DTOs (68 files)
-├── infrastructure/  # Repository Implementations, External Services (103 files)
-└── interfaces/      # CLI, Web UI (129 files)
+├── domain/          # Entities, Repository Interfaces, Domain Services
+├── application/     # Use Cases, DTOs
+├── infrastructure/  # Repository Implementations, External Services
+└── interfaces/      # CLI, Web UI
 ```
 
 ### Key Principles
