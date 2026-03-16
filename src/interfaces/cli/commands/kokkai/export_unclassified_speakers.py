@@ -17,8 +17,15 @@ from src.interfaces.cli.base import with_error_handling
     default="table",
     help="出力形式（table or csv）",
 )
-@click.option("--limit", type=int, default=None, help="出力件数の上限")
-@click.option("--min-conversations", type=int, default=None, help="最低発言数フィルタ")
+@click.option(
+    "--limit", type=click.IntRange(min=1), default=None, help="出力件数の上限"
+)
+@click.option(
+    "--min-conversations",
+    type=click.IntRange(min=0),
+    default=None,
+    help="最低発言数フィルタ",
+)
 @with_error_handling
 def export_unclassified_speakers(
     output_format: str,
