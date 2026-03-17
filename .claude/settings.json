@@ -1,5 +1,5 @@
 {
-  "model": "opus",
+  "model": "opus[1m]",
   "permissions": {
     "allow": [
       "Bash(mv:*)",
