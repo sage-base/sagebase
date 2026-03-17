@@ -877,15 +877,15 @@ class TestGetSpeakerClassificationStats:
 
         result = await repository.get_speaker_classification_stats()
 
-        assert result["total_speakers"] == 1000
-        assert result["total_conversations"] == 50000
-        assert result["politician_linked"]["speaker_count"] == 200
-        assert result["politician_linked"]["conversation_count"] == 40000
-        assert result["government_official_linked"]["speaker_count"] == 10
-        assert result["government_official_linked"]["conversation_count"] == 500
-        assert result["unclassified"]["speaker_count"] == 790
-        assert result["unclassified"]["conversation_count"] == 9500
-        assert result["identity_rate"] == pytest.approx(81.0)
+        assert result.total_speakers == 1000
+        assert result.total_conversations == 50000
+        assert result.politician_linked.speaker_count == 200
+        assert result.politician_linked.conversation_count == 40000
+        assert result.government_official_linked.speaker_count == 10
+        assert result.government_official_linked.conversation_count == 500
+        assert result.unclassified.speaker_count == 790
+        assert result.unclassified.conversation_count == 9500
+        assert result.identity_rate == pytest.approx(81.0)
 
     @pytest.mark.asyncio
     async def test_zero_conversations_returns_zero_identity_rate(
@@ -909,8 +909,8 @@ class TestGetSpeakerClassificationStats:
 
         result = await repository.get_speaker_classification_stats()
 
-        assert result["total_conversations"] == 0
-        assert result["identity_rate"] == 0.0
+        assert result.total_conversations == 0
+        assert result.identity_rate == 0.0
 
     @pytest.mark.asyncio
     async def test_empty_result_returns_all_zeros(self, repository, mock_session):
@@ -925,9 +925,9 @@ class TestGetSpeakerClassificationStats:
 
         result = await repository.get_speaker_classification_stats()
 
-        assert result["total_speakers"] == 0
-        assert result["total_conversations"] == 0
-        assert result["identity_rate"] == 0.0
+        assert result.total_speakers == 0
+        assert result.total_conversations == 0
+        assert result.identity_rate == 0.0
 
 
 class TestClassifyIsPoliticianBulk:

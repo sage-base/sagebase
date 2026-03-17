@@ -10,6 +10,9 @@ from src.domain.entities.politician import Politician
 from src.domain.entities.speaker import Speaker
 from src.domain.repositories.session_adapter import ISessionAdapter
 from src.domain.repositories.speaker_repository import SpeakerRepository
+from src.domain.value_objects.speaker_classification_stats import (
+    SpeakerClassificationStats,
+)
 from src.domain.value_objects.speaker_with_conversation_count import (
     SpeakerWithConversationCount,
 )
@@ -553,7 +556,7 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
         return stats
 
-    async def get_speaker_classification_stats(self) -> dict[str, Any]:
+    async def get_speaker_classification_stats(self) -> SpeakerClassificationStats:
         """Speaker分類別の件数と発言数の統計を取得する."""
         query = text("""
             SELECT
@@ -572,37 +575,14 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         result = await self.session.execute(query)
         rows = result.fetchall()
 
-        stats: dict[str, dict[str, int]] = {
-            "politician": {"speaker_count": 0, "conversation_count": 0},
-            "government_official": {"speaker_count": 0, "conversation_count": 0},
-            "unclassified": {"speaker_count": 0, "conversation_count": 0},
-        }
+        classification_rows: dict[str, dict[str, int]] = {}
         for row in rows:
-            stats[row.classification] = {
+            classification_rows[row.classification] = {
                 "speaker_count": row.speaker_count,
                 "conversation_count": row.conversation_count,
             }
 
-        total_speakers = sum(v["speaker_count"] for v in stats.values())
-        total_conversations = sum(v["conversation_count"] for v in stats.values())
-        identified_conversations = (
-            stats["politician"]["conversation_count"]
-            + stats["government_official"]["conversation_count"]
-        )
-        identity_rate = (
-            identified_conversations / total_conversations * 100
-            if total_conversations > 0
-            else 0.0
-        )
-
-        return {
-            "total_speakers": total_speakers,
-            "total_conversations": total_conversations,
-            "politician_linked": stats["politician"],
-            "government_official_linked": stats["government_official"],
-            "unclassified": stats["unclassified"],
-            "identity_rate": identity_rate,
-        }
+        return SpeakerClassificationStats.from_classification_rows(classification_rows)
 
     async def get_all_for_matching(self) -> list[dict[str, Any]]:
         """Get all speakers for matching purposes."""

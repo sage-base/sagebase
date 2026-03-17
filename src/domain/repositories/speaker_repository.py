@@ -7,6 +7,9 @@ from uuid import UUID
 
 from src.domain.entities.speaker import Speaker
 from src.domain.repositories.base import BaseRepository
+from src.domain.value_objects.speaker_classification_stats import (
+    SpeakerClassificationStats,
+)
 from src.domain.value_objects.speaker_with_conversation_count import (
     SpeakerWithConversationCount,
 )
@@ -227,7 +230,7 @@ class SpeakerRepository(BaseRepository[Speaker]):
         pass
 
     @abstractmethod
-    async def get_speaker_classification_stats(self) -> dict[str, Any]:
+    async def get_speaker_classification_stats(self) -> SpeakerClassificationStats:
         """Speaker分類別の件数と発言数の統計を取得する."""
         pass
 

@@ -3,11 +3,15 @@
 import asyncio
 import json
 
+from dataclasses import asdict
 from typing import Any
 
 import click
 
 from src.domain.services.speaker_classifier import SkipReason
+from src.domain.value_objects.speaker_classification_stats import (
+    SpeakerClassificationStats,
+)
 from src.interfaces.cli.base import with_error_handling
 
 
@@ -84,38 +88,45 @@ async def _run_stats(limit: int, output_format: str) -> None:
         click.echo("\n未紐付け発言者はいません。")
 
 
-def _output_classification_summary(classification: dict[str, Any]) -> None:
+def _output_classification_summary(stats: SpeakerClassificationStats) -> None:
     """Speaker分類サマリを表示する."""
-    total = classification["total_speakers"]
-    total_conv = classification["total_conversations"]
-    pol = classification["politician_linked"]
-    gov = classification["government_official_linked"]
-    unc = classification["unclassified"]
-
     click.echo("\n=== Speaker分類サマリ ===")
-    click.echo(f"全Speaker:              {total:,}")
+    click.echo(f"全Speaker:              {stats.total_speakers:,}")
 
-    for label, data in [
-        ("politician紐付済", pol),
-        ("government_official", gov),
-        ("未分類", unc),
+    for label, classification_count in [
+        ("politician紐付済", stats.politician_linked),
+        ("government_official", stats.government_official_linked),
+        ("未分類", stats.unclassified),
     ]:
-        sc = data["speaker_count"]
-        cc = data["conversation_count"]
-        sp_pct = sc / total * 100 if total > 0 else 0.0
-        cc_pct = cc / total_conv * 100 if total_conv > 0 else 0.0
+        speaker_count = classification_count.speaker_count
+        conversation_count = classification_count.conversation_count
+        speaker_percentage = (
+            speaker_count / stats.total_speakers * 100
+            if stats.total_speakers > 0
+            else 0.0
+        )
+        conversation_percentage = (
+            conversation_count / stats.total_conversations * 100
+            if stats.total_conversations > 0
+            else 0.0
+        )
         click.echo(
-            f"  {label}: {sc:>12,} ({sp_pct:>5.1f}%)"
-            f"  → 発言 {cc:>12,}件 ({cc_pct:>5.1f}%)"
+            f"  {label}: {speaker_count:>12,} ({speaker_percentage:>5.1f}%)"
+            f"  → 発言 {conversation_count:>12,}件"
+            f" ({conversation_percentage:>5.1f}%)"
         )
 
-    click.echo(f"\n身元特定率（発言ベース）: {classification['identity_rate']:.1f}%")
+    click.echo(f"\n身元特定率（発言ベース）: {stats.identity_rate:.1f}%")
 
 
-def _output_json(stat: dict[str, Any], classification: dict[str, Any]) -> None:
+def _output_json(
+    stat: dict[str, Any], classification: SpeakerClassificationStats
+) -> None:
     """JSON形式で全データを出力する."""
+    classification_dict = asdict(classification)
+    classification_dict["identity_rate"] = classification.identity_rate
     output = {
         "speaker_politician_stats": stat,
-        "speaker_classification": classification,
+        "speaker_classification": classification_dict,
     }
     click.echo(json.dumps(output, ensure_ascii=False, default=str))

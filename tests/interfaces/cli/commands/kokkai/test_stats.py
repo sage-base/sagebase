@@ -8,19 +8,24 @@ from click.testing import CliRunner
 
 from src.domain.entities.speaker import Speaker
 from src.domain.repositories.speaker_repository import SpeakerRepository
+from src.domain.value_objects.speaker_classification_stats import (
+    ClassificationCount,
+    SpeakerClassificationStats,
+)
 from src.interfaces.cli.commands.kokkai.stats import stats
 
 
 _DI_PATH = "src.infrastructure.di.container"
 
-_DEFAULT_CLASSIFICATION_STATS = {
-    "total_speakers": 1000,
-    "total_conversations": 50000,
-    "politician_linked": {"speaker_count": 200, "conversation_count": 40000},
-    "government_official_linked": {"speaker_count": 10, "conversation_count": 500},
-    "unclassified": {"speaker_count": 790, "conversation_count": 9500},
-    "identity_rate": 81.0,
-}
+_DEFAULT_CLASSIFICATION_STATS = SpeakerClassificationStats(
+    total_speakers=1000,
+    total_conversations=50000,
+    politician_linked=ClassificationCount(speaker_count=200, conversation_count=40000),
+    government_official_linked=ClassificationCount(
+        speaker_count=10, conversation_count=500
+    ),
+    unclassified=ClassificationCount(speaker_count=790, conversation_count=9500),
+)
 
 
 def _setup_repo_mock(mock_container: MagicMock) -> AsyncMock:
@@ -247,17 +252,19 @@ class TestStatsCommand:
         mock_get_container.return_value = mock_container
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_classification_stats = AsyncMock(
-            return_value={
-                "total_speakers": 10,
-                "total_conversations": 0,
-                "politician_linked": {"speaker_count": 0, "conversation_count": 0},
-                "government_official_linked": {
-                    "speaker_count": 0,
-                    "conversation_count": 0,
-                },
-                "unclassified": {"speaker_count": 10, "conversation_count": 0},
-                "identity_rate": 0.0,
-            }
+            return_value=SpeakerClassificationStats(
+                total_speakers=10,
+                total_conversations=0,
+                politician_linked=ClassificationCount(
+                    speaker_count=0, conversation_count=0
+                ),
+                government_official_linked=ClassificationCount(
+                    speaker_count=0, conversation_count=0
+                ),
+                unclassified=ClassificationCount(
+                    speaker_count=10, conversation_count=0
+                ),
+            )
         )
         mock_repo.get_speaker_politician_stats = AsyncMock(
             return_value={
@@ -273,4 +280,42 @@ class TestStatsCommand:
         result = runner.invoke(stats)
 
         assert result.exit_code == 0
+        assert "身元特定率（発言ベース）: 0.0%" in result.output
+
+    @patch(f"{_DI_PATH}.get_container")
+    def test_stats_classification_zero_speakers(
+        self, mock_get_container: MagicMock
+    ) -> None:
+        """Speaker0件時にゼロ除算せず0.0%が表示される."""
+        mock_container = MagicMock()
+        mock_get_container.return_value = mock_container
+        mock_repo = _setup_repo_mock(mock_container)
+        mock_repo.get_speaker_classification_stats = AsyncMock(
+            return_value=SpeakerClassificationStats(
+                total_speakers=0,
+                total_conversations=0,
+                politician_linked=ClassificationCount(
+                    speaker_count=0, conversation_count=0
+                ),
+                government_official_linked=ClassificationCount(
+                    speaker_count=0, conversation_count=0
+                ),
+                unclassified=ClassificationCount(speaker_count=0, conversation_count=0),
+            )
+        )
+        mock_repo.get_speaker_politician_stats = AsyncMock(
+            return_value={
+                "total_speakers": 0,
+                "linked_speakers": 0,
+                "unlinked_speakers": 0,
+                "match_rate": 0.0,
+            }
+        )
+        mock_repo.get_speakers_not_linked_to_politicians = AsyncMock(return_value=[])
+
+        runner = CliRunner()
+        result = runner.invoke(stats)
+
+        assert result.exit_code == 0
+        assert "全Speaker:              0" in result.output
         assert "身元特定率（発言ベース）: 0.0%" in result.output
