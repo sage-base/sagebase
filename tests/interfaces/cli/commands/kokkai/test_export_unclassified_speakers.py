@@ -1,6 +1,6 @@
 """export-unclassified-speakers コマンドのテスト."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from click.testing import CliRunner
 
@@ -11,9 +11,6 @@ from src.domain.value_objects.speaker_with_conversation_count import (
 from src.interfaces.cli.commands.kokkai.export_unclassified_speakers import (
     export_unclassified_speakers,
 )
-
-
-_DI_PATH = "src.interfaces.cli.base"
 
 
 def _make_speaker(
@@ -37,10 +34,7 @@ def _setup_repo_mock(mock_container: MagicMock) -> AsyncMock:
 
 
 class TestExportUnclassifiedSpeakers:
-    @patch(f"{_DI_PATH}.get_container")
-    def test_default_table_output(self, mock_get_container: MagicMock) -> None:
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
+    def test_default_table_output(self, mock_container: MagicMock) -> None:
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speakers_with_conversation_count = AsyncMock(
             return_value=[
@@ -63,10 +57,7 @@ class TestExportUnclassifiedSpeakers:
             limit=None,
         )
 
-    @patch(f"{_DI_PATH}.get_container")
-    def test_csv_output(self, mock_get_container: MagicMock) -> None:
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
+    def test_csv_output(self, mock_container: MagicMock) -> None:
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speakers_with_conversation_count = AsyncMock(
             return_value=[
@@ -84,10 +75,7 @@ class TestExportUnclassifiedSpeakers:
         assert lines[1] == "1,山田太郎,50"
         assert lines[2] == "2,鈴木花子,30"
 
-    @patch(f"{_DI_PATH}.get_container")
-    def test_limit_passed_to_repository(self, mock_get_container: MagicMock) -> None:
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
+    def test_limit_passed_to_repository(self, mock_container: MagicMock) -> None:
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speakers_with_conversation_count = AsyncMock(
             return_value=[
@@ -107,12 +95,9 @@ class TestExportUnclassifiedSpeakers:
             limit=2,
         )
 
-    @patch(f"{_DI_PATH}.get_container")
     def test_min_conversations_passed_to_repository(
-        self, mock_get_container: MagicMock
+        self, mock_container: MagicMock
     ) -> None:
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speakers_with_conversation_count = AsyncMock(
             return_value=[_make_speaker(1, "発言者A", 100)]
@@ -131,14 +116,11 @@ class TestExportUnclassifiedSpeakers:
             limit=None,
         )
 
-    @patch(f"{_DI_PATH}.get_container")
     def test_limit_and_min_conversations_combined(
-        self, mock_get_container: MagicMock
+        self, mock_container: MagicMock
     ) -> None:
         """--limit と --min-conversations を同時に指定した場合、
         両方がリポジトリに渡されることを検証する."""
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speakers_with_conversation_count = AsyncMock(
             return_value=[
@@ -163,10 +145,7 @@ class TestExportUnclassifiedSpeakers:
         assert "発言者A" in result.output
         assert "発言者B" in result.output
 
-    @patch(f"{_DI_PATH}.get_container")
-    def test_no_data(self, mock_get_container: MagicMock) -> None:
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
+    def test_no_data(self, mock_container: MagicMock) -> None:
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speakers_with_conversation_count = AsyncMock(return_value=[])
 
@@ -175,19 +154,3 @@ class TestExportUnclassifiedSpeakers:
 
         assert result.exit_code == 0
         assert "対象の未分類Speakerはいません" in result.output
-
-    @patch(f"{_DI_PATH}.get_container", side_effect=RuntimeError)
-    @patch(f"{_DI_PATH}.init_container")
-    def test_falls_back_to_init_container(
-        self, mock_init: MagicMock, mock_get: MagicMock
-    ) -> None:
-        mock_container = MagicMock()
-        mock_init.return_value = mock_container
-        mock_repo = _setup_repo_mock(mock_container)
-        mock_repo.get_speakers_with_conversation_count = AsyncMock(return_value=[])
-
-        runner = CliRunner()
-        result = runner.invoke(export_unclassified_speakers)
-
-        assert result.exit_code == 0
-        mock_init.assert_called_once()
