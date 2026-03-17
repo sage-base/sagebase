@@ -15,6 +15,20 @@ from src.domain.value_objects.speaker_classification_stats import (
 from src.interfaces.cli.commands.kokkai.stats import stats
 
 
+def _make_politician_stats(
+    total: int = 1000,
+    linked: int = 500,
+    unlinked: int = 500,
+    match_rate: float = 50.0,
+) -> dict[str, int | float]:
+    return {
+        "total_speakers": total,
+        "linked_speakers": linked,
+        "unlinked_speakers": unlinked,
+        "match_rate": match_rate,
+    }
+
+
 _DEFAULT_CLASSIFICATION_STATS = SpeakerClassificationStats(
     politician_linked=ClassificationCount(speaker_count=200, conversation_count=40000),
     government_official_linked=ClassificationCount(
@@ -38,12 +52,9 @@ class TestStatsCommand:
     def test_stats_shows_match_rate(self, mock_container: MagicMock) -> None:
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_politician_stats = AsyncMock(
-            return_value={
-                "total_speakers": 1000,
-                "linked_speakers": 800,
-                "unlinked_speakers": 200,
-                "match_rate": 80.0,
-            }
+            return_value=_make_politician_stats(
+                total=1000, linked=800, unlinked=200, match_rate=80.0
+            )
         )
         mock_repo.get_speakers_not_linked_to_politicians = AsyncMock(return_value=[])
 
@@ -58,12 +69,9 @@ class TestStatsCommand:
     def test_stats_shows_unlinked_speakers(self, mock_container: MagicMock) -> None:
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_politician_stats = AsyncMock(
-            return_value={
-                "total_speakers": 100,
-                "linked_speakers": 50,
-                "unlinked_speakers": 50,
-                "match_rate": 50.0,
-            }
+            return_value=_make_politician_stats(
+                total=100, linked=50, unlinked=50, match_rate=50.0
+            )
         )
         speakers = [
             Speaker(name="山田太郎", political_party_name="自民党"),
@@ -84,12 +92,9 @@ class TestStatsCommand:
     def test_stats_respects_limit(self, mock_container: MagicMock) -> None:
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_politician_stats = AsyncMock(
-            return_value={
-                "total_speakers": 10,
-                "linked_speakers": 5,
-                "unlinked_speakers": 5,
-                "match_rate": 50.0,
-            }
+            return_value=_make_politician_stats(
+                total=10, linked=5, unlinked=5, match_rate=50.0
+            )
         )
         speakers = [Speaker(name=f"発言者{i}") for i in range(5)]
         mock_repo.get_speakers_not_linked_to_politicians = AsyncMock(
@@ -108,12 +113,9 @@ class TestStatsCommand:
     def test_stats_no_unlinked(self, mock_container: MagicMock) -> None:
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_politician_stats = AsyncMock(
-            return_value={
-                "total_speakers": 100,
-                "linked_speakers": 100,
-                "unlinked_speakers": 0,
-                "match_rate": 100.0,
-            }
+            return_value=_make_politician_stats(
+                total=100, linked=100, unlinked=0, match_rate=100.0
+            )
         )
         mock_repo.get_speakers_not_linked_to_politicians = AsyncMock(return_value=[])
 
@@ -129,12 +131,9 @@ class TestStatsCommand:
         """分類サマリが正しく表示される."""
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_politician_stats = AsyncMock(
-            return_value={
-                "total_speakers": 1000,
-                "linked_speakers": 200,
-                "unlinked_speakers": 800,
-                "match_rate": 20.0,
-            }
+            return_value=_make_politician_stats(
+                total=1000, linked=200, unlinked=800, match_rate=20.0
+            )
         )
         mock_repo.get_speakers_not_linked_to_politicians = AsyncMock(return_value=[])
 
@@ -152,12 +151,9 @@ class TestStatsCommand:
         """--format json で有効なJSONが出力される."""
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_politician_stats = AsyncMock(
-            return_value={
-                "total_speakers": 100,
-                "linked_speakers": 50,
-                "unlinked_speakers": 50,
-                "match_rate": 50.0,
-            }
+            return_value=_make_politician_stats(
+                total=100, linked=50, unlinked=50, match_rate=50.0
+            )
         )
 
         runner = CliRunner()
@@ -173,12 +169,9 @@ class TestStatsCommand:
         """JSON出力に分類データが含まれる."""
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_politician_stats = AsyncMock(
-            return_value={
-                "total_speakers": 100,
-                "linked_speakers": 50,
-                "unlinked_speakers": 50,
-                "match_rate": 50.0,
-            }
+            return_value=_make_politician_stats(
+                total=100, linked=50, unlinked=50, match_rate=50.0
+            )
         )
 
         runner = CliRunner()
@@ -213,12 +206,9 @@ class TestStatsCommand:
             )
         )
         mock_repo.get_speaker_politician_stats = AsyncMock(
-            return_value={
-                "total_speakers": 10,
-                "linked_speakers": 0,
-                "unlinked_speakers": 10,
-                "match_rate": 0.0,
-            }
+            return_value=_make_politician_stats(
+                total=10, linked=0, unlinked=10, match_rate=0.0
+            )
         )
         mock_repo.get_speakers_not_linked_to_politicians = AsyncMock(return_value=[])
 
@@ -245,12 +235,9 @@ class TestStatsCommand:
             )
         )
         mock_repo.get_speaker_politician_stats = AsyncMock(
-            return_value={
-                "total_speakers": 0,
-                "linked_speakers": 0,
-                "unlinked_speakers": 0,
-                "match_rate": 0.0,
-            }
+            return_value=_make_politician_stats(
+                total=0, linked=0, unlinked=0, match_rate=0.0
+            )
         )
         mock_repo.get_speakers_not_linked_to_politicians = AsyncMock(return_value=[])
 
