@@ -1,7 +1,7 @@
 """kokkai bulk-match-speakers コマンドのテスト."""
 
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from click.testing import CliRunner
 
@@ -11,9 +11,6 @@ from src.application.dtos.match_meeting_speakers_dto import (
 from src.domain.entities.election import Election
 from src.domain.entities.meeting import Meeting
 from src.interfaces.cli.commands.kokkai.bulk_match_speakers import bulk_match_speakers
-
-
-_DI_PATH = "src.interfaces.cli.base"
 
 
 def _make_meetings(count: int = 3) -> list[Meeting]:
@@ -75,10 +72,7 @@ def _setup_mocks(
 
 
 class TestBulkMatchSpeakersCommand:
-    @patch(f"{_DI_PATH}.get_container")
-    def test_dry_run_shows_meetings(self, mock_get_container: MagicMock) -> None:
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
+    def test_dry_run_shows_meetings(self, mock_container: MagicMock) -> None:
         meetings = _make_meetings(3)
         mock_meeting_repo, mock_usecase = _setup_mocks(
             mock_container, meetings=meetings
@@ -103,10 +97,7 @@ class TestBulkMatchSpeakersCommand:
         assert "合計: 3 件" in result.output
         mock_usecase.execute.assert_not_called()
 
-    @patch(f"{_DI_PATH}.get_container")
-    def test_dry_run_no_meetings(self, mock_get_container: MagicMock) -> None:
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
+    def test_dry_run_no_meetings(self, mock_container: MagicMock) -> None:
         _setup_mocks(mock_container, meetings=[])
 
         runner = CliRunner()
@@ -126,10 +117,7 @@ class TestBulkMatchSpeakersCommand:
         assert result.exit_code == 0
         assert "対象会議が見つかりません" in result.output
 
-    @patch(f"{_DI_PATH}.get_container")
-    def test_normal_execution(self, mock_get_container: MagicMock) -> None:
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
+    def test_normal_execution(self, mock_container: MagicMock) -> None:
         meetings = _make_meetings(2)
         _, mock_usecase = _setup_mocks(
             mock_container, meetings=meetings, output=_make_output(matched=3, total=5)
@@ -155,10 +143,7 @@ class TestBulkMatchSpeakersCommand:
         assert "第49回" in result.output
         assert mock_usecase.execute.call_count == 2
 
-    @patch(f"{_DI_PATH}.get_container")
-    def test_empty_result(self, mock_get_container: MagicMock) -> None:
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
+    def test_empty_result(self, mock_container: MagicMock) -> None:
         meetings = _make_meetings(1)
         _, mock_usecase = _setup_mocks(
             mock_container,
@@ -188,37 +173,8 @@ class TestBulkMatchSpeakersCommand:
         assert result.exit_code == 0
         assert "結果サマリー" in result.output
 
-    @patch(f"{_DI_PATH}.get_container", side_effect=RuntimeError)
-    @patch(f"{_DI_PATH}.init_container")
-    def test_falls_back_to_init_container(
-        self, mock_init: MagicMock, mock_get: MagicMock
-    ) -> None:
-        mock_container = MagicMock()
-        mock_init.return_value = mock_container
-        _setup_mocks(mock_container, meetings=[])
-
-        runner = CliRunner()
-        result = runner.invoke(
-            bulk_match_speakers,
-            [
-                "--chamber",
-                "衆議院",
-                "--date-from",
-                "2024-01-01",
-                "--date-to",
-                "2024-12-31",
-                "--dry-run",
-            ],
-        )
-
-        assert result.exit_code == 0
-        mock_init.assert_called_once()
-
-    @patch(f"{_DI_PATH}.get_container")
-    def test_confidence_threshold_option(self, mock_get_container: MagicMock) -> None:
+    def test_confidence_threshold_option(self, mock_container: MagicMock) -> None:
         """--confidence-threshold が DTO に渡される."""
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
         meetings = _make_meetings(1)
         _, mock_usecase = _setup_mocks(
             mock_container, meetings=meetings, output=_make_output()
@@ -243,13 +199,10 @@ class TestBulkMatchSpeakersCommand:
         call_args = mock_usecase.execute.call_args
         assert call_args[0][0].confidence_threshold == 0.95
 
-    @patch(f"{_DI_PATH}.get_container")
     def test_usecase_exception_continues_processing(
-        self, mock_get_container: MagicMock
+        self, mock_container: MagicMock
     ) -> None:
         """1会議で例外が発生しても処理が継続される."""
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
         meetings = _make_meetings(2)
         _, mock_usecase = _setup_mocks(mock_container, meetings=meetings)
         # 1回目は例外、2回目は正常

@@ -1,6 +1,6 @@
 """kokkai import-officials コマンドのテスト."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from click.testing import CliRunner
 
@@ -13,8 +13,6 @@ from src.application.usecases.import_government_officials_csv_usecase import (
 )
 from src.interfaces.cli.commands.kokkai.import_officials import import_officials
 
-
-_DI_PATH = "src.interfaces.cli.base"
 
 _VALID_CSV = (
     "speaker_name,representative_speaker_id,organization,position,notes\n"
@@ -49,12 +47,9 @@ def _setup_usecase_mock(mock_container: MagicMock) -> AsyncMock:
 
 
 class TestImportOfficialsCommand:
-    @patch(f"{_DI_PATH}.get_container")
     def test_import_csv_executes_and_shows_summary(
-        self, mock_get_container: MagicMock
+        self, mock_container: MagicMock
     ) -> None:
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
         mock_usecase = _setup_usecase_mock(mock_container)
         mock_usecase.execute = AsyncMock(return_value=_make_output())
 
@@ -77,12 +72,7 @@ class TestImportOfficialsCommand:
         assert input_dto.rows[1].notes is None
         assert input_dto.dry_run is False
 
-    @patch(f"{_DI_PATH}.get_container")
-    def test_dry_run_flag_passed_to_usecase(
-        self, mock_get_container: MagicMock
-    ) -> None:
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
+    def test_dry_run_flag_passed_to_usecase(self, mock_container: MagicMock) -> None:
         mock_usecase = _setup_usecase_mock(mock_container)
         mock_usecase.execute = AsyncMock(return_value=_make_output())
 
@@ -105,8 +95,7 @@ class TestImportOfficialsCommand:
 
         assert result.exit_code != 0
 
-    @patch(f"{_DI_PATH}.get_container")
-    def test_missing_required_columns(self, mock_get_container: MagicMock) -> None:
+    def test_missing_required_columns(self, mock_container: MagicMock) -> None:
         runner = CliRunner()
         with runner.isolated_filesystem():
             with open("bad.csv", "w") as f:
@@ -116,8 +105,7 @@ class TestImportOfficialsCommand:
         assert result.exit_code != 0
         assert "必須カラム" in result.output
 
-    @patch(f"{_DI_PATH}.get_container")
-    def test_empty_csv_no_data_rows(self, mock_get_container: MagicMock) -> None:
+    def test_empty_csv_no_data_rows(self, mock_container: MagicMock) -> None:
         runner = CliRunner()
         with runner.isolated_filesystem():
             with open("empty.csv", "w") as f:
@@ -129,10 +117,7 @@ class TestImportOfficialsCommand:
         assert result.exit_code == 0
         assert "データ行がありません" in result.output
 
-    @patch(f"{_DI_PATH}.get_container")
-    def test_csv_without_notes_column(self, mock_get_container: MagicMock) -> None:
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
+    def test_csv_without_notes_column(self, mock_container: MagicMock) -> None:
         mock_usecase = _setup_usecase_mock(mock_container)
         mock_usecase.execute = AsyncMock(return_value=_make_output(1, 1, 1))
 
@@ -146,10 +131,7 @@ class TestImportOfficialsCommand:
         input_dto = mock_usecase.execute.call_args[0][0]
         assert input_dto.rows[0].notes is None
 
-    @patch(f"{_DI_PATH}.get_container")
-    def test_shows_errors_from_usecase(self, mock_get_container: MagicMock) -> None:
-        mock_container = MagicMock()
-        mock_get_container.return_value = mock_container
+    def test_shows_errors_from_usecase(self, mock_container: MagicMock) -> None:
         mock_usecase = _setup_usecase_mock(mock_container)
         output = _make_output()
         output.errors = ["テストエラー1", "テストエラー2"]
@@ -179,22 +161,3 @@ class TestImportOfficialsCommand:
         assert result.exit_code != 0
         assert "整数ではありません" in result.output
         assert "abc" in result.output
-
-    @patch(f"{_DI_PATH}.get_container", side_effect=RuntimeError)
-    @patch(f"{_DI_PATH}.init_container")
-    def test_falls_back_to_init_container(
-        self, mock_init: MagicMock, mock_get: MagicMock
-    ) -> None:
-        mock_container = MagicMock()
-        mock_init.return_value = mock_container
-        mock_usecase = _setup_usecase_mock(mock_container)
-        mock_usecase.execute = AsyncMock(return_value=_make_output())
-
-        runner = CliRunner()
-        with runner.isolated_filesystem():
-            with open("officials.csv", "w") as f:
-                f.write(_VALID_CSV)
-            result = runner.invoke(import_officials, ["--csv", "officials.csv"])
-
-        assert result.exit_code == 0
-        mock_init.assert_called_once()
