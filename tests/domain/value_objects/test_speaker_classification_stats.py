@@ -14,8 +14,6 @@ class TestSpeakerClassificationStats:
     def test_identity_rate_normal(self) -> None:
         """正常系: 身元特定率が正しく計算される."""
         stats = SpeakerClassificationStats(
-            total_speakers=1000,
-            total_conversations=50000,
             politician_linked=ClassificationCount(
                 speaker_count=200, conversation_count=40000
             ),
@@ -29,11 +27,37 @@ class TestSpeakerClassificationStats:
 
         assert stats.identity_rate == pytest.approx(81.0)
 
+    def test_total_speakers_derived(self) -> None:
+        """total_speakersが3分類の合計として導出される."""
+        stats = SpeakerClassificationStats(
+            politician_linked=ClassificationCount(
+                speaker_count=100, conversation_count=0
+            ),
+            government_official_linked=ClassificationCount(
+                speaker_count=20, conversation_count=0
+            ),
+            unclassified=ClassificationCount(speaker_count=30, conversation_count=0),
+        )
+
+        assert stats.total_speakers == 150
+
+    def test_total_conversations_derived(self) -> None:
+        """total_conversationsが3分類の合計として導出される."""
+        stats = SpeakerClassificationStats(
+            politician_linked=ClassificationCount(
+                speaker_count=0, conversation_count=5000
+            ),
+            government_official_linked=ClassificationCount(
+                speaker_count=0, conversation_count=200
+            ),
+            unclassified=ClassificationCount(speaker_count=0, conversation_count=800),
+        )
+
+        assert stats.total_conversations == 6000
+
     def test_identity_rate_zero_conversations(self) -> None:
         """発言0件時にidentity_rateが0.0."""
         stats = SpeakerClassificationStats(
-            total_speakers=10,
-            total_conversations=0,
             politician_linked=ClassificationCount(
                 speaker_count=0, conversation_count=0
             ),
@@ -44,6 +68,27 @@ class TestSpeakerClassificationStats:
         )
 
         assert stats.identity_rate == 0.0
+
+    def test_to_dict_includes_properties(self) -> None:
+        """to_dict()がプロパティを含む完全な辞書を返す."""
+        stats = SpeakerClassificationStats(
+            politician_linked=ClassificationCount(
+                speaker_count=100, conversation_count=5000
+            ),
+            government_official_linked=ClassificationCount(
+                speaker_count=5, conversation_count=200
+            ),
+            unclassified=ClassificationCount(
+                speaker_count=400, conversation_count=3000
+            ),
+        )
+
+        result = stats.to_dict()
+
+        assert result["total_speakers"] == 505
+        assert result["total_conversations"] == 8200
+        assert result["identity_rate"] == pytest.approx(63.41, abs=0.01)
+        assert result["politician_linked"]["speaker_count"] == 100
 
     def test_from_classification_rows_all_classifications(self) -> None:
         """全分類が揃っている場合のファクトリメソッド."""
@@ -85,8 +130,6 @@ class TestSpeakerClassificationStats:
     def test_frozen_dataclass(self) -> None:
         """frozenであること（イミュータブル）."""
         stats = SpeakerClassificationStats(
-            total_speakers=10,
-            total_conversations=100,
             politician_linked=ClassificationCount(
                 speaker_count=5, conversation_count=50
             ),
@@ -97,4 +140,6 @@ class TestSpeakerClassificationStats:
         )
 
         with pytest.raises(AttributeError):
-            stats.total_speakers = 999  # type: ignore[misc]
+            stats.politician_linked = ClassificationCount(  # type: ignore[misc]
+                speaker_count=999, conversation_count=999
+            )

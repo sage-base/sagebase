@@ -3,7 +3,6 @@
 import asyncio
 import json
 
-from dataclasses import asdict
 from typing import Any
 
 import click
@@ -123,10 +122,8 @@ def _output_json(
     stat: dict[str, Any], classification: SpeakerClassificationStats
 ) -> None:
     """JSON形式で全データを出力する."""
-    classification_dict = asdict(classification)
-    classification_dict["identity_rate"] = classification.identity_rate
     output = {
         "speaker_politician_stats": stat,
-        "speaker_classification": classification_dict,
+        "speaker_classification": classification.to_dict(),
     }
     click.echo(json.dumps(output, ensure_ascii=False, default=str))

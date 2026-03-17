@@ -18,8 +18,6 @@ from src.interfaces.cli.commands.kokkai.stats import stats
 _DI_PATH = "src.infrastructure.di.container"
 
 _DEFAULT_CLASSIFICATION_STATS = SpeakerClassificationStats(
-    total_speakers=1000,
-    total_conversations=50000,
     politician_linked=ClassificationCount(speaker_count=200, conversation_count=40000),
     government_official_linked=ClassificationCount(
         speaker_count=10, conversation_count=500
@@ -253,8 +251,6 @@ class TestStatsCommand:
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_classification_stats = AsyncMock(
             return_value=SpeakerClassificationStats(
-                total_speakers=10,
-                total_conversations=0,
                 politician_linked=ClassificationCount(
                     speaker_count=0, conversation_count=0
                 ),
@@ -292,8 +288,6 @@ class TestStatsCommand:
         mock_repo = _setup_repo_mock(mock_container)
         mock_repo.get_speaker_classification_stats = AsyncMock(
             return_value=SpeakerClassificationStats(
-                total_speakers=0,
-                total_conversations=0,
                 politician_linked=ClassificationCount(
                     speaker_count=0, conversation_count=0
                 ),

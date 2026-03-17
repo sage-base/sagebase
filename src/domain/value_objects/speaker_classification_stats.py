@@ -1,6 +1,7 @@
 """Speaker分類統計を表すValue Object."""
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -17,13 +18,32 @@ class SpeakerClassificationStats:
 
     politician_id / government_official_id の有無に基づく
     Speaker分類別の件数と発言数、身元特定率を保持する。
+
+    total_speakers, total_conversations, identity_rate は
+    3分類の値から導出されるプロパティ。
     """
 
-    total_speakers: int
-    total_conversations: int
     politician_linked: ClassificationCount
     government_official_linked: ClassificationCount
     unclassified: ClassificationCount
+
+    @property
+    def total_speakers(self) -> int:
+        """全Speaker数."""
+        return (
+            self.politician_linked.speaker_count
+            + self.government_official_linked.speaker_count
+            + self.unclassified.speaker_count
+        )
+
+    @property
+    def total_conversations(self) -> int:
+        """全発言数."""
+        return (
+            self.politician_linked.conversation_count
+            + self.government_official_linked.conversation_count
+            + self.unclassified.conversation_count
+        )
 
     @property
     def identity_rate(self) -> float:
@@ -38,6 +58,14 @@ class SpeakerClassificationStats:
             + self.government_official_linked.conversation_count
         )
         return identified / self.total_conversations * 100
+
+    def to_dict(self) -> dict[str, Any]:
+        """プロパティを含む完全な辞書表現を返す."""
+        result = asdict(self)
+        result["total_speakers"] = self.total_speakers
+        result["total_conversations"] = self.total_conversations
+        result["identity_rate"] = self.identity_rate
+        return result
 
     @classmethod
     def from_classification_rows(
@@ -58,25 +86,8 @@ class SpeakerClassificationStats:
             "unclassified", {"speaker_count": 0, "conversation_count": 0}
         )
 
-        politician_count = ClassificationCount(**politician)
-        government_official_count = ClassificationCount(**government_official)
-        unclassified_count = ClassificationCount(**unclassified)
-
-        total_speakers = (
-            politician_count.speaker_count
-            + government_official_count.speaker_count
-            + unclassified_count.speaker_count
-        )
-        total_conversations = (
-            politician_count.conversation_count
-            + government_official_count.conversation_count
-            + unclassified_count.conversation_count
-        )
-
         return cls(
-            total_speakers=total_speakers,
-            total_conversations=total_conversations,
-            politician_linked=politician_count,
-            government_official_linked=government_official_count,
-            unclassified=unclassified_count,
+            politician_linked=ClassificationCount(**politician),
+            government_official_linked=ClassificationCount(**government_official),
+            unclassified=ClassificationCount(**unclassified),
         )
