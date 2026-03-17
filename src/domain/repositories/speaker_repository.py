@@ -227,6 +227,11 @@ class SpeakerRepository(BaseRepository[Speaker]):
         pass
 
     @abstractmethod
+    async def get_speaker_classification_stats(self) -> dict[str, Any]:
+        """Speaker分類別の件数と発言数の統計を取得する."""
+        pass
+
+    @abstractmethod
     async def classify_is_politician_bulk(
         self,
         non_politician_names: frozenset[str],

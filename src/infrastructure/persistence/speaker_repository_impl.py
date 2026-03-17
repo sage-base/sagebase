@@ -553,6 +553,57 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
 
         return stats
 
+    async def get_speaker_classification_stats(self) -> dict[str, Any]:
+        """Speaker分類別の件数と発言数の統計を取得する."""
+        query = text("""
+            SELECT
+                CASE
+                    WHEN s.politician_id IS NOT NULL THEN 'politician'
+                    WHEN s.government_official_id IS NOT NULL
+                        THEN 'government_official'
+                    ELSE 'unclassified'
+                END AS classification,
+                COUNT(DISTINCT s.id) AS speaker_count,
+                COUNT(c.id) AS conversation_count
+            FROM speakers s
+            LEFT JOIN conversations c ON s.id = c.speaker_id
+            GROUP BY classification
+        """)
+        result = await self.session.execute(query)
+        rows = result.fetchall()
+
+        stats: dict[str, dict[str, int]] = {
+            "politician": {"speaker_count": 0, "conversation_count": 0},
+            "government_official": {"speaker_count": 0, "conversation_count": 0},
+            "unclassified": {"speaker_count": 0, "conversation_count": 0},
+        }
+        for row in rows:
+            stats[row.classification] = {
+                "speaker_count": row.speaker_count,
+                "conversation_count": row.conversation_count,
+            }
+
+        total_speakers = sum(v["speaker_count"] for v in stats.values())
+        total_conversations = sum(v["conversation_count"] for v in stats.values())
+        identified_conversations = (
+            stats["politician"]["conversation_count"]
+            + stats["government_official"]["conversation_count"]
+        )
+        identity_rate = (
+            identified_conversations / total_conversations * 100
+            if total_conversations > 0
+            else 0.0
+        )
+
+        return {
+            "total_speakers": total_speakers,
+            "total_conversations": total_conversations,
+            "politician_linked": stats["politician"],
+            "government_official_linked": stats["government_official"],
+            "unclassified": stats["unclassified"],
+            "identity_rate": identity_rate,
+        }
+
     async def get_all_for_matching(self) -> list[dict[str, Any]]:
         """Get all speakers for matching purposes."""
         query = text("SELECT id, name FROM speakers ORDER BY name")
