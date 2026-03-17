@@ -12,6 +12,11 @@ import click
 
 from src.application.exceptions import ConfigurationError, ProcessingError
 from src.domain.exceptions import PolibaseError
+from src.infrastructure.di.container import (
+    ApplicationContainer,
+    get_container,
+    init_container,
+)
 from src.infrastructure.exceptions import APIKeyError, RecordNotFoundError
 from src.infrastructure.exceptions import ConnectionError as InfraConnectionError
 
@@ -119,6 +124,14 @@ class BaseCommand:
     def warning(message: str) -> None:
         """Show a warning message."""
         click.echo(f"⚠ {message}", err=True)
+
+
+def ensure_container() -> ApplicationContainer:
+    """DIコンテナを取得する。未初期化の場合は初期化してから返す。"""
+    try:
+        return get_container()
+    except RuntimeError:
+        return init_container()
 
 
 def with_async_execution(f: Callable[..., T]) -> Callable[..., T]:  # noqa: UP047

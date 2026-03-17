@@ -15,7 +15,7 @@ from src.domain.value_objects.speaker_classification_stats import (
 from src.interfaces.cli.commands.kokkai.stats import stats
 
 
-_DI_PATH = "src.infrastructure.di.container"
+_DI_PATH = "src.interfaces.cli.base"
 
 _DEFAULT_CLASSIFICATION_STATS = SpeakerClassificationStats(
     politician_linked=ClassificationCount(speaker_count=200, conversation_count=40000),

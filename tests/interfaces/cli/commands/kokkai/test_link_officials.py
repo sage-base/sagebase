@@ -12,7 +12,7 @@ from src.application.usecases.batch_link_speakers_to_government_officials_usecas
 from src.interfaces.cli.commands.kokkai.link_officials import link_officials
 
 
-_DI_PATH = "src.infrastructure.di.container"
+_DI_PATH = "src.interfaces.cli.base"
 
 
 def _make_output(

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import click
 
 from src.application.exceptions import ProcessingError
-from src.interfaces.cli.base import with_error_handling
+from src.interfaces.cli.base import ensure_container, with_error_handling
 
 
 if TYPE_CHECKING:
@@ -48,7 +48,6 @@ async def _run_import_officials(csv_path: Path, dry_run: bool) -> None:
         GovernmentOfficialCsvRow,
         ImportGovernmentOfficialsCsvInputDto,
     )
-    from src.infrastructure.di.container import get_container, init_container
 
     # CSV読み込み
     rows = _read_csv(csv_path)
@@ -81,11 +80,7 @@ async def _run_import_officials(csv_path: Path, dry_run: bool) -> None:
             )
         )
 
-    # DIコンテナ取得
-    try:
-        container = get_container()
-    except RuntimeError:
-        container = init_container()
+    container = ensure_container()
 
     usecase = container.use_cases.import_government_officials_csv_usecase()
 

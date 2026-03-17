@@ -13,7 +13,7 @@ from src.domain.entities.meeting import Meeting
 from src.interfaces.cli.commands.kokkai.bulk_match_speakers import bulk_match_speakers
 
 
-_DI_PATH = "src.infrastructure.di.container"
+_DI_PATH = "src.interfaces.cli.base"
 
 
 def _make_meetings(count: int = 3) -> list[Meeting]:

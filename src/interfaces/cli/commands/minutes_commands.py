@@ -4,7 +4,7 @@ import asyncio
 
 import click
 
-from ..base import BaseCommand, with_error_handling
+from ..base import BaseCommand, ensure_container, with_error_handling
 
 
 class MinutesCommands(BaseCommand):
@@ -63,18 +63,11 @@ class MinutesCommands(BaseCommand):
         Now uses Clean Architecture MatchSpeakersUseCase for improved
         maintainability and testability.
         """
-        from src.infrastructure.di.container import get_container, init_container
-
         MinutesCommands.show_progress(
             f"Using {'LLM-based' if use_llm else 'rule-based'} speaker matching..."
         )
 
-        # Initialize and get dependencies from DI container
-        try:
-            container = get_container()
-        except RuntimeError:
-            # Container not initialized yet
-            container = init_container()
+        container = ensure_container()
 
         match_speakers_usecase = container.use_cases.match_speakers_usecase()
 
@@ -100,14 +93,9 @@ class MinutesCommands(BaseCommand):
         全Speakerのis_politicianフラグを非政治家パターン
         （役職のみ・参考人・証人等）に基づいて一括分類する。
         """
-        from src.infrastructure.di.container import get_container, init_container
-
         MinutesCommands.show_progress("Speaker is_politicianフラグを分類中...")
 
-        try:
-            container = get_container()
-        except RuntimeError:
-            container = init_container()
+        container = ensure_container()
 
         usecase = container.use_cases.classify_speakers_politician_usecase()
         result = asyncio.run(usecase.execute())
