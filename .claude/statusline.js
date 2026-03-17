@@ -60,33 +60,38 @@ process.stdin.on('end', async () => {
     if (percentage >= 70) percentageColor = '\x1b[33m'; // Yellow
     if (percentage >= 90) percentageColor = '\x1b[31m'; // Red
 
+    // Get git branch
+    let gitBranch = '';
+    try {
+      gitBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+        cwd: workingDir,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'ignore']
+      }).trim();
+    } catch (error) {
+      // Not in a git repo
+    }
+
     // Build PR status
     let prStatus = '';
     if (prInfo) {
-      prStatus = ` | 🔗 PR#${prInfo.number}: ${prInfo.url}`;
-    } else {
-      // Check if in git repo and not on main/master
-      try {
-        const branch = execSync('git rev-parse --abbrev-ref HEAD', {
-          cwd: workingDir,
-          encoding: 'utf8',
-          stdio: ['pipe', 'pipe', 'ignore']
-        }).trim();
-        if (branch !== 'main' && branch !== 'master') {
-          prStatus = ' | ⚠️ PR未作成';
-        }
-      } catch (error) {
-        // Not in a git repo or git not available
-      }
+      prStatus = `🔗 PR#${prInfo.number}: ${prInfo.url}`;
+    } else if (gitBranch && gitBranch !== 'main' && gitBranch !== 'master') {
+      prStatus = '⚠️ PR未作成';
     }
 
     // Get port info from docker-compose.override.yml
     const portInfo = getWorktreePortInfo(workingDir);
 
-    // Build status line
-    const statusLine = `[${model}] 📁 ${currentDir}${portInfo} | 🪙 ${tokenDisplay} | ${percentageColor}${percentage}%\x1b[0m${prStatus}`;
+    // Build status line with newlines
+    const lines = [];
+    lines.push(`[${model}] 📁 ${currentDir}`);
+    if (gitBranch) lines.push(`🌿 ${gitBranch}`);
+    if (portInfo) lines.push(`🔌 ${portInfo}`);
+    lines.push(`🪙 ${tokenDisplay} | ${percentageColor}${percentage}%\x1b[0m`);
+    if (prStatus) lines.push(prStatus);
 
-    console.log(statusLine);
+    console.log(lines.join('\n'));
   } catch (error) {
     // Fallback status line on error
     console.log('[Error] 📁 . | 🪙 0 | 0%');
@@ -180,7 +185,7 @@ function getWorktreePortInfo(workingDir) {
 
     const parts = Object.entries(portMap).map(([label, port]) => `${label}:${port}`);
     if (parts.length === 0) return '';
-    return ` | 🔌 ${parts.join(' ')}`;
+    return parts.join(' ');
   } catch (error) {
     return '';
   }
