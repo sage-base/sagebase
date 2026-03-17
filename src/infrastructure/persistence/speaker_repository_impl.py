@@ -10,6 +10,9 @@ from src.domain.entities.politician import Politician
 from src.domain.entities.speaker import Speaker
 from src.domain.repositories.session_adapter import ISessionAdapter
 from src.domain.repositories.speaker_repository import SpeakerRepository
+from src.domain.value_objects.speaker_classification_stats import (
+    SpeakerClassificationStats,
+)
 from src.domain.value_objects.speaker_with_conversation_count import (
     SpeakerWithConversationCount,
 )
@@ -552,6 +555,34 @@ class SpeakerRepositoryImpl(BaseRepositoryImpl[Speaker], SpeakerRepository):
         stats["skip_reason_breakdown"] = skip_reason_breakdown
 
         return stats
+
+    async def get_speaker_classification_stats(self) -> SpeakerClassificationStats:
+        """Speaker分類別の件数と発言数の統計を取得する."""
+        query = text("""
+            SELECT
+                CASE
+                    WHEN s.politician_id IS NOT NULL THEN 'politician'
+                    WHEN s.government_official_id IS NOT NULL
+                        THEN 'government_official'
+                    ELSE 'unclassified'
+                END AS classification,
+                COUNT(DISTINCT s.id) AS speaker_count,
+                COUNT(c.id) AS conversation_count
+            FROM speakers s
+            LEFT JOIN conversations c ON s.id = c.speaker_id
+            GROUP BY classification
+        """)
+        result = await self.session.execute(query)
+        rows = result.fetchall()
+
+        classification_rows: dict[str, dict[str, int]] = {}
+        for row in rows:
+            classification_rows[row.classification] = {
+                "speaker_count": row.speaker_count,
+                "conversation_count": row.conversation_count,
+            }
+
+        return SpeakerClassificationStats.from_classification_rows(classification_rows)
 
     async def get_all_for_matching(self) -> list[dict[str, Any]]:
         """Get all speakers for matching purposes."""

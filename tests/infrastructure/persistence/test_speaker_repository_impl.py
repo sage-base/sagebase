@@ -838,6 +838,98 @@ class TestSpeakerRepositoryImpl:
         assert result == []
 
 
+class TestGetSpeakerClassificationStats:
+    """get_speaker_classification_stats()のテスト."""
+
+    @pytest.fixture
+    def mock_session(self):
+        """Create mock session."""
+        session = MagicMock(spec=AsyncSession)
+        return session
+
+    @pytest.fixture
+    def repository(self, mock_session):
+        """Create speaker repository."""
+        return SpeakerRepositoryImpl(mock_session)
+
+    @pytest.mark.asyncio
+    async def test_returns_classification_stats(self, repository, mock_session):
+        """分類別の件数と発言数が正しく返る."""
+        mock_rows = []
+        for classification, sc, cc in [
+            ("politician", 200, 40000),
+            ("government_official", 10, 500),
+            ("unclassified", 790, 9500),
+        ]:
+            row = MagicMock()
+            row.classification = classification
+            row.speaker_count = sc
+            row.conversation_count = cc
+            mock_rows.append(row)
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = mock_rows
+
+        async def async_execute(query, params=None):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        result = await repository.get_speaker_classification_stats()
+
+        assert result.total_speakers == 1000
+        assert result.total_conversations == 50000
+        assert result.politician_linked.speaker_count == 200
+        assert result.politician_linked.conversation_count == 40000
+        assert result.government_official_linked.speaker_count == 10
+        assert result.government_official_linked.conversation_count == 500
+        assert result.unclassified.speaker_count == 790
+        assert result.unclassified.conversation_count == 9500
+        assert result.identity_rate == pytest.approx(81.0)
+
+    @pytest.mark.asyncio
+    async def test_zero_conversations_returns_zero_identity_rate(
+        self, repository, mock_session
+    ):
+        """発言0件時にidentity_rateが0.0になる."""
+        mock_rows = []
+        row = MagicMock()
+        row.classification = "unclassified"
+        row.speaker_count = 5
+        row.conversation_count = 0
+        mock_rows.append(row)
+
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = mock_rows
+
+        async def async_execute(query, params=None):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        result = await repository.get_speaker_classification_stats()
+
+        assert result.total_conversations == 0
+        assert result.identity_rate == 0.0
+
+    @pytest.mark.asyncio
+    async def test_empty_result_returns_all_zeros(self, repository, mock_session):
+        """結果が空の場合、全て0で返る."""
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = []
+
+        async def async_execute(query, params=None):
+            return mock_result
+
+        mock_session.execute = async_execute
+
+        result = await repository.get_speaker_classification_stats()
+
+        assert result.total_speakers == 0
+        assert result.total_conversations == 0
+        assert result.identity_rate == 0.0
+
+
 class TestClassifyIsPoliticianBulk:
     """classify_is_politician_bulk()のテスト."""
 
