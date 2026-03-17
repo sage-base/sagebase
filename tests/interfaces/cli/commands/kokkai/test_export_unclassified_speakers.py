@@ -13,7 +13,7 @@ from src.interfaces.cli.commands.kokkai.export_unclassified_speakers import (
 )
 
 
-_DI_PATH = "src.infrastructure.di.container"
+_DI_PATH = "src.interfaces.cli.base"
 
 
 def _make_speaker(

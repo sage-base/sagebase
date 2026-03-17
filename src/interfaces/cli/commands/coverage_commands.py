@@ -7,7 +7,7 @@ import click
 from sqlalchemy import text
 
 from src.domain.services.data_coverage_domain_service import DataCoverageDomainService
-from src.infrastructure.di.container import get_container, init_container
+from src.interfaces.cli.base import ensure_container
 
 
 def get_coverage_commands() -> list[click.Command]:
@@ -22,11 +22,7 @@ def get_coverage_commands() -> list[click.Command]:
 @click.command()
 def coverage():
     """Show data coverage statistics for governing bodies."""
-    # Initialize and get dependencies from DI container
-    try:
-        container = get_container()
-    except RuntimeError:
-        container = init_container()
+    container = ensure_container()
 
     engine = container.database.engine()
 
@@ -129,11 +125,7 @@ def coverage():
 @click.command("coverage-stats")
 def coverage_stats():
     """Show comprehensive data coverage statistics using DataCoverageDomainService."""
-    # Initialize and get dependencies from DI container
-    try:
-        container = get_container()
-    except RuntimeError:
-        container = init_container()
+    container = ensure_container()
 
     # Get repositories from container
     governing_body_repo = container.repositories.governing_body_repository()

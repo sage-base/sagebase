@@ -16,7 +16,7 @@ from src.application.usecases.batch_import_kokkai_speeches_usecase import (
 from src.interfaces.cli.commands.kokkai.import_speeches import import_speeches
 
 
-_DI_PATH = "src.infrastructure.di.container"
+_DI_PATH = "src.interfaces.cli.base"
 
 
 def _make_meeting(session: int = 1, issue: str = "第1号") -> KokkaiMeetingDTO:

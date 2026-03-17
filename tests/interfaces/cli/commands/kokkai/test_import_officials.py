@@ -14,7 +14,7 @@ from src.application.usecases.import_government_officials_csv_usecase import (
 from src.interfaces.cli.commands.kokkai.import_officials import import_officials
 
 
-_DI_PATH = "src.infrastructure.di.container"
+_DI_PATH = "src.interfaces.cli.base"
 
 _VALID_CSV = (
     "speaker_name,representative_speaker_id,organization,position,notes\n"

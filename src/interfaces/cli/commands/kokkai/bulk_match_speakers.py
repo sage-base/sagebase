@@ -12,7 +12,7 @@ from typing import Any
 import click
 
 from src.domain.constants import KOKKAI_GOVERNING_BODY_ID
-from src.interfaces.cli.base import with_error_handling
+from src.interfaces.cli.base import ensure_container, with_error_handling
 
 
 @dataclass
@@ -112,12 +112,8 @@ async def _run_bulk_match(
     wide_match: bool = False,
 ) -> None:
     from src.domain.services.election_domain_service import ElectionDomainService
-    from src.infrastructure.di.container import get_container, init_container
 
-    try:
-        container = get_container()
-    except RuntimeError:
-        container = init_container()
+    container = ensure_container()
 
     meeting_repo = container.repositories.meeting_repository()
     election_repo = container.repositories.election_repository()

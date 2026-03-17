@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import click
 
-from src.interfaces.cli.base import with_error_handling
+from src.interfaces.cli.base import ensure_container, with_error_handling
 
 
 if TYPE_CHECKING:
@@ -76,12 +76,8 @@ async def _run_import(
     from src.application.dtos.kokkai_speech_dto import (
         BatchImportKokkaiSpeechesInputDTO,
     )
-    from src.infrastructure.di.container import get_container, init_container
 
-    try:
-        container = get_container()
-    except RuntimeError:
-        container = init_container()
+    container = ensure_container()
 
     usecase = container.use_cases.batch_import_kokkai_speeches_usecase()
 

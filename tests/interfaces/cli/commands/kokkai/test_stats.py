@@ -9,7 +9,7 @@ from src.domain.repositories.speaker_repository import SpeakerRepository
 from src.interfaces.cli.commands.kokkai.stats import stats
 
 
-_DI_PATH = "src.infrastructure.di.container"
+_DI_PATH = "src.interfaces.cli.base"
 
 
 def _setup_repo_mock(mock_container: MagicMock) -> AsyncMock:

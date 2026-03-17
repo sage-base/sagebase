@@ -2,7 +2,7 @@
 
 import click
 
-from src.infrastructure.di.container import get_container, init_container
+from src.interfaces.cli.base import ensure_container
 
 
 @click.command("list-parliamentary-groups")
@@ -27,11 +27,7 @@ def list_parliamentary_groups(
     active_only: bool,
 ):
     """議員団の一覧を表示"""
-    # Initialize and get dependencies from DI container
-    try:
-        container = get_container()
-    except RuntimeError:
-        container = init_container()
+    container = ensure_container()
 
     session = container.database.session()
 

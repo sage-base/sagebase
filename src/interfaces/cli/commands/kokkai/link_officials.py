@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import click
 
-from src.interfaces.cli.base import with_error_handling
+from src.interfaces.cli.base import ensure_container, with_error_handling
 
 
 if TYPE_CHECKING:
@@ -26,17 +26,11 @@ def link_officials(dry_run: bool):
 
 
 async def _run_link_officials(dry_run: bool) -> None:
-    from src.infrastructure.di.container import get_container, init_container
-
     label = "政府関係者紐付け (ドライラン)" if dry_run else "政府関係者紐付け"
     click.echo(f"=== {label} ===")
     click.echo()
 
-    # DIコンテナ取得
-    try:
-        container = get_container()
-    except RuntimeError:
-        container = init_container()
+    container = ensure_container()
 
     usecase = container.use_cases.batch_link_speakers_to_government_officials_usecase()
     result = await usecase.execute(dry_run=dry_run)
