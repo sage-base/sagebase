@@ -21,9 +21,6 @@ process.stdin.on('end', async () => {
     const currentDir = path.basename(workingDir);
     const sessionId = data.session_id;
 
-    // Get PR information
-    const prInfo = await getPRInfo(workingDir);
-
     // Calculate token usage for current session
     let totalTokens = 0;
 
@@ -60,33 +57,29 @@ process.stdin.on('end', async () => {
     if (percentage >= 70) percentageColor = '\x1b[33m'; // Yellow
     if (percentage >= 90) percentageColor = '\x1b[31m'; // Red
 
-    // Build PR status
-    let prStatus = '';
-    if (prInfo) {
-      prStatus = ` | 🔗 PR#${prInfo.number}: ${prInfo.url}`;
-    } else {
-      // Check if in git repo and not on main/master
-      try {
-        const branch = execSync('git rev-parse --abbrev-ref HEAD', {
-          cwd: workingDir,
-          encoding: 'utf8',
-          stdio: ['pipe', 'pipe', 'ignore']
-        }).trim();
-        if (branch !== 'main' && branch !== 'master') {
-          prStatus = ' | ⚠️ PR未作成';
-        }
-      } catch (error) {
-        // Not in a git repo or git not available
-      }
+    // Get git branch
+    let gitBranch = '';
+    try {
+      gitBranch = execSync('git rev-parse --abbrev-ref HEAD', {
+        cwd: workingDir,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'ignore']
+      }).trim();
+    } catch (error) {
+      // Not in a git repo
     }
 
     // Get port info from docker-compose.override.yml
     const portInfo = getWorktreePortInfo(workingDir);
 
-    // Build status line
-    const statusLine = `[${model}] 📁 ${currentDir}${portInfo} | 🪙 ${tokenDisplay} | ${percentageColor}${percentage}%\x1b[0m${prStatus}`;
+    // Build status line with newlines
+    const lines = [];
+    lines.push(`[${model}] 📁 ${currentDir}`);
+    if (gitBranch) lines.push(`🌿 ${gitBranch}`);
+    if (portInfo) lines.push(`🔌 ${portInfo}`);
+    lines.push(`🪙 ${tokenDisplay} | ${percentageColor}${percentage}%\x1b[0m`);
 
-    console.log(statusLine);
+    console.log(lines.join('\n'));
   } catch (error) {
     // Fallback status line on error
     console.log('[Error] 📁 . | 🪙 0 | 0%');
@@ -180,43 +173,8 @@ function getWorktreePortInfo(workingDir) {
 
     const parts = Object.entries(portMap).map(([label, port]) => `${label}:${port}`);
     if (parts.length === 0) return '';
-    return ` | 🔌 ${parts.join(' ')}`;
+    return parts.join(' ');
   } catch (error) {
     return '';
-  }
-}
-
-async function getPRInfo(workingDir) {
-  try {
-    // Get current branch name
-    const branch = execSync('git rev-parse --abbrev-ref HEAD', {
-      cwd: workingDir,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore']
-    }).trim();
-
-    // Skip if on main/master branch
-    if (branch === 'main' || branch === 'master') {
-      return null;
-    }
-
-    // Check if PR exists for this branch
-    const prInfo = execSync(`gh pr list --head ${branch} --json url,number --limit 1`, {
-      cwd: workingDir,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore']
-    }).trim();
-
-    const prs = JSON.parse(prInfo);
-    if (prs && prs.length > 0) {
-      return {
-        number: prs[0].number,
-        url: prs[0].url
-      };
-    }
-
-    return null;
-  } catch (error) {
-    return null;
   }
 }
