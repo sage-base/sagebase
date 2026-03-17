@@ -3,6 +3,9 @@
 import click
 
 from src.interfaces.cli.commands.kokkai.bulk_match_speakers import bulk_match_speakers
+from src.interfaces.cli.commands.kokkai.export_unclassified_speakers import (
+    export_unclassified_speakers,
+)
 from src.interfaces.cli.commands.kokkai.import_officials import import_officials
 from src.interfaces.cli.commands.kokkai.import_speeches import import_speeches
 from src.interfaces.cli.commands.kokkai.link_officials import link_officials
@@ -22,3 +25,4 @@ kokkai.add_command(stats)
 kokkai.add_command(bulk_match_speakers, "bulk-match-speakers")
 kokkai.add_command(import_officials, "import-officials")
 kokkai.add_command(link_officials, "link-officials")
+kokkai.add_command(export_unclassified_speakers, "export-unclassified-speakers")
