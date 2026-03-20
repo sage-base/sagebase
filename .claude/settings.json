@@ -107,7 +107,7 @@
   "enabledMcpjsonServers": ["serena", "context7", "codex"],
   "statusLine": {
     "type": "command",
-    "command": ".claude/statusline.js"
+    "command": "~/.claude/statusline.py"
   },
   "hooks": {
     "PreToolUse": [
