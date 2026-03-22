@@ -82,10 +82,45 @@ async def _run_import_officials(csv_path: Path, dry_run: bool) -> None:
 
     container = ensure_container()
 
-    usecase = container.use_cases.import_government_officials_csv_usecase()
+    # バッチインポートでは全リポジトリが同一セッション（同一トランザクション）を
+    # 共有する必要がある。DIコンテナのFactoryでは各リポジトリに別セッションが
+    # 割り当てられるため、ここで共有セッションを明示的に構築する。
+    shared_session = container.database.async_session()
+
+    from src.application.usecases import (
+        import_government_officials_csv_usecase as uc_mod,
+    )
+    from src.infrastructure.persistence import (
+        government_official_position_repository_impl as pos_mod,
+    )
+    from src.infrastructure.persistence import (
+        government_official_repository_impl as off_mod,
+    )
+    from src.infrastructure.persistence import (
+        speaker_repository_impl as spk_mod,
+    )
+
+    usecase = uc_mod.ImportGovernmentOfficialsCsvUseCase(
+        government_official_repository=(
+            off_mod.GovernmentOfficialRepositoryImpl(
+                session=shared_session,
+            )
+        ),
+        government_official_position_repository=(
+            pos_mod.GovernmentOfficialPositionRepositoryImpl(
+                session=shared_session,
+            )
+        ),
+        speaker_repository=spk_mod.SpeakerRepositoryImpl(
+            session=shared_session,
+        ),
+    )
 
     input_dto = ImportGovernmentOfficialsCsvInputDto(rows=csv_rows, dry_run=dry_run)
     result = await usecase.execute(input_dto)
+
+    if not dry_run:
+        await shared_session.commit()
 
     _show_summary(result)
 

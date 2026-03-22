@@ -290,7 +290,6 @@ _GOVERNMENT_OFFICIALS = BQTableDef(
     columns=(
         BQColumnDef("id", "INT64", "REQUIRED", "政府関係者ID"),
         BQColumnDef("name", "STRING", "REQUIRED", "氏名"),
-        BQColumnDef("name_yomi", "STRING", description="氏名よみ"),
         BQColumnDef("created_at", "TIMESTAMP", description="作成日時"),
         BQColumnDef("updated_at", "TIMESTAMP", description="更新日時"),
     ),
