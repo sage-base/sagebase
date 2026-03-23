@@ -78,6 +78,7 @@ class ElectionMemberRepositoryImpl(
             result=model.result,
             votes=model.votes,
             rank=model.rank,
+            political_party_id=model.political_party_id,
         )
 
     def _to_model(self, entity: ElectionMember) -> ElectionMemberModel:
@@ -87,6 +88,7 @@ class ElectionMemberRepositoryImpl(
             result=entity.result,
             votes=entity.votes,
             rank=entity.rank,
+            political_party_id=entity.political_party_id,
         )
 
     def _update_model(self, model: ElectionMemberModel, entity: ElectionMember) -> None:
@@ -95,3 +97,4 @@ class ElectionMemberRepositoryImpl(
         model.result = entity.result
         model.votes = entity.votes
         model.rank = entity.rank
+        model.political_party_id = entity.political_party_id

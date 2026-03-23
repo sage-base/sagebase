@@ -24,6 +24,7 @@ class ElectionMemberOutputItem:
     result: str
     votes: int | None
     rank: int | None
+    political_party_id: int | None = None
 
     @classmethod
     def from_entity(cls, entity: ElectionMember) -> "ElectionMemberOutputItem":
@@ -35,6 +36,7 @@ class ElectionMemberOutputItem:
             result=entity.result,
             votes=entity.votes,
             rank=entity.rank,
+            political_party_id=entity.political_party_id,
         )
 
 
@@ -66,6 +68,7 @@ class CreateElectionMemberInputDto:
     result: str
     votes: int | None = None
     rank: int | None = None
+    political_party_id: int | None = None
 
 
 @dataclass
@@ -78,6 +81,7 @@ class UpdateElectionMemberInputDto:
     result: str
     votes: int | None = None
     rank: int | None = None
+    political_party_id: int | None = None
 
 
 @dataclass

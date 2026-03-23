@@ -258,6 +258,7 @@ class ImportProportionalElectionUseCase:
             existing_member.rank = (
                 candidate.list_order if candidate.list_order > 0 else None
             )
+            existing_member.political_party_id = party_id
             await self._member_repo.update(existing_member)
             logger.debug("既存ElectionMemberを更新: %s → %s", candidate.name, result)
         else:
@@ -266,6 +267,7 @@ class ImportProportionalElectionUseCase:
                 politician_id=politician.id,
                 result=result,
                 rank=candidate.list_order if candidate.list_order > 0 else None,
+                political_party_id=party_id,
             )
             await self._member_repo.create(member)
         self._processed_politician_ids.add(politician.id)

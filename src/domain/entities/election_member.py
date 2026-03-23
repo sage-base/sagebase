@@ -38,6 +38,7 @@ class ElectionMember(BaseEntity):
         result: str,
         votes: int | None = None,
         rank: int | None = None,
+        political_party_id: int | None = None,
         id: int | None = None,
     ) -> None:
         """選挙結果メンバーエンティティを初期化する.
@@ -48,6 +49,7 @@ class ElectionMember(BaseEntity):
             result: 選挙結果（当選, 落選など）
             votes: 得票数
             rank: 順位
+            political_party_id: 選挙時の所属政党ID
             id: 選挙結果メンバーID
         """
         super().__init__(id)
@@ -56,6 +58,7 @@ class ElectionMember(BaseEntity):
         self.result = result
         self.votes = votes
         self.rank = rank
+        self.political_party_id = political_party_id
 
     def __str__(self) -> str:
         """文字列表現を返す."""
