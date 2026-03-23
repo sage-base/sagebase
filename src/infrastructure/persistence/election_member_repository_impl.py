@@ -1,5 +1,7 @@
 """SQLAlchemyを使用した選挙結果メンバーリポジトリの実装."""
 
+from datetime import date
+
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +11,7 @@ from src.domain.repositories.session_adapter import ISessionAdapter
 from src.infrastructure.persistence.base_repository_impl import BaseRepositoryImpl
 from src.infrastructure.persistence.sqlalchemy_models import (
     ElectionMemberModel,
+    ElectionModel,
 )
 
 
@@ -70,6 +73,20 @@ class ElectionMemberRepositoryImpl(
         await self.session.flush()
         return result.rowcount
 
+    async def get_all_with_election_date(self) -> list[tuple[ElectionMember, date]]:
+        """全ElectionMemberをElectionのelection_dateとともに取得する."""
+        query = (
+            select(ElectionMemberModel, ElectionModel.election_date)
+            .join(ElectionModel, ElectionMemberModel.election_id == ElectionModel.id)
+            .order_by(
+                ElectionMemberModel.politician_id.asc(),
+                ElectionModel.election_date.asc(),
+            )
+        )
+        result = await self.session.execute(query)
+        rows = result.all()
+        return [(self._to_entity(row[0]), row[1]) for row in rows]
+
     def _to_entity(self, model: ElectionMemberModel) -> ElectionMember:
         return ElectionMember(
             id=model.id,
@@ -78,6 +95,7 @@ class ElectionMemberRepositoryImpl(
             result=model.result,
             votes=model.votes,
             rank=model.rank,
+            political_party_id=model.political_party_id,
         )
 
     def _to_model(self, entity: ElectionMember) -> ElectionMemberModel:
@@ -87,6 +105,7 @@ class ElectionMemberRepositoryImpl(
             result=entity.result,
             votes=entity.votes,
             rank=entity.rank,
+            political_party_id=entity.political_party_id,
         )
 
     def _update_model(self, model: ElectionMemberModel, entity: ElectionMember) -> None:
@@ -95,3 +114,4 @@ class ElectionMemberRepositoryImpl(
         model.result = entity.result
         model.votes = entity.votes
         model.rank = entity.rank
+        model.political_party_id = entity.political_party_id

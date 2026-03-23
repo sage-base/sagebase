@@ -217,6 +217,7 @@ class ImportNationalElectionUseCase:
             result=result,
             votes=candidate.total_votes if candidate.total_votes > 0 else None,
             rank=candidate.rank if candidate.rank > 0 else None,
+            political_party_id=party_id,
         )
         await self._member_repo.create(member)
         self._processed_politician_ids.add(politician.id)

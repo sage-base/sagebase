@@ -1,6 +1,7 @@
 """選挙結果メンバーリポジトリのインターフェース."""
 
 from abc import abstractmethod
+from datetime import date
 
 from src.domain.entities.election_member import ElectionMember
 from src.domain.repositories.base import BaseRepository
@@ -57,5 +58,15 @@ class ElectionMemberRepository(BaseRepository[ElectionMember]):
 
         Returns:
             削除件数
+        """
+        pass
+
+    @abstractmethod
+    async def get_all_with_election_date(self) -> list[tuple[ElectionMember, date]]:
+        """全ElectionMemberをElectionのelection_dateとともに取得する.
+
+        Returns:
+            (ElectionMember, election_date) のタプルリスト
+            （politician_id, election_date昇順）
         """
         pass

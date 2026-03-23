@@ -251,6 +251,7 @@ class ImportSangiinElectionUseCase:
                 election_id=election.id,
                 politician_id=politician.id,
                 result=result,
+                political_party_id=party_id,
             )
             await self._member_repo.create(member)
             self._processed_politician_ids[term_number].add(politician.id)

@@ -316,6 +316,15 @@ class ElectionMemberModel(Base):
     result: Mapped[str] = mapped_column(String(50))
     votes: Mapped[int | None] = mapped_column(Integer)
     rank: Mapped[int | None] = mapped_column(Integer)
+    political_party_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey(
+            "political_parties.id",
+            use_alter=True,
+            name="fk_em_political_party",
+        ),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )

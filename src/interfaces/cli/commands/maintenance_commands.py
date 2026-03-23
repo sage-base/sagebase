@@ -117,9 +117,69 @@ class MaintenanceCommands(BaseCommand):
                 f"{result.error_count}件のエラーがありました"
             )
 
+    @staticmethod
+    @click.command()
+    @click.option(
+        "--no-dry-run",
+        is_flag=True,
+        help="実際にDBを更新する（デフォルトはdry_run）",
+    )
+    @with_error_handling
+    @with_async_execution
+    async def rebuild_party_history(no_dry_run: bool):
+        """選挙データから政党所属履歴を再構築
+
+        election_membersのpolitical_party_idを基に、
+        政党移動を検出してparty_membership_historyを再構築します。
+
+        使用例:
+
+            # dry_run（変更なし、結果のみ表示）
+            sagebase rebuild-party-history
+
+            # 実際にDBを更新
+            sagebase rebuild-party-history --no-dry-run
+        """
+        from src.application.dtos.rebuild_party_membership_dto import (
+            RebuildPartyMembershipInputDto,
+        )
+
+        dry_run = not no_dry_run
+
+        if dry_run:
+            MaintenanceCommands.show_progress(
+                "政党所属履歴の再構築を開始（dry_runモード）..."
+            )
+        else:
+            MaintenanceCommands.show_progress(
+                "政党所属履歴の再構築を開始（本番モード）..."
+            )
+
+        container = ensure_container()
+        usecase = container.use_cases.rebuild_party_membership_history_usecase()
+
+        result = await usecase.execute(RebuildPartyMembershipInputDto(dry_run=dry_run))
+
+        MaintenanceCommands.show_progress(
+            f"\n処理完了:\n"
+            f"  対象政治家数: {result.total_politicians}\n"
+            f"  政党変更あり: {result.politicians_with_party_change}\n"
+            f"  政党情報なし（スキップ）: {result.skipped_no_party}\n"
+            f"  削除レコード: {result.deleted_old_records}\n"
+            f"  作成レコード: {result.created_new_records}"
+        )
+
+        if dry_run:
+            MaintenanceCommands.warning(
+                "dry_runモードです。--no-dry-run で実際にDBを更新できます"
+            )
+        else:
+            MaintenanceCommands.success("政党所属履歴の再構築が完了しました")
+
 
 def get_maintenance_commands() -> list[click.Command]:
     """メンテナンス関連のコマンドリストを返す"""
     return [
         MaintenanceCommands.backfill_role_name_mappings,
+        MaintenanceCommands.rebuild_party_history,
     ]
