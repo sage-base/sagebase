@@ -80,6 +80,9 @@ from src.application.usecases.override_individual_judge_usecase import (
     OverrideIndividualJudgeUseCase,
 )
 from src.application.usecases.process_minutes_usecase import ProcessMinutesUseCase
+from src.application.usecases.rebuild_party_membership_history_usecase import (
+    RebuildPartyMembershipHistoryUseCase,
+)
 from src.application.usecases.update_extracted_parliamentary_group_member_from_extraction_usecase import (  # noqa: E501
     UpdateExtractedParliamentaryGroupMemberFromExtractionUseCase,
 )
@@ -869,6 +872,14 @@ class UseCaseContainer(containers.DeclarativeContainer):
     manage_party_membership_history_usecase = providers.Factory(
         ManagePartyMembershipHistoryUseCase,
         repository=repositories.party_membership_history_repository,
+    )
+
+    # Rebuild Party Membership History UseCase (Issue #1388)
+    # 選挙データから政党所属履歴を再構築するユースケース
+    rebuild_party_membership_history_usecase = providers.Factory(
+        RebuildPartyMembershipHistoryUseCase,
+        election_member_repository=repositories.election_member_repository,
+        party_membership_history_repository=repositories.party_membership_history_repository,
     )
 
     # Classify Speakers Politician UseCase (Issue #1256)
