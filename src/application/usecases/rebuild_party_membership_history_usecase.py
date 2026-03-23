@@ -108,12 +108,20 @@ class RebuildPartyMembershipHistoryUseCase:
         output: RebuildPartyMembershipOutputDto,
     ) -> list[PartyMembershipHistory]:
         """1人の政治家の選挙履歴から所属履歴レコードを構築する."""
-        # political_party_idが非NULLの行のみ抽出
-        valid_entries = [
-            (member, election_date)
-            for member, election_date in entries
-            if member.political_party_id is not None
-        ]
+        # political_party_idが非NULL かつ election_dateが非NULLの行のみ抽出
+        valid_entries = []
+        for member, election_date in entries:
+            if election_date is None:
+                logger.warning(
+                    "election_dateがNULLのためスキップ: "
+                    "politician_id=%d, election_id=%d",
+                    politician_id,
+                    member.election_id,
+                )
+                continue
+            if member.political_party_id is None:
+                continue
+            valid_entries.append((member, election_date))
 
         if not valid_entries:
             output.skipped_no_party += 1
