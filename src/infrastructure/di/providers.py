@@ -41,6 +41,15 @@ from src.application.usecases.import_government_officials_csv_usecase import (
 from src.application.usecases.import_kokkai_speeches_usecase import (
     ImportKokkaiSpeechesUseCase,
 )
+from src.application.usecases.import_national_election_usecase import (
+    ImportNationalElectionUseCase,
+)
+from src.application.usecases.import_proportional_election_usecase import (
+    ImportProportionalElectionUseCase,
+)
+from src.application.usecases.import_sangiin_election_usecase import (
+    ImportSangiinElectionUseCase,
+)
 from src.application.usecases.link_speaker_to_government_official_usecase import (
     LinkSpeakerToGovernmentOfficialUseCase,
 )
@@ -137,6 +146,15 @@ from src.infrastructure.external.seed_generator_service import SeedGeneratorServ
 from src.infrastructure.external.web_scraper_service import (
     IWebScraperService,
     PlaywrightScraperService,
+)
+from src.infrastructure.importers.smartnews_smri_sangiin_data_source import (
+    SmartNewsSmriSangiinDataSource,
+)
+from src.infrastructure.importers.soumu_election_data_source import (
+    SoumuElectionDataSource,
+)
+from src.infrastructure.importers.soumu_proportional_data_source import (
+    SoumuProportionalDataSource,
 )
 from src.infrastructure.persistence.async_session_adapter import AsyncSessionAdapter
 from src.infrastructure.persistence.conference_member_repository_impl import (
@@ -764,6 +782,42 @@ class UseCaseContainer(containers.DeclarativeContainer):
         ManageElectionsUseCase,
         election_repository=repositories.election_repository,
         seed_generator_service=services.seed_generator_service,
+    )
+
+    # Import National Election UseCase (Issue #1388)
+    # 衆議院小選挙区データインポートユースケース
+    import_national_election_usecase = providers.Factory(
+        ImportNationalElectionUseCase,
+        election_repository=repositories.election_repository,
+        election_member_repository=repositories.election_member_repository,
+        politician_repository=repositories.politician_repository,
+        political_party_repository=repositories.political_party_repository,
+        election_data_source=providers.Factory(SoumuElectionDataSource),
+        party_membership_history_repository=repositories.party_membership_history_repository,
+    )
+
+    # Import Proportional Election UseCase (Issue #1388)
+    # 比例代表データインポートユースケース
+    import_proportional_election_usecase = providers.Factory(
+        ImportProportionalElectionUseCase,
+        election_repository=repositories.election_repository,
+        election_member_repository=repositories.election_member_repository,
+        politician_repository=repositories.politician_repository,
+        political_party_repository=repositories.political_party_repository,
+        proportional_data_source=providers.Factory(SoumuProportionalDataSource),
+        party_membership_history_repository=repositories.party_membership_history_repository,
+    )
+
+    # Import Sangiin Election UseCase (Issue #1388)
+    # 参議院選挙データインポートユースケース
+    import_sangiin_election_usecase = providers.Factory(
+        ImportSangiinElectionUseCase,
+        election_repository=repositories.election_repository,
+        election_member_repository=repositories.election_member_repository,
+        politician_repository=repositories.politician_repository,
+        political_party_repository=repositories.political_party_repository,
+        data_source=providers.Factory(SmartNewsSmriSangiinDataSource),
+        party_membership_history_repository=repositories.party_membership_history_repository,
     )
 
     # Manage Election Members UseCase (Issue #1070)
