@@ -143,6 +143,15 @@ class MaintenanceCommands(BaseCommand):
         from src.application.dtos.rebuild_party_membership_dto import (
             RebuildPartyMembershipInputDto,
         )
+        from src.application.usecases.rebuild_party_membership_history_usecase import (
+            RebuildPartyMembershipHistoryUseCase,
+        )
+        from src.infrastructure.persistence.election_member_repository_impl import (
+            ElectionMemberRepositoryImpl,
+        )
+        from src.infrastructure.persistence.party_membership_history_repository_impl import (  # noqa: E501
+            PartyMembershipHistoryRepositoryImpl,
+        )
 
         dry_run = not no_dry_run
 
@@ -156,9 +165,18 @@ class MaintenanceCommands(BaseCommand):
             )
 
         container = ensure_container()
-        usecase = container.use_cases.rebuild_party_membership_history_usecase()
+        session = container.database.async_session()
+        usecase = RebuildPartyMembershipHistoryUseCase(
+            election_member_repository=ElectionMemberRepositoryImpl(session),
+            party_membership_history_repository=PartyMembershipHistoryRepositoryImpl(
+                session
+            ),
+        )
 
         result = await usecase.execute(RebuildPartyMembershipInputDto(dry_run=dry_run))
+
+        if not dry_run:
+            await session.commit()
 
         MaintenanceCommands.show_progress(
             f"\n処理完了:\n"
