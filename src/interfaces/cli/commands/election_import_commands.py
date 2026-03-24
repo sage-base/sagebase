@@ -34,6 +34,12 @@ class ElectionImportCommands(BaseCommand):
         help="開催主体ID（国会=1）",
     )
     @click.option(
+        "--data-source",
+        type=click.Choice(["wikipedia", "soumu"]),
+        default="wikipedia",
+        help="データソース（デフォルト: wikipedia）",
+    )
+    @click.option(
         "--dry-run/--no-dry-run",
         default=True,
         help="ドライラン（デフォルト: dry-run）",
@@ -43,33 +49,61 @@ class ElectionImportCommands(BaseCommand):
     async def import_national_election(
         term_number: int,
         governing_body_id: int,
+        data_source: str,
         dry_run: bool,
     ):
         """衆議院小選挙区データをインポート
 
-        総務省のXLSデータソースから候補者データを取得し、
+        外部データソースから候補者データを取得し、
         Election・ElectionMemberレコードを作成します。
 
         使用例:
 
-            # dry_run（変更なし）
-            sagebase import-national-election --term-number 49 --governing-body-id 1
-
-            # 実際にDBを更新
+            # Wikipediaソースでdry_run
             sagebase import-national-election \\
-                --term-number 49 --governing-body-id 1 --no-dry-run
+                --term-number 44 --governing-body-id 1
+
+            # 総務省ソースで実行
+            sagebase import-national-election \\
+                --term-number 49 --governing-body-id 1 \\
+                --data-source soumu --no-dry-run
         """
         from src.application.dtos.national_election_import_dto import (
             ImportNationalElectionInputDto,
         )
+        from src.application.usecases.import_national_election_usecase import (
+            ImportNationalElectionUseCase,
+        )
+
+        if data_source == "wikipedia":
+            from src.infrastructure.importers.wikipedia_election_data_source import (
+                WikipediaElectionDataSource,
+            )
+
+            source = WikipediaElectionDataSource()
+        else:
+            from src.infrastructure.importers.soumu_election_data_source import (
+                SoumuElectionDataSource,
+            )
+
+            source = SoumuElectionDataSource()
 
         mode = "dry_run" if dry_run else "本番"
         ElectionImportCommands.show_progress(
-            f"衆議院小選挙区インポート開始（第{term_number}回, {mode}モード）..."
+            f"衆議院小選挙区インポート開始"
+            f"（第{term_number}回, {data_source}, {mode}モード）..."
         )
 
         container = ensure_container()
-        usecase = container.use_cases.import_national_election_usecase()
+        repos = container.repositories
+        usecase = ImportNationalElectionUseCase(
+            election_repository=repos.election_repository(),
+            election_member_repository=repos.election_member_repository(),
+            politician_repository=repos.politician_repository(),
+            political_party_repository=repos.political_party_repository(),
+            election_data_source=source,
+            party_membership_history_repository=repos.party_membership_history_repository(),
+        )
 
         result = await usecase.execute(
             ImportNationalElectionInputDto(
@@ -147,6 +181,12 @@ class ElectionImportCommands(BaseCommand):
         from src.application.dtos.proportional_election_import_dto import (
             ImportProportionalElectionInputDto,
         )
+        from src.application.usecases.import_proportional_election_usecase import (
+            ImportProportionalElectionUseCase,
+        )
+        from src.infrastructure.importers.soumu_proportional_data_source import (
+            SoumuProportionalDataSource,
+        )
 
         mode = "dry_run" if dry_run else "本番"
         ElectionImportCommands.show_progress(
@@ -154,7 +194,15 @@ class ElectionImportCommands(BaseCommand):
         )
 
         container = ensure_container()
-        usecase = container.use_cases.import_proportional_election_usecase()
+        repos = container.repositories
+        usecase = ImportProportionalElectionUseCase(
+            election_repository=repos.election_repository(),
+            election_member_repository=repos.election_member_repository(),
+            politician_repository=repos.politician_repository(),
+            political_party_repository=repos.political_party_repository(),
+            proportional_data_source=SoumuProportionalDataSource(),
+            party_membership_history_repository=repos.party_membership_history_repository(),
+        )
 
         result = await usecase.execute(
             ImportProportionalElectionInputDto(
@@ -236,6 +284,12 @@ class ElectionImportCommands(BaseCommand):
         from src.application.dtos.sangiin_election_import_dto import (
             ImportSangiinElectionInputDto,
         )
+        from src.application.usecases.import_sangiin_election_usecase import (
+            ImportSangiinElectionUseCase,
+        )
+        from src.infrastructure.importers.smartnews_smri_sangiin_data_source import (
+            SmartNewsSmriSangiinDataSource,
+        )
 
         mode = "dry_run" if dry_run else "本番"
         ElectionImportCommands.show_progress(
@@ -243,7 +297,15 @@ class ElectionImportCommands(BaseCommand):
         )
 
         container = ensure_container()
-        usecase = container.use_cases.import_sangiin_election_usecase()
+        repos = container.repositories
+        usecase = ImportSangiinElectionUseCase(
+            election_repository=repos.election_repository(),
+            election_member_repository=repos.election_member_repository(),
+            politician_repository=repos.politician_repository(),
+            political_party_repository=repos.political_party_repository(),
+            data_source=SmartNewsSmriSangiinDataSource(),
+            party_membership_history_repository=repos.party_membership_history_repository(),
+        )
 
         result = await usecase.execute(
             ImportSangiinElectionInputDto(
