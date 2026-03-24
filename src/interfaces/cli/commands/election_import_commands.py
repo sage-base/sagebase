@@ -94,15 +94,33 @@ class ElectionImportCommands(BaseCommand):
             f"（第{term_number}回, {data_source}, {mode}モード）..."
         )
 
+        from src.infrastructure.persistence.election_member_repository_impl import (
+            ElectionMemberRepositoryImpl,
+        )
+        from src.infrastructure.persistence.election_repository_impl import (
+            ElectionRepositoryImpl,
+        )
+        from src.infrastructure.persistence.party_membership_history_repository_impl import (  # noqa: E501
+            PartyMembershipHistoryRepositoryImpl,
+        )
+        from src.infrastructure.persistence.political_party_repository_impl import (
+            PoliticalPartyRepositoryImpl,
+        )
+        from src.infrastructure.persistence.politician_repository_impl import (
+            PoliticianRepositoryImpl,
+        )
+
         container = ensure_container()
-        repos = container.repositories
+        session = container.database.async_session()
         usecase = ImportNationalElectionUseCase(
-            election_repository=repos.election_repository(),
-            election_member_repository=repos.election_member_repository(),
-            politician_repository=repos.politician_repository(),
-            political_party_repository=repos.political_party_repository(),
+            election_repository=ElectionRepositoryImpl(session),
+            election_member_repository=ElectionMemberRepositoryImpl(session),
+            politician_repository=PoliticianRepositoryImpl(session),
+            political_party_repository=PoliticalPartyRepositoryImpl(session),
             election_data_source=source,
-            party_membership_history_repository=repos.party_membership_history_repository(),
+            party_membership_history_repository=PartyMembershipHistoryRepositoryImpl(
+                session
+            ),
         )
 
         result = await usecase.execute(
@@ -112,6 +130,9 @@ class ElectionImportCommands(BaseCommand):
                 dry_run=dry_run,
             )
         )
+
+        if not dry_run:
+            await session.commit()
 
         ElectionImportCommands.show_progress(
             f"\n処理完了:\n"
@@ -172,7 +193,8 @@ class ElectionImportCommands(BaseCommand):
         使用例:
 
             # dry_run
-            sagebase import-proportional-election --term-number 49 --governing-body-id 1
+            sagebase import-proportional-election \\
+                --term-number 49 --governing-body-id 1
 
             # 実際にDBを更新
             sagebase import-proportional-election \\
@@ -193,15 +215,33 @@ class ElectionImportCommands(BaseCommand):
             f"比例代表インポート開始（第{term_number}回, {mode}モード）..."
         )
 
+        from src.infrastructure.persistence.election_member_repository_impl import (
+            ElectionMemberRepositoryImpl,
+        )
+        from src.infrastructure.persistence.election_repository_impl import (
+            ElectionRepositoryImpl,
+        )
+        from src.infrastructure.persistence.party_membership_history_repository_impl import (  # noqa: E501
+            PartyMembershipHistoryRepositoryImpl,
+        )
+        from src.infrastructure.persistence.political_party_repository_impl import (
+            PoliticalPartyRepositoryImpl,
+        )
+        from src.infrastructure.persistence.politician_repository_impl import (
+            PoliticianRepositoryImpl,
+        )
+
         container = ensure_container()
-        repos = container.repositories
+        session = container.database.async_session()
         usecase = ImportProportionalElectionUseCase(
-            election_repository=repos.election_repository(),
-            election_member_repository=repos.election_member_repository(),
-            politician_repository=repos.politician_repository(),
-            political_party_repository=repos.political_party_repository(),
+            election_repository=ElectionRepositoryImpl(session),
+            election_member_repository=ElectionMemberRepositoryImpl(session),
+            politician_repository=PoliticianRepositoryImpl(session),
+            political_party_repository=PoliticalPartyRepositoryImpl(session),
             proportional_data_source=SoumuProportionalDataSource(),
-            party_membership_history_repository=repos.party_membership_history_repository(),
+            party_membership_history_repository=PartyMembershipHistoryRepositoryImpl(
+                session
+            ),
         )
 
         result = await usecase.execute(
@@ -211,6 +251,9 @@ class ElectionImportCommands(BaseCommand):
                 dry_run=dry_run,
             )
         )
+
+        if not dry_run:
+            await session.commit()
 
         ElectionImportCommands.show_progress(
             f"\n処理完了:\n"
@@ -279,7 +322,8 @@ class ElectionImportCommands(BaseCommand):
 
             # 実際にDBを更新
             sagebase import-sangiin-election \\
-                --governing-body-id 1 --file-path tmp/giin.json --no-dry-run
+                --governing-body-id 1 \\
+                --file-path tmp/giin.json --no-dry-run
         """
         from src.application.dtos.sangiin_election_import_dto import (
             ImportSangiinElectionInputDto,
@@ -296,15 +340,33 @@ class ElectionImportCommands(BaseCommand):
             f"参議院選挙インポート開始（{mode}モード, ファイル: {file_path}）..."
         )
 
+        from src.infrastructure.persistence.election_member_repository_impl import (
+            ElectionMemberRepositoryImpl,
+        )
+        from src.infrastructure.persistence.election_repository_impl import (
+            ElectionRepositoryImpl,
+        )
+        from src.infrastructure.persistence.party_membership_history_repository_impl import (  # noqa: E501
+            PartyMembershipHistoryRepositoryImpl,
+        )
+        from src.infrastructure.persistence.political_party_repository_impl import (
+            PoliticalPartyRepositoryImpl,
+        )
+        from src.infrastructure.persistence.politician_repository_impl import (
+            PoliticianRepositoryImpl,
+        )
+
         container = ensure_container()
-        repos = container.repositories
+        session = container.database.async_session()
         usecase = ImportSangiinElectionUseCase(
-            election_repository=repos.election_repository(),
-            election_member_repository=repos.election_member_repository(),
-            politician_repository=repos.politician_repository(),
-            political_party_repository=repos.political_party_repository(),
+            election_repository=ElectionRepositoryImpl(session),
+            election_member_repository=ElectionMemberRepositoryImpl(session),
+            politician_repository=PoliticianRepositoryImpl(session),
+            political_party_repository=PoliticalPartyRepositoryImpl(session),
             data_source=SmartNewsSmriSangiinDataSource(),
-            party_membership_history_repository=repos.party_membership_history_repository(),
+            party_membership_history_repository=PartyMembershipHistoryRepositoryImpl(
+                session
+            ),
         )
 
         result = await usecase.execute(
@@ -314,6 +376,9 @@ class ElectionImportCommands(BaseCommand):
                 dry_run=dry_run,
             )
         )
+
+        if not dry_run:
+            await session.commit()
 
         ElectionImportCommands.show_progress(
             f"\n処理完了:\n"
