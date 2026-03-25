@@ -1,7 +1,7 @@
 """会派⇔政党マッピング（parliamentary_group_parties）のデータ補完.
 
-Revision ID: 042
-Revises: 041
+Revision ID: 043
+Revises: 042
 Create Date: 2026-03-25
 
 88会派中31グループ（35%カバレッジ）→ 約73グループ（90%カバレッジ）に改善。
@@ -14,8 +14,8 @@ Create Date: 2026-03-25
 from alembic import op
 
 
-revision = "042"
-down_revision = "041"
+revision = "043"
+down_revision = "042"
 branch_labels = None
 depends_on = None
 
