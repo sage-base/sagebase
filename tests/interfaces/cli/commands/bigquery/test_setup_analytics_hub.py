@@ -22,8 +22,8 @@ def mock_exchange_info() -> ExchangeInfo:
 @pytest.fixture
 def mock_listing_info() -> ListingInfo:
     return ListingInfo(
-        name="projects/test-project/locations/asia-northeast1/dataExchanges/sagebase_exchange/listings/sagebase_gold_listing",
-        display_name="Sagebase Gold Layer - 政治活動データ",
+        name="projects/test-project/locations/asia-northeast1/dataExchanges/sagebase_exchange/listings/sagebase_source_listing",
+        display_name="Sagebase Source Layer - 政治活動データ",
         description="テスト説明",
         state="ACTIVE",
     )
@@ -42,7 +42,7 @@ class TestSetupAnalyticsHubCommand:
         cmd.execute(
             exchange_id="test_exchange",
             listing_id="test_listing",
-            dataset="sagebase_gold",
+            dataset="sagebase_source",
             primary_contact="",
             dry_run=True,
         )
@@ -62,7 +62,7 @@ class TestSetupAnalyticsHubCommand:
             cmd.execute(
                 exchange_id="test_exchange",
                 listing_id="test_listing",
-                dataset="sagebase_gold",
+                dataset="sagebase_source",
                 primary_contact="",
                 dry_run=False,
             )
@@ -93,8 +93,8 @@ class TestSetupAnalyticsHubCommand:
         cmd = SetupAnalyticsHubCommand()
         cmd.execute(
             exchange_id="sagebase_exchange",
-            listing_id="sagebase_gold_listing",
-            dataset="sagebase_gold",
+            listing_id="sagebase_source_listing",
+            dataset="sagebase_source",
             primary_contact="test@example.com",
             dry_run=False,
         )
@@ -110,8 +110,8 @@ class TestSetupAnalyticsHubCommand:
         # Listing作成の引数を検証
         listing_call = mock_client.create_listing.call_args
         assert listing_call.kwargs["exchange_id"] == "sagebase_exchange"
-        assert listing_call.kwargs["listing_id"] == "sagebase_gold_listing"
-        assert listing_call.kwargs["dataset_id"] == "sagebase_gold"
+        assert listing_call.kwargs["listing_id"] == "sagebase_source_listing"
+        assert listing_call.kwargs["dataset_id"] == "sagebase_source"
 
     @patch.dict(
         "os.environ",
@@ -149,8 +149,8 @@ class TestSetupAnalyticsHubCommand:
         assert exchange_call.kwargs["exchange_id"] == "sagebase_exchange"
 
         listing_call = mock_client.create_listing.call_args
-        assert listing_call.kwargs["listing_id"] == "sagebase_gold_listing"
-        assert listing_call.kwargs["dataset_id"] == "sagebase_gold"
+        assert listing_call.kwargs["listing_id"] == "sagebase_source_listing"
+        assert listing_call.kwargs["dataset_id"] == "sagebase_source"
 
 
 class TestSetupAnalyticsHubClickCommand:

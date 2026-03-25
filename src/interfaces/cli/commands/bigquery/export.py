@@ -1,4 +1,4 @@
-"""PostgreSQL Gold Layer → BigQuery エクスポートコマンド."""
+"""PostgreSQL → BigQuery Source Layer エクスポートコマンド."""
 
 import logging
 import time
@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy import inspect, text
 
 from src.infrastructure.bigquery.client import BigQueryClient
-from src.infrastructure.bigquery.schema import GOLD_LAYER_TABLES, BQTableDef
+from src.infrastructure.bigquery.schema import SOURCE_TABLES, BQTableDef
 from src.infrastructure.config.database import get_db_engine
 from src.interfaces.cli.base import BaseCommand, Command
 
@@ -47,7 +47,7 @@ def serialize_row(row: dict[str, Any]) -> dict[str, Any]:
 
 
 class ExportToBigQueryCommand(Command, BaseCommand):
-    """PostgreSQL Gold LayerテーブルをBigQueryにエクスポートするコマンド."""
+    """PostgreSQLテーブルをBigQuery Source Layerにエクスポートするコマンド."""
 
     def execute(self, **kwargs: Any) -> None:
         """エクスポートを実行."""
@@ -70,7 +70,7 @@ class ExportToBigQueryCommand(Command, BaseCommand):
             self.error("環境変数 GOOGLE_CLOUD_PROJECT が設定されていません")
             return
 
-        dataset_id = dataset or os.environ.get("BQ_DATASET_ID", "sagebase_gold")
+        dataset_id = dataset or os.environ.get("BQ_DATASET_ID", "sagebase_source")
         location = os.environ.get("BQ_LOCATION", "asia-northeast1")
 
         bq_client = BigQueryClient(
@@ -200,14 +200,14 @@ class ExportToBigQueryCommand(Command, BaseCommand):
     ) -> list[BQTableDef]:
         """テーブル定義を解決する."""
         if export_all:
-            return GOLD_LAYER_TABLES
+            return SOURCE_TABLES
 
-        table_map = {t.table_id: t for t in GOLD_LAYER_TABLES}
+        table_map = {t.table_id: t for t in SOURCE_TABLES}
 
         if table_name and table_name not in table_map:
             available = ", ".join(sorted(table_map.keys()))
             self.error(
-                f"テーブル '{table_name}' はGold Layer定義に存在しません。"
+                f"テーブル '{table_name}' はSource Layer定義に存在しません。"
                 f"\n利用可能: {available}",
             )
             return []

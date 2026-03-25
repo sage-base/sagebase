@@ -79,7 +79,7 @@ class TestEnsureDataset:
         client = BigQueryClient(project_id="test-project")
         client.ensure_dataset()
 
-        mock_bigquery.Dataset.assert_called_with("test-project.sagebase_gold")
+        mock_bigquery.Dataset.assert_called_with("test-project.sagebase_source")
         client.client.create_dataset.assert_called_once_with(
             mock_dataset, exists_ok=True
         )

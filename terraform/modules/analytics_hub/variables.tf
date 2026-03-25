@@ -30,25 +30,25 @@ variable "exchange_description" {
 variable "listing_id" {
   description = "Analytics Hub Listing ID"
   type        = string
-  default     = "sagebase_gold_listing"
+  default     = "sagebase_source_listing"
 }
 
 variable "listing_display_name" {
   description = "Listing表示名"
   type        = string
-  default     = "Sagebase Gold Layer - 政治活動データ"
+  default     = "Sagebase Source Layer - 政治活動データ"
 }
 
 variable "listing_description" {
   description = "Listing説明"
   type        = string
-  default     = "日本の地方議会・国会の政治活動データ（Gold Layer）。20テーブル: 政治家、政党、選挙、会議体、議事録、発言、議案、賛否記録等。全1,966地方議会対応。"
+  default     = "日本の地方議会・国会の政治活動データ（Source Layer）。23テーブル: 政治家、政党、選挙、会議体、議事録、発言、議案、賛否記録等。全1,966地方議会対応。"
 }
 
 variable "dataset_id" {
   description = "BigQueryデータセットID"
   type        = string
-  default     = "sagebase_gold"
+  default     = "sagebase_source"
 }
 
 variable "primary_contact" {

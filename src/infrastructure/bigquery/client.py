@@ -1,6 +1,6 @@
 """BigQueryクライアント.
 
-GCSクライアントパターンを踏襲し、Gold Layerテーブルの作成・管理を行う。
+GCSクライアントパターンを踏襲し、BQ Sourceテーブルの作成・管理を行う。
 """
 
 import logging
@@ -42,12 +42,12 @@ logger = logging.getLogger(__name__)
 
 
 class BigQueryClient:
-    """BigQuery Gold Layerテーブル管理クライアント."""
+    """BigQuery Source Layerテーブル管理クライアント."""
 
     def __init__(
         self,
         project_id: str,
-        dataset_id: str = "sagebase_gold",
+        dataset_id: str = "sagebase_source",
         location: str = "asia-northeast1",
     ) -> None:
         self.client: Any
