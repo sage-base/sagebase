@@ -170,9 +170,9 @@ class TestPoliticalPartyRepository:
         assert "テスト党B" in test_party_names
         assert "テスト党C" in test_party_names
 
-        # Verify ordering by ID
-        party_ids = [party.id for party in all_parties]
-        assert party_ids == sorted(party_ids)
+        # Verify ordering by name (repository orders by name)
+        party_names = [party.name for party in all_parties]
+        assert party_names == sorted(party_names)
 
     @pytest.mark.asyncio
     async def test_transaction_rollback_on_error(self, db_session, repository):
