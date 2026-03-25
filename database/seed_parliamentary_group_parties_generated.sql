@@ -22,7 +22,8 @@ INSERT INTO political_parties (name) VALUES
     ('新党さきがけ'),
     ('生活の党'),
     ('国民の生活が第一'),
-    ('民進党')
+    ('民進党'),
+    ('京都党')
 ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================
@@ -40,7 +41,11 @@ WHERE gb.name = '京都府京都市' AND gb.type = '市町村'
 AND (pg.name, pp.name) IN (
     (' 日本共産党京都市会議員団', '日本共産党'),
     ('公明党京都市会議員団', '公明党'),
-    ('自由民主党京都市会議員団', '自由民主党')
+    ('自由民主党京都市会議員団', '自由民主党'),
+    -- Issue #1403 追加分
+    ('改新京都', '立憲民主党'),
+    ('民主・市民フォーラム京都市会議員団', '立憲民主党'),
+    ('維新・京都・国民市会議員団', '日本維新の会')
 )
 ON CONFLICT (parliamentary_group_id, political_party_id) DO UPDATE SET is_primary = EXCLUDED.is_primary;
 
@@ -57,7 +62,8 @@ AND (pg.name, pp.name) IN (
     ('日本維新の会・教育無償化を実現する会', '日本維新の会'),
     ('国民民主党・無所属クラブ', '国民民主党'),
     ('日本共産党', '日本共産党'),
-    ('有志の会', '有志の会'),
+    ('有志の会', '無所属'),
+    ('改革の会', '無所属'),
     ('れいわ新選組', 'れいわ新選組'),
     ('公明党', '公明党'),
     ('参政党', '参政党'),
@@ -151,7 +157,15 @@ AND (pg.name, pp.name) IN (
     ('立憲民主党・無所属フォーラム', '立憲民主党'),
     ('立憲民主党・社民・無所属', '立憲民主党'),
     ('自由民主党・改革クラブ', '自由民主党'),
-    ('自由民主党・無所属会', '自由民主党')
+    ('自由民主党・無所属会', '自由民主党'),
+    -- Issue #1403 追加分: 無所属系会派
+    ('21世紀クラブ', '無所属'),
+    ('国益と国民の生活を守る会', '無所属'),
+    ('改革無所属の会', '無所属'),
+    ('改革結集の会', '無所属'),
+    ('未来日本', '無所属'),
+    ('社会保障を立て直す国民会議', '無所属'),
+    ('２１世紀', '無所属')
 )
 ON CONFLICT (parliamentary_group_id, political_party_id) DO UPDATE SET is_primary = EXCLUDED.is_primary;
 
@@ -299,6 +313,38 @@ SELECT
     (SELECT id FROM political_parties WHERE name = 'チームみらい'),
     true
 ON CONFLICT (parliamentary_group_id, political_party_id) DO UPDATE SET is_primary = EXCLUDED.is_primary;
+
+-- Issue #1403: 京都市会のSecondary政党
+
+-- 改新京都 → 国民民主党（Secondary: 小島信太郎議員）
+INSERT INTO parliamentary_group_parties (parliamentary_group_id, political_party_id, is_primary)
+SELECT
+    (SELECT pg.id FROM parliamentary_groups pg
+     JOIN governing_bodies gb ON pg.governing_body_id = gb.id
+     WHERE pg.name = '改新京都' AND gb.name = '京都府京都市' AND gb.type = '市町村'),
+    (SELECT id FROM political_parties WHERE name = '国民民主党'),
+    false
+ON CONFLICT (parliamentary_group_id, political_party_id) DO NOTHING;
+
+-- 維新・京都・国民市会議員団 → 京都党（Secondary）
+INSERT INTO parliamentary_group_parties (parliamentary_group_id, political_party_id, is_primary)
+SELECT
+    (SELECT pg.id FROM parliamentary_groups pg
+     JOIN governing_bodies gb ON pg.governing_body_id = gb.id
+     WHERE pg.name = '維新・京都・国民市会議員団' AND gb.name = '京都府京都市' AND gb.type = '市町村'),
+    (SELECT id FROM political_parties WHERE name = '京都党'),
+    false
+ON CONFLICT (parliamentary_group_id, political_party_id) DO NOTHING;
+
+-- 維新・京都・国民市会議員団 → 国民民主党（Secondary）
+INSERT INTO parliamentary_group_parties (parliamentary_group_id, political_party_id, is_primary)
+SELECT
+    (SELECT pg.id FROM parliamentary_groups pg
+     JOIN governing_bodies gb ON pg.governing_body_id = gb.id
+     WHERE pg.name = '維新・京都・国民市会議員団' AND gb.name = '京都府京都市' AND gb.type = '市町村'),
+    (SELECT id FROM political_parties WHERE name = '国民民主党'),
+    false
+ON CONFLICT (parliamentary_group_id, political_party_id) DO NOTHING;
 
 -- ============================================================
 -- セクション3: シーケンスリセット
