@@ -1,17 +1,17 @@
-"""BigQuery Gold Layerテーブルセットアップスクリプト.
+"""BigQuery Source Layerテーブルセットアップスクリプト.
 
-BigQueryにGold Layer用のデータセットとテーブルを作成する。
+BigQueryにSource Layer用のデータセットとテーブルを作成する。
 
 使用方法:
     # ドライラン（テーブル定義の確認のみ、BQアクセス不要）
-    uv run python scripts/setup_bigquery_gold_tables.py --dry-run
+    uv run python scripts/setup_bigquery_source_tables.py --dry-run
 
     # 実行（要: GOOGLE_CLOUD_PROJECT 環境変数）
-    uv run python scripts/setup_bigquery_gold_tables.py --project-id my-project
+    uv run python scripts/setup_bigquery_source_tables.py --project-id my-project
 
     # Docker環境
     docker compose exec app uv run python \
-        scripts/setup_bigquery_gold_tables.py --dry-run
+        scripts/setup_bigquery_source_tables.py --dry-run
 """
 
 import argparse
@@ -21,7 +21,7 @@ import sys
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="BigQuery Gold Layerテーブルをセットアップする"
+        description="BigQuery Source Layerテーブルをセットアップする"
     )
     parser.add_argument(
         "--project-id",
@@ -30,8 +30,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--dataset-id",
-        default=os.environ.get("BQ_DATASET_ID", "sagebase_gold"),
-        help="BigQueryデータセットID（デフォルト: sagebase_gold）",
+        default=os.environ.get("BQ_DATASET_ID", "sagebase_source"),
+        help="BigQueryデータセットID（デフォルト: sagebase_source）",
     )
     parser.add_argument(
         "--location",
@@ -45,13 +45,13 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    from src.infrastructure.bigquery.schema import GOLD_LAYER_TABLES
+    from src.infrastructure.bigquery.schema import SOURCE_TABLES
 
     if args.dry_run:
-        print(f"=== Gold Layer テーブル定義（{len(GOLD_LAYER_TABLES)}テーブル） ===\n")
+        print(f"=== Source Layer テーブル定義（{len(SOURCE_TABLES)}テーブル） ===\n")
         print(f"データセット: {args.dataset_id}")
         print(f"ロケーション: {args.location}\n")
-        for table_def in GOLD_LAYER_TABLES:
+        for table_def in SOURCE_TABLES:
             print(f"--- {table_def.table_id}: {table_def.description} ---")
             for col in table_def.columns:
                 mode = f" ({col.mode})" if col.mode == "REQUIRED" else ""
@@ -74,7 +74,7 @@ def main() -> None:
     print(f"プロジェクト: {args.project_id}")
     print(f"データセット: {args.dataset_id}")
     print(f"ロケーション: {args.location}")
-    print(f"テーブル数: {len(GOLD_LAYER_TABLES)}")
+    print(f"テーブル数: {len(SOURCE_TABLES)}")
     print()
 
     client = BigQueryClient(
@@ -82,7 +82,7 @@ def main() -> None:
         dataset_id=args.dataset_id,
         location=args.location,
     )
-    client.create_all_tables(GOLD_LAYER_TABLES)
+    client.create_all_tables(SOURCE_TABLES)
     print("\nセットアップが完了しました")
 
 

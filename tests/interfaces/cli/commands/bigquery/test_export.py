@@ -138,7 +138,7 @@ class TestExportToBigQueryCommand:
         mock_get_engine: MagicMock,
         mock_inspect: MagicMock,
     ) -> None:
-        from src.infrastructure.bigquery.schema import GOLD_LAYER_TABLES
+        from src.infrastructure.bigquery.schema import SOURCE_TABLES
 
         mock_bq = MagicMock()
         mock_bq_cls.return_value = mock_bq
@@ -147,7 +147,7 @@ class TestExportToBigQueryCommand:
         mock_engine = MagicMock()
         mock_get_engine.return_value = mock_engine
         mock_inspect.return_value.get_table_names.return_value = [
-            t.table_id for t in GOLD_LAYER_TABLES
+            t.table_id for t in SOURCE_TABLES
         ]
         mock_conn = MagicMock()
         mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
@@ -267,7 +267,7 @@ class TestExportToBqClickCommand:
         mock_get_engine: MagicMock,
         mock_inspect: MagicMock,
     ) -> None:
-        from src.infrastructure.bigquery.schema import GOLD_LAYER_TABLES
+        from src.infrastructure.bigquery.schema import SOURCE_TABLES
         from src.interfaces.cli.commands.bigquery import export_to_bq
 
         mock_bq = MagicMock()
@@ -277,7 +277,7 @@ class TestExportToBqClickCommand:
         mock_engine = MagicMock()
         mock_get_engine.return_value = mock_engine
         mock_inspect.return_value.get_table_names.return_value = [
-            t.table_id for t in GOLD_LAYER_TABLES
+            t.table_id for t in SOURCE_TABLES
         ]
         mock_conn = MagicMock()
         mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)

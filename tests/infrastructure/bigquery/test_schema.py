@@ -1,47 +1,47 @@
-"""BigQuery Gold Layerスキーマ定義のテスト."""
+"""BigQuery Sourceスキーマ定義のテスト."""
 
 import pytest
 
 from src.infrastructure.bigquery.schema import (
-    GOLD_LAYER_TABLES,
     PG_TO_BQ_TYPE_MAP,
+    SOURCE_TABLES,
     BQColumnDef,
     BQTableDef,
     to_bigquery_schema,
 )
 
 
-class TestGoldLayerTables:
-    """GOLD_LAYER_TABLESの定義テスト."""
+class TestSourceTables:
+    """SOURCE_TABLESの定義テスト."""
 
     def test_table_count_is_23(self) -> None:
-        assert len(GOLD_LAYER_TABLES) == 23
+        assert len(SOURCE_TABLES) == 23
 
     def test_all_table_ids_are_unique(self) -> None:
-        table_ids = [t.table_id for t in GOLD_LAYER_TABLES]
+        table_ids = [t.table_id for t in SOURCE_TABLES]
         assert len(table_ids) == len(set(table_ids))
 
     def test_all_tables_have_id_column(self) -> None:
-        for table_def in GOLD_LAYER_TABLES:
+        for table_def in SOURCE_TABLES:
             col_names = [c.name for c in table_def.columns]
             assert "id" in col_names, f"{table_def.table_id} に id カラムがありません"
 
     def test_all_tables_have_created_at_column(self) -> None:
-        for table_def in GOLD_LAYER_TABLES:
+        for table_def in SOURCE_TABLES:
             col_names = [c.name for c in table_def.columns]
             assert "created_at" in col_names, (
                 f"{table_def.table_id} に created_at カラムがありません"
             )
 
     def test_id_column_is_required(self) -> None:
-        for table_def in GOLD_LAYER_TABLES:
+        for table_def in SOURCE_TABLES:
             id_col = next(c for c in table_def.columns if c.name == "id")
             assert id_col.mode == "REQUIRED", (
                 f"{table_def.table_id} の id カラムが REQUIRED ではありません"
             )
 
     def test_all_tables_have_description(self) -> None:
-        for table_def in GOLD_LAYER_TABLES:
+        for table_def in SOURCE_TABLES:
             assert table_def.description, (
                 f"{table_def.table_id} に description がありません"
             )
@@ -72,7 +72,7 @@ class TestGoldLayerTables:
             "proposal_judge_parliamentary_groups",
             "proposal_judge_politicians",
         }
-        actual = {t.table_id for t in GOLD_LAYER_TABLES}
+        actual = {t.table_id for t in SOURCE_TABLES}
         assert actual == expected
 
 

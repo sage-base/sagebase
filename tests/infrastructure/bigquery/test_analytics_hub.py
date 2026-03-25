@@ -250,7 +250,7 @@ class TestCreateListing:
         result = client.create_listing(
             exchange_id="test_exchange",
             listing_id="test_listing",
-            dataset_id="sagebase_gold",
+            dataset_id="sagebase_source",
             display_name="Test Listing",
             description="テスト用Listing",
         )
@@ -271,7 +271,7 @@ class TestCreateListing:
         result = client.create_listing(
             exchange_id="test_exchange",
             listing_id="test_listing",
-            dataset_id="sagebase_gold",
+            dataset_id="sagebase_source",
             display_name="Test Listing",
             provider_name="Sagebase",
             publisher_name="Sagebase Project",
@@ -295,7 +295,7 @@ class TestCreateListing:
         result = client.create_listing(
             exchange_id="test_exchange",
             listing_id="test_listing",
-            dataset_id="sagebase_gold",
+            dataset_id="sagebase_source",
             display_name="Test Listing",
         )
 
@@ -316,7 +316,7 @@ class TestCreateListing:
             client.create_listing(
                 exchange_id="test_exchange",
                 listing_id="test_listing",
-                dataset_id="sagebase_gold",
+                dataset_id="sagebase_source",
                 display_name="Test Listing",
             )
 
@@ -333,7 +333,7 @@ class TestCreateListing:
             client.create_listing(
                 exchange_id="test_exchange",
                 listing_id="test_listing",
-                dataset_id="sagebase_gold",
+                dataset_id="sagebase_source",
                 display_name="Test Listing",
             )
 

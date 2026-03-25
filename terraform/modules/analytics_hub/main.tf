@@ -8,8 +8,8 @@ resource "google_bigquery_analytics_hub_data_exchange" "sagebase" {
   discovery_type   = "DISCOVERY_TYPE_PUBLIC"
 }
 
-# Analytics Hub Listing（sagebase_gold データセットを紐付け）
-resource "google_bigquery_analytics_hub_listing" "sagebase_gold" {
+# Analytics Hub Listing（sagebase_source データセットを紐付け）
+resource "google_bigquery_analytics_hub_listing" "sagebase_source" {
   location         = var.location
   data_exchange_id = google_bigquery_analytics_hub_data_exchange.sagebase.data_exchange_id
   listing_id       = var.listing_id

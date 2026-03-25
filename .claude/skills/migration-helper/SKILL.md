@@ -270,7 +270,7 @@ def upgrade() -> None:
 
 - [ ] **SQLAlchemyモデル**: `src/infrastructure/persistence/sqlalchemy_models.py` にモデル追加
 - [ ] **dump_restore.py**: `src/interfaces/cli/commands/database/dump_restore.py` の `TABLE_INSERT_ORDER` にFK依存順序で追加
-- [ ] **BigQueryスキーマ**: `src/infrastructure/bigquery/schema.py` にテーブル定義追加 + `GOLD_LAYER_TABLES` リストに追加
+- [ ] **BigQueryスキーマ**: `src/infrastructure/bigquery/schema.py` にテーブル定義追加 + `SOURCE_TABLES` リストに追加
 - [ ] **BQスキーマテスト**: `tests/infrastructure/bigquery/test_schema.py` のテーブル数と期待テーブルIDセットを更新
 
 ## 詳細リファレンス

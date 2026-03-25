@@ -1,6 +1,6 @@
-"""BigQuery Gold Layerテーブルスキーマ定義.
+"""BigQuery Sourceテーブルスキーマ定義.
 
-PostgreSQLのGold Layerテーブル構造をBigQuery用に定義する。
+PostgreSQLのテーブル構造をBigQuery Source Layer用に定義する。
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ def to_bigquery_schema(table_def: BQTableDef) -> list[SchemaField]:
 
 
 # ==========================================================================
-# Gold Layerテーブル定義（全20テーブル）
+# BQ Sourceテーブル定義（全23テーブル）
 # ==========================================================================
 
 _POLITICIANS = BQTableDef(
@@ -424,7 +424,7 @@ _PROPOSAL_JUDGE_POLITICIANS = BQTableDef(
 )
 
 # 全23テーブルのリスト
-GOLD_LAYER_TABLES: list[BQTableDef] = [
+SOURCE_TABLES: list[BQTableDef] = [
     _POLITICIANS,
     _POLITICAL_PARTIES,
     _ELECTIONS,

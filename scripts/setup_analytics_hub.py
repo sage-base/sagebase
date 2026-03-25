@@ -1,7 +1,7 @@
 """Analytics Hub セットアップスクリプト.
 
 BigQuery Analytics Hub に Exchange と Listing を作成し、
-sagebase_gold データセットを公開する。
+sagebase_source データセットを公開する。
 
 使用方法:
     # ドライラン（設定内容の確認のみ、API アクセス不要）
@@ -61,8 +61,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--dataset-id",
-        default=os.environ.get("BQ_DATASET_ID", "sagebase_gold"),
-        help="BigQueryデータセットID（デフォルト: sagebase_gold）",
+        default=os.environ.get("BQ_DATASET_ID", "sagebase_source"),
+        help="BigQueryデータセットID（デフォルト: sagebase_source）",
     )
     parser.add_argument(
         "--primary-contact",

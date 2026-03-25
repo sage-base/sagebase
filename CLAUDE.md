@@ -183,10 +183,17 @@ BAML定義ファイルは `baml_src/` に格納。詳細は [ADR 0002](docs/ADR/
 - **ハイブリッドアプローチ**: ルールベース（信頼度0.9以上）→ BAMLマッチング（複雑ケース）
 - **📖 SKILL**: [.claude/skills/baml-integration/](.claude/skills/baml-integration/)
 
-## Data Layer Architecture（Bronze Layer / Gold Layer）
+## Data Layer Architecture（5層構成）
 
-LLM抽出結果と確定データを分離する2層アーキテクチャ。詳細は [ADR 0005](docs/ADR/0005-extraction-layer-gold-layer-separation.md) 参照。
+データは以下の5層で管理される。詳細は [ADR 0005](docs/ADR/0005-extraction-layer-gold-layer-separation.md) 参照。
 
-- **Bronze Layer**: LLM抽出結果を追記専用（Immutable）で保存
-- **Gold Layer**: 確定データ、人間の修正が最優先
+### PostgreSQL層
+- **PG Bronze**: LLM抽出結果を追記専用（Immutable）で保存（`extracted_*` テーブル）
+- **PG Gold**: 確定データ、人間の修正が最優先（`politicians`, `proposals` 等）
+
+### BigQuery層
+- **BQ Source** (`sagebase_source`): PG GoldのミラーリングデータセットAPIs
+- **BQ Vault** (`sagebase_vault`): Data Vault形式（将来）
+- **BQ Main** (`sagebase`): 分析用マート（将来）
+
 - **📖 SKILL**: [.claude/skills/data-layer-architecture/](.claude/skills/data-layer-architecture/)
