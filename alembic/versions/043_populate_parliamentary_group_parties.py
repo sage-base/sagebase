@@ -55,11 +55,11 @@ def upgrade() -> None:
         SELECT pg.id, pp.id, true
         FROM parliamentary_groups pg
         JOIN governing_bodies gb ON pg.governing_body_id = gb.id
-        JOIN political_parties pp ON pp.name = tmp.party_name
         JOIN (VALUES
             ('日本保守党', '日本保守党'),
             ('無所属', '無所属')
         ) AS tmp(group_name, party_name) ON pg.name = tmp.group_name
+        JOIN political_parties pp ON pp.name = tmp.party_name
         WHERE gb.name = '国会' AND gb.type = '国'
           AND pg.chamber = '衆議院'
           AND pg.is_active = true
@@ -75,7 +75,6 @@ def upgrade() -> None:
         SELECT pg.id, pp.id, true
         FROM parliamentary_groups pg
         JOIN governing_bodies gb ON pg.governing_body_id = gb.id
-        JOIN political_parties pp ON pp.name = tmp.party_name
         JOIN (VALUES
             ('国民民主党・新緑風会', '国民民主党'),
             ('沖縄の風', '沖縄の風'),
@@ -83,6 +82,7 @@ def upgrade() -> None:
             ('立憲民主・無所属', '立憲民主党'),
             ('各派に属しない議員', '無所属')
         ) AS tmp(group_name, party_name) ON pg.name = tmp.group_name
+        JOIN political_parties pp ON pp.name = tmp.party_name
         WHERE gb.name = '国会' AND gb.type = '国'
           AND pg.chamber = '参議院'
         ON CONFLICT (parliamentary_group_id, political_party_id) DO NOTHING;
@@ -98,7 +98,6 @@ def upgrade() -> None:
         SELECT pg.id, pp.id, true
         FROM parliamentary_groups pg
         JOIN governing_bodies gb ON pg.governing_body_id = gb.id
-        JOIN political_parties pp ON pp.name = tmp.party_name
         JOIN (VALUES
             -- 完全一致系
             ('たちあがれ日本', 'たちあがれ日本'),
@@ -151,6 +150,7 @@ def upgrade() -> None:
             ('自由民主党・改革クラブ', '自由民主党'),
             ('自由民主党・無所属会', '自由民主党')
         ) AS tmp(group_name, party_name) ON pg.name = tmp.group_name
+        JOIN political_parties pp ON pp.name = tmp.party_name
         WHERE gb.name = '国会' AND gb.type = '国'
           AND pg.chamber = '衆議院'
         ON CONFLICT (parliamentary_group_id, political_party_id) DO NOTHING;
