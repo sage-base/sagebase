@@ -1,0 +1,408 @@
+{{ define "main" }}
+
+{{- /* 比較ナビゲーション */ -}}
+<nav class="dsv-compare-nav">
+  <div class="container">
+    <div class="dsv-compare-links">
+      <a href="/data-structure-v1/" class="dsv-compare-link">案1: Mermaid.js</a>
+      <a href="/data-structure-v2/" class="dsv-compare-link active">案2: D3.js</a>
+      <a href="/data-structure-v3/" class="dsv-compare-link">案3: SVG</a>
+    </div>
+    <a href="/data-structure/" class="dsv-back-link">&larr; 現行ページ</a>
+  </div>
+</nav>
+
+{{- /* ヒーロー */ -}}
+<section class="dsv-hero">
+  <div class="container">
+    <div class="dsv-hero-badge">案2: D3.js</div>
+    <h1 class="hero-title">
+      <span class="hero-title-line">D3.jsで探る</span>
+      <span class="hero-title-line hero-title-emphasis">インタラクティブデータ構造</span>
+    </h1>
+    <p class="hero-description">
+      フォースレイアウトでエンティティの関連を動的に表現。<br class="hide-mobile">
+      ホバーやクリックで関係性を直感的に理解できます。
+    </p>
+  </div>
+</section>
+
+{{- /* Section 01 — フォースレイアウト */ -}}
+<section class="section dsv-section">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">01</span>
+      <h2 class="section-title">全エンティティ関連図</h2>
+    </div>
+    <p class="section-lead animate-on-scroll">
+      ノードにホバーで関連エッジをハイライト。クリックで詳細パネルを表示します。
+    </p>
+    <div class="dsv-d3-container animate-on-scroll">
+      <div id="d3-force-graph" class="dsv-d3-graph"></div>
+      <div id="d3-detail-panel" class="dsv-d3-panel" style="display:none;">
+        <button id="d3-panel-close" class="dsv-d3-panel-close" aria-label="閉じる">&times;</button>
+        <h3 id="d3-panel-title" class="dsv-d3-panel-title"></h3>
+        <p id="d3-panel-group" class="dsv-d3-panel-group"></p>
+        <p id="d3-panel-desc" class="dsv-d3-panel-desc"></p>
+        <div id="d3-panel-fields" class="dsv-d3-panel-fields"></div>
+      </div>
+    </div>
+    <div class="dsv-d3-legend animate-on-scroll">
+      <div class="dsv-d3-legend-item">
+        <span class="dsv-d3-legend-dot" style="background: var(--color-gray-900);"></span>
+        <span>議会議論データ</span>
+      </div>
+      <div class="dsv-d3-legend-item">
+        <span class="dsv-d3-legend-dot" style="background: var(--color-gray-600);"></span>
+        <span>政治家データ</span>
+      </div>
+      <div class="dsv-d3-legend-item">
+        <span class="dsv-d3-legend-dot" style="background: var(--color-gray-400);"></span>
+        <span>議案賛否データ</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{- /* Section 02 — 階層ツリー */ -}}
+<section class="section dsv-section dsv-section-alt">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">02</span>
+      <h2 class="section-title">議会議論 — 階層ツリー</h2>
+    </div>
+    <p class="section-lead animate-on-scroll">
+      議会から発言までの階層構造をツリーレイアウトで表現します。
+    </p>
+    <div class="dsv-d3-container animate-on-scroll">
+      <div id="d3-tree-graph" class="dsv-d3-graph dsv-d3-graph-sm"></div>
+    </div>
+  </div>
+</section>
+
+{{- /* CTA */ -}}
+<section class="section section-cta">
+  <div class="container">
+    <div class="cta-content animate-on-scroll">
+      <h2 class="cta-title">他の案も見てみませんか？</h2>
+      <div class="cta-buttons">
+        <a href="/data-structure-v1/" class="btn btn-primary">案1: Mermaid.js版を見る</a>
+        <a href="/data-structure-v3/" class="btn btn-secondary">案3: SVG版を見る</a>
+        <a href="/data-structure/" class="btn btn-tertiary">現行ページ</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{- /* D3.js CDN */ -}}
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const colors = {
+    discussion: isDark ? '#d4d4d4' : '#171717',
+    politician: isDark ? '#a3a3a3' : '#525252',
+    proposal:   isDark ? '#737373' : '#a3a3a3',
+    text:       isDark ? '#f5f5f5' : '#171717',
+    textMuted:  isDark ? '#a3a3a3' : '#525252',
+    bg:         isDark ? '#0a0a0a' : '#ffffff',
+    border:     isDark ? '#404040' : '#d4d4d4',
+    edgeDefault:isDark ? '#404040' : '#d4d4d4',
+    edgeHover:  isDark ? '#e5e5e5' : '#171717',
+  };
+
+  // エンティティデータ
+  const nodes = [
+    { id: 'conference',     label: '議会',       group: 'discussion', desc: '議会（Conference）。国会や地方議会の会期単位。', fields: ['名称', '所属議会体', '期'] },
+    { id: 'governing_body', label: '会議体',     group: 'discussion', desc: '会議体（GoverningBody）。委員会・本会議などの開催単位。', fields: ['名称', '種別', '自治体コード'] },
+    { id: 'meeting',        label: '会議',       group: 'discussion', desc: '会議（Meeting）。特定日の会議インスタンス。', fields: ['開催日', '会議名', 'URL'] },
+    { id: 'minutes',        label: '議事録',     group: 'discussion', desc: '議事録（Minutes）。会議の記録文書。', fields: ['本文'] },
+    { id: 'conversation',   label: '発言',       group: 'discussion', desc: '発言（Conversation）。議事録内の個別発言。', fields: ['発言者', '発言内容', '発言順序'] },
+    { id: 'speaker',        label: '発言者',     group: 'discussion', desc: '発言者（Speaker）。会議での発言者情報。AI照合で政治家と紐付け。', fields: ['氏名', '所属政党名', '役職', '照合信頼度'] },
+    { id: 'politician',     label: '政治家',     group: 'politician', desc: '政治家（Politician）。中心エンティティ。', fields: ['氏名', '都道府県', '選挙区'] },
+    { id: 'political_party',label: '政党',       group: 'politician', desc: '政党（PoliticalParty）。政治家が所属する政党。', fields: ['政党名'] },
+    { id: 'parl_group',     label: '会派',       group: 'politician', desc: '会派（ParliamentaryGroup）。議会内の投票行動グループ。', fields: ['会派名', '開始日', '終了日'] },
+    { id: 'pg_membership',  label: '会派所属',   group: 'politician', desc: '会派所属（Membership）。政治家の会派への所属履歴。', fields: ['役割', '開始日', '終了日'] },
+    { id: 'election',       label: '選挙',       group: 'politician', desc: '選挙（Election）。選挙イベント。', fields: ['選挙日', '選挙種別'] },
+    { id: 'election_member',label: '選挙結果',   group: 'politician', desc: '選挙結果（ElectionMember）。候補者の結果。', fields: ['得票数', '当選順位'] },
+    { id: 'conf_member',    label: '議会構成員', group: 'politician', desc: '議会構成員（ConferenceMember）。議会への参加情報。', fields: ['役職'] },
+    { id: 'proposal',       label: '議案',       group: 'proposal',   desc: '議案（Proposal）。法案・予算案などの議案。', fields: ['議案名', '種別', '審議状況', '提出日', '採決日'] },
+    { id: 'submitter',      label: '提出者',     group: 'proposal',   desc: '提出者（ProposalSubmitter）。議案の提出者。', fields: ['提出者種別', '代表者フラグ'] },
+    { id: 'deliberation',   label: '審議',       group: 'proposal',   desc: '審議（ProposalDeliberation）。議案の審議記録。', fields: ['審議記録'] },
+    { id: 'judge',          label: '個人賛否',   group: 'proposal',   desc: '個人賛否（ProposalJudge）。議員個人の賛否。造反検出付き。', fields: ['賛否', '造反フラグ'] },
+    { id: 'pg_judge',       label: '会派賛否',   group: 'proposal',   desc: '会派賛否（ProposalParliamentaryGroupJudge）。会派の賛否態度。', fields: ['会派名', '賛否'] },
+  ];
+
+  const links = [
+    { source: 'conference',     target: 'governing_body', label: '会議体を持つ' },
+    { source: 'governing_body', target: 'meeting',        label: '会議を開催' },
+    { source: 'meeting',        target: 'minutes',        label: '議事録' },
+    { source: 'minutes',        target: 'conversation',   label: '発言を含む' },
+    { source: 'conversation',   target: 'speaker',        label: '発言者' },
+    { source: 'speaker',        target: 'politician',     label: 'AI照合' },
+    { source: 'politician',     target: 'pg_membership',  label: '会派所属' },
+    { source: 'pg_membership',  target: 'parl_group',     label: '所属先' },
+    { source: 'parl_group',     target: 'political_party',label: '構成政党' },
+    { source: 'politician',     target: 'election_member',label: '出馬' },
+    { source: 'election',       target: 'election_member',label: '候補者' },
+    { source: 'politician',     target: 'conf_member',    label: '議会参加' },
+    { source: 'submitter',      target: 'proposal',       label: '提出' },
+    { source: 'proposal',       target: 'deliberation',   label: '審議' },
+    { source: 'proposal',       target: 'judge',          label: '採決' },
+    { source: 'proposal',       target: 'pg_judge',       label: '会派態度' },
+    { source: 'judge',          target: 'politician',     label: '投票者' },
+    { source: 'pg_judge',       target: 'parl_group',     label: '所属会派' },
+  ];
+
+  function groupColor(group) {
+    if (group === 'discussion') return colors.discussion;
+    if (group === 'politician') return colors.politician;
+    return colors.proposal;
+  }
+
+  // フォースレイアウト
+  const container = document.getElementById('d3-force-graph');
+  const width = container.clientWidth;
+  const height = Math.max(500, Math.min(width * 0.7, 700));
+
+  const svg = d3.select('#d3-force-graph')
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height)
+    .attr('viewBox', [0, 0, width, height]);
+
+  // 矢印マーカー
+  svg.append('defs').append('marker')
+    .attr('id', 'arrowhead')
+    .attr('viewBox', '0 -5 10 10')
+    .attr('refX', 28)
+    .attr('refY', 0)
+    .attr('markerWidth', 6)
+    .attr('markerHeight', 6)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M0,-5L10,0L0,5')
+    .attr('fill', colors.edgeDefault);
+
+  const simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(100))
+    .force('charge', d3.forceManyBody().strength(-400))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collision', d3.forceCollide().radius(35));
+
+  const link = svg.append('g')
+    .selectAll('line')
+    .data(links)
+    .join('line')
+    .attr('stroke', colors.edgeDefault)
+    .attr('stroke-width', 1.5)
+    .attr('marker-end', 'url(#arrowhead)');
+
+  const linkLabel = svg.append('g')
+    .selectAll('text')
+    .data(links)
+    .join('text')
+    .text(d => d.label)
+    .attr('font-size', '10px')
+    .attr('font-family', 'var(--font-display)')
+    .attr('fill', colors.textMuted)
+    .attr('text-anchor', 'middle')
+    .attr('opacity', 0);
+
+  const node = svg.append('g')
+    .selectAll('g')
+    .data(nodes)
+    .join('g')
+    .call(d3.drag()
+      .on('start', dragstarted)
+      .on('drag', dragged)
+      .on('end', dragended));
+
+  node.append('circle')
+    .attr('r', d => d.id === 'politician' || d.id === 'proposal' ? 22 : 16)
+    .attr('fill', d => groupColor(d.group))
+    .attr('stroke', colors.bg)
+    .attr('stroke-width', 2)
+    .style('cursor', 'pointer');
+
+  node.append('text')
+    .text(d => d.label)
+    .attr('dy', d => (d.id === 'politician' || d.id === 'proposal' ? 22 : 16) + 14)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '11px')
+    .attr('font-family', 'var(--font-display)')
+    .attr('font-weight', '500')
+    .attr('fill', colors.text);
+
+  // ホバーハイライト
+  node.on('mouseenter', function(event, d) {
+    const connected = new Set();
+    links.forEach(l => {
+      const s = typeof l.source === 'object' ? l.source.id : l.source;
+      const t = typeof l.target === 'object' ? l.target.id : l.target;
+      if (s === d.id) connected.add(t);
+      if (t === d.id) connected.add(s);
+    });
+    connected.add(d.id);
+
+    node.select('circle')
+      .attr('opacity', n => connected.has(n.id) ? 1 : 0.15);
+    node.select('text')
+      .attr('opacity', n => connected.has(n.id) ? 1 : 0.15);
+    link
+      .attr('stroke', l => {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        return (s === d.id || t === d.id) ? colors.edgeHover : colors.edgeDefault;
+      })
+      .attr('stroke-width', l => {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        return (s === d.id || t === d.id) ? 3 : 0.5;
+      })
+      .attr('opacity', l => {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        return (s === d.id || t === d.id) ? 1 : 0.15;
+      });
+    linkLabel
+      .attr('opacity', l => {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        return (s === d.id || t === d.id) ? 1 : 0;
+      });
+  }).on('mouseleave', function() {
+    node.select('circle').attr('opacity', 1);
+    node.select('text').attr('opacity', 1);
+    link.attr('stroke', colors.edgeDefault).attr('stroke-width', 1.5).attr('opacity', 1);
+    linkLabel.attr('opacity', 0);
+  });
+
+  // クリックで詳細パネル
+  node.on('click', function(event, d) {
+    const panel = document.getElementById('d3-detail-panel');
+    document.getElementById('d3-panel-title').textContent = d.label;
+    document.getElementById('d3-panel-group').textContent =
+      d.group === 'discussion' ? '議会議論データ' :
+      d.group === 'politician' ? '政治家データ' : '議案賛否データ';
+    document.getElementById('d3-panel-desc').textContent = d.desc;
+    const fieldsEl = document.getElementById('d3-panel-fields');
+    fieldsEl.innerHTML = d.fields.map(f =>
+      '<span class="dsv-d3-panel-field">' + f + '</span>'
+    ).join('');
+    panel.style.display = 'block';
+    event.stopPropagation();
+  });
+
+  document.getElementById('d3-panel-close').addEventListener('click', function() {
+    document.getElementById('d3-detail-panel').style.display = 'none';
+  });
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.dsv-d3-panel') && !e.target.closest('circle')) {
+      document.getElementById('d3-detail-panel').style.display = 'none';
+    }
+  });
+
+  simulation.on('tick', () => {
+    link
+      .attr('x1', d => d.source.x)
+      .attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x)
+      .attr('y2', d => d.target.y);
+    linkLabel
+      .attr('x', d => (d.source.x + d.target.x) / 2)
+      .attr('y', d => (d.source.y + d.target.y) / 2 - 6);
+    node.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+
+  function dragstarted(event, d) {
+    if (!event.active) simulation.alphaTarget(0.3).restart();
+    d.fx = d.x; d.fy = d.y;
+  }
+  function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
+  function dragended(event, d) {
+    if (!event.active) simulation.alphaTarget(0);
+    d.fx = null; d.fy = null;
+  }
+
+  // ツリーレイアウト
+  const treeData = {
+    name: '議会 (Conference)',
+    children: [{
+      name: '会議体 (GoverningBody)',
+      children: [{
+        name: '会議 (Meeting)',
+        children: [{
+          name: '議事録 (Minutes)',
+          children: [{
+            name: '発言 (Conversation)',
+            children: [{ name: '発言者 (Speaker)' }]
+          }]
+        }]
+      }]
+    }]
+  };
+
+  const treeContainer = document.getElementById('d3-tree-graph');
+  const tw = treeContainer.clientWidth;
+  const th = 350;
+
+  const treeSvg = d3.select('#d3-tree-graph')
+    .append('svg')
+    .attr('width', tw)
+    .attr('height', th)
+    .attr('viewBox', [0, 0, tw, th]);
+
+  const margin = { top: 30, right: 40, bottom: 30, left: 40 };
+  const treeG = treeSvg.append('g')
+    .attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const root = d3.hierarchy(treeData);
+  const treeLayout = d3.tree().size([tw - margin.left - margin.right, th - margin.top - margin.bottom]);
+  treeLayout(root);
+
+  // エッジ
+  treeG.selectAll('.tree-link')
+    .data(root.links())
+    .join('path')
+    .attr('class', 'tree-link')
+    .attr('d', d3.linkHorizontal().x(d => d.y).y(d => d.x))
+    .attr('fill', 'none')
+    .attr('stroke', colors.edgeDefault)
+    .attr('stroke-width', 1.5);
+
+  // ノード
+  const treeNode = treeG.selectAll('.tree-node')
+    .data(root.descendants())
+    .join('g')
+    .attr('transform', d => `translate(${d.y},${d.x})`);
+
+  treeNode.append('circle')
+    .attr('r', 6)
+    .attr('fill', colors.discussion)
+    .attr('stroke', colors.bg)
+    .attr('stroke-width', 2);
+
+  treeNode.append('text')
+    .attr('dy', -12)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '11px')
+    .attr('font-family', 'var(--font-display)')
+    .attr('font-weight', '500')
+    .attr('fill', colors.text)
+    .text(d => d.data.name);
+
+  // リサイズ対応
+  window.addEventListener('resize', () => {
+    const newW = container.clientWidth;
+    const newH = Math.max(500, Math.min(newW * 0.7, 700));
+    svg.attr('width', newW).attr('height', newH).attr('viewBox', [0, 0, newW, newH]);
+    simulation.force('center', d3.forceCenter(newW / 2, newH / 2));
+    simulation.alpha(0.3).restart();
+  });
+})();
+</script>
+
+{{ end }}

@@ -1,0 +1,325 @@
+{{ define "main" }}
+
+{{- /* Mermaid.js CDN */ -}}
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  // ダークモード検出してテーマ設定
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: isDark ? {
+      primaryColor: '#262626',
+      primaryTextColor: '#f5f5f5',
+      primaryBorderColor: '#525252',
+      lineColor: '#737373',
+      secondaryColor: '#171717',
+      tertiaryColor: '#0a0a0a',
+      background: '#0a0a0a',
+      mainBkg: '#262626',
+      nodeBorder: '#525252',
+      clusterBkg: '#171717',
+      titleColor: '#f5f5f5',
+      edgeLabelBackground: '#171717',
+      noteTextColor: '#f5f5f5',
+      noteBkgColor: '#262626',
+      noteBorderColor: '#525252',
+      actorTextColor: '#f5f5f5',
+      actorBkg: '#262626',
+      actorBorder: '#525252',
+      signalColor: '#f5f5f5',
+      signalTextColor: '#f5f5f5',
+      labelBoxBkgColor: '#262626',
+      labelBoxBorderColor: '#525252',
+      labelTextColor: '#f5f5f5',
+      loopTextColor: '#a3a3a3',
+      relationColor: '#737373',
+      relationLabelBackground: '#171717',
+      relationLabelColor: '#a3a3a3',
+      fontFamily: '"Noto Sans JP", sans-serif'
+    } : {
+      primaryColor: '#f5f5f5',
+      primaryTextColor: '#171717',
+      primaryBorderColor: '#d4d4d4',
+      lineColor: '#737373',
+      secondaryColor: '#fafafa',
+      tertiaryColor: '#ffffff',
+      background: '#ffffff',
+      mainBkg: '#f5f5f5',
+      nodeBorder: '#d4d4d4',
+      clusterBkg: '#fafafa',
+      titleColor: '#171717',
+      edgeLabelBackground: '#ffffff',
+      noteTextColor: '#171717',
+      noteBkgColor: '#f5f5f5',
+      noteBorderColor: '#d4d4d4',
+      actorTextColor: '#171717',
+      actorBkg: '#f5f5f5',
+      actorBorder: '#d4d4d4',
+      signalColor: '#171717',
+      signalTextColor: '#171717',
+      labelBoxBkgColor: '#f5f5f5',
+      labelBoxBorderColor: '#d4d4d4',
+      labelTextColor: '#171717',
+      loopTextColor: '#525252',
+      relationColor: '#737373',
+      relationLabelBackground: '#ffffff',
+      relationLabelColor: '#525252',
+      fontFamily: '"Noto Sans JP", sans-serif'
+    }
+  });
+</script>
+
+{{- /* 比較ナビゲーション */ -}}
+<nav class="dsv-compare-nav">
+  <div class="container">
+    <div class="dsv-compare-links">
+      <a href="/data-structure-v1/" class="dsv-compare-link active">案1: Mermaid.js</a>
+      <a href="/data-structure-v2/" class="dsv-compare-link">案2: D3.js</a>
+      <a href="/data-structure-v3/" class="dsv-compare-link">案3: SVG</a>
+    </div>
+    <a href="/data-structure/" class="dsv-back-link">← 現行ページ</a>
+  </div>
+</nav>
+
+{{- /* ヒーロー */ -}}
+<section class="dsv-hero">
+  <div class="container">
+    <div class="dsv-hero-badge">案1: Mermaid.js</div>
+    <h1 class="hero-title">
+      <span class="hero-title-line">Mermaid.jsで描く</span>
+      <span class="hero-title-line hero-title-emphasis">データ構造図</span>
+    </h1>
+    <p class="hero-description">
+      Mermaid.jsのER図・フローチャートを使い、エンティティ間の関連を宣言的に表現します。<br class="hide-mobile">
+      コードベースで管理可能な図解アプローチ。
+    </p>
+  </div>
+</section>
+
+{{- /* Section 01 — 議会議論データ ER図 */ -}}
+<section class="section dsv-section">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">01</span>
+      <h2 class="section-title">議会議論データ — 階層構造</h2>
+    </div>
+    <p class="section-lead animate-on-scroll">
+      議会から発言まで、4階層の入れ子構造をER図で表現します。
+    </p>
+    <div class="dsv-diagram animate-on-scroll">
+      <pre class="mermaid">
+erDiagram
+    CONFERENCE["議会 (Conference)"] {
+        int id PK
+        string name "名称"
+        string session "期"
+    }
+    GOVERNING_BODY["会議体 (GoverningBody)"] {
+        int id PK
+        string name "名称"
+        string category "種別"
+        string municipality_code "自治体コード"
+    }
+    MEETING["会議 (Meeting)"] {
+        int id PK
+        date meeting_date "開催日"
+        string name "会議名"
+        string url "URL"
+    }
+    MINUTES["議事録 (Minutes)"] {
+        int id PK
+        string content "本文"
+    }
+    CONVERSATION["発言 (Conversation)"] {
+        int id PK
+        string content "発言内容"
+        int order_number "発言順序"
+    }
+    SPEAKER["発言者 (Speaker)"] {
+        int id PK
+        string name "氏名"
+        string party_name "所属政党名"
+        float matching_confidence "照合信頼度"
+    }
+
+    CONFERENCE ||--o{ GOVERNING_BODY : "会議体を持つ"
+    GOVERNING_BODY ||--o{ MEETING : "会議を開催"
+    MEETING ||--o| MINUTES : "議事録"
+    MINUTES ||--o{ CONVERSATION : "発言を含む"
+    CONVERSATION }o--|| SPEAKER : "発言者"
+      </pre>
+    </div>
+  </div>
+</section>
+
+{{- /* Section 02 — 政治家データ リレーション図 */ -}}
+<section class="section dsv-section dsv-section-alt">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">02</span>
+      <h2 class="section-title">政治家データ — リレーション図</h2>
+    </div>
+    <p class="section-lead animate-on-scroll">
+      政治家を中心に、発言者・政党・会派・選挙の関連をER図で表現します。
+    </p>
+    <div class="dsv-diagram animate-on-scroll">
+      <pre class="mermaid">
+erDiagram
+    POLITICIAN["政治家 (Politician)"] {
+        int id PK
+        string name "氏名"
+        string prefecture "都道府県"
+        string district "選挙区"
+    }
+    SPEAKER["発言者 (Speaker)"] {
+        int id PK
+        string name "氏名"
+        float matching_confidence "照合信頼度"
+    }
+    POLITICAL_PARTY["政党 (PoliticalParty)"] {
+        int id PK
+        string name "政党名"
+    }
+    PARLIAMENTARY_GROUP["会派 (ParliamentaryGroup)"] {
+        int id PK
+        string name "会派名"
+        date start_date "開始日"
+        date end_date "終了日"
+    }
+    PG_MEMBERSHIP["会派所属 (Membership)"] {
+        int id PK
+        string role "役割"
+        date start_date "開始日"
+        date end_date "終了日"
+    }
+    ELECTION["選挙 (Election)"] {
+        int id PK
+        date election_date "選挙日"
+        string election_type "種別"
+    }
+    ELECTION_MEMBER["選挙結果 (ElectionMember)"] {
+        int id PK
+        int votes "得票数"
+        int rank "当選順位"
+    }
+    CONFERENCE_MEMBER["議会構成員 (ConferenceMember)"] {
+        int id PK
+        string role "役職"
+    }
+
+    POLITICIAN ||--o{ SPEAKER : "AI照合"
+    POLITICIAN ||--o{ PG_MEMBERSHIP : "会派所属"
+    PG_MEMBERSHIP }o--|| PARLIAMENTARY_GROUP : "所属先"
+    PARLIAMENTARY_GROUP }o--o{ POLITICAL_PARTY : "構成政党"
+    POLITICIAN ||--o{ ELECTION_MEMBER : "出馬"
+    ELECTION ||--o{ ELECTION_MEMBER : "候補者"
+    POLITICIAN ||--o{ CONFERENCE_MEMBER : "議会参加"
+      </pre>
+    </div>
+  </div>
+</section>
+
+{{- /* Section 03 — 議案賛否データ フロー図 */ -}}
+<section class="section dsv-section">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">03</span>
+      <h2 class="section-title">議案賛否データ — フロー図</h2>
+    </div>
+    <p class="section-lead animate-on-scroll">
+      議案の提出から採決までのフローと、個人賛否・会派賛否の構造を表現します。
+    </p>
+    <div class="dsv-diagram animate-on-scroll">
+      <pre class="mermaid">
+flowchart TD
+    P["議案 (Proposal)\n議案名 / 種別 / 審議状況"]
+    PS["提出者 (ProposalSubmitter)\n提出者種別 / 代表者フラグ"]
+    PD["審議 (ProposalDeliberation)\n審議記録"]
+    PJ["個人賛否 (ProposalJudge)\n賛成 / 反対 / 棄権 / 欠席\n造反フラグ"]
+    PPG["会派賛否\n(ProposalParliamentaryGroupJudge)\n会派としての態度"]
+    POL["政治家 (Politician)"]
+    PG["会派 (ParliamentaryGroup)"]
+
+    PS -->|"提出"| P
+    P -->|"審議"| PD
+    P -->|"採決"| PJ
+    P -->|"会派態度"| PPG
+    PJ -->|"投票者"| POL
+    PPG -->|"所属会派"| PG
+    PJ -.->|"造反検出"| PPG
+
+    style P fill:#f5f5f5,stroke:#171717,stroke-width:2px,color:#171717
+    style PS fill:#fafafa,stroke:#d4d4d4,color:#171717
+    style PD fill:#fafafa,stroke:#d4d4d4,color:#171717
+    style PJ fill:#fafafa,stroke:#d4d4d4,color:#171717
+    style PPG fill:#fafafa,stroke:#d4d4d4,color:#171717
+    style POL fill:#e5e5e5,stroke:#737373,color:#171717
+    style PG fill:#e5e5e5,stroke:#737373,color:#171717
+      </pre>
+    </div>
+  </div>
+</section>
+
+{{- /* Section 04 — 全体接続図 */ -}}
+<section class="section dsv-section dsv-section-alt">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">04</span>
+      <h2 class="section-title">データのつながり — 全体俯瞰</h2>
+    </div>
+    <p class="section-lead animate-on-scroll">
+      3つのデータ群がどのように接続しているかを俯瞰します。
+    </p>
+    <div class="dsv-diagram animate-on-scroll">
+      <pre class="mermaid">
+flowchart LR
+    subgraph DISCUSSION["議会議論データ"]
+        C["議会"] --> GB["会議体"] --> M["会議"] --> CV["発言"]
+    end
+
+    subgraph POLITICIAN_DATA["政治家データ"]
+        POL["政治家"]
+        PP["政党"]
+        PG["会派"]
+        EL["選挙"]
+    end
+
+    subgraph PROPOSAL_DATA["議案賛否データ"]
+        PR["議案"]
+        PJ["個人賛否"]
+        PPJ["会派賛否"]
+    end
+
+    CV -->|"発言者=政治家"| POL
+    POL -->|"所属"| PP
+    POL -->|"会派"| PG
+    POL -->|"出馬"| EL
+    POL -->|"投票"| PJ
+    PJ -->|"対象"| PR
+    PG -->|"態度"| PPJ
+    PPJ -->|"対象"| PR
+
+    style DISCUSSION fill:#fafafa,stroke:#404040,color:#171717
+    style POLITICIAN_DATA fill:#fafafa,stroke:#404040,color:#171717
+    style PROPOSAL_DATA fill:#fafafa,stroke:#404040,color:#171717
+      </pre>
+    </div>
+  </div>
+</section>
+
+{{- /* CTA */ -}}
+<section class="section section-cta">
+  <div class="container">
+    <div class="cta-content animate-on-scroll">
+      <h2 class="cta-title">他の案も見てみませんか？</h2>
+      <div class="cta-buttons">
+        <a href="/data-structure-v2/" class="btn btn-primary">案2: D3.js版を見る</a>
+        <a href="/data-structure-v3/" class="btn btn-secondary">案3: SVG版を見る</a>
+        <a href="/data-structure/" class="btn btn-tertiary">現行ページ</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{ end }}
