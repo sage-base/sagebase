@@ -65,6 +65,11 @@ theme = 'PaperMod'
   weight = 30
 
 [[menu.main]]
+  name = 'カバレッジ'
+  url = '/coverage/'
+  weight = 35
+
+[[menu.main]]
   name = '定款'
   url = '/corporate/teikan/'
   weight = 40
