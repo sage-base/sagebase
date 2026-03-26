@@ -1,0 +1,594 @@
+{{ define "main" }}
+
+{{- /* Mermaid.js CDN */ -}}
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  const isDarkMermaid = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: isDarkMermaid ? {
+      primaryColor: '#262626', primaryTextColor: '#f5f5f5', primaryBorderColor: '#525252',
+      lineColor: '#737373', secondaryColor: '#171717', tertiaryColor: '#0a0a0a',
+      background: '#0a0a0a', mainBkg: '#262626', nodeBorder: '#525252',
+      clusterBkg: '#171717', titleColor: '#f5f5f5', edgeLabelBackground: '#171717',
+      noteBkgColor: '#262626', noteBorderColor: '#525252',
+      fontFamily: '"Noto Sans JP", sans-serif'
+    } : {
+      primaryColor: '#f5f5f5', primaryTextColor: '#171717', primaryBorderColor: '#d4d4d4',
+      lineColor: '#737373', secondaryColor: '#fafafa', tertiaryColor: '#ffffff',
+      background: '#ffffff', mainBkg: '#f5f5f5', nodeBorder: '#d4d4d4',
+      clusterBkg: '#fafafa', titleColor: '#171717', edgeLabelBackground: '#ffffff',
+      noteBkgColor: '#f5f5f5', noteBorderColor: '#d4d4d4',
+      fontFamily: '"Noto Sans JP", sans-serif'
+    }
+  });
+</script>
+
+{{- /* ヒーロー */ -}}
+<section class="ds-hero">
+  <div class="ds-hero-content">
+    <div class="hero-badge">Data Structure</div>
+    <h1 class="hero-title">
+      <span class="hero-title-line">議会の議論を、</span>
+      <span class="hero-title-line hero-title-emphasis">構造化データとして提供します。</span>
+    </h1>
+    <p class="hero-description">
+      Sagebaseは、議会議論・政治家・議案賛否の3つのデータ群を<br class="hide-mobile">
+      相互に関連付けた構造化データとして提供します。
+    </p>
+  </div>
+  <div class="ds-hero-cards">
+    <div class="ds-hero-card animate-on-scroll">
+      <span class="ds-hero-card-number">01</span>
+      <h3 class="ds-hero-card-title">全体俯瞰</h3>
+      <p class="ds-hero-card-desc">D3.jsによるインタラクティブな関連図で全エンティティを俯瞰</p>
+      <a href="#overview" class="ds-hero-card-link">詳しく見る</a>
+    </div>
+    <div class="ds-hero-card animate-on-scroll">
+      <span class="ds-hero-card-number">02</span>
+      <h3 class="ds-hero-card-title">テーブル定義</h3>
+      <p class="ds-hero-card-desc">ER図で各テーブルのカラム定義とリレーションを詳細に確認</p>
+      <a href="#tables" class="ds-hero-card-link">詳しく見る</a>
+    </div>
+    <div class="ds-hero-card animate-on-scroll">
+      <span class="ds-hero-card-number">03</span>
+      <h3 class="ds-hero-card-title">3つのデータ群</h3>
+      <p class="ds-hero-card-desc">議会議論・政治家・議案賛否の3群を横断的に把握</p>
+      <a href="#tables" class="ds-hero-card-link">詳しく見る</a>
+    </div>
+  </div>
+</section>
+
+{{- /* Section 01 — D3.js フォースレイアウト */ -}}
+<section id="overview" class="section dsv-section">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">01</span>
+      <h2 class="section-title">全体俯瞰 — インタラクティブ関連図</h2>
+    </div>
+    <p class="section-lead animate-on-scroll">
+      ノードの形状でエンティティの種別を区別。ホバーで関連をハイライト、クリックで詳細を表示します。
+    </p>
+    <div class="dsv-d3-container animate-on-scroll">
+      <div id="d3-force-graph" class="dsv-d3-graph"></div>
+      <div id="d3-detail-panel" class="dsv-d3-panel" style="display:none;">
+        <button id="d3-panel-close" class="dsv-d3-panel-close" aria-label="閉じる">&times;</button>
+        <h3 id="d3-panel-title" class="dsv-d3-panel-title"></h3>
+        <p id="d3-panel-group" class="dsv-d3-panel-group"></p>
+        <p id="d3-panel-desc" class="dsv-d3-panel-desc"></p>
+        <div id="d3-panel-fields" class="dsv-d3-panel-fields"></div>
+      </div>
+    </div>
+    {{- /* 形状の凡例 */ -}}
+    <div class="dsv-d3-legend animate-on-scroll">
+      <div class="dsv-d3-legend-item">
+        <svg width="20" height="16" viewBox="0 0 20 16"><rect x="1" y="1" width="18" height="14" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>議会系</span>
+      </div>
+      <div class="dsv-d3-legend-item">
+        <svg width="20" height="16" viewBox="0 0 20 16"><ellipse cx="10" cy="8" rx="9" ry="7" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>発言系</span>
+      </div>
+      <div class="dsv-d3-legend-item">
+        <svg width="20" height="16" viewBox="0 0 20 16"><polygon points="10,1 19,8 10,15 1,8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>政治家系</span>
+      </div>
+      <div class="dsv-d3-legend-item">
+        <svg width="20" height="16" viewBox="0 0 20 16"><rect x="1" y="1" width="18" height="14" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>議案系</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{- /* Section 02 — Mermaid.js ER図（詳細テーブル定義） */ -}}
+<section id="tables" class="section dsv-section dsv-section-alt">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">02</span>
+      <h2 class="section-title">テーブル定義 — ER図（詳細）</h2>
+    </div>
+    <p class="section-lead animate-on-scroll">
+      BigQueryスキーマに基づく各テーブルのカラム定義とリレーションを表示します。
+    </p>
+
+    <div class="dsv-er-grid animate-on-scroll">
+      {{- /* 議会議論系テーブル */ -}}
+      <div class="dsv-er-column">
+        <h3 class="dsv-er-subtitle">議会議論データ</h3>
+        <div class="dsv-diagram dsv-diagram-compact">
+          <pre class="mermaid">
+erDiagram
+    governing_bodies {
+        INT64 id PK
+        STRING name
+        STRING organization_code
+        STRING organization_type
+        STRING prefecture
+    }
+    conferences {
+        INT64 id PK
+        STRING name
+        INT64 governing_body_id FK
+        STRING term
+    }
+    meetings {
+        INT64 id PK
+        INT64 conference_id FK
+        DATE date
+        STRING name
+        STRING url
+    }
+    minutes {
+        INT64 id PK
+        INT64 meeting_id FK
+        STRING url
+    }
+    conversations {
+        INT64 id PK
+        INT64 minutes_id FK
+        INT64 speaker_id FK
+        STRING comment
+        INT64 sequence_number
+    }
+    speakers {
+        INT64 id PK
+        STRING name
+        STRING political_party_name
+        INT64 politician_id FK
+        INT64 government_official_id FK
+        NUMERIC matching_confidence
+    }
+    politicians {
+        INT64 id PK
+        STRING name
+    }
+    government_officials {
+        INT64 id PK
+        STRING name
+    }
+
+    governing_bodies ||--o{ conferences : ""
+    conferences ||--o{ meetings : ""
+    meetings ||--o| minutes : ""
+    minutes ||--o{ conversations : ""
+    speakers ||--o{ conversations : ""
+    speakers }o--o| politicians : ""
+    speakers }o--o| government_officials : ""
+          </pre>
+        </div>
+      </div>
+
+      {{- /* 政治家系テーブル */ -}}
+      <div class="dsv-er-column">
+        <h3 class="dsv-er-subtitle">政治家データ</h3>
+        <div class="dsv-diagram dsv-diagram-compact">
+          <pre class="mermaid">
+erDiagram
+    politicians {
+        INT64 id PK
+        STRING name
+        STRING prefecture
+        STRING district
+        STRING furigana
+    }
+    political_parties {
+        INT64 id PK
+        STRING name
+    }
+    parliamentary_groups {
+        INT64 id PK
+        STRING name
+        INT64 governing_body_id FK
+        STRING chamber
+        DATE start_date
+        DATE end_date
+    }
+    pg_memberships {
+        INT64 id PK
+        INT64 politician_id FK
+        INT64 parliamentary_group_id FK
+        DATE start_date
+        DATE end_date
+        STRING role
+    }
+    elections {
+        INT64 id PK
+        DATE election_date
+        STRING election_type
+    }
+    election_members {
+        INT64 id PK
+        INT64 election_id FK
+        INT64 politician_id FK
+        STRING result
+        INT64 votes
+    }
+    conference_members {
+        INT64 id PK
+        INT64 politician_id FK
+        INT64 conference_id FK
+        STRING role
+    }
+
+    politicians ||--o{ pg_memberships : ""
+    pg_memberships }o--|| parliamentary_groups : ""
+    parliamentary_groups }o--o{ political_parties : ""
+    politicians ||--o{ election_members : ""
+    elections ||--o{ election_members : ""
+    politicians ||--o{ conference_members : ""
+          </pre>
+        </div>
+      </div>
+
+      {{- /* 議案賛否系テーブル */ -}}
+      <div class="dsv-er-column">
+        <h3 class="dsv-er-subtitle">議案賛否データ</h3>
+        <div class="dsv-diagram dsv-diagram-compact">
+          <pre class="mermaid">
+erDiagram
+    proposals {
+        INT64 id PK
+        STRING title
+        STRING proposal_category
+        STRING proposal_type
+        STRING deliberation_status
+        DATE submitted_date
+        DATE voted_date
+    }
+    proposal_submitters {
+        INT64 id PK
+        INT64 proposal_id FK
+        STRING submitter_type
+        BOOL is_representative
+    }
+    proposal_deliberations {
+        INT64 id PK
+        INT64 proposal_id FK
+        INT64 conference_id FK
+        STRING stage
+    }
+    proposal_judges {
+        INT64 id PK
+        INT64 proposal_id FK
+        INT64 politician_id FK
+        STRING approve
+        BOOL is_defection
+    }
+    pg_group_judges {
+        INT64 id PK
+        INT64 proposal_id FK
+        STRING judgment
+        INT64 member_count
+    }
+
+    proposals ||--o{ proposal_submitters : ""
+    proposals ||--o{ proposal_deliberations : ""
+    proposals ||--o{ proposal_judges : ""
+    proposals ||--o{ pg_group_judges : ""
+          </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{- /* CTA */ -}}
+<section class="section section-cta">
+  <div class="container">
+    <div class="cta-content animate-on-scroll">
+      <h2 class="cta-title">データを活用してみませんか？</h2>
+      <p class="cta-description">
+        Sagebaseは、構造化された政治データを誰でも利用できるオープンデータとして提供します。
+      </p>
+      <div class="cta-buttons">
+        <a href="/features/" class="btn btn-primary">提供データを見る</a>
+        <a href="/about/" class="btn btn-secondary">政治ベースについて</a>
+        <a href="/contact/" class="btn btn-tertiary">お問い合わせ</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{- /* D3.js CDN */ -}}
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const colors = {
+    text:       isDark ? '#f5f5f5' : '#171717',
+    textMuted:  isDark ? '#a3a3a3' : '#525252',
+    bg:         isDark ? '#0a0a0a' : '#ffffff',
+    fill:       isDark ? '#262626' : '#f5f5f5',
+    stroke:     isDark ? '#a3a3a3' : '#404040',
+    edgeDefault:isDark ? '#525252' : '#a3a3a3',
+    edgeHover:  isDark ? '#e5e5e5' : '#171717',
+  };
+
+  // shape: 'roundedRect' (議会系), 'ellipse' (発言系), 'diamond' (政治家系), 'rect' (議案系)
+  const nodes = [
+    { id: 'governing_body', label: '開催主体',     shape: 'roundedRect', desc: '開催主体（GoverningBody）。自治体・議会組織。', fields: ['名称', '自治体コード', '組織種別', '都道府県'] },
+    { id: 'conference',     label: '議会',         shape: 'roundedRect', desc: '議会（Conference）。会期単位の議会。', fields: ['議会名', '任期', '選挙ID'] },
+    { id: 'meeting',        label: '会議',         shape: 'roundedRect', desc: '会議（Meeting）。特定日の会議インスタンス。', fields: ['開催日', '会議名', 'URL'] },
+    { id: 'minutes',        label: '議事録',       shape: 'roundedRect', desc: '議事録（Minutes）。会議の記録文書。', fields: ['URL', '処理日時'] },
+    { id: 'conversation',   label: '発言',         shape: 'ellipse',     desc: '発言（Conversation）。議事録内の個別発言。', fields: ['発言内容', '発言順序', '章番号'] },
+    { id: 'speaker',        label: '発言者',       shape: 'ellipse',     desc: '発言者（Speaker）。AI照合で政治家と紐付け。', fields: ['氏名', '政党名', '役職', '照合信頼度'] },
+    { id: 'politician',     label: '政治家',       shape: 'diamond',     desc: '政治家（Politician）。中心エンティティ。', fields: ['氏名', '都道府県', '選挙区', 'ふりがな'] },
+    { id: 'political_party',label: '政党',         shape: 'diamond',     desc: '政党（PoliticalParty）。', fields: ['政党名'] },
+    { id: 'parl_group',     label: '会派',         shape: 'diamond',     desc: '会派（ParliamentaryGroup）。議会内の投票行動グループ。', fields: ['会派名', '院', '開始日', '終了日'] },
+    { id: 'pg_membership',  label: '会派所属',     shape: 'diamond',     desc: '会派所属履歴（Membership）。', fields: ['役割', '開始日', '終了日'] },
+    { id: 'election',       label: '選挙',         shape: 'diamond',     desc: '選挙（Election）。選挙イベント。', fields: ['選挙日', '選挙種別'] },
+    { id: 'election_member',label: '選挙結果',     shape: 'diamond',     desc: '選挙結果（ElectionMember）。候補者の結果。', fields: ['結果', '得票数', '順位'] },
+    { id: 'conf_member',    label: '議会構成員',   shape: 'diamond',     desc: '議会構成員（ConferenceMember）。議会への参加情報。', fields: ['役職', '開始日'] },
+    { id: 'proposal',       label: '議案',         shape: 'rect',        desc: '議案（Proposal）。法案・予算案など。', fields: ['議案名', '大分類', '小分類', '審議状況', '提出日', '採決日'] },
+    { id: 'submitter',      label: '提出者',       shape: 'rect',        desc: '提出者（ProposalSubmitter）。', fields: ['提出者種別', '代表者フラグ'] },
+    { id: 'deliberation',   label: '審議',         shape: 'rect',        desc: '審議（ProposalDeliberation）。', fields: ['審議段階'] },
+    { id: 'judge',          label: '個人賛否',     shape: 'rect',        desc: '個人賛否（ProposalJudge）。造反検出付き。', fields: ['賛否', '造反フラグ'] },
+    { id: 'pg_judge',       label: '会派賛否',     shape: 'rect',        desc: '会派賛否（ProposalParliamentaryGroupJudge）。', fields: ['賛否', 'メンバー数', '賛否種別'] },
+  ];
+
+  const links = [
+    { source: 'governing_body', target: 'conference',     label: 'has many',   rel: '1:N' },
+    { source: 'conference',     target: 'meeting',        label: 'has many',   rel: '1:N' },
+    { source: 'meeting',        target: 'minutes',        label: 'has one',    rel: '1:1' },
+    { source: 'minutes',        target: 'conversation',   label: 'has many',   rel: '1:N' },
+    { source: 'conversation',   target: 'speaker',        label: 'belongs to', rel: 'N:1' },
+    { source: 'speaker',        target: 'politician',     label: 'AI照合',     rel: 'N:1' },
+    { source: 'politician',     target: 'pg_membership',  label: 'has many',   rel: '1:N' },
+    { source: 'pg_membership',  target: 'parl_group',     label: 'belongs to', rel: 'N:1' },
+    { source: 'parl_group',     target: 'political_party',label: 'M:N',        rel: 'M:N' },
+    { source: 'politician',     target: 'election_member',label: 'has many',   rel: '1:N' },
+    { source: 'election',       target: 'election_member',label: 'has many',   rel: '1:N' },
+    { source: 'politician',     target: 'conf_member',    label: 'has many',   rel: '1:N' },
+    { source: 'submitter',      target: 'proposal',       label: 'belongs to', rel: 'N:1' },
+    { source: 'proposal',       target: 'deliberation',   label: 'has many',   rel: '1:N' },
+    { source: 'proposal',       target: 'judge',          label: 'has many',   rel: '1:N' },
+    { source: 'proposal',       target: 'pg_judge',       label: 'has many',   rel: '1:N' },
+    { source: 'judge',          target: 'politician',     label: 'belongs to', rel: 'N:1' },
+    { source: 'pg_judge',       target: 'parl_group',     label: 'belongs to', rel: 'N:1' },
+  ];
+
+  const shapeSizes = {
+    roundedRect: { w: 56, h: 28, r: 8 },
+    ellipse:     { rx: 30, ry: 18 },
+    diamond:     { s: 24 },
+    rect:        { w: 56, h: 28 },
+  };
+
+  function boundRadius(node) {
+    const s = node.shape || 'rect';
+    if (s === 'roundedRect' || s === 'rect') return 32;
+    if (s === 'ellipse') return 30;
+    if (s === 'diamond') return 28;
+    return 24;
+  }
+
+  function sourceMarker(rel, hover) {
+    const h = hover ? '-h' : '';
+    return (rel === '1:N' || rel === '1:1') ? 'url(#er-one-start' + h + ')' : 'url(#er-many-start' + h + ')';
+  }
+  function targetMarker(rel, hover) {
+    const h = hover ? '-h' : '';
+    return (rel === 'N:1' || rel === '1:1') ? 'url(#er-one-end' + h + ')' : 'url(#er-many-end' + h + ')';
+  }
+
+  const container = document.getElementById('d3-force-graph');
+  const width = container.clientWidth;
+  const height = Math.min(700, Math.max(500, width * 0.65));
+
+  const svg = d3.select('#d3-force-graph')
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height)
+    .attr('viewBox', [0, 0, width, height]);
+
+  const defs = svg.append('defs');
+  const markerGap = 12;
+
+  function addMarker(id, viewBox, pathD, color) {
+    const m = defs.append('marker')
+      .attr('id', id).attr('viewBox', viewBox)
+      .attr('refX', 0).attr('refY', 0)
+      .attr('markerWidth', 12).attr('markerHeight', 12)
+      .attr('orient', 'auto');
+    m.append('path').attr('d', pathD)
+      .attr('stroke', color).attr('stroke-width', 1.6).attr('fill', 'none');
+  }
+
+  addMarker('er-one-end',       '-2 -8 8 16', 'M4,-6 L4,6', colors.edgeDefault);
+  addMarker('er-one-end-h',     '-2 -8 8 16', 'M4,-6 L4,6', colors.edgeHover);
+  addMarker('er-one-start',     '-6 -8 8 16', 'M-4,-6 L-4,6', colors.edgeDefault);
+  addMarker('er-one-start-h',   '-6 -8 8 16', 'M-4,-6 L-4,6', colors.edgeHover);
+  addMarker('er-many-end',      '-2 -8 14 16', 'M0,0 L10,-7 M0,0 L10,7 M0,0 L10,0', colors.edgeDefault);
+  addMarker('er-many-end-h',    '-2 -8 14 16', 'M0,0 L10,-7 M0,0 L10,7 M0,0 L10,0', colors.edgeHover);
+  addMarker('er-many-start',    '-12 -8 14 16', 'M0,0 L-10,-7 M0,0 L-10,7 M0,0 L-10,0', colors.edgeDefault);
+  addMarker('er-many-start-h',  '-12 -8 14 16', 'M0,0 L-10,-7 M0,0 L-10,7 M0,0 L-10,0', colors.edgeHover);
+
+  const simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(160))
+    .force('charge', d3.forceManyBody().strength(-600))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collision', d3.forceCollide().radius(45))
+    .force('x', d3.forceX(width / 2).strength(0.05))
+    .force('y', d3.forceY(height / 2).strength(0.05));
+
+  const link = svg.append('g')
+    .selectAll('line').data(links).join('line')
+    .attr('stroke', colors.edgeDefault)
+    .attr('stroke-width', 1.2)
+    .attr('marker-start', d => sourceMarker(d.rel, false))
+    .attr('marker-end', d => targetMarker(d.rel, false));
+
+  const linkLabel = svg.append('g')
+    .selectAll('text').data(links).join('text')
+    .text(d => d.label)
+    .attr('font-size', '8px')
+    .attr('font-family', 'var(--font-display)')
+    .attr('font-weight', '500')
+    .attr('fill', colors.textMuted)
+    .attr('text-anchor', 'middle')
+    .attr('opacity', 0.7);
+
+  const node = svg.append('g')
+    .selectAll('g').data(nodes).join('g')
+    .style('cursor', 'pointer')
+    .call(d3.drag()
+      .on('start', (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on('end', (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }));
+
+  node.each(function(d) {
+    const g = d3.select(this);
+    const s = d.shape;
+    if (s === 'roundedRect') {
+      const sz = shapeSizes.roundedRect;
+      g.append('rect')
+        .attr('x', -sz.w / 2).attr('y', -sz.h / 2)
+        .attr('width', sz.w).attr('height', sz.h)
+        .attr('rx', sz.r).attr('ry', sz.r)
+        .attr('fill', colors.fill).attr('stroke', colors.stroke).attr('stroke-width', 1.5);
+    } else if (s === 'ellipse') {
+      const sz = shapeSizes.ellipse;
+      g.append('ellipse')
+        .attr('rx', sz.rx).attr('ry', sz.ry)
+        .attr('fill', colors.fill).attr('stroke', colors.stroke).attr('stroke-width', 1.5);
+    } else if (s === 'diamond') {
+      const sz = shapeSizes.diamond.s;
+      g.append('polygon')
+        .attr('points', `0,${-sz} ${sz * 1.3},0 0,${sz} ${-sz * 1.3},0`)
+        .attr('fill', colors.fill).attr('stroke', colors.stroke).attr('stroke-width', 1.5);
+    } else {
+      const sz = shapeSizes.rect;
+      g.append('rect')
+        .attr('x', -sz.w / 2).attr('y', -sz.h / 2)
+        .attr('width', sz.w).attr('height', sz.h)
+        .attr('fill', colors.fill).attr('stroke', colors.stroke).attr('stroke-width', 1.5);
+    }
+  });
+
+  node.append('text')
+    .text(d => d.label)
+    .attr('dy', d => {
+      if (d.shape === 'diamond') return shapeSizes.diamond.s + 14;
+      if (d.shape === 'ellipse') return shapeSizes.ellipse.ry + 14;
+      return shapeSizes.rect.h / 2 + 14;
+    })
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '10px')
+    .attr('font-family', 'var(--font-display)')
+    .attr('font-weight', '600')
+    .attr('fill', colors.text);
+
+  node.on('mouseenter', function(event, d) {
+    const connected = new Set([d.id]);
+    links.forEach(l => {
+      const s = typeof l.source === 'object' ? l.source.id : l.source;
+      const t = typeof l.target === 'object' ? l.target.id : l.target;
+      if (s === d.id) connected.add(t);
+      if (t === d.id) connected.add(s);
+    });
+
+    node.attr('opacity', n => connected.has(n.id) ? 1 : 0.15);
+    link.each(function(l) {
+      const s = typeof l.source === 'object' ? l.source.id : l.source;
+      const t = typeof l.target === 'object' ? l.target.id : l.target;
+      const isConn = (s === d.id || t === d.id);
+      d3.select(this)
+        .attr('stroke', isConn ? colors.edgeHover : colors.edgeDefault)
+        .attr('stroke-width', isConn ? 2 : 0.4)
+        .attr('opacity', isConn ? 1 : 0.1)
+        .attr('marker-start', sourceMarker(l.rel, isConn))
+        .attr('marker-end', targetMarker(l.rel, isConn));
+    });
+    linkLabel.attr('opacity', l => {
+      const s = typeof l.source === 'object' ? l.source.id : l.source;
+      const t = typeof l.target === 'object' ? l.target.id : l.target;
+      return (s === d.id || t === d.id) ? 1 : 0.05;
+    });
+  }).on('mouseleave', function() {
+    node.attr('opacity', 1);
+    link.attr('stroke', colors.edgeDefault).attr('stroke-width', 1.2).attr('opacity', 1)
+      .attr('marker-start', d => sourceMarker(d.rel, false))
+      .attr('marker-end', d => targetMarker(d.rel, false));
+    linkLabel.attr('opacity', 0.7);
+  });
+
+  node.on('click', function(event, d) {
+    document.getElementById('d3-panel-title').textContent = d.label;
+    document.getElementById('d3-panel-group').textContent =
+      d.shape === 'roundedRect' ? '議会系' :
+      d.shape === 'ellipse' ? '発言系' :
+      d.shape === 'diamond' ? '政治家系' : '議案系';
+    document.getElementById('d3-panel-desc').textContent = d.desc;
+    document.getElementById('d3-panel-fields').innerHTML = d.fields.map(f =>
+      '<span class="dsv-d3-panel-field">' + f + '</span>'
+    ).join('');
+    document.getElementById('d3-detail-panel').style.display = 'block';
+    event.stopPropagation();
+  });
+  document.getElementById('d3-panel-close').addEventListener('click', () => {
+    document.getElementById('d3-detail-panel').style.display = 'none';
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.dsv-d3-panel') && !e.target.closest('.dsv-d3-graph g')) {
+      document.getElementById('d3-detail-panel').style.display = 'none';
+    }
+  });
+
+  simulation.on('tick', () => {
+    link.each(function(d) {
+      const dx = d.target.x - d.source.x;
+      const dy = d.target.y - d.source.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 1) return;
+      const nx = dx / dist, ny = dy / dist;
+      const sGap = boundRadius(d.source) + markerGap;
+      const tGap = boundRadius(d.target) + markerGap;
+      d3.select(this)
+        .attr('x1', d.source.x + nx * sGap)
+        .attr('y1', d.source.y + ny * sGap)
+        .attr('x2', d.target.x - nx * tGap)
+        .attr('y2', d.target.y - ny * tGap);
+    });
+    linkLabel
+      .attr('x', d => (d.source.x + d.target.x) / 2)
+      .attr('y', d => (d.source.y + d.target.y) / 2 - 6);
+    node.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+
+  window.addEventListener('resize', () => {
+    const newW = container.clientWidth;
+    const newH = Math.min(700, Math.max(500, newW * 0.65));
+    svg.attr('width', newW).attr('height', newH).attr('viewBox', [0, 0, newW, newH]);
+    simulation.force('center', d3.forceCenter(newW / 2, newH / 2));
+    simulation.force('x', d3.forceX(newW / 2).strength(0.08));
+    simulation.force('y', d3.forceY(newH / 2).strength(0.08));
+    simulation.alpha(0.3).restart();
+  });
+})();
+</script>
+
+{{ end }}
