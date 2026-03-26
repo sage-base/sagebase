@@ -1,0 +1,492 @@
+{{ define "main" }}
+
+{{- /* ============================================
+       Section: Hero
+       ============================================ */ -}}
+<section class="coverage-hero">
+  <div class="coverage-hero-content animate-on-scroll">
+    <div class="coverage-hero-badge">Data Coverage</div>
+    <h1 class="coverage-hero-title">
+      現在のデータ収録状況
+    </h1>
+    <p class="coverage-hero-description">
+      Sagebaseが保有するデータのリアルタイムな規模と品質を公開しています。<br>
+      データは日々更新されており、この数値は最新の状態を反映しています。
+    </p>
+    <div class="coverage-hero-timestamp">Last updated: {{ now.Format "2006-01-02" }}</div>
+  </div>
+
+  <div class="split-hero animate-on-scroll">
+    {{- /* 国会 */ -}}
+    <div class="split-hero-column">
+      <span class="split-hero-label">National Diet</span>
+      <div class="split-hero-status status-complete">全量収録</div>
+      <h2 class="split-hero-headline">国会</h2>
+      <div class="split-metrics">
+        <div class="split-metric">
+          <span class="split-metric-number">1,080<span class="split-metric-unit">万+</span></span>
+          <span class="split-metric-label">発言数</span>
+        </div>
+        <div class="split-metric">
+          <span class="split-metric-number">10.2<span class="split-metric-unit">万+</span></span>
+          <span class="split-metric-label">会議数</span>
+        </div>
+        <div class="split-metric">
+          <span class="split-metric-number">6,400<span class="split-metric-unit">人+</span></span>
+          <span class="split-metric-label">国会議員</span>
+        </div>
+        <div class="split-metric">
+          <span class="split-metric-number">79<span class="split-metric-unit">年分</span></span>
+          <span class="split-metric-label">1947年〜現在</span>
+        </div>
+        <div class="split-metric">
+          <span class="split-metric-number">15,000<span class="split-metric-unit">件+</span></span>
+          <span class="split-metric-label">議案</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="split-hero-divider"></div>
+
+    {{- /* 地方議会 */ -}}
+    <div class="split-hero-column">
+      <span class="split-hero-label">Local Assemblies</span>
+      <div class="split-hero-status status-expanding">拡充中</div>
+      <h2 class="split-hero-headline">地方議会</h2>
+      <div class="split-metrics">
+        <div class="split-metric">
+          <span class="split-metric-number">40<span class="split-metric-unit">万+</span></span>
+          <span class="split-metric-label">発言数</span>
+        </div>
+        <div class="split-metric">
+          <span class="split-metric-number">6,600<span class="split-metric-unit">回+</span></span>
+          <span class="split-metric-label">会議数</span>
+        </div>
+        <div class="split-metric">
+          <span class="split-metric-number">5,500<span class="split-metric-unit">人+</span></span>
+          <span class="split-metric-label">地方議員</span>
+        </div>
+        <div class="split-metric">
+          <span class="split-metric-number">10<span class="split-metric-unit"> / 47</span></span>
+          <span class="split-metric-label">都道府県議会</span>
+        </div>
+        <div class="split-metric">
+          <span class="split-metric-number">24<span class="split-metric-unit">自治体</span></span>
+          <span class="split-metric-label">市区町村議会</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{- /* ============================================
+       Section 01: 議会カバレッジ（地図 + ランキング）
+       ============================================ */ -}}
+<section class="section section-coverage-map">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">01</span>
+      <h2 class="section-title">議会カバレッジ</h2>
+      <p class="section-lead">
+        国会を完全カバーし、主要都道府県議会のデータ拡充を進めています。
+      </p>
+    </div>
+
+    <div class="coverage-tabs animate-on-scroll">
+      <button class="coverage-tab active" data-tab="speeches">発言カバレッジ</button>
+      <button class="coverage-tab" data-tab="politicians">政治家カバレッジ</button>
+      <button class="coverage-tab" data-tab="matching">紐付けカバレッジ</button>
+      <button class="coverage-tab" data-tab="bills">議案カバレッジ</button>
+    </div>
+
+    <div class="map-layout animate-on-scroll">
+      {{- /* 日本地図（プレースホルダーグリッド） */ -}}
+      <div>
+        <div class="map-container">
+          <div class="map-placeholder-grid">
+            {{- /* Row 1: 北海道 */ -}}
+            <div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell covered-partial"></div><div class="map-cell covered-partial"></div>
+            {{- /* Row 2 */ -}}
+            <div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell covered-partial"></div><div class="map-cell"></div>
+            {{- /* Row 3: 東北 */ -}}
+            <div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell covered-none"></div><div class="map-cell covered-none"></div><div class="map-cell"></div>
+            {{- /* Row 4: 関東 */ -}}
+            <div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell covered-partial"></div><div class="map-cell covered-full"></div><div class="map-cell covered-partial"></div><div class="map-cell"></div>
+            {{- /* Row 5 */ -}}
+            <div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell covered-partial"></div><div class="map-cell covered-full"></div><div class="map-cell covered-full"></div><div class="map-cell covered-partial"></div><div class="map-cell"></div>
+            {{- /* Row 6: 中部/関西 */ -}}
+            <div class="map-cell"></div><div class="map-cell"></div><div class="map-cell covered-partial"></div><div class="map-cell covered-full"></div><div class="map-cell covered-partial"></div><div class="map-cell covered-partial"></div><div class="map-cell"></div><div class="map-cell"></div>
+            {{- /* Row 7: 関西/中国 */ -}}
+            <div class="map-cell"></div><div class="map-cell covered-none"></div><div class="map-cell covered-none"></div><div class="map-cell covered-full"></div><div class="map-cell covered-partial"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div>
+            {{- /* Row 8: 中国/四国 */ -}}
+            <div class="map-cell"></div><div class="map-cell covered-none"></div><div class="map-cell covered-none"></div><div class="map-cell covered-none"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div>
+            {{- /* Row 9: 九州 */ -}}
+            <div class="map-cell covered-partial"></div><div class="map-cell covered-partial"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div>
+            {{- /* Row 10: 沖縄 */ -}}
+            <div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell"></div><div class="map-cell covered-none"></div>
+          </div>
+        </div>
+        <div class="map-legend">
+          <div class="legend-item">
+            <div class="legend-swatch legend-swatch-full"></div>
+            <span>100%</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-swatch legend-swatch-partial"></div>
+            <span>50-99%</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-swatch legend-swatch-low"></div>
+            <span>1-49%</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-swatch legend-swatch-none"></div>
+            <span>準備中</span>
+          </div>
+        </div>
+      </div>
+
+      {{- /* ランキング */ -}}
+      <div class="ranking-panel">
+        <div class="ranking-panel-title">都道府県別カバレッジ</div>
+        <ul class="ranking-list">
+          <li class="ranking-item">
+            <span class="ranking-label">国会</span>
+            <div class="ranking-bar-track"><div class="ranking-bar-fill" style="width: 100%;"></div></div>
+            <span class="ranking-value">100%</span>
+          </li>
+          <li class="ranking-item">
+            <span class="ranking-label">東京都</span>
+            <div class="ranking-bar-track"><div class="ranking-bar-fill" style="width: 92%;"></div></div>
+            <span class="ranking-value">92%</span>
+          </li>
+          <li class="ranking-item">
+            <span class="ranking-label">大阪府</span>
+            <div class="ranking-bar-track"><div class="ranking-bar-fill" style="width: 88%;"></div></div>
+            <span class="ranking-value">88%</span>
+          </li>
+          <li class="ranking-item">
+            <span class="ranking-label">神奈川県</span>
+            <div class="ranking-bar-track"><div class="ranking-bar-fill" style="width: 85%;"></div></div>
+            <span class="ranking-value">85%</span>
+          </li>
+          <li class="ranking-item">
+            <span class="ranking-label">愛知県</span>
+            <div class="ranking-bar-track"><div class="ranking-bar-fill" style="width: 82%;"></div></div>
+            <span class="ranking-value">82%</span>
+          </li>
+          <li class="ranking-item">
+            <span class="ranking-label">埼玉県</span>
+            <div class="ranking-bar-track"><div class="ranking-bar-fill" style="width: 78%;"></div></div>
+            <span class="ranking-value">78%</span>
+          </li>
+          <li class="ranking-item">
+            <span class="ranking-label">千葉県</span>
+            <div class="ranking-bar-track"><div class="ranking-bar-fill" style="width: 75%;"></div></div>
+            <span class="ranking-value">75%</span>
+          </li>
+          <li class="ranking-item">
+            <span class="ranking-label">北海道</span>
+            <div class="ranking-bar-track"><div class="ranking-bar-fill" style="width: 72%;"></div></div>
+            <span class="ranking-value">72%</span>
+          </li>
+          <li class="ranking-item">
+            <span class="ranking-label">兵庫県</span>
+            <div class="ranking-bar-track"><div class="ranking-bar-fill" style="width: 68%;"></div></div>
+            <span class="ranking-value">68%</span>
+          </li>
+          <li class="ranking-item">
+            <span class="ranking-label">福岡県</span>
+            <div class="ranking-bar-track"><div class="ranking-bar-fill" style="width: 65%;"></div></div>
+            <span class="ranking-value">65%</span>
+          </li>
+          <li class="ranking-item">
+            <span class="ranking-label">静岡県</span>
+            <div class="ranking-bar-track"><div class="ranking-bar-fill" style="width: 60%;"></div></div>
+            <span class="ranking-value">60%</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="bottom-stats animate-on-scroll">
+      <div class="bottom-stat">
+        <span class="bottom-stat-number">1,120万+</span>
+        <span class="bottom-stat-label">総発言数（国会 + 地方）</span>
+      </div>
+      <div class="bottom-stat">
+        <span class="bottom-stat-number">10.8万+</span>
+        <span class="bottom-stat-label">総会議数</span>
+      </div>
+      <div class="bottom-stat">
+        <span class="bottom-stat-number">11,900+</span>
+        <span class="bottom-stat-label">総政治家数</span>
+      </div>
+      <div class="bottom-stat">
+        <span class="bottom-stat-number">195</span>
+        <span class="bottom-stat-label">登録政党数</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{- /* ============================================
+       Section 02: 時間カバレッジ（ガントチャート）
+       ============================================ */ -}}
+<section class="section">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">02</span>
+      <h2 class="section-title">1947年の第1回国会から、現在まで。</h2>
+      <p class="section-lead">
+        各議会のデータ収録期間を示しています。バーの長さがデータの時間的な広がりを表します。
+      </p>
+    </div>
+
+    <div class="timeline-chart animate-on-scroll">
+
+      {{- /* 国会 */ -}}
+      <div class="timeline-section-label">国会</div>
+      <div class="timeline-row">
+        <span class="timeline-label">衆議院</span>
+        <div class="timeline-track">
+          <div class="timeline-bar intensity-high" style="left: 0%; width: 100%;">
+            <span class="timeline-bar-label">1947 - 2026</span>
+          </div>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <span class="timeline-label">参議院</span>
+        <div class="timeline-track">
+          <div class="timeline-bar intensity-high" style="left: 0%; width: 100%;">
+            <span class="timeline-bar-label">1947 - 2026</span>
+          </div>
+        </div>
+      </div>
+
+      {{- /* 都道府県議会 */ -}}
+      <div class="timeline-section-label">都道府県議会（10 / 47）</div>
+      <div class="timeline-row">
+        <span class="timeline-label">東京都</span>
+        <div class="timeline-track">
+          <div class="timeline-bar intensity-high" style="left: 20%; width: 75%;">
+            <span class="timeline-bar-label">1963 - 2025</span>
+          </div>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <span class="timeline-label">大阪府</span>
+        <div class="timeline-track">
+          <div class="timeline-bar intensity-mid" style="left: 45%; width: 50%;">
+            <span class="timeline-bar-label">1983 - 2025</span>
+          </div>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <span class="timeline-label">神奈川県</span>
+        <div class="timeline-track">
+          <div class="timeline-bar intensity-mid" style="left: 50%; width: 45%;">
+            <span class="timeline-bar-label">1987 - 2025</span>
+          </div>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <span class="timeline-label">愛知県</span>
+        <div class="timeline-track">
+          <div class="timeline-bar intensity-mid" style="left: 52%; width: 43%;">
+            <span class="timeline-bar-label">1989 - 2025</span>
+          </div>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <span class="timeline-label">埼玉県</span>
+        <div class="timeline-track">
+          <div class="timeline-bar intensity-mid" style="left: 55%; width: 40%;">
+            <span class="timeline-bar-label">1991 - 2025</span>
+          </div>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <span class="timeline-label">千葉県</span>
+        <div class="timeline-track">
+          <div class="timeline-bar intensity-low" style="left: 58%; width: 37%;">
+            <span class="timeline-bar-label">1993 - 2025</span>
+          </div>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <span class="timeline-label">北海道</span>
+        <div class="timeline-track">
+          <div class="timeline-bar intensity-low" style="left: 60%; width: 35%;">
+            <span class="timeline-bar-label">1995 - 2025</span>
+          </div>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <span class="timeline-label">兵庫県</span>
+        <div class="timeline-track">
+          <div class="timeline-bar intensity-low" style="left: 62%; width: 33%;">
+            <span class="timeline-bar-label">1997 - 2025</span>
+          </div>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <span class="timeline-label">福岡県</span>
+        <div class="timeline-track">
+          <div class="timeline-bar intensity-low" style="left: 65%; width: 30%;">
+            <span class="timeline-bar-label">1999 - 2025</span>
+          </div>
+        </div>
+      </div>
+      <div class="timeline-row">
+        <span class="timeline-label">静岡県</span>
+        <div class="timeline-track">
+          <div class="timeline-bar intensity-low" style="left: 68%; width: 27%;">
+            <span class="timeline-bar-label">2001 - 2025</span>
+          </div>
+        </div>
+      </div>
+
+      {{- /* 市区町村議会 */ -}}
+      <div class="timeline-section-label">市区町村議会（24 / 1,918）</div>
+      <div class="timeline-row">
+        <span class="timeline-label">24自治体</span>
+        <div class="timeline-track">
+          <div class="timeline-bar intensity-low" style="left: 75%; width: 20%;">
+            <span class="timeline-bar-label">2007 - 2025</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="timeline-axis">
+        <span></span>
+        <div class="timeline-axis-labels">
+          <span>1947</span>
+          <span>1960</span>
+          <span>1970</span>
+          <span>1980</span>
+          <span>1990</span>
+          <span>2000</span>
+          <span>2010</span>
+          <span>2026</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{- /* ============================================
+       Section 03: データ品質
+       ============================================ */ -}}
+<section class="section section-coverage-quality">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">03</span>
+      <h2 class="section-title">誰が何を言ったか、追跡できます。</h2>
+      <p class="section-lead">
+        AIによる自動紐付けと人手による検証を組み合わせ、データの正確性を継続的に改善しています。
+      </p>
+    </div>
+
+    <div class="quality-cards animate-on-scroll">
+      <div class="quality-card">
+        <div class="quality-card-header">
+          <span class="quality-card-title">発言者 → 政治家 紐付け率</span>
+          <span class="quality-card-value">89.5%</span>
+        </div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" style="width: 89.5%;"></div>
+        </div>
+        <div class="quality-detail">
+          <div class="quality-detail-row">
+            <span class="quality-detail-label">登録発言者数</span>
+            <span class="quality-detail-value">39,805人</span>
+          </div>
+          <div class="quality-detail-row">
+            <span class="quality-detail-label">政治家として特定済み</span>
+            <span class="quality-detail-value">5,081人</span>
+          </div>
+          <div class="quality-detail-row">
+            <span class="quality-detail-label">政府関係者として特定済み</span>
+            <span class="quality-detail-value">14,200人+</span>
+          </div>
+        </div>
+        <ul class="enables-list">
+          <li>政治家の発言履歴を時系列で追跡</li>
+          <li>政党別の議論傾向を分析</li>
+          <li>政党移籍前後の発言変化を照合</li>
+        </ul>
+      </div>
+
+      <div class="quality-card">
+        <div class="quality-card-header">
+          <span class="quality-card-title">会派マッピング率</span>
+          <span class="quality-card-value">90%</span>
+        </div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" style="width: 90%;"></div>
+        </div>
+        <div class="quality-detail">
+          <div class="quality-detail-row">
+            <span class="quality-detail-label">登録会派数</span>
+            <span class="quality-detail-value">1,200+</span>
+          </div>
+          <div class="quality-detail-row">
+            <span class="quality-detail-label">政党所属期間の重複</span>
+            <span class="quality-detail-value">0件</span>
+          </div>
+          <div class="quality-detail-row">
+            <span class="quality-detail-label">時代整合性バリデーション</span>
+            <span class="quality-detail-value">CI自動実行</span>
+          </div>
+        </div>
+        <ul class="enables-list">
+          <li>会派単位での賛否パターン分析</li>
+          <li>政党再編の歴史的追跡</li>
+          <li>造反投票の自動検出</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="quality-commitment animate-on-scroll">
+      <div class="quality-commitment-title">データ品質へのコミットメント</div>
+      <p>
+        すべてのデータはAIによる自動処理と人手による検証を組み合わせて品質を担保しています。
+        誤りを発見された場合はお知らせください。すべての報告に対応し、データを修正します。
+      </p>
+    </div>
+  </div>
+</section>
+
+{{- /* ============================================
+       Section: CTA
+       ============================================ */ -}}
+<section class="section section-cta">
+  <div class="container">
+    <div class="cta-content">
+      <h2 class="cta-title animate-on-scroll">データを活用してみませんか？</h2>
+      <p class="cta-description animate-on-scroll">
+        研究、報道、アプリケーション開発に、構造化された政治データを。
+      </p>
+      <div class="cta-buttons animate-on-scroll">
+        <a href="/features/" class="btn btn-primary">提供データの詳細</a>
+        <a href="/contact/" class="btn btn-tertiary">お問い合わせ</a>
+      </div>
+      <p class="cta-meta animate-on-scroll">このページの数値は {{ now.Format "2006年1月2日" }} 時点のデータに基づいています</p>
+    </div>
+  </div>
+</section>
+
+{{- /* タブ切り替えスクリプト */ -}}
+<script>
+  document.querySelectorAll('.coverage-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('.coverage-tab').forEach(function(t) {
+        t.classList.remove('active');
+      });
+      tab.classList.add('active');
+    });
+  });
+</script>
+
+{{ end }}
