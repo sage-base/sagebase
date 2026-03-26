@@ -1,11 +1,36 @@
 {{ define "main" }}
 
+{{- /* Mermaid.js CDN */ -}}
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  const isDarkMermaid = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: isDarkMermaid ? {
+      primaryColor: '#262626', primaryTextColor: '#f5f5f5', primaryBorderColor: '#525252',
+      lineColor: '#737373', secondaryColor: '#171717', tertiaryColor: '#0a0a0a',
+      background: '#0a0a0a', mainBkg: '#262626', nodeBorder: '#525252',
+      clusterBkg: '#171717', titleColor: '#f5f5f5', edgeLabelBackground: '#171717',
+      noteBkgColor: '#262626', noteBorderColor: '#525252',
+      fontFamily: '"Noto Sans JP", sans-serif'
+    } : {
+      primaryColor: '#f5f5f5', primaryTextColor: '#171717', primaryBorderColor: '#d4d4d4',
+      lineColor: '#737373', secondaryColor: '#fafafa', tertiaryColor: '#ffffff',
+      background: '#ffffff', mainBkg: '#f5f5f5', nodeBorder: '#d4d4d4',
+      clusterBkg: '#fafafa', titleColor: '#171717', edgeLabelBackground: '#ffffff',
+      noteBkgColor: '#f5f5f5', noteBorderColor: '#d4d4d4',
+      fontFamily: '"Noto Sans JP", sans-serif'
+    }
+  });
+</script>
+
 {{- /* 比較ナビゲーション */ -}}
 <nav class="dsv-compare-nav">
   <div class="container">
     <div class="dsv-compare-links">
       <a href="/data-structure-v1/" class="dsv-compare-link">案1: Mermaid.js</a>
-      <a href="/data-structure-v2/" class="dsv-compare-link active">案2: D3.js</a>
+      <a href="/data-structure-v2/" class="dsv-compare-link active">案2: D3.js + Mermaid</a>
       <a href="/data-structure-v3/" class="dsv-compare-link">案3: SVG</a>
     </div>
     <a href="/data-structure/" class="dsv-back-link">&larr; 現行ページ</a>
@@ -15,27 +40,27 @@
 {{- /* ヒーロー */ -}}
 <section class="dsv-hero">
   <div class="container">
-    <div class="dsv-hero-badge">案2: D3.js</div>
+    <div class="dsv-hero-badge">案2: D3.js + Mermaid</div>
     <h1 class="hero-title">
-      <span class="hero-title-line">D3.jsで探る</span>
-      <span class="hero-title-line hero-title-emphasis">インタラクティブデータ構造</span>
+      <span class="hero-title-line">D3.jsで俯瞰し、</span>
+      <span class="hero-title-line hero-title-emphasis">Mermaidで詳細を読む</span>
     </h1>
     <p class="hero-description">
-      フォースレイアウトでエンティティの関連を動的に表現。<br class="hide-mobile">
-      ホバーやクリックで関係性を直感的に理解できます。
+      インタラクティブなフォースレイアウトで全体像を掴み、<br class="hide-mobile">
+      ER図でテーブル定義の詳細を確認できる二段構成です。
     </p>
   </div>
 </section>
 
-{{- /* Section 01 — フォースレイアウト */ -}}
+{{- /* Section 01 — D3.js フォースレイアウト */ -}}
 <section class="section dsv-section">
   <div class="container">
     <div class="section-header animate-on-scroll">
       <span class="section-number">01</span>
-      <h2 class="section-title">全エンティティ関連図</h2>
+      <h2 class="section-title">全体俯瞰 — インタラクティブ関連図</h2>
     </div>
     <p class="section-lead animate-on-scroll">
-      ノードにホバーで関連エッジをハイライト。クリックで詳細パネルを表示します。
+      ノードの形状でエンティティの種別を区別。ホバーで関連をハイライト、クリックで詳細を表示します。
     </p>
     <div class="dsv-d3-container animate-on-scroll">
       <div id="d3-force-graph" class="dsv-d3-graph"></div>
@@ -47,35 +72,237 @@
         <div id="d3-panel-fields" class="dsv-d3-panel-fields"></div>
       </div>
     </div>
+    {{- /* 形状の凡例 */ -}}
     <div class="dsv-d3-legend animate-on-scroll">
       <div class="dsv-d3-legend-item">
-        <span class="dsv-d3-legend-dot" style="background: var(--color-gray-900);"></span>
-        <span>議会議論データ</span>
+        <svg width="20" height="16" viewBox="0 0 20 16"><rect x="1" y="1" width="18" height="14" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>議会系</span>
       </div>
       <div class="dsv-d3-legend-item">
-        <span class="dsv-d3-legend-dot" style="background: var(--color-gray-600);"></span>
-        <span>政治家データ</span>
+        <svg width="20" height="16" viewBox="0 0 20 16"><ellipse cx="10" cy="8" rx="9" ry="7" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>発言系</span>
       </div>
       <div class="dsv-d3-legend-item">
-        <span class="dsv-d3-legend-dot" style="background: var(--color-gray-400);"></span>
-        <span>議案賛否データ</span>
+        <svg width="20" height="16" viewBox="0 0 20 16"><polygon points="10,1 19,8 10,15 1,8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>政治家系</span>
+      </div>
+      <div class="dsv-d3-legend-item">
+        <svg width="20" height="16" viewBox="0 0 20 16"><rect x="1" y="1" width="18" height="14" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>議案系</span>
       </div>
     </div>
   </div>
 </section>
 
-{{- /* Section 02 — 階層ツリー */ -}}
+{{- /* Section 02 — Mermaid.js ER図（詳細テーブル定義） */ -}}
 <section class="section dsv-section dsv-section-alt">
   <div class="container">
     <div class="section-header animate-on-scroll">
       <span class="section-number">02</span>
-      <h2 class="section-title">議会議論 — 階層ツリー</h2>
+      <h2 class="section-title">テーブル定義 — ER図（詳細）</h2>
     </div>
     <p class="section-lead animate-on-scroll">
-      議会から発言までの階層構造をツリーレイアウトで表現します。
+      BigQueryスキーマに基づく各テーブルのカラム定義とリレーションを表示します。
     </p>
-    <div class="dsv-d3-container animate-on-scroll">
-      <div id="d3-tree-graph" class="dsv-d3-graph dsv-d3-graph-sm"></div>
+
+    {{- /* 議会議論系テーブル */ -}}
+    <h3 class="dsv-er-subtitle animate-on-scroll">議会議論データ</h3>
+    <div class="dsv-diagram animate-on-scroll">
+      <pre class="mermaid">
+erDiagram
+    governing_bodies["開催主体 (governing_bodies)"] {
+        INT64 id PK "開催主体ID"
+        STRING name "名称"
+        STRING organization_code "自治体コード"
+        STRING organization_type "組織種別"
+        STRING prefecture "都道府県"
+    }
+    conferences["議会 (conferences)"] {
+        INT64 id PK "議会ID"
+        STRING name "議会名"
+        INT64 governing_body_id FK "開催主体ID"
+        STRING term "任期"
+        INT64 election_id FK "選挙ID"
+    }
+    meetings["会議 (meetings)"] {
+        INT64 id PK "会議ID"
+        INT64 conference_id FK "議会ID"
+        DATE date "開催日"
+        STRING name "会議名"
+        STRING url "URL"
+    }
+    minutes["議事録 (minutes)"] {
+        INT64 id PK "議事録ID"
+        INT64 meeting_id FK "会議ID"
+        STRING url "URL"
+        TIMESTAMP processed_at "処理日時"
+    }
+    conversations["発言 (conversations)"] {
+        INT64 id PK "発言ID"
+        INT64 minutes_id FK "議事録ID"
+        INT64 speaker_id FK "発言者ID"
+        STRING comment "発言内容"
+        INT64 sequence_number "発言順序"
+    }
+    speakers["発言者 (speakers)"] {
+        INT64 id PK "発言者ID"
+        STRING name "氏名"
+        STRING political_party_name "政党名"
+        STRING position "役職"
+        INT64 politician_id FK "政治家ID"
+        NUMERIC matching_confidence "照合信頼度"
+        BOOL is_manually_verified "手動検証済み"
+    }
+
+    governing_bodies ||--o{ conferences : "has many"
+    conferences ||--o{ meetings : "has many"
+    meetings ||--o| minutes : "has one"
+    minutes ||--o{ conversations : "has many"
+    conversations }o--|| speakers : "belongs to"
+      </pre>
+    </div>
+
+    {{- /* 政治家系テーブル */ -}}
+    <h3 class="dsv-er-subtitle animate-on-scroll">政治家データ</h3>
+    <div class="dsv-diagram animate-on-scroll">
+      <pre class="mermaid">
+erDiagram
+    politicians["政治家 (politicians)"] {
+        INT64 id PK "政治家ID"
+        STRING name "氏名"
+        STRING prefecture "都道府県"
+        STRING furigana "ふりがな"
+        STRING district "選挙区"
+        STRING profile_page_url "プロフィールURL"
+    }
+    political_parties["政党 (political_parties)"] {
+        INT64 id PK "政党ID"
+        STRING name "政党名"
+        STRING members_list_url "所属議員一覧URL"
+    }
+    parliamentary_groups["会派 (parliamentary_groups)"] {
+        INT64 id PK "会派ID"
+        STRING name "会派名"
+        INT64 governing_body_id FK "開催主体ID"
+        STRING chamber "院"
+        BOOL is_active "有効フラグ"
+        DATE start_date "開始日"
+        DATE end_date "終了日"
+    }
+    parliamentary_group_parties["会派-政党 (中間)"] {
+        INT64 id PK "中間テーブルID"
+        INT64 parliamentary_group_id FK "会派ID"
+        INT64 political_party_id FK "政党ID"
+        BOOL is_primary "主要政党フラグ"
+    }
+    parliamentary_group_memberships["会派所属履歴"] {
+        INT64 id PK "所属ID"
+        INT64 politician_id FK "政治家ID"
+        INT64 parliamentary_group_id FK "会派ID"
+        DATE start_date "開始日"
+        DATE end_date "終了日"
+        STRING role "役割"
+    }
+    conference_members["議会構成員 (conference_members)"] {
+        INT64 id PK "所属ID"
+        INT64 politician_id FK "政治家ID"
+        INT64 conference_id FK "議会ID"
+        DATE start_date "開始日"
+        STRING role "役割"
+    }
+    elections["選挙 (elections)"] {
+        INT64 id PK "選挙ID"
+        INT64 governing_body_id FK "開催主体ID"
+        DATE election_date "選挙日"
+        STRING election_type "選挙種別"
+    }
+    election_members["選挙結果 (election_members)"] {
+        INT64 id PK "選挙結果ID"
+        INT64 election_id FK "選挙ID"
+        INT64 politician_id FK "政治家ID"
+        STRING result "結果"
+        INT64 votes "得票数"
+        INT64 rank "順位"
+    }
+
+    politicians ||--o{ parliamentary_group_memberships : "会派所属"
+    parliamentary_group_memberships }o--|| parliamentary_groups : "所属先"
+    parliamentary_groups }o--o{ political_parties : "構成政党"
+    parliamentary_group_parties }o--|| parliamentary_groups : ""
+    parliamentary_group_parties }o--|| political_parties : ""
+    politicians ||--o{ election_members : "出馬"
+    elections ||--o{ election_members : "候補者"
+    politicians ||--o{ conference_members : "議会参加"
+    speakers }o--o| politicians : "AI照合"
+      </pre>
+    </div>
+
+    {{- /* 議案賛否系テーブル */ -}}
+    <h3 class="dsv-er-subtitle animate-on-scroll">議案賛否データ</h3>
+    <div class="dsv-diagram animate-on-scroll">
+      <pre class="mermaid">
+erDiagram
+    proposals["議案 (proposals)"] {
+        INT64 id PK "議案ID"
+        STRING title "議案名"
+        STRING proposal_category "大分類"
+        STRING proposal_type "小分類"
+        INT64 conference_id FK "議会ID"
+        STRING deliberation_status "審議状況"
+        STRING deliberation_result "最終結果"
+        DATE submitted_date "提出日"
+        DATE voted_date "採決日"
+    }
+    proposal_submitters["提出者 (proposal_submitters)"] {
+        INT64 id PK "提出者ID"
+        INT64 proposal_id FK "議案ID"
+        STRING submitter_type "提出者種別"
+        INT64 politician_id FK "政治家ID"
+        BOOL is_representative "代表者フラグ"
+    }
+    proposal_deliberations["審議 (proposal_deliberations)"] {
+        INT64 id PK "審議ID"
+        INT64 proposal_id FK "議案ID"
+        INT64 conference_id FK "議会ID"
+        INT64 meeting_id FK "会議ID"
+        STRING stage "審議段階"
+    }
+    proposal_judges["個人賛否 (proposal_judges)"] {
+        INT64 id PK "賛否ID"
+        INT64 proposal_id FK "議案ID"
+        INT64 politician_id FK "政治家ID"
+        STRING approve "賛否"
+        INT64 parliamentary_group_id FK "会派ID"
+        BOOL is_defection "造反フラグ"
+    }
+    proposal_parliamentary_group_judges["会派賛否"] {
+        INT64 id PK "会派賛否ID"
+        INT64 proposal_id FK "議案ID"
+        STRING judgment "賛否"
+        INT64 member_count "メンバー数"
+        STRING judge_type "賛否種別"
+    }
+    proposal_judge_parliamentary_groups["賛否-会派 (中間)"] {
+        INT64 id PK "中間ID"
+        INT64 judge_id FK "会派賛否ID"
+        INT64 parliamentary_group_id FK "会派ID"
+    }
+    proposal_judge_politicians["賛否-政治家 (中間)"] {
+        INT64 id PK "中間ID"
+        INT64 judge_id FK "会派賛否ID"
+        INT64 politician_id FK "政治家ID"
+    }
+
+    proposals ||--o{ proposal_submitters : "提出"
+    proposals ||--o{ proposal_deliberations : "審議"
+    proposals ||--o{ proposal_judges : "個人賛否"
+    proposals ||--o{ proposal_parliamentary_group_judges : "会派賛否"
+    proposal_judges }o--|| politicians : "投票者"
+    proposal_parliamentary_group_judges ||--o{ proposal_judge_parliamentary_groups : ""
+    proposal_parliamentary_group_judges ||--o{ proposal_judge_politicians : ""
+    proposal_judge_parliamentary_groups }o--|| parliamentary_groups : "所属会派"
+    proposal_judge_politicians }o--|| politicians : "政治家"
+      </pre>
     </div>
   </div>
 </section>
@@ -102,89 +329,89 @@
 
   const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const colors = {
-    discussion: isDark ? '#d4d4d4' : '#171717',
-    politician: isDark ? '#a3a3a3' : '#525252',
-    proposal:   isDark ? '#737373' : '#a3a3a3',
     text:       isDark ? '#f5f5f5' : '#171717',
     textMuted:  isDark ? '#a3a3a3' : '#525252',
     bg:         isDark ? '#0a0a0a' : '#ffffff',
-    border:     isDark ? '#404040' : '#d4d4d4',
-    edgeDefault:isDark ? '#404040' : '#d4d4d4',
+    fill:       isDark ? '#262626' : '#f5f5f5',
+    stroke:     isDark ? '#a3a3a3' : '#404040',
+    edgeDefault:isDark ? '#525252' : '#a3a3a3',
     edgeHover:  isDark ? '#e5e5e5' : '#171717',
   };
 
-  // エンティティデータ
+  // shape: 'roundedRect' (議会系), 'ellipse' (発言系), 'diamond' (政治家系), 'rect' (議案系)
   const nodes = [
-    { id: 'conference',     label: '議会',       group: 'discussion', desc: '議会（Conference）。国会や地方議会の会期単位。', fields: ['名称', '所属議会体', '期'] },
-    { id: 'governing_body', label: '会議体',     group: 'discussion', desc: '会議体（GoverningBody）。委員会・本会議などの開催単位。', fields: ['名称', '種別', '自治体コード'] },
-    { id: 'meeting',        label: '会議',       group: 'discussion', desc: '会議（Meeting）。特定日の会議インスタンス。', fields: ['開催日', '会議名', 'URL'] },
-    { id: 'minutes',        label: '議事録',     group: 'discussion', desc: '議事録（Minutes）。会議の記録文書。', fields: ['本文'] },
-    { id: 'conversation',   label: '発言',       group: 'discussion', desc: '発言（Conversation）。議事録内の個別発言。', fields: ['発言者', '発言内容', '発言順序'] },
-    { id: 'speaker',        label: '発言者',     group: 'discussion', desc: '発言者（Speaker）。会議での発言者情報。AI照合で政治家と紐付け。', fields: ['氏名', '所属政党名', '役職', '照合信頼度'] },
-    { id: 'politician',     label: '政治家',     group: 'politician', desc: '政治家（Politician）。中心エンティティ。', fields: ['氏名', '都道府県', '選挙区'] },
-    { id: 'political_party',label: '政党',       group: 'politician', desc: '政党（PoliticalParty）。政治家が所属する政党。', fields: ['政党名'] },
-    { id: 'parl_group',     label: '会派',       group: 'politician', desc: '会派（ParliamentaryGroup）。議会内の投票行動グループ。', fields: ['会派名', '開始日', '終了日'] },
-    { id: 'pg_membership',  label: '会派所属',   group: 'politician', desc: '会派所属（Membership）。政治家の会派への所属履歴。', fields: ['役割', '開始日', '終了日'] },
-    { id: 'election',       label: '選挙',       group: 'politician', desc: '選挙（Election）。選挙イベント。', fields: ['選挙日', '選挙種別'] },
-    { id: 'election_member',label: '選挙結果',   group: 'politician', desc: '選挙結果（ElectionMember）。候補者の結果。', fields: ['得票数', '当選順位'] },
-    { id: 'conf_member',    label: '議会構成員', group: 'politician', desc: '議会構成員（ConferenceMember）。議会への参加情報。', fields: ['役職'] },
-    { id: 'proposal',       label: '議案',       group: 'proposal',   desc: '議案（Proposal）。法案・予算案などの議案。', fields: ['議案名', '種別', '審議状況', '提出日', '採決日'] },
-    { id: 'submitter',      label: '提出者',     group: 'proposal',   desc: '提出者（ProposalSubmitter）。議案の提出者。', fields: ['提出者種別', '代表者フラグ'] },
-    { id: 'deliberation',   label: '審議',       group: 'proposal',   desc: '審議（ProposalDeliberation）。議案の審議記録。', fields: ['審議記録'] },
-    { id: 'judge',          label: '個人賛否',   group: 'proposal',   desc: '個人賛否（ProposalJudge）。議員個人の賛否。造反検出付き。', fields: ['賛否', '造反フラグ'] },
-    { id: 'pg_judge',       label: '会派賛否',   group: 'proposal',   desc: '会派賛否（ProposalParliamentaryGroupJudge）。会派の賛否態度。', fields: ['会派名', '賛否'] },
+    { id: 'governing_body', label: '開催主体',     shape: 'roundedRect', desc: '開催主体（GoverningBody）。自治体・議会組織。', fields: ['名称', '自治体コード', '組織種別', '都道府県'] },
+    { id: 'conference',     label: '議会',         shape: 'roundedRect', desc: '議会（Conference）。会期単位の議会。', fields: ['議会名', '任期', '選挙ID'] },
+    { id: 'meeting',        label: '会議',         shape: 'roundedRect', desc: '会議（Meeting）。特定日の会議インスタンス。', fields: ['開催日', '会議名', 'URL'] },
+    { id: 'minutes',        label: '議事録',       shape: 'roundedRect', desc: '議事録（Minutes）。会議の記録文書。', fields: ['URL', '処理日時'] },
+    { id: 'conversation',   label: '発言',         shape: 'ellipse',     desc: '発言（Conversation）。議事録内の個別発言。', fields: ['発言内容', '発言順序', '章番号'] },
+    { id: 'speaker',        label: '発言者',       shape: 'ellipse',     desc: '発言者（Speaker）。AI照合で政治家と紐付け。', fields: ['氏名', '政党名', '役職', '照合信頼度'] },
+    { id: 'politician',     label: '政治家',       shape: 'diamond',     desc: '政治家（Politician）。中心エンティティ。', fields: ['氏名', '都道府県', '選挙区', 'ふりがな'] },
+    { id: 'political_party',label: '政党',         shape: 'diamond',     desc: '政党（PoliticalParty）。', fields: ['政党名'] },
+    { id: 'parl_group',     label: '会派',         shape: 'diamond',     desc: '会派（ParliamentaryGroup）。議会内の投票行動グループ。', fields: ['会派名', '院', '開始日', '終了日'] },
+    { id: 'pg_membership',  label: '会派所属',     shape: 'diamond',     desc: '会派所属履歴（Membership）。', fields: ['役割', '開始日', '終了日'] },
+    { id: 'election',       label: '選挙',         shape: 'diamond',     desc: '選挙（Election）。選挙イベント。', fields: ['選挙日', '選挙種別'] },
+    { id: 'election_member',label: '選挙結果',     shape: 'diamond',     desc: '選挙結果（ElectionMember）。候補者の結果。', fields: ['結果', '得票数', '順位'] },
+    { id: 'conf_member',    label: '議会構成員',   shape: 'diamond',     desc: '議会構成員（ConferenceMember）。議会への参加情報。', fields: ['役職', '開始日'] },
+    { id: 'proposal',       label: '議案',         shape: 'rect',        desc: '議案（Proposal）。法案・予算案など。', fields: ['議案名', '大分類', '小分類', '審議状況', '提出日', '採決日'] },
+    { id: 'submitter',      label: '提出者',       shape: 'rect',        desc: '提出者（ProposalSubmitter）。', fields: ['提出者種別', '代表者フラグ'] },
+    { id: 'deliberation',   label: '審議',         shape: 'rect',        desc: '審議（ProposalDeliberation）。', fields: ['審議段階'] },
+    { id: 'judge',          label: '個人賛否',     shape: 'rect',        desc: '個人賛否（ProposalJudge）。造反検出付き。', fields: ['賛否', '造反フラグ'] },
+    { id: 'pg_judge',       label: '会派賛否',     shape: 'rect',        desc: '会派賛否（ProposalParliamentaryGroupJudge）。', fields: ['賛否', 'メンバー数', '賛否種別'] },
   ];
 
-  // rel: '1:N' = source has many targets, 'N:1' = source belongs to target,
-  //      '1:1' = one to one, 'M:N' = many to many
   const links = [
-    { source: 'conference',     target: 'governing_body', label: '会議体を持つ', rel: '1:N' },
-    { source: 'governing_body', target: 'meeting',        label: '会議を開催',   rel: '1:N' },
-    { source: 'meeting',        target: 'minutes',        label: '議事録',       rel: '1:1' },
-    { source: 'minutes',        target: 'conversation',   label: '発言を含む',   rel: '1:N' },
-    { source: 'conversation',   target: 'speaker',        label: '発言者',       rel: 'N:1' },
-    { source: 'speaker',        target: 'politician',     label: 'AI照合',       rel: 'N:1' },
-    { source: 'politician',     target: 'pg_membership',  label: '会派所属',     rel: '1:N' },
-    { source: 'pg_membership',  target: 'parl_group',     label: '所属先',       rel: 'N:1' },
-    { source: 'parl_group',     target: 'political_party',label: '構成政党',     rel: 'M:N' },
-    { source: 'politician',     target: 'election_member',label: '出馬',         rel: '1:N' },
-    { source: 'election',       target: 'election_member',label: '候補者',       rel: '1:N' },
-    { source: 'politician',     target: 'conf_member',    label: '議会参加',     rel: '1:N' },
-    { source: 'submitter',      target: 'proposal',       label: '提出',         rel: 'N:1' },
-    { source: 'proposal',       target: 'deliberation',   label: '審議',         rel: '1:N' },
-    { source: 'proposal',       target: 'judge',          label: '採決',         rel: '1:N' },
-    { source: 'proposal',       target: 'pg_judge',       label: '会派態度',     rel: '1:N' },
-    { source: 'judge',          target: 'politician',     label: '投票者',       rel: 'N:1' },
-    { source: 'pg_judge',       target: 'parl_group',     label: '所属会派',     rel: 'N:1' },
+    { source: 'governing_body', target: 'conference',     label: 'has many',   rel: '1:N' },
+    { source: 'conference',     target: 'meeting',        label: 'has many',   rel: '1:N' },
+    { source: 'meeting',        target: 'minutes',        label: 'has one',    rel: '1:1' },
+    { source: 'minutes',        target: 'conversation',   label: 'has many',   rel: '1:N' },
+    { source: 'conversation',   target: 'speaker',        label: 'belongs to', rel: 'N:1' },
+    { source: 'speaker',        target: 'politician',     label: 'AI照合',     rel: 'N:1' },
+    { source: 'politician',     target: 'pg_membership',  label: 'has many',   rel: '1:N' },
+    { source: 'pg_membership',  target: 'parl_group',     label: 'belongs to', rel: 'N:1' },
+    { source: 'parl_group',     target: 'political_party',label: 'M:N',        rel: 'M:N' },
+    { source: 'politician',     target: 'election_member',label: 'has many',   rel: '1:N' },
+    { source: 'election',       target: 'election_member',label: 'has many',   rel: '1:N' },
+    { source: 'politician',     target: 'conf_member',    label: 'has many',   rel: '1:N' },
+    { source: 'submitter',      target: 'proposal',       label: 'belongs to', rel: 'N:1' },
+    { source: 'proposal',       target: 'deliberation',   label: 'has many',   rel: '1:N' },
+    { source: 'proposal',       target: 'judge',          label: 'has many',   rel: '1:N' },
+    { source: 'proposal',       target: 'pg_judge',       label: 'has many',   rel: '1:N' },
+    { source: 'judge',          target: 'politician',     label: 'belongs to', rel: 'N:1' },
+    { source: 'pg_judge',       target: 'parl_group',     label: 'belongs to', rel: 'N:1' },
   ];
 
-  function groupColor(group) {
-    if (group === 'discussion') return colors.discussion;
-    if (group === 'politician') return colors.politician;
-    return colors.proposal;
+  // 形状サイズ定義
+  const shapeSizes = {
+    roundedRect: { w: 56, h: 28, r: 8 },
+    ellipse:     { rx: 30, ry: 18 },
+    diamond:     { s: 24 },
+    rect:        { w: 56, h: 28 },
+  };
+
+  // バウンディング半径（ライン短縮用）
+  function boundRadius(node) {
+    const s = node.shape || 'rect';
+    if (s === 'roundedRect' || s === 'rect') return 32;
+    if (s === 'ellipse') return 30;
+    if (s === 'diamond') return 28;
+    return 24;
   }
 
-  function nodeRadius(node) {
-    const id = typeof node === 'object' ? node.id : node;
-    return (id === 'politician' || id === 'proposal') ? 22 : 16;
-  }
-
-  // リレーション種別からソース側・ターゲット側のマーカー種別を返す
+  // マーカー
   function sourceMarker(rel, hover) {
     const h = hover ? '-h' : '';
-    if (rel === '1:N' || rel === '1:1') return 'url(#er-one-start' + h + ')';
-    return 'url(#er-many-start' + h + ')'; // N:1, M:N
+    return (rel === '1:N' || rel === '1:1') ? 'url(#er-one-start' + h + ')' : 'url(#er-many-start' + h + ')';
   }
   function targetMarker(rel, hover) {
     const h = hover ? '-h' : '';
-    if (rel === 'N:1' || rel === '1:1') return 'url(#er-one-end' + h + ')';
-    return 'url(#er-many-end' + h + ')'; // 1:N, M:N
+    return (rel === 'N:1' || rel === '1:1') ? 'url(#er-one-end' + h + ')' : 'url(#er-many-end' + h + ')';
   }
 
-  // フォースレイアウト
+  // SVGセットアップ
   const container = document.getElementById('d3-force-graph');
   const width = container.clientWidth;
-  const height = Math.max(500, Math.min(width * 0.7, 700));
+  const height = Math.min(480, Math.max(380, width * 0.5));
 
   const svg = d3.select('#d3-force-graph')
     .append('svg')
@@ -192,169 +419,178 @@
     .attr('height', height)
     .attr('viewBox', [0, 0, width, height]);
 
-  // ER図マーカー定義
+  // ERマーカー定義
   const defs = svg.append('defs');
-  const markerGap = 14; // ライン端とノード円の間のギャップ
+  const markerGap = 12;
 
-  // マーカー生成ヘルパー
   function addMarker(id, viewBox, pathD, color) {
     const m = defs.append('marker')
-      .attr('id', id)
-      .attr('viewBox', viewBox)
+      .attr('id', id).attr('viewBox', viewBox)
       .attr('refX', 0).attr('refY', 0)
-      .attr('markerWidth', 14).attr('markerHeight', 14)
+      .attr('markerWidth', 12).attr('markerHeight', 12)
       .attr('orient', 'auto');
-    m.append('path')
-      .attr('d', pathD)
-      .attr('stroke', color)
-      .attr('stroke-width', 1.8)
-      .attr('fill', 'none');
-    return m;
+    m.append('path').attr('d', pathD)
+      .attr('stroke', color).attr('stroke-width', 1.6).attr('fill', 'none');
   }
 
-  // 「1」側 — 縦線 | （target端: ライン端から+4pxの位置に縦棒）
-  addMarker('er-one-end', '-2 -8 8 16', 'M4,-7 L4,7', colors.edgeDefault);
-  addMarker('er-one-end-h', '-2 -8 8 16', 'M4,-7 L4,7', colors.edgeHover);
-  // 「1」側 — 縦線 | （source端: ライン端から-4pxの位置に縦棒）
-  addMarker('er-one-start', '-6 -8 8 16', 'M-4,-7 L-4,7', colors.edgeDefault);
-  addMarker('er-one-start-h', '-6 -8 8 16', 'M-4,-7 L-4,7', colors.edgeHover);
-  // 「多」側 — crow's foot （target端: プロングがエンティティ方向に広がる）
-  addMarker('er-many-end', '-2 -9 16 18', 'M0,0 L12,-8 M0,0 L12,8 M0,0 L12,0', colors.edgeDefault);
-  addMarker('er-many-end-h', '-2 -9 16 18', 'M0,0 L12,-8 M0,0 L12,8 M0,0 L12,0', colors.edgeHover);
-  // 「多」側 — crow's foot （source端: プロングがエンティティ方向に広がる）
-  addMarker('er-many-start', '-14 -9 16 18', 'M0,0 L-12,-8 M0,0 L-12,8 M0,0 L-12,0', colors.edgeDefault);
-  addMarker('er-many-start-h', '-14 -9 16 18', 'M0,0 L-12,-8 M0,0 L-12,8 M0,0 L-12,0', colors.edgeHover);
+  addMarker('er-one-end',       '-2 -8 8 16', 'M4,-6 L4,6', colors.edgeDefault);
+  addMarker('er-one-end-h',     '-2 -8 8 16', 'M4,-6 L4,6', colors.edgeHover);
+  addMarker('er-one-start',     '-6 -8 8 16', 'M-4,-6 L-4,6', colors.edgeDefault);
+  addMarker('er-one-start-h',   '-6 -8 8 16', 'M-4,-6 L-4,6', colors.edgeHover);
+  addMarker('er-many-end',      '-2 -8 14 16', 'M0,0 L10,-7 M0,0 L10,7 M0,0 L10,0', colors.edgeDefault);
+  addMarker('er-many-end-h',    '-2 -8 14 16', 'M0,0 L10,-7 M0,0 L10,7 M0,0 L10,0', colors.edgeHover);
+  addMarker('er-many-start',    '-12 -8 14 16', 'M0,0 L-10,-7 M0,0 L-10,7 M0,0 L-10,0', colors.edgeDefault);
+  addMarker('er-many-start-h',  '-12 -8 14 16', 'M0,0 L-10,-7 M0,0 L-10,7 M0,0 L-10,0', colors.edgeHover);
 
+  // フォースシミュレーション（コンパクト）
   const simulation = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(links).id(d => d.id).distance(120))
-    .force('charge', d3.forceManyBody().strength(-500))
+    .force('link', d3.forceLink(links).id(d => d.id).distance(70))
+    .force('charge', d3.forceManyBody().strength(-300))
     .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collision', d3.forceCollide().radius(40));
+    .force('collision', d3.forceCollide().radius(36))
+    .force('x', d3.forceX(width / 2).strength(0.08))
+    .force('y', d3.forceY(height / 2).strength(0.08));
 
+  // エッジ
   const link = svg.append('g')
-    .selectAll('line')
-    .data(links)
-    .join('line')
+    .selectAll('line').data(links).join('line')
     .attr('stroke', colors.edgeDefault)
-    .attr('stroke-width', 1.5)
+    .attr('stroke-width', 1.2)
     .attr('marker-start', d => sourceMarker(d.rel, false))
     .attr('marker-end', d => targetMarker(d.rel, false));
 
+  // エッジラベル（常時表示）
   const linkLabel = svg.append('g')
-    .selectAll('text')
-    .data(links)
-    .join('text')
+    .selectAll('text').data(links).join('text')
     .text(d => d.label)
-    .attr('font-size', '10px')
-    .attr('font-family', 'var(--font-display)')
-    .attr('fill', colors.textMuted)
-    .attr('text-anchor', 'middle')
-    .attr('opacity', 0);
-
-  const node = svg.append('g')
-    .selectAll('g')
-    .data(nodes)
-    .join('g')
-    .call(d3.drag()
-      .on('start', dragstarted)
-      .on('drag', dragged)
-      .on('end', dragended));
-
-  node.append('circle')
-    .attr('r', d => d.id === 'politician' || d.id === 'proposal' ? 22 : 16)
-    .attr('fill', d => groupColor(d.group))
-    .attr('stroke', colors.bg)
-    .attr('stroke-width', 2)
-    .style('cursor', 'pointer');
-
-  node.append('text')
-    .text(d => d.label)
-    .attr('dy', d => (d.id === 'politician' || d.id === 'proposal' ? 22 : 16) + 14)
-    .attr('text-anchor', 'middle')
-    .attr('font-size', '11px')
+    .attr('font-size', '8px')
     .attr('font-family', 'var(--font-display)')
     .attr('font-weight', '500')
+    .attr('fill', colors.textMuted)
+    .attr('text-anchor', 'middle')
+    .attr('opacity', 0.7);
+
+  // ノード
+  const node = svg.append('g')
+    .selectAll('g').data(nodes).join('g')
+    .style('cursor', 'pointer')
+    .call(d3.drag()
+      .on('start', (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on('end', (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }));
+
+  // 形状を描画
+  node.each(function(d) {
+    const g = d3.select(this);
+    const s = d.shape;
+    if (s === 'roundedRect') {
+      const sz = shapeSizes.roundedRect;
+      g.append('rect')
+        .attr('x', -sz.w / 2).attr('y', -sz.h / 2)
+        .attr('width', sz.w).attr('height', sz.h)
+        .attr('rx', sz.r).attr('ry', sz.r)
+        .attr('fill', colors.fill).attr('stroke', colors.stroke).attr('stroke-width', 1.5);
+    } else if (s === 'ellipse') {
+      const sz = shapeSizes.ellipse;
+      g.append('ellipse')
+        .attr('rx', sz.rx).attr('ry', sz.ry)
+        .attr('fill', colors.fill).attr('stroke', colors.stroke).attr('stroke-width', 1.5);
+    } else if (s === 'diamond') {
+      const sz = shapeSizes.diamond.s;
+      g.append('polygon')
+        .attr('points', `0,${-sz} ${sz * 1.3},0 0,${sz} ${-sz * 1.3},0`)
+        .attr('fill', colors.fill).attr('stroke', colors.stroke).attr('stroke-width', 1.5);
+    } else {
+      const sz = shapeSizes.rect;
+      g.append('rect')
+        .attr('x', -sz.w / 2).attr('y', -sz.h / 2)
+        .attr('width', sz.w).attr('height', sz.h)
+        .attr('fill', colors.fill).attr('stroke', colors.stroke).attr('stroke-width', 1.5);
+    }
+  });
+
+  // ノードラベル
+  node.append('text')
+    .text(d => d.label)
+    .attr('dy', d => {
+      if (d.shape === 'diamond') return shapeSizes.diamond.s + 14;
+      if (d.shape === 'ellipse') return shapeSizes.ellipse.ry + 14;
+      return shapeSizes.rect.h / 2 + 14;
+    })
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '10px')
+    .attr('font-family', 'var(--font-display)')
+    .attr('font-weight', '600')
     .attr('fill', colors.text);
 
   // ホバーハイライト
   node.on('mouseenter', function(event, d) {
-    const connected = new Set();
+    const connected = new Set([d.id]);
     links.forEach(l => {
       const s = typeof l.source === 'object' ? l.source.id : l.source;
       const t = typeof l.target === 'object' ? l.target.id : l.target;
       if (s === d.id) connected.add(t);
       if (t === d.id) connected.add(s);
     });
-    connected.add(d.id);
 
-    node.select('circle')
-      .attr('opacity', n => connected.has(n.id) ? 1 : 0.15);
-    node.select('text')
-      .attr('opacity', n => connected.has(n.id) ? 1 : 0.15);
+    node.attr('opacity', n => connected.has(n.id) ? 1 : 0.15);
     link.each(function(l) {
-        const s = typeof l.source === 'object' ? l.source.id : l.source;
-        const t = typeof l.target === 'object' ? l.target.id : l.target;
-        const isConn = (s === d.id || t === d.id);
-        d3.select(this)
-          .attr('stroke', isConn ? colors.edgeHover : colors.edgeDefault)
-          .attr('stroke-width', isConn ? 2.5 : 0.5)
-          .attr('opacity', isConn ? 1 : 0.15)
-          .attr('marker-start', sourceMarker(l.rel, isConn))
-          .attr('marker-end', targetMarker(l.rel, isConn));
-      });
-    linkLabel
-      .attr('opacity', l => {
-        const s = typeof l.source === 'object' ? l.source.id : l.source;
-        const t = typeof l.target === 'object' ? l.target.id : l.target;
-        return (s === d.id || t === d.id) ? 1 : 0;
-      });
+      const s = typeof l.source === 'object' ? l.source.id : l.source;
+      const t = typeof l.target === 'object' ? l.target.id : l.target;
+      const isConn = (s === d.id || t === d.id);
+      d3.select(this)
+        .attr('stroke', isConn ? colors.edgeHover : colors.edgeDefault)
+        .attr('stroke-width', isConn ? 2 : 0.4)
+        .attr('opacity', isConn ? 1 : 0.1)
+        .attr('marker-start', sourceMarker(l.rel, isConn))
+        .attr('marker-end', targetMarker(l.rel, isConn));
+    });
+    linkLabel.attr('opacity', l => {
+      const s = typeof l.source === 'object' ? l.source.id : l.source;
+      const t = typeof l.target === 'object' ? l.target.id : l.target;
+      return (s === d.id || t === d.id) ? 1 : 0.05;
+    });
   }).on('mouseleave', function() {
-    node.select('circle').attr('opacity', 1);
-    node.select('text').attr('opacity', 1);
-    link
-      .attr('stroke', colors.edgeDefault)
-      .attr('stroke-width', 1.5)
-      .attr('opacity', 1)
+    node.attr('opacity', 1);
+    link.attr('stroke', colors.edgeDefault).attr('stroke-width', 1.2).attr('opacity', 1)
       .attr('marker-start', d => sourceMarker(d.rel, false))
       .attr('marker-end', d => targetMarker(d.rel, false));
-    linkLabel.attr('opacity', 0);
+    linkLabel.attr('opacity', 0.7);
   });
 
   // クリックで詳細パネル
   node.on('click', function(event, d) {
-    const panel = document.getElementById('d3-detail-panel');
     document.getElementById('d3-panel-title').textContent = d.label;
     document.getElementById('d3-panel-group').textContent =
-      d.group === 'discussion' ? '議会議論データ' :
-      d.group === 'politician' ? '政治家データ' : '議案賛否データ';
+      d.shape === 'roundedRect' ? '議会系' :
+      d.shape === 'ellipse' ? '発言系' :
+      d.shape === 'diamond' ? '政治家系' : '議案系';
     document.getElementById('d3-panel-desc').textContent = d.desc;
-    const fieldsEl = document.getElementById('d3-panel-fields');
-    fieldsEl.innerHTML = d.fields.map(f =>
+    document.getElementById('d3-panel-fields').innerHTML = d.fields.map(f =>
       '<span class="dsv-d3-panel-field">' + f + '</span>'
     ).join('');
-    panel.style.display = 'block';
+    document.getElementById('d3-detail-panel').style.display = 'block';
     event.stopPropagation();
   });
-
-  document.getElementById('d3-panel-close').addEventListener('click', function() {
+  document.getElementById('d3-panel-close').addEventListener('click', () => {
     document.getElementById('d3-detail-panel').style.display = 'none';
   });
-  document.addEventListener('click', function(e) {
-    if (!e.target.closest('.dsv-d3-panel') && !e.target.closest('circle')) {
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.dsv-d3-panel') && !e.target.closest('.dsv-d3-graph g')) {
       document.getElementById('d3-detail-panel').style.display = 'none';
     }
   });
 
+  // Tick
   simulation.on('tick', () => {
-    // ラインをノード円の外側まで短縮（マーカー用ギャップを確保）
     link.each(function(d) {
       const dx = d.target.x - d.source.x;
       const dy = d.target.y - d.source.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist < 1) return;
       const nx = dx / dist, ny = dy / dist;
-      const sGap = nodeRadius(d.source) + markerGap;
-      const tGap = nodeRadius(d.target) + markerGap;
+      const sGap = boundRadius(d.source) + markerGap;
+      const tGap = boundRadius(d.target) + markerGap;
       d3.select(this)
         .attr('x1', d.source.x + nx * sGap)
         .attr('y1', d.source.y + ny * sGap)
@@ -363,93 +599,18 @@
     });
     linkLabel
       .attr('x', d => (d.source.x + d.target.x) / 2)
-      .attr('y', d => (d.source.y + d.target.y) / 2 - 8);
+      .attr('y', d => (d.source.y + d.target.y) / 2 - 6);
     node.attr('transform', d => `translate(${d.x},${d.y})`);
   });
 
-  function dragstarted(event, d) {
-    if (!event.active) simulation.alphaTarget(0.3).restart();
-    d.fx = d.x; d.fy = d.y;
-  }
-  function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
-  function dragended(event, d) {
-    if (!event.active) simulation.alphaTarget(0);
-    d.fx = null; d.fy = null;
-  }
-
-  // ツリーレイアウト
-  const treeData = {
-    name: '議会 (Conference)',
-    children: [{
-      name: '会議体 (GoverningBody)',
-      children: [{
-        name: '会議 (Meeting)',
-        children: [{
-          name: '議事録 (Minutes)',
-          children: [{
-            name: '発言 (Conversation)',
-            children: [{ name: '発言者 (Speaker)' }]
-          }]
-        }]
-      }]
-    }]
-  };
-
-  const treeContainer = document.getElementById('d3-tree-graph');
-  const tw = treeContainer.clientWidth;
-  const th = 350;
-
-  const treeSvg = d3.select('#d3-tree-graph')
-    .append('svg')
-    .attr('width', tw)
-    .attr('height', th)
-    .attr('viewBox', [0, 0, tw, th]);
-
-  const margin = { top: 30, right: 40, bottom: 30, left: 40 };
-  const treeG = treeSvg.append('g')
-    .attr('transform', `translate(${margin.left},${margin.top})`);
-
-  const root = d3.hierarchy(treeData);
-  const treeLayout = d3.tree().size([tw - margin.left - margin.right, th - margin.top - margin.bottom]);
-  treeLayout(root);
-
-  // エッジ
-  treeG.selectAll('.tree-link')
-    .data(root.links())
-    .join('path')
-    .attr('class', 'tree-link')
-    .attr('d', d3.linkHorizontal().x(d => d.y).y(d => d.x))
-    .attr('fill', 'none')
-    .attr('stroke', colors.edgeDefault)
-    .attr('stroke-width', 1.5);
-
-  // ノード
-  const treeNode = treeG.selectAll('.tree-node')
-    .data(root.descendants())
-    .join('g')
-    .attr('transform', d => `translate(${d.y},${d.x})`);
-
-  treeNode.append('circle')
-    .attr('r', 6)
-    .attr('fill', colors.discussion)
-    .attr('stroke', colors.bg)
-    .attr('stroke-width', 2);
-
-  treeNode.append('text')
-    .attr('dy', -12)
-    .attr('text-anchor', 'middle')
-    .attr('font-size', '11px')
-    .attr('font-family', 'var(--font-display)')
-    .attr('font-weight', '500')
-    .attr('fill', colors.text)
-    .text(d => d.data.name);
-
-  // リサイズ対応
+  // リサイズ
   window.addEventListener('resize', () => {
     const newW = container.clientWidth;
-    const newH = Math.max(500, Math.min(newW * 0.7, 700));
+    const newH = Math.min(480, Math.max(380, newW * 0.5));
     svg.attr('width', newW).attr('height', newH).attr('viewBox', [0, 0, newW, newH]);
     simulation.force('center', d3.forceCenter(newW / 2, newH / 2));
+    simulation.force('x', d3.forceX(newW / 2).strength(0.08));
+    simulation.force('y', d3.forceY(newH / 2).strength(0.08));
     simulation.alpha(0.3).restart();
   });
 })();
