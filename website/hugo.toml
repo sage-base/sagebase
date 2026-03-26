@@ -70,6 +70,11 @@ theme = 'PaperMod'
   weight = 35
 
 [[menu.main]]
+  name = 'データ構造'
+  url = '/data-structure/'
+  weight = 36
+
+[[menu.main]]
   name = '定款'
   url = '/corporate/teikan/'
   weight = 40

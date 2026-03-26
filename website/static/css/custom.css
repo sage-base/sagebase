@@ -1053,7 +1053,553 @@ strong {
 }
 
 /* ============================================
-   13. Print Styles
+   13. Data Structure Page
+   ============================================ */
+
+/* Hero */
+.ds-hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-32) var(--space-6) var(--space-16);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ds-hero-content {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  text-align: center;
+}
+
+.ds-hero-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+  max-width: var(--container-max);
+  margin: var(--space-16) auto 0;
+}
+
+.ds-hero-card {
+  padding: var(--space-8);
+  border: 1px solid var(--color-border);
+  text-align: left;
+  transition: border-color var(--duration-base) var(--ease-out);
+}
+
+.ds-hero-card:hover {
+  border-color: var(--color-border-strong);
+}
+
+.ds-hero-card:nth-child(2) { transition-delay: 100ms; }
+.ds-hero-card:nth-child(3) { transition-delay: 200ms; }
+
+.ds-hero-card-number {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
+}
+
+.ds-hero-card-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  margin-bottom: var(--space-3);
+}
+
+.ds-hero-card-desc {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+}
+
+.ds-hero-card-link {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-text);
+}
+
+@media (max-width: 768px) {
+  .ds-hero-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Section Variants */
+.ds-section-alt {
+  background: var(--color-bg-alt);
+}
+
+/* Hierarchy Diagram (Section 02) */
+.ds-hierarchy {
+  max-width: 800px;
+}
+
+.ds-hierarchy-level {
+  position: relative;
+}
+
+.ds-level-2 { padding-left: var(--space-8); }
+.ds-level-3 { padding-left: var(--space-8); }
+.ds-level-4 { padding-left: var(--space-8); }
+
+.ds-hierarchy-node {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  margin-bottom: 0;
+}
+
+.ds-node-header {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  padding: var(--space-3) var(--space-6);
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+.ds-node-body {
+  padding: var(--space-4) var(--space-6);
+}
+
+.ds-node-example {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-3);
+  font-style: italic;
+}
+
+.ds-node-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ds-field {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-alt);
+}
+
+.ds-hierarchy-connector {
+  width: 1px;
+  height: var(--space-6);
+  background: var(--color-text);
+  margin-left: var(--space-8);
+  position: relative;
+}
+
+.ds-hierarchy-connector::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -3px;
+  width: 7px;
+  height: 7px;
+  border-right: 1px solid var(--color-text);
+  border-bottom: 1px solid var(--color-text);
+  transform: rotate(45deg);
+  background: var(--color-bg);
+}
+
+.ds-section-alt .ds-hierarchy-connector::after {
+  background: var(--color-bg-alt);
+}
+
+.ds-summary {
+  margin-top: var(--space-10);
+  padding: var(--space-8);
+  background: var(--color-bg-alt);
+  border-left: 3px solid var(--color-border-strong);
+}
+
+.ds-summary p {
+  font-size: var(--text-lg);
+  margin-bottom: 0;
+}
+
+/* Relation Grid (Section 03 - Politician) */
+.ds-relation-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-10);
+}
+
+.ds-entity-card {
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.ds-entity-card.ds-entity-primary {
+  border-width: 2px;
+  border-color: var(--color-border-strong);
+}
+
+.ds-entity-label {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-3);
+}
+
+.ds-entity-title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  margin-bottom: var(--space-6);
+}
+
+.ds-entity-title-sm {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  margin-bottom: var(--space-3);
+}
+
+.ds-entity-desc {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+}
+
+.ds-entity-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ds-entity-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-sm);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ds-entity-field:last-child {
+  border-bottom: none;
+}
+
+.ds-field-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.ds-field-example {
+  color: var(--color-text-secondary);
+}
+
+.ds-entity-fields-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.ds-entity-example-box {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-alt);
+  border-left: 2px solid var(--color-border);
+}
+
+.ds-example-label {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  margin-right: var(--space-2);
+}
+
+/* Relation Arrows */
+.ds-relation-items {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-6);
+}
+
+@media (max-width: 768px) {
+  .ds-relation-items {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ds-relation-arrow {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.ds-arrow-label {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+/* Proposal Diagram (Section 04) */
+.ds-proposal-diagram {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.ds-proposal-branches {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-8);
+}
+
+@media (max-width: 768px) {
+  .ds-proposal-branches {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ds-branch-header {
+  margin-bottom: var(--space-4);
+}
+
+.ds-branch-arrow {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+.ds-vote-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ds-vote-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.ds-vote {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+}
+
+.ds-vote-approve { border-color: var(--color-gray-700); background: var(--color-gray-100); }
+.ds-vote-oppose { border-color: var(--color-gray-500); }
+.ds-vote-abstain { border-color: var(--color-gray-300); color: var(--color-text-muted); }
+.ds-vote-absent { border-color: var(--color-gray-200); color: var(--color-text-muted); }
+
+@media (prefers-color-scheme: dark) {
+  .ds-vote-approve { background: var(--color-gray-800); border-color: var(--color-gray-400); }
+}
+
+/* Connection Diagram (Section 05) */
+.ds-connection-nodes {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: var(--space-8) 0;
+}
+
+.ds-connection-node {
+  text-align: center;
+  padding: var(--space-6) var(--space-8);
+  border: 2px solid var(--color-border-strong);
+  min-width: 180px;
+}
+
+.ds-connection-icon {
+  margin-bottom: var(--space-3);
+}
+
+.ds-connection-label-num {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 900;
+  line-height: 1;
+  opacity: 0.15;
+}
+
+.ds-connection-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  margin-bottom: var(--space-2);
+}
+
+.ds-connection-desc {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: 0;
+}
+
+.ds-connection-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 80px;
+  min-width: 60px;
+}
+
+.ds-connection-line::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--color-text);
+}
+
+.ds-connection-line::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 6px;
+  height: 6px;
+  border-top: 1px solid var(--color-text);
+  border-right: 1px solid var(--color-text);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.ds-connection-line-label {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-display);
+  font-size: 0.65rem;
+  font-weight: 600;
+  background: var(--color-bg-alt);
+  padding: var(--space-1) var(--space-2);
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .ds-connection-nodes {
+    flex-direction: column;
+  }
+
+  .ds-connection-node {
+    min-width: auto;
+    width: 100%;
+    max-width: 280px;
+  }
+
+  .ds-connection-line {
+    width: auto;
+    height: 40px;
+    min-width: auto;
+  }
+
+  .ds-connection-line::before {
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    right: auto;
+    width: 1px;
+    height: 100%;
+  }
+
+  .ds-connection-line::after {
+    top: auto;
+    bottom: 0;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%) rotate(135deg);
+  }
+}
+
+/* Example Scenario (Section 05) */
+.ds-example-scenario {
+  margin-top: var(--space-12);
+  padding: var(--space-8);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.ds-example-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  margin-bottom: var(--space-8);
+}
+
+.ds-example-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-6);
+}
+
+@media (max-width: 768px) {
+  .ds-example-steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ds-example-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ds-step-num {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 900;
+  line-height: 1;
+  opacity: 0.15;
+}
+
+.ds-step-content strong {
+  font-family: var(--font-display);
+  display: block;
+  margin-bottom: var(--space-2);
+}
+
+.ds-step-content p {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 0;
+}
+
+/* Responsive hierarchy on mobile */
+@media (max-width: 640px) {
+  .ds-level-2,
+  .ds-level-3,
+  .ds-level-4 {
+    padding-left: var(--space-4);
+  }
+
+  .ds-hierarchy-connector {
+    margin-left: var(--space-4);
+  }
+}
+
+/* ============================================
+   14. Print Styles
    ============================================ */
 
 @media print {

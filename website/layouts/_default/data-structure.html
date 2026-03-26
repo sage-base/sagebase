@@ -1,0 +1,413 @@
+{{ define "main" }}
+
+{{- /* Section 01 — ヒーロー */ -}}
+<section class="ds-hero">
+  <div class="ds-hero-content">
+    <div class="hero-badge">Data Structure</div>
+    <h1 class="hero-title">
+      <span class="hero-title-line">議会の議論を、</span>
+      <span class="hero-title-line hero-title-emphasis">構造化データとして提供します。</span>
+    </h1>
+    <p class="hero-description">
+      Sagebaseは、議会議論・政治家・議案賛否の3つのデータ群を<br class="hide-mobile">
+      相互に関連付けた構造化データとして提供します。
+    </p>
+  </div>
+  <div class="ds-hero-cards">
+    <div class="ds-hero-card animate-on-scroll">
+      <span class="ds-hero-card-number">01</span>
+      <h3 class="ds-hero-card-title">議会議論データ</h3>
+      <p class="ds-hero-card-desc">議会から発言まで、4階層の入れ子構造で議論を記録</p>
+      <a href="#discussion" class="ds-hero-card-link">詳しく見る</a>
+    </div>
+    <div class="ds-hero-card animate-on-scroll">
+      <span class="ds-hero-card-number">02</span>
+      <h3 class="ds-hero-card-title">政治家データ</h3>
+      <p class="ds-hero-card-desc">発言者と政治家を紐付け、所属・経歴を横断的に把握</p>
+      <a href="#politician" class="ds-hero-card-link">詳しく見る</a>
+    </div>
+    <div class="ds-hero-card animate-on-scroll">
+      <span class="ds-hero-card-number">03</span>
+      <h3 class="ds-hero-card-title">議案賛否データ</h3>
+      <p class="ds-hero-card-desc">議案の提出から採決まで、賛否の記録を網羅</p>
+      <a href="#proposal" class="ds-hero-card-link">詳しく見る</a>
+    </div>
+  </div>
+</section>
+
+{{- /* Section 02 — 議会議論データ */ -}}
+<section id="discussion" class="section ds-section">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">01</span>
+      <h2 class="section-title">議会議論データ</h2>
+    </div>
+    <p class="section-lead animate-on-scroll">
+      議会から発言までの階層構造で、「誰が、いつ、どの会議で、何を発言したか」を記録します。
+    </p>
+
+    {{- /* 階層図解 */ -}}
+    <div class="ds-hierarchy animate-on-scroll">
+      <div class="ds-hierarchy-level ds-level-1">
+        <div class="ds-hierarchy-node">
+          <div class="ds-node-header">議会（Conference）</div>
+          <div class="ds-node-body">
+            <div class="ds-node-example">例：第213回国会・衆議院</div>
+            <div class="ds-node-fields">
+              <span class="ds-field">名称</span>
+              <span class="ds-field">所属議会体</span>
+              <span class="ds-field">期</span>
+            </div>
+          </div>
+        </div>
+        <div class="ds-hierarchy-connector"></div>
+        <div class="ds-hierarchy-level ds-level-2">
+          <div class="ds-hierarchy-node">
+            <div class="ds-node-header">会議体（GoverningBody）</div>
+            <div class="ds-node-body">
+              <div class="ds-node-example">例：予算委員会、本会議</div>
+              <div class="ds-node-fields">
+                <span class="ds-field">名称</span>
+                <span class="ds-field">種別</span>
+                <span class="ds-field">自治体コード</span>
+              </div>
+            </div>
+          </div>
+          <div class="ds-hierarchy-connector"></div>
+          <div class="ds-hierarchy-level ds-level-3">
+            <div class="ds-hierarchy-node">
+              <div class="ds-node-header">会議（Meeting）</div>
+              <div class="ds-node-body">
+                <div class="ds-node-example">例：2024年3月15日 予算委員会 第5号</div>
+                <div class="ds-node-fields">
+                  <span class="ds-field">開催日</span>
+                  <span class="ds-field">会議名</span>
+                  <span class="ds-field">URL</span>
+                </div>
+              </div>
+            </div>
+            <div class="ds-hierarchy-connector"></div>
+            <div class="ds-hierarchy-level ds-level-4">
+              <div class="ds-hierarchy-node">
+                <div class="ds-node-header">発言（Conversation）</div>
+                <div class="ds-node-body">
+                  <div class="ds-node-example">例：「本予算案について質問いたします…」</div>
+                  <div class="ds-node-fields">
+                    <span class="ds-field">発言者</span>
+                    <span class="ds-field">発言内容</span>
+                    <span class="ds-field">発言順序</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ds-summary animate-on-scroll">
+      <p>
+        この階層構造により、「ある政策テーマについて、どの会議で、誰が、どんな議論をしたか」を体系的に辿ることができます。
+      </p>
+    </div>
+  </div>
+</section>
+
+{{- /* Section 03 — 政治家データ */ -}}
+<section id="politician" class="section ds-section ds-section-alt">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">02</span>
+      <h2 class="section-title">政治家データ</h2>
+    </div>
+    <p class="section-lead animate-on-scroll">
+      政治家と発言を結びつけ、所属政党や会派の履歴も含めて、政治家の活動を横断的に把握できます。
+    </p>
+
+    {{- /* 政治家データ関連図 */ -}}
+    <div class="ds-relation-grid animate-on-scroll">
+      {{- /* 中心：政治家 */ -}}
+      <div class="ds-relation-center">
+        <div class="ds-entity-card ds-entity-primary">
+          <div class="ds-entity-label">中心エンティティ</div>
+          <h3 class="ds-entity-title">政治家（Politician）</h3>
+          <div class="ds-entity-fields">
+            <div class="ds-entity-field">
+              <span class="ds-field-name">氏名</span>
+              <span class="ds-field-example">山田 太郎</span>
+            </div>
+            <div class="ds-entity-field">
+              <span class="ds-field-name">都道府県</span>
+              <span class="ds-field-example">東京都</span>
+            </div>
+            <div class="ds-entity-field">
+              <span class="ds-field-name">選挙区</span>
+              <span class="ds-field-example">第1区</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {{- /* 関連エンティティ群 */ -}}
+      <div class="ds-relation-items">
+        <div class="ds-relation-item">
+          <div class="ds-relation-arrow">
+            <span class="ds-arrow-label">発言を紐付け</span>
+          </div>
+          <div class="ds-entity-card">
+            <h4 class="ds-entity-title-sm">発言者（Speaker）</h4>
+            <p class="ds-entity-desc">会議での発言者情報。AI照合により政治家と自動紐付け。</p>
+            <div class="ds-entity-fields-compact">
+              <span class="ds-field">氏名</span>
+              <span class="ds-field">所属政党名</span>
+              <span class="ds-field">役職</span>
+              <span class="ds-field">照合信頼度</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="ds-relation-item">
+          <div class="ds-relation-arrow">
+            <span class="ds-arrow-label">所属政党</span>
+          </div>
+          <div class="ds-entity-card">
+            <h4 class="ds-entity-title-sm">政党（PoliticalParty）</h4>
+            <p class="ds-entity-desc">政治家が所属する政党。時期による変遷も記録。</p>
+            <div class="ds-entity-fields-compact">
+              <span class="ds-field">政党名</span>
+            </div>
+            <div class="ds-entity-example-box">
+              <span class="ds-example-label">例</span>
+              自由民主党、立憲民主党、日本維新の会
+            </div>
+          </div>
+        </div>
+
+        <div class="ds-relation-item">
+          <div class="ds-relation-arrow">
+            <span class="ds-arrow-label">会派所属</span>
+          </div>
+          <div class="ds-entity-card">
+            <h4 class="ds-entity-title-sm">会派（ParliamentaryGroup）</h4>
+            <p class="ds-entity-desc">議会内の投票行動を共にするグループ。政党とは異なる場合も。</p>
+            <div class="ds-entity-fields-compact">
+              <span class="ds-field">会派名</span>
+              <span class="ds-field">所属期間</span>
+              <span class="ds-field">役割</span>
+            </div>
+            <div class="ds-entity-example-box">
+              <span class="ds-example-label">例</span>
+              自由民主党・無所属の会
+            </div>
+          </div>
+        </div>
+
+        <div class="ds-relation-item">
+          <div class="ds-relation-arrow">
+            <span class="ds-arrow-label">選挙結果</span>
+          </div>
+          <div class="ds-entity-card">
+            <h4 class="ds-entity-title-sm">選挙（Election / ElectionMember）</h4>
+            <p class="ds-entity-desc">選挙の結果情報。得票数や当選順位を記録。</p>
+            <div class="ds-entity-fields-compact">
+              <span class="ds-field">選挙日</span>
+              <span class="ds-field">選挙種別</span>
+              <span class="ds-field">得票数</span>
+              <span class="ds-field">当選順位</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{- /* Section 04 — 議案賛否データ */ -}}
+<section id="proposal" class="section ds-section">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">03</span>
+      <h2 class="section-title">議案賛否データ</h2>
+    </div>
+    <p class="section-lead animate-on-scroll">
+      議案の提出から採決まで、誰が賛成し誰が反対したかを、個人単位・会派単位で記録します。
+    </p>
+
+    {{- /* 議案データ構造図 */ -}}
+    <div class="ds-proposal-diagram animate-on-scroll">
+      {{- /* 議案（中心） */ -}}
+      <div class="ds-proposal-center">
+        <div class="ds-entity-card ds-entity-primary">
+          <div class="ds-entity-label">中心エンティティ</div>
+          <h3 class="ds-entity-title">議案（Proposal）</h3>
+          <div class="ds-entity-fields">
+            <div class="ds-entity-field">
+              <span class="ds-field-name">議案名</span>
+              <span class="ds-field-example">令和6年度一般会計予算</span>
+            </div>
+            <div class="ds-entity-field">
+              <span class="ds-field-name">種別</span>
+              <span class="ds-field-example">予算</span>
+            </div>
+            <div class="ds-entity-field">
+              <span class="ds-field-name">審議状況</span>
+              <span class="ds-field-example">可決</span>
+            </div>
+            <div class="ds-entity-field">
+              <span class="ds-field-name">提出日・採決日</span>
+              <span class="ds-field-example">2024-01-26 / 2024-03-28</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {{- /* 提出者と採決の2カラム */ -}}
+      <div class="ds-proposal-branches">
+        <div class="ds-proposal-branch animate-on-scroll">
+          <div class="ds-branch-header">
+            <span class="ds-branch-arrow">提出</span>
+          </div>
+          <div class="ds-entity-card">
+            <h4 class="ds-entity-title-sm">提出者（ProposalSubmitter）</h4>
+            <p class="ds-entity-desc">議案を提出した議員・会派・委員会。代表者フラグで代表提出者を区別。</p>
+            <div class="ds-entity-fields-compact">
+              <span class="ds-field">提出者種別</span>
+              <span class="ds-field">代表者フラグ</span>
+            </div>
+            <div class="ds-entity-example-box">
+              <span class="ds-example-label">例</span>
+              内閣総理大臣（代表提出者）
+            </div>
+          </div>
+        </div>
+
+        <div class="ds-proposal-branch animate-on-scroll">
+          <div class="ds-branch-header">
+            <span class="ds-branch-arrow">採決</span>
+          </div>
+          <div class="ds-vote-cards">
+            <div class="ds-entity-card">
+              <h4 class="ds-entity-title-sm">個人賛否（ProposalJudge）</h4>
+              <p class="ds-entity-desc">議員個人の賛否記録。造反（党の方針と異なる投票）も検出。</p>
+              <div class="ds-vote-options">
+                <span class="ds-vote ds-vote-approve">賛成</span>
+                <span class="ds-vote ds-vote-oppose">反対</span>
+                <span class="ds-vote ds-vote-abstain">棄権</span>
+                <span class="ds-vote ds-vote-absent">欠席</span>
+              </div>
+            </div>
+            <div class="ds-entity-card">
+              <h4 class="ds-entity-title-sm">会派賛否（ProposalParliamentaryGroupJudge）</h4>
+              <p class="ds-entity-desc">会派としての賛否態度。所属議員の投票と紐付け。</p>
+              <div class="ds-entity-fields-compact">
+                <span class="ds-field">会派名</span>
+                <span class="ds-field">賛否</span>
+                <span class="ds-field">所属議員一覧</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{- /* Section 05 — データのつながり */ -}}
+<section class="section ds-section ds-section-alt">
+  <div class="container">
+    <div class="section-header animate-on-scroll">
+      <span class="section-number">04</span>
+      <h2 class="section-title">データのつながり</h2>
+    </div>
+    <p class="section-lead animate-on-scroll">
+      すべてのデータは、つながっています。3つのデータ群を横断して、政治活動の全体像を把握できます。
+    </p>
+
+    {{- /* 3データ群接続図 */ -}}
+    <div class="ds-connection animate-on-scroll">
+      <div class="ds-connection-nodes">
+        <div class="ds-connection-node">
+          <div class="ds-connection-icon">
+            <span class="ds-connection-label-num">01</span>
+          </div>
+          <h4 class="ds-connection-title">議会議論</h4>
+          <p class="ds-connection-desc">議会 → 会議体 → 会議 → 発言</p>
+        </div>
+        <div class="ds-connection-line">
+          <span class="ds-connection-line-label">発言者 = 政治家</span>
+        </div>
+        <div class="ds-connection-node">
+          <div class="ds-connection-icon">
+            <span class="ds-connection-label-num">02</span>
+          </div>
+          <h4 class="ds-connection-title">政治家</h4>
+          <p class="ds-connection-desc">政治家 ← 政党 / 会派 / 選挙</p>
+        </div>
+        <div class="ds-connection-line">
+          <span class="ds-connection-line-label">議員 → 賛否投票</span>
+        </div>
+        <div class="ds-connection-node">
+          <div class="ds-connection-icon">
+            <span class="ds-connection-label-num">03</span>
+          </div>
+          <h4 class="ds-connection-title">議案賛否</h4>
+          <p class="ds-connection-desc">議案 ← 提出者 / 個人賛否 / 会派賛否</p>
+        </div>
+      </div>
+    </div>
+
+    {{- /* 具体例 */ -}}
+    <div class="ds-example-scenario animate-on-scroll">
+      <h3 class="ds-example-title">具体例：ある予算案の審議を追う</h3>
+      <div class="ds-example-steps">
+        <div class="ds-example-step">
+          <span class="ds-step-num">1</span>
+          <div class="ds-step-content">
+            <strong>議案を探す</strong>
+            <p>「令和6年度一般会計予算」で議案を検索</p>
+          </div>
+        </div>
+        <div class="ds-example-step">
+          <span class="ds-step-num">2</span>
+          <div class="ds-step-content">
+            <strong>賛否を確認</strong>
+            <p>誰が賛成し、誰が反対したか。造反した議員はいるか</p>
+          </div>
+        </div>
+        <div class="ds-example-step">
+          <span class="ds-step-num">3</span>
+          <div class="ds-step-content">
+            <strong>議論を読む</strong>
+            <p>反対した議員が予算委員会でどんな質疑をしたかを確認</p>
+          </div>
+        </div>
+        <div class="ds-example-step">
+          <span class="ds-step-num">4</span>
+          <div class="ds-step-content">
+            <strong>政治家を深掘り</strong>
+            <p>その議員の所属会派、過去の投票傾向、他の発言を横断的に調べる</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{- /* Section 06 — CTA */ -}}
+<section class="section section-cta">
+  <div class="container">
+    <div class="cta-content animate-on-scroll">
+      <h2 class="cta-title">データを活用してみませんか？</h2>
+      <p class="cta-description">
+        Sagebaseは、構造化された政治データを誰でも利用できるオープンデータとして提供します。
+      </p>
+      <div class="cta-buttons">
+        <a href="/features/" class="btn btn-primary">提供データを見る</a>
+        <a href="/about/" class="btn btn-secondary">政治ベースについて</a>
+        <a href="/contact/" class="btn btn-tertiary">お問い合わせ</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{ end }}
