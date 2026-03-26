@@ -2394,12 +2394,38 @@ strong {
 /* ER図サブタイトル */
 .dsv-er-subtitle {
   font-family: var(--font-display);
-  font-size: var(--text-lg);
+  font-size: var(--text-sm);
   font-weight: 700;
-  margin-top: var(--space-10);
-  margin-bottom: var(--space-4);
-  padding-left: var(--space-4);
+  margin-bottom: var(--space-3);
+  padding-left: var(--space-3);
   border-left: 3px solid var(--color-border-strong);
+}
+
+/* ER図3列グリッド */
+.dsv-er-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+  margin-top: var(--space-8);
+}
+
+@media (max-width: 1024px) {
+  .dsv-er-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dsv-er-column {
+  min-width: 0;
+}
+
+.dsv-diagram-compact {
+  padding: var(--space-3);
+}
+
+.dsv-diagram-compact .mermaid svg {
+  max-width: 100%;
+  height: auto;
 }
 
 .dsv-d3-graph-sm {

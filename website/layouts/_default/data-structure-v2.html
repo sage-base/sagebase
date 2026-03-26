@@ -105,204 +105,172 @@
       BigQueryスキーマに基づく各テーブルのカラム定義とリレーションを表示します。
     </p>
 
-    {{- /* 議会議論系テーブル */ -}}
-    <h3 class="dsv-er-subtitle animate-on-scroll">議会議論データ</h3>
-    <div class="dsv-diagram animate-on-scroll">
-      <pre class="mermaid">
+    <div class="dsv-er-grid animate-on-scroll">
+      {{- /* 議会議論系テーブル */ -}}
+      <div class="dsv-er-column">
+        <h3 class="dsv-er-subtitle">議会議論データ</h3>
+        <div class="dsv-diagram dsv-diagram-compact">
+          <pre class="mermaid">
 erDiagram
-    governing_bodies["開催主体 (governing_bodies)"] {
-        INT64 id PK "開催主体ID"
-        STRING name "名称"
-        STRING organization_code "自治体コード"
-        STRING organization_type "組織種別"
-        STRING prefecture "都道府県"
+    governing_bodies {
+        INT64 id PK
+        STRING name
+        STRING organization_code
+        STRING organization_type
+        STRING prefecture
     }
-    conferences["議会 (conferences)"] {
-        INT64 id PK "議会ID"
-        STRING name "議会名"
-        INT64 governing_body_id FK "開催主体ID"
-        STRING term "任期"
-        INT64 election_id FK "選挙ID"
+    conferences {
+        INT64 id PK
+        STRING name
+        INT64 governing_body_id FK
+        STRING term
     }
-    meetings["会議 (meetings)"] {
-        INT64 id PK "会議ID"
-        INT64 conference_id FK "議会ID"
-        DATE date "開催日"
-        STRING name "会議名"
-        STRING url "URL"
+    meetings {
+        INT64 id PK
+        INT64 conference_id FK
+        DATE date
+        STRING name
+        STRING url
     }
-    minutes["議事録 (minutes)"] {
-        INT64 id PK "議事録ID"
-        INT64 meeting_id FK "会議ID"
-        STRING url "URL"
-        TIMESTAMP processed_at "処理日時"
+    minutes {
+        INT64 id PK
+        INT64 meeting_id FK
+        STRING url
     }
-    conversations["発言 (conversations)"] {
-        INT64 id PK "発言ID"
-        INT64 minutes_id FK "議事録ID"
-        INT64 speaker_id FK "発言者ID"
-        STRING comment "発言内容"
-        INT64 sequence_number "発言順序"
+    conversations {
+        INT64 id PK
+        INT64 minutes_id FK
+        INT64 speaker_id FK
+        STRING comment
+        INT64 sequence_number
     }
-    speakers["発言者 (speakers)"] {
-        INT64 id PK "発言者ID"
-        STRING name "氏名"
-        STRING political_party_name "政党名"
-        STRING position "役職"
-        INT64 politician_id FK "政治家ID"
-        NUMERIC matching_confidence "照合信頼度"
-        BOOL is_manually_verified "手動検証済み"
+    speakers {
+        INT64 id PK
+        STRING name
+        STRING political_party_name
+        INT64 politician_id FK
+        NUMERIC matching_confidence
     }
 
-    governing_bodies ||--o{ conferences : "has many"
-    conferences ||--o{ meetings : "has many"
-    meetings ||--o| minutes : "has one"
-    minutes ||--o{ conversations : "has many"
-    conversations }o--|| speakers : "belongs to"
-      </pre>
-    </div>
+    governing_bodies ||--o{ conferences : ""
+    conferences ||--o{ meetings : ""
+    meetings ||--o| minutes : ""
+    minutes ||--o{ conversations : ""
+    conversations }o--|| speakers : ""
+          </pre>
+        </div>
+      </div>
 
-    {{- /* 政治家系テーブル */ -}}
-    <h3 class="dsv-er-subtitle animate-on-scroll">政治家データ</h3>
-    <div class="dsv-diagram animate-on-scroll">
-      <pre class="mermaid">
+      {{- /* 政治家系テーブル */ -}}
+      <div class="dsv-er-column">
+        <h3 class="dsv-er-subtitle">政治家データ</h3>
+        <div class="dsv-diagram dsv-diagram-compact">
+          <pre class="mermaid">
 erDiagram
-    politicians["政治家 (politicians)"] {
-        INT64 id PK "政治家ID"
-        STRING name "氏名"
-        STRING prefecture "都道府県"
-        STRING furigana "ふりがな"
-        STRING district "選挙区"
-        STRING profile_page_url "プロフィールURL"
+    politicians {
+        INT64 id PK
+        STRING name
+        STRING prefecture
+        STRING district
+        STRING furigana
     }
-    political_parties["政党 (political_parties)"] {
-        INT64 id PK "政党ID"
-        STRING name "政党名"
-        STRING members_list_url "所属議員一覧URL"
+    political_parties {
+        INT64 id PK
+        STRING name
     }
-    parliamentary_groups["会派 (parliamentary_groups)"] {
-        INT64 id PK "会派ID"
-        STRING name "会派名"
-        INT64 governing_body_id FK "開催主体ID"
-        STRING chamber "院"
-        BOOL is_active "有効フラグ"
-        DATE start_date "開始日"
-        DATE end_date "終了日"
+    parliamentary_groups {
+        INT64 id PK
+        STRING name
+        INT64 governing_body_id FK
+        STRING chamber
+        DATE start_date
+        DATE end_date
     }
-    parliamentary_group_parties["会派-政党 (中間)"] {
-        INT64 id PK "中間テーブルID"
-        INT64 parliamentary_group_id FK "会派ID"
-        INT64 political_party_id FK "政党ID"
-        BOOL is_primary "主要政党フラグ"
+    pg_memberships {
+        INT64 id PK
+        INT64 politician_id FK
+        INT64 parliamentary_group_id FK
+        DATE start_date
+        DATE end_date
+        STRING role
     }
-    parliamentary_group_memberships["会派所属履歴"] {
-        INT64 id PK "所属ID"
-        INT64 politician_id FK "政治家ID"
-        INT64 parliamentary_group_id FK "会派ID"
-        DATE start_date "開始日"
-        DATE end_date "終了日"
-        STRING role "役割"
+    elections {
+        INT64 id PK
+        DATE election_date
+        STRING election_type
     }
-    conference_members["議会構成員 (conference_members)"] {
-        INT64 id PK "所属ID"
-        INT64 politician_id FK "政治家ID"
-        INT64 conference_id FK "議会ID"
-        DATE start_date "開始日"
-        STRING role "役割"
+    election_members {
+        INT64 id PK
+        INT64 election_id FK
+        INT64 politician_id FK
+        STRING result
+        INT64 votes
     }
-    elections["選挙 (elections)"] {
-        INT64 id PK "選挙ID"
-        INT64 governing_body_id FK "開催主体ID"
-        DATE election_date "選挙日"
-        STRING election_type "選挙種別"
-    }
-    election_members["選挙結果 (election_members)"] {
-        INT64 id PK "選挙結果ID"
-        INT64 election_id FK "選挙ID"
-        INT64 politician_id FK "政治家ID"
-        STRING result "結果"
-        INT64 votes "得票数"
-        INT64 rank "順位"
+    conference_members {
+        INT64 id PK
+        INT64 politician_id FK
+        INT64 conference_id FK
+        STRING role
     }
 
-    politicians ||--o{ parliamentary_group_memberships : "会派所属"
-    parliamentary_group_memberships }o--|| parliamentary_groups : "所属先"
-    parliamentary_groups }o--o{ political_parties : "構成政党"
-    parliamentary_group_parties }o--|| parliamentary_groups : ""
-    parliamentary_group_parties }o--|| political_parties : ""
-    politicians ||--o{ election_members : "出馬"
-    elections ||--o{ election_members : "候補者"
-    politicians ||--o{ conference_members : "議会参加"
-    speakers }o--o| politicians : "AI照合"
-      </pre>
-    </div>
+    politicians ||--o{ pg_memberships : ""
+    pg_memberships }o--|| parliamentary_groups : ""
+    parliamentary_groups }o--o{ political_parties : ""
+    politicians ||--o{ election_members : ""
+    elections ||--o{ election_members : ""
+    politicians ||--o{ conference_members : ""
+          </pre>
+        </div>
+      </div>
 
-    {{- /* 議案賛否系テーブル */ -}}
-    <h3 class="dsv-er-subtitle animate-on-scroll">議案賛否データ</h3>
-    <div class="dsv-diagram animate-on-scroll">
-      <pre class="mermaid">
+      {{- /* 議案賛否系テーブル */ -}}
+      <div class="dsv-er-column">
+        <h3 class="dsv-er-subtitle">議案賛否データ</h3>
+        <div class="dsv-diagram dsv-diagram-compact">
+          <pre class="mermaid">
 erDiagram
-    proposals["議案 (proposals)"] {
-        INT64 id PK "議案ID"
-        STRING title "議案名"
-        STRING proposal_category "大分類"
-        STRING proposal_type "小分類"
-        INT64 conference_id FK "議会ID"
-        STRING deliberation_status "審議状況"
-        STRING deliberation_result "最終結果"
-        DATE submitted_date "提出日"
-        DATE voted_date "採決日"
+    proposals {
+        INT64 id PK
+        STRING title
+        STRING proposal_category
+        STRING proposal_type
+        STRING deliberation_status
+        DATE submitted_date
+        DATE voted_date
     }
-    proposal_submitters["提出者 (proposal_submitters)"] {
-        INT64 id PK "提出者ID"
-        INT64 proposal_id FK "議案ID"
-        STRING submitter_type "提出者種別"
-        INT64 politician_id FK "政治家ID"
-        BOOL is_representative "代表者フラグ"
+    proposal_submitters {
+        INT64 id PK
+        INT64 proposal_id FK
+        STRING submitter_type
+        BOOL is_representative
     }
-    proposal_deliberations["審議 (proposal_deliberations)"] {
-        INT64 id PK "審議ID"
-        INT64 proposal_id FK "議案ID"
-        INT64 conference_id FK "議会ID"
-        INT64 meeting_id FK "会議ID"
-        STRING stage "審議段階"
+    proposal_deliberations {
+        INT64 id PK
+        INT64 proposal_id FK
+        INT64 conference_id FK
+        STRING stage
     }
-    proposal_judges["個人賛否 (proposal_judges)"] {
-        INT64 id PK "賛否ID"
-        INT64 proposal_id FK "議案ID"
-        INT64 politician_id FK "政治家ID"
-        STRING approve "賛否"
-        INT64 parliamentary_group_id FK "会派ID"
-        BOOL is_defection "造反フラグ"
+    proposal_judges {
+        INT64 id PK
+        INT64 proposal_id FK
+        INT64 politician_id FK
+        STRING approve
+        BOOL is_defection
     }
-    proposal_parliamentary_group_judges["会派賛否"] {
-        INT64 id PK "会派賛否ID"
-        INT64 proposal_id FK "議案ID"
-        STRING judgment "賛否"
-        INT64 member_count "メンバー数"
-        STRING judge_type "賛否種別"
-    }
-    proposal_judge_parliamentary_groups["賛否-会派 (中間)"] {
-        INT64 id PK "中間ID"
-        INT64 judge_id FK "会派賛否ID"
-        INT64 parliamentary_group_id FK "会派ID"
-    }
-    proposal_judge_politicians["賛否-政治家 (中間)"] {
-        INT64 id PK "中間ID"
-        INT64 judge_id FK "会派賛否ID"
-        INT64 politician_id FK "政治家ID"
+    pg_group_judges {
+        INT64 id PK
+        INT64 proposal_id FK
+        STRING judgment
+        INT64 member_count
     }
 
-    proposals ||--o{ proposal_submitters : "提出"
-    proposals ||--o{ proposal_deliberations : "審議"
-    proposals ||--o{ proposal_judges : "個人賛否"
-    proposals ||--o{ proposal_parliamentary_group_judges : "会派賛否"
-    proposal_judges }o--|| politicians : "投票者"
-    proposal_parliamentary_group_judges ||--o{ proposal_judge_parliamentary_groups : ""
-    proposal_parliamentary_group_judges ||--o{ proposal_judge_politicians : ""
-    proposal_judge_parliamentary_groups }o--|| parliamentary_groups : "所属会派"
-    proposal_judge_politicians }o--|| politicians : "政治家"
-      </pre>
+    proposals ||--o{ proposal_submitters : ""
+    proposals ||--o{ proposal_deliberations : ""
+    proposals ||--o{ proposal_judges : ""
+    proposals ||--o{ pg_group_judges : ""
+          </pre>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -411,7 +379,7 @@ erDiagram
   // SVGセットアップ
   const container = document.getElementById('d3-force-graph');
   const width = container.clientWidth;
-  const height = Math.min(480, Math.max(380, width * 0.5));
+  const height = Math.min(700, Math.max(500, width * 0.65));
 
   const svg = d3.select('#d3-force-graph')
     .append('svg')
@@ -442,14 +410,14 @@ erDiagram
   addMarker('er-many-start',    '-12 -8 14 16', 'M0,0 L-10,-7 M0,0 L-10,7 M0,0 L-10,0', colors.edgeDefault);
   addMarker('er-many-start-h',  '-12 -8 14 16', 'M0,0 L-10,-7 M0,0 L-10,7 M0,0 L-10,0', colors.edgeHover);
 
-  // フォースシミュレーション（コンパクト）
+  // フォースシミュレーション
   const simulation = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(links).id(d => d.id).distance(70))
-    .force('charge', d3.forceManyBody().strength(-300))
+    .force('link', d3.forceLink(links).id(d => d.id).distance(160))
+    .force('charge', d3.forceManyBody().strength(-600))
     .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collision', d3.forceCollide().radius(36))
-    .force('x', d3.forceX(width / 2).strength(0.08))
-    .force('y', d3.forceY(height / 2).strength(0.08));
+    .force('collision', d3.forceCollide().radius(45))
+    .force('x', d3.forceX(width / 2).strength(0.05))
+    .force('y', d3.forceY(height / 2).strength(0.05));
 
   // エッジ
   const link = svg.append('g')
@@ -606,7 +574,7 @@ erDiagram
   // リサイズ
   window.addEventListener('resize', () => {
     const newW = container.clientWidth;
-    const newH = Math.min(480, Math.max(380, newW * 0.5));
+    const newH = Math.min(700, Math.max(500, newW * 0.65));
     svg.attr('width', newW).attr('height', newH).attr('viewBox', [0, 0, newW, newH]);
     simulation.force('center', d3.forceCenter(newW / 2, newH / 2));
     simulation.force('x', d3.forceX(newW / 2).strength(0.08));
