@@ -299,6 +299,22 @@ extraction_logs（Bronze）→ extracted_parliamentary_group_members（中間）
 
 中間テーブルはLLM出力の構造化データを保持し、人間のレビューを待つステージング領域として機能します。`VerifiableEntity`プロトコルを実装していますが、Bronze Layer扱いのため`can_be_updated_by_ai()`は常に`True`を返します。
 
+## 補足: 新5層構成への拡張（2026-03-25追記）
+
+Goal 0018（Data Vault導入）に伴い、データレイヤーを以下の5層構成に拡張しました。
+本ADRで定義したPG Bronze / PG Gold Layerの概念はそのまま維持されます。
+
+| 層 | データベース | データセット/テーブル | 説明 |
+|---|---|---|---|
+| PG Bronze | PostgreSQL | `extracted_*`, `extraction_logs` | LLM抽出結果（Immutable） |
+| PG Gold | PostgreSQL | `politicians`, `proposals` 等 | 確定データ（人間修正優先） |
+| BQ Source | BigQuery | `sagebase_source` | PG Goldのミラーリング |
+| BQ Vault | BigQuery | `sagebase_vault` | Data Vault形式（将来） |
+| BQ Main | BigQuery | `sagebase` | 分析用マート（将来） |
+
+旧`sagebase_gold`データセットは`sagebase_source`にリネームされました。
+コード内の`GOLD_LAYER_TABLES`は`SOURCE_TABLES`にリネームされました。
+
 ## 関連ADR
 
 - [ADR 0001: Clean Architecture採用](0001-clean-architecture-adoption.md)

@@ -33,7 +33,7 @@ class SetupAnalyticsHubCommand(Command, BaseCommand):
             "AH_LISTING_ID", DEFAULT_LISTING_ID
         )
         dataset_id: str = kwargs.get("dataset") or os.environ.get(
-            "BQ_DATASET_ID", "sagebase_gold"
+            "BQ_DATASET_ID", "sagebase_source"
         )
         primary_contact: str = kwargs.get("primary_contact") or os.environ.get(
             "AH_PRIMARY_CONTACT", ""

@@ -1,1 +1,1 @@
-"""BigQuery Gold Layerテーブル管理パッケージ."""
+"""BigQuery Source Layerテーブル管理パッケージ."""
