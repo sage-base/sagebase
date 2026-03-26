@@ -149,14 +149,25 @@ erDiagram
         STRING name
         STRING political_party_name
         INT64 politician_id FK
+        INT64 government_official_id FK
         NUMERIC matching_confidence
+    }
+    politicians {
+        INT64 id PK
+        STRING name
+    }
+    government_officials {
+        INT64 id PK
+        STRING name
     }
 
     governing_bodies ||--o{ conferences : ""
     conferences ||--o{ meetings : ""
     meetings ||--o| minutes : ""
     minutes ||--o{ conversations : ""
-    conversations }o--|| speakers : ""
+    speakers ||--o{ conversations : ""
+    speakers }o--o| politicians : ""
+    speakers }o--o| government_officials : ""
           </pre>
         </div>
       </div>
