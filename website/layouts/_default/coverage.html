@@ -290,15 +290,15 @@
         <div class="quality-detail">
           <div class="quality-detail-row">
             <span class="quality-detail-label">登録発言者数</span>
-            <span class="quality-detail-value">{{ lang.NumFmt 0 $d.quality.speaker_linkage.total_speakers }}人</span>
+            <span class="quality-detail-value">{{ lang.NumFmt 0 (int $d.quality.speaker_linkage.total_speakers) }}人</span>
           </div>
           <div class="quality-detail-row">
             <span class="quality-detail-label">政治家として特定済み</span>
-            <span class="quality-detail-value">{{ lang.NumFmt 0 $d.quality.speaker_linkage.matched_speakers }}人</span>
+            <span class="quality-detail-value">{{ lang.NumFmt 0 (int $d.quality.speaker_linkage.matched_speakers) }}人</span>
           </div>
           <div class="quality-detail-row">
             <span class="quality-detail-label">政府関係者として特定済み</span>
-            <span class="quality-detail-value">{{ lang.NumFmt 0 $d.quality.speaker_linkage.government_official_count }}人+</span>
+            <span class="quality-detail-value">{{ lang.NumFmt 0 (int $d.quality.speaker_linkage.government_official_count) }}人+</span>
           </div>
         </div>
         <ul class="enables-list">
@@ -319,7 +319,7 @@
         <div class="quality-detail">
           <div class="quality-detail-row">
             <span class="quality-detail-label">登録会派数</span>
-            <span class="quality-detail-value">{{ lang.NumFmt 0 $d.quality.parliamentary_group_mapping.total_groups }}+</span>
+            <span class="quality-detail-value">{{ lang.NumFmt 0 (int $d.quality.parliamentary_group_mapping.total_groups) }}+</span>
           </div>
           <div class="quality-detail-row">
             <span class="quality-detail-label">政党所属期間の重複</span>
