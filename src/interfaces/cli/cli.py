@@ -11,6 +11,9 @@ from src.common.logging import setup_logging
 from src.infrastructure.config.sentry import init_sentry
 from src.infrastructure.config.settings import get_settings
 from src.interfaces.cli.commands.coverage_commands import get_coverage_commands
+from src.interfaces.cli.commands.data_validation_commands import (
+    get_data_validation_commands,
+)
 from src.interfaces.cli.commands.di_example_commands import get_di_example_commands
 from src.interfaces.cli.commands.election_import_commands import (
     get_election_import_commands,
@@ -118,6 +121,7 @@ def register_legacy_commands(cli_group: click.Group) -> None:
         get_maintenance_commands,
         get_migration_commands,
         get_election_import_commands,
+        get_data_validation_commands,
     ]
 
     for getter in command_getters:
