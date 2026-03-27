@@ -6,6 +6,9 @@ WITH source AS (
 
 SELECT
     {{ automate_dv.hash("ID", alias="CONFERENCE_MEMBERS_HK") }},
+    {{ automate_dv.hash("CONFERENCE_ID", alias="CONFERENCES_HK") }},
+    {{ automate_dv.hash("POLITICIAN_ID", alias="POLITICIANS_HK") }},
+    {{ automate_dv.hash(["CONFERENCE_ID", "POLITICIAN_ID"], alias="LINK_CONFERENCE_MEMBER_HK") }},
     {{ automate_dv.hash(["POLITICIAN_ID", "CONFERENCE_ID", "START_DATE", "END_DATE", "ROLE", "IS_MANUALLY_VERIFIED"], alias="CONFERENCE_MEMBERS_HASHDIFF", is_hashdiff=true) }},
     id,
     politician_id,
