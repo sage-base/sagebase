@@ -1,0 +1,23 @@
+sagebase:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID', 'sagebase') }}"
+      dataset: sagebase_vault
+      threads: 4
+      timeout_seconds: 300
+      location: asia-northeast1
+      priority: interactive
+      retries: 1
+    prod:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID', 'sagebase') }}"
+      dataset: sagebase_vault
+      threads: 4
+      timeout_seconds: 300
+      location: asia-northeast1
+      priority: interactive
+      retries: 1

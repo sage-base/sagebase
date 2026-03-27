@@ -54,6 +54,8 @@ dependencies = [
     "streamlit-oauth>=0.1.0",
     "openpyxl>=3.1.0,<4",
     "xlrd>=2.0.0,<3",
+    # dbt Fusion (2.0) はスタンドアロンバイナリ。pip不要。
+    # インストール: curl -fsSL https://public.cdn.getdbt.com/fs/install/install.sh | sh -s -- --update
 ]
 
 [project.scripts]

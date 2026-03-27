@@ -1,0 +1,31 @@
+name: "sagebase_dbt"
+version: "1.0.0"
+
+config-version: 2
+
+require-dbt-version: [">=2.0.0", "<3.0.0"]
+
+profile: "sagebase"
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  sagebase_dbt:
+    staging:
+      +materialized: view
+      +schema: staging
+    vault:
+      +materialized: incremental
+      +schema: vault
+    main:
+      +materialized: table
+      +schema: main

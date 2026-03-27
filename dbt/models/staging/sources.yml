@@ -1,0 +1,459 @@
+version: 2
+
+sources:
+  - name: sagebase_source
+    description: "PG Goldのミラーリング（BQ Source Layer）"
+    database: "{{ env_var('GCP_PROJECT_ID', 'sagebase') }}"
+    schema: sagebase_source
+    tables:
+      - name: politicians
+        description: "政治家"
+        columns:
+          - name: id
+            description: "政治家ID"
+          - name: name
+            description: "氏名"
+          - name: prefecture
+            description: "都道府県"
+          - name: furigana
+            description: "ふりがな"
+          - name: district
+            description: "選挙区"
+          - name: profile_page_url
+            description: "プロフィールページURL"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: political_parties
+        description: "政党"
+        columns:
+          - name: id
+            description: "政党ID"
+          - name: name
+            description: "政党名"
+          - name: members_list_url
+            description: "所属議員一覧URL"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: elections
+        description: "選挙"
+        columns:
+          - name: id
+            description: "選挙ID"
+          - name: governing_body_id
+            description: "開催主体ID"
+          - name: term_number
+            description: "期番号"
+          - name: election_date
+            description: "選挙実施日"
+          - name: election_type
+            description: "選挙種別"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: election_members
+        description: "選挙結果メンバー"
+        columns:
+          - name: id
+            description: "選挙結果メンバーID"
+          - name: election_id
+            description: "選挙ID"
+          - name: politician_id
+            description: "政治家ID"
+          - name: result
+            description: "選挙結果"
+          - name: votes
+            description: "得票数"
+          - name: rank
+            description: "順位"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: governing_bodies
+        description: "開催主体"
+        columns:
+          - name: id
+            description: "開催主体ID"
+          - name: name
+            description: "名称"
+          - name: organization_code
+            description: "総務省6桁自治体コード"
+          - name: organization_type
+            description: "組織種別"
+          - name: prefecture
+            description: "都道府県"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: conferences
+        description: "会議体"
+        columns:
+          - name: id
+            description: "会議体ID"
+          - name: name
+            description: "会議体名"
+          - name: governing_body_id
+            description: "開催主体ID"
+          - name: term
+            description: "任期"
+          - name: election_id
+            description: "選挙ID"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: conference_members
+        description: "会議体メンバー（議員の議会所属）"
+        columns:
+          - name: id
+            description: "所属ID"
+          - name: politician_id
+            description: "政治家ID"
+          - name: conference_id
+            description: "会議体ID"
+          - name: start_date
+            description: "開始日"
+          - name: end_date
+            description: "終了日"
+          - name: role
+            description: "役割"
+          - name: is_manually_verified
+            description: "手動検証済みフラグ"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: parliamentary_groups
+        description: "議員団（会派）"
+        columns:
+          - name: id
+            description: "議員団ID"
+          - name: name
+            description: "議員団名"
+          - name: governing_body_id
+            description: "開催主体ID"
+          - name: url
+            description: "URL"
+          - name: description
+            description: "説明"
+          - name: is_active
+            description: "有効フラグ"
+          - name: chamber
+            description: "院（衆議院/参議院）"
+          - name: start_date
+            description: "有効開始日"
+          - name: end_date
+            description: "有効終了日"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: parliamentary_group_parties
+        description: "会派と政党の多対多中間テーブル"
+        columns:
+          - name: id
+            description: "中間テーブルID"
+          - name: parliamentary_group_id
+            description: "会派ID"
+          - name: political_party_id
+            description: "政党ID"
+          - name: is_primary
+            description: "主要政党フラグ"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: parliamentary_group_memberships
+        description: "議員団所属履歴"
+        columns:
+          - name: id
+            description: "所属ID"
+          - name: politician_id
+            description: "政治家ID"
+          - name: parliamentary_group_id
+            description: "議員団ID"
+          - name: start_date
+            description: "開始日"
+          - name: end_date
+            description: "終了日"
+          - name: role
+            description: "役割"
+          - name: is_manually_verified
+            description: "手動検証済みフラグ"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: meetings
+        description: "会議（開催インスタンス）"
+        columns:
+          - name: id
+            description: "会議ID"
+          - name: conference_id
+            description: "会議体ID"
+          - name: date
+            description: "開催日"
+          - name: url
+            description: "URL"
+          - name: name
+            description: "会議名"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: minutes
+        description: "議事録"
+        columns:
+          - name: id
+            description: "議事録ID"
+          - name: meeting_id
+            description: "会議ID"
+          - name: url
+            description: "URL"
+          - name: processed_at
+            description: "処理日時"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: conversations
+        description: "発言"
+        columns:
+          - name: id
+            description: "発言ID"
+          - name: minutes_id
+            description: "議事録ID"
+          - name: speaker_id
+            description: "発言者ID"
+          - name: speaker_name
+            description: "発言者名"
+          - name: comment
+            description: "発言内容"
+          - name: sequence_number
+            description: "発言順序"
+          - name: chapter_number
+            description: "章番号"
+          - name: sub_chapter_number
+            description: "節番号"
+          - name: is_manually_verified
+            description: "手動検証済みフラグ"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: speakers
+        description: "発言者"
+        columns:
+          - name: id
+            description: "発言者ID"
+          - name: name
+            description: "氏名"
+          - name: type
+            description: "種別"
+          - name: political_party_name
+            description: "政党名"
+          - name: position
+            description: "役職"
+          - name: is_politician
+            description: "政治家フラグ"
+          - name: politician_id
+            description: "政治家ID"
+          - name: matching_confidence
+            description: "マッチング信頼度"
+          - name: matching_reason
+            description: "マッチング理由"
+          - name: is_manually_verified
+            description: "手動検証済みフラグ"
+          - name: name_yomi
+            description: "氏名よみ"
+          - name: government_official_id
+            description: "政府関係者ID"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: government_officials
+        description: "政府関係者マスタ"
+        columns:
+          - name: id
+            description: "政府関係者ID"
+          - name: name
+            description: "氏名"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: government_official_positions
+        description: "政府関係者の役職履歴"
+        columns:
+          - name: id
+            description: "役職履歴ID"
+          - name: government_official_id
+            description: "政府関係者ID"
+          - name: organization
+            description: "所属組織"
+          - name: position
+            description: "役職名"
+          - name: start_date
+            description: "開始日"
+          - name: end_date
+            description: "終了日"
+          - name: source_note
+            description: "出典メモ"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: proposals
+        description: "議案"
+        columns:
+          - name: id
+            description: "議案ID"
+          - name: title
+            description: "議案名"
+          - name: detail_url
+            description: "詳細URL"
+          - name: status_url
+            description: "審議状況URL"
+          - name: meeting_id
+            description: "会議ID"
+          - name: votes_url
+            description: "投票結果URL"
+          - name: conference_id
+            description: "会議体ID"
+          - name: proposal_category
+            description: "議案大分類"
+          - name: proposal_type
+            description: "議案小分類"
+          - name: governing_body_id
+            description: "開催主体ID"
+          - name: session_number
+            description: "回次"
+          - name: proposal_number
+            description: "議案番号"
+          - name: external_id
+            description: "外部データソースID"
+          - name: deliberation_status
+            description: "審議状況"
+          - name: deliberation_result
+            description: "最終結果"
+          - name: submitted_date
+            description: "提出日"
+          - name: voted_date
+            description: "採決日"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: proposal_submitters
+        description: "議案提出者"
+        columns:
+          - name: id
+            description: "提出者ID"
+          - name: proposal_id
+            description: "議案ID"
+          - name: submitter_type
+            description: "提出者種別"
+          - name: politician_id
+            description: "政治家ID"
+          - name: parliamentary_group_id
+            description: "議員団ID"
+          - name: conference_id
+            description: "会議体ID"
+          - name: raw_name
+            description: "元データの名前"
+          - name: is_representative
+            description: "代表者フラグ"
+          - name: display_order
+            description: "表示順"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: proposal_deliberations
+        description: "議案審議"
+        columns:
+          - name: id
+            description: "審議ID"
+          - name: proposal_id
+            description: "議案ID"
+          - name: conference_id
+            description: "会議体ID"
+          - name: meeting_id
+            description: "会議ID"
+          - name: stage
+            description: "審議段階"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: proposal_judges
+        description: "議案賛否（個人）"
+        columns:
+          - name: id
+            description: "賛否ID"
+          - name: proposal_id
+            description: "議案ID"
+          - name: politician_id
+            description: "政治家ID"
+          - name: approve
+            description: "賛否"
+          - name: parliamentary_group_id
+            description: "議員団ID"
+          - name: source_type
+            description: "データソース種別"
+          - name: source_group_judge_id
+            description: "会派賛否展開元ID"
+          - name: is_defection
+            description: "造反フラグ"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: proposal_parliamentary_group_judges
+        description: "議案賛否（会派）"
+        columns:
+          - name: id
+            description: "会派賛否ID"
+          - name: proposal_id
+            description: "議案ID"
+          - name: judgment
+            description: "賛否"
+          - name: member_count
+            description: "メンバー数"
+          - name: note
+            description: "備考"
+          - name: judge_type
+            description: "賛否種別"
+          - name: created_at
+            description: "作成日時"
+          - name: updated_at
+            description: "更新日時"
+      - name: proposal_judge_parliamentary_groups
+        description: "賛否レコードと会派の中間テーブル"
+        columns:
+          - name: id
+            description: "中間テーブルID"
+          - name: judge_id
+            description: "会派賛否ID"
+          - name: parliamentary_group_id
+            description: "議員団ID"
+          - name: created_at
+            description: "作成日時"
+      - name: proposal_judge_politicians
+        description: "賛否レコードと政治家の中間テーブル"
+        columns:
+          - name: id
+            description: "中間テーブルID"
+          - name: judge_id
+            description: "会派賛否ID"
+          - name: politician_id
+            description: "政治家ID"
+          - name: created_at
+            description: "作成日時"
