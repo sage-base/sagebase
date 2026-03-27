@@ -6,6 +6,9 @@ WITH source AS (
 
 SELECT
     {{ automate_dv.hash("ID", alias="PARLIAMENTARY_GROUP_PARTIES_HK") }},
+    {{ automate_dv.hash("PARLIAMENTARY_GROUP_ID", alias="PARLIAMENTARY_GROUPS_HK") }},
+    {{ automate_dv.hash("POLITICAL_PARTY_ID", alias="POLITICAL_PARTIES_HK") }},
+    {{ automate_dv.hash(["PARLIAMENTARY_GROUP_ID", "POLITICAL_PARTY_ID"], alias="LINK_PG_PARTY_HK") }},
     {{ automate_dv.hash(["PARLIAMENTARY_GROUP_ID", "POLITICAL_PARTY_ID", "IS_PRIMARY"], alias="PARLIAMENTARY_GROUP_PARTIES_HASHDIFF", is_hashdiff=true) }},
     id,
     parliamentary_group_id,

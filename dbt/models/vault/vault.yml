@@ -1,0 +1,216 @@
+version: 2
+
+models:
+  # === Hubs ===
+  - name: hub_politician
+    description: "政治家Hub — ビジネスキー: politician_id"
+    columns:
+      - name: POLITICIANS_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: hub_proposal
+    description: "議案Hub — ビジネスキー: proposal_id"
+    columns:
+      - name: PROPOSALS_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: hub_speaker
+    description: "発言者Hub — ビジネスキー: speaker_id"
+    columns:
+      - name: SPEAKERS_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: hub_meeting
+    description: "会議Hub — ビジネスキー: meeting_id"
+    columns:
+      - name: MEETINGS_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: hub_election
+    description: "選挙Hub — ビジネスキー: election_id"
+    columns:
+      - name: ELECTIONS_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: hub_conference
+    description: "議会Hub — ビジネスキー: conference_id"
+    columns:
+      - name: CONFERENCES_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: hub_parliamentary_group
+    description: "会派Hub — ビジネスキー: parliamentary_group_id"
+    columns:
+      - name: PARLIAMENTARY_GROUPS_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: hub_government_official
+    description: "政府関係者Hub — ビジネスキー: government_official_id"
+    columns:
+      - name: GOVERNMENT_OFFICIALS_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: hub_governing_body
+    description: "議会体Hub — ビジネスキー: governing_body_id"
+    columns:
+      - name: GOVERNING_BODIES_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: hub_minutes
+    description: "議事録Hub — ビジネスキー: minutes_id"
+    columns:
+      - name: MINUTES_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: hub_political_party
+    description: "政党Hub — ビジネスキー: political_party_id"
+    columns:
+      - name: POLITICAL_PARTIES_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: hub_conversation
+    description: "発言Hub — ビジネスキー: conversation_id"
+    columns:
+      - name: CONVERSATIONS_HK
+        tests:
+          - unique
+          - not_null
+
+  # === Links ===
+  - name: link_speaker_politician
+    description: "発言者↔政治家リンク"
+    columns:
+      - name: LINK_SPEAKER_POLITICIAN_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: link_election_member
+    description: "選挙↔政治家リンク（選挙候補者）"
+    columns:
+      - name: LINK_ELECTION_MEMBER_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: link_conference_member
+    description: "議会↔政治家リンク（議会メンバー）"
+    columns:
+      - name: LINK_CONFERENCE_MEMBER_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: link_pg_membership
+    description: "会派↔政治家リンク（会派所属）"
+    columns:
+      - name: LINK_PG_MEMBERSHIP_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: link_proposal_submitter
+    description: "議案↔政治家リンク（提出者）"
+    columns:
+      - name: LINK_PROPOSAL_SUBMITTER_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: link_proposal_judge
+    description: "議案↔政治家リンク（個人賛否）"
+    columns:
+      - name: LINK_PROPOSAL_JUDGE_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: link_meeting_conference
+    description: "会議↔議会リンク"
+    columns:
+      - name: LINK_MEETING_CONFERENCE_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: link_meeting_minutes
+    description: "会議↔議事録リンク"
+    columns:
+      - name: LINK_MEETING_MINUTES_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: link_conversation_speaker
+    description: "発言↔発言者リンク"
+    columns:
+      - name: LINK_CONVERSATION_SPEAKER_HK
+        tests:
+          - unique
+          - not_null
+
+  - name: link_pg_party
+    description: "会派↔政党リンク"
+    columns:
+      - name: LINK_PG_PARTY_HK
+        tests:
+          - unique
+          - not_null
+
+  # === Satellites ===
+  - name: sat_politician
+    description: "政治家属性Satellite"
+  - name: sat_proposal
+    description: "議案属性Satellite"
+  - name: sat_speaker
+    description: "発言者属性Satellite"
+  - name: sat_meeting
+    description: "会議属性Satellite"
+  - name: sat_election
+    description: "選挙属性Satellite"
+  - name: sat_conference
+    description: "議会属性Satellite"
+  - name: sat_parliamentary_group
+    description: "会派属性Satellite"
+  - name: sat_government_official
+    description: "政府関係者属性Satellite"
+  - name: sat_governing_body
+    description: "議会体属性Satellite"
+  - name: sat_minutes
+    description: "議事録属性Satellite"
+  - name: sat_political_party
+    description: "政党属性Satellite"
+  - name: sat_conversation
+    description: "発言属性Satellite"
+  - name: sat_election_member
+    description: "選挙候補者属性Satellite（Link Satellite）"
+  - name: sat_conference_member
+    description: "議会メンバー属性Satellite（Link Satellite）"
+  - name: sat_pg_membership
+    description: "会派所属属性Satellite（Link Satellite）"
+  - name: sat_proposal_submitter
+    description: "議案提出者属性Satellite（Link Satellite）"
+  - name: sat_proposal_judge
+    description: "議案賛否属性Satellite（Link Satellite）"
