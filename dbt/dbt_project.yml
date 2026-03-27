@@ -3,6 +3,8 @@ version: "1.0.0"
 
 config-version: 2
 
+require-dbt-version: [">=2.0.0", "<3.0.0"]
+
 profile: "sagebase"
 
 model-paths: ["models"]
