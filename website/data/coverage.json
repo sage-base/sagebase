@@ -40,12 +40,16 @@
     "speaker_linkage": {
       "rate": 89.5,
       "total_speakers": 39805,
+      "total_speakers_display": "39,805",
       "matched_speakers": 5081,
-      "government_official_count": 14200
+      "matched_speakers_display": "5,081",
+      "government_official_count": 14200,
+      "government_official_count_display": "14,200"
     },
     "parliamentary_group_mapping": {
       "rate": 90.0,
       "total_groups": 1200,
+      "total_groups_display": "1,200",
       "mapped_groups": 1080
     }
   },
