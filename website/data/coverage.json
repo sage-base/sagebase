@@ -1,0 +1,94 @@
+{
+  "updated_at": "2026-03-27T00:00:00Z",
+  "updated_date": "2026-03-27",
+  "hero": {
+    "national": {
+      "conversation_count": 10800000,
+      "conversation_count_display": "1,080万+",
+      "meeting_count": 102000,
+      "meeting_count_display": "10.2万+",
+      "politician_count": 6400,
+      "politician_count_display": "6,400",
+      "year_span": "79",
+      "earliest_year": 1947,
+      "latest_year": 2026,
+      "proposal_count": 15000,
+      "proposal_count_display": "1.5万+"
+    },
+    "local": {
+      "conversation_count": 400000,
+      "conversation_count_display": "40万+",
+      "meeting_count": 6600,
+      "meeting_count_display": "6,600",
+      "politician_count": 5500,
+      "politician_count_display": "5,500",
+      "covered_prefectures": 10,
+      "total_prefectures": 47,
+      "covered_municipalities": 24
+    }
+  },
+  "totals": {
+    "conversation_count": 11200000,
+    "conversation_count_display": "1,120万+",
+    "meeting_count": 108600,
+    "meeting_count_display": "10.8万+",
+    "politician_count": 11900,
+    "politician_count_display": "11,900",
+    "party_count": 195
+  },
+  "quality": {
+    "speaker_linkage": {
+      "rate": 89.5,
+      "total_speakers": 39805,
+      "total_speakers_display": "39,805",
+      "matched_speakers": 5081,
+      "matched_speakers_display": "5,081",
+      "government_official_count": 14200,
+      "government_official_count_display": "14,200"
+    },
+    "parliamentary_group_mapping": {
+      "rate": 90.0,
+      "total_groups": 1200,
+      "total_groups_display": "1,200",
+      "mapped_groups": 1080
+    }
+  },
+  "prefecture_ranking": [
+    {
+      "name": "東京都",
+      "conversation_count": 120000,
+      "meeting_count": 2000,
+      "politician_count": 800,
+      "speaker_count": 1500,
+      "matched_speaker_count": 1200,
+      "linkage_rate": 80.0,
+      "proposal_count": 500,
+      "governing_body_count": 5,
+      "earliest_date": "1963-01-01",
+      "latest_date": "2025-12-31",
+      "earliest_year": 1963,
+      "latest_year": 2025,
+      "timeline_left": 20,
+      "timeline_width": 80,
+      "timeline_intensity": "intensity-high"
+    },
+    {
+      "name": "大阪府",
+      "conversation_count": 80000,
+      "meeting_count": 1500,
+      "politician_count": 600,
+      "speaker_count": 1000,
+      "matched_speaker_count": 800,
+      "linkage_rate": 80.0,
+      "proposal_count": 300,
+      "governing_body_count": 4,
+      "earliest_date": "1983-01-01",
+      "latest_date": "2025-12-31",
+      "earliest_year": 1983,
+      "latest_year": 2025,
+      "timeline_left": 46,
+      "timeline_width": 54,
+      "timeline_intensity": "intensity-mid"
+    }
+  ]
+}
