@@ -2438,3 +2438,151 @@ strong {
     gap: var(--space-3);
   }
 }
+
+/* ============================================
+   BQクエリツールチップ
+   ============================================ */
+.bq-queryable {
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.15s ease;
+}
+
+.bq-queryable::after {
+  content: 'BQ';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--color-gray-400);
+  background: var(--color-gray-100);
+  border: 1px solid var(--color-gray-200);
+  padding: 1px 4px;
+  line-height: 1.2;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.bq-queryable:hover::after,
+.bq-queryable.bq-active::after {
+  opacity: 1;
+}
+
+.bq-queryable:hover,
+.bq-queryable.bq-active {
+  background-color: var(--color-gray-50);
+}
+
+/* quality-cardは既に背景があるため区別 */
+.quality-card.bq-queryable:hover,
+.quality-card.bq-queryable.bq-active {
+  border-color: var(--color-gray-400);
+}
+
+.bq-tooltip {
+  position: absolute;
+  z-index: 9999;
+  max-width: 520px;
+  min-width: 320px;
+  background: var(--color-gray-900);
+  border: 1px solid var(--color-gray-700);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, visibility 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+
+.bq-tooltip.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.bq-tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-gray-700);
+}
+
+.bq-tooltip-icon {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-gray-900);
+  background: var(--color-gray-300);
+  padding: 2px 5px;
+  letter-spacing: 0.05em;
+}
+
+.bq-tooltip-title {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-gray-400);
+  flex: 1;
+}
+
+.bq-tooltip-copy {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-gray-400);
+  background: transparent;
+  border: 1px solid var(--color-gray-600);
+  padding: 2px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.bq-tooltip-copy:hover {
+  color: var(--color-white);
+  border-color: var(--color-gray-400);
+}
+
+.bq-tooltip-copy.copied {
+  color: var(--color-white);
+  background: var(--color-gray-700);
+  border-color: var(--color-gray-500);
+}
+
+.bq-tooltip-query {
+  margin: 0;
+  padding: 12px 16px;
+  overflow-x: auto;
+}
+
+.bq-tooltip-query code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-gray-200);
+  white-space: pre;
+  tab-size: 2;
+}
+
+/* SQLキーワード風の色付けはCSSのみでは困難なため、
+   モノクロームトーンの明暗差で視認性を確保 */
+
+@media (max-width: 768px) {
+  .bq-tooltip {
+    max-width: calc(100vw - 24px);
+    min-width: 280px;
+  }
+
+  .bq-tooltip-query code {
+    font-size: 11px;
+  }
+
+  .bq-queryable::after {
+    opacity: 0.6;
+  }
+}
