@@ -22,10 +22,9 @@ models:
   sagebase_dbt:
     staging:
       +materialized: view
-      +schema: staging
+      +schema: sagebase_vault_staging
     vault:
       +materialized: incremental
-      +schema: vault
     main:
-      +materialized: table
-      +schema: main
+      +materialized: view
+      +schema: sagebase
