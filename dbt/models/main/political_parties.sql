@@ -1,19 +1,10 @@
-{{- config(materialized="view") -}}
+{{- config(materialized="table") -}}
 
-{# Vault Satelliteから最新状態を射影する政党VIEW #}
-
-WITH latest_sat AS (
-    SELECT
-        *,
-        ROW_NUMBER() OVER (PARTITION BY POLITICAL_PARTIES_HK ORDER BY load_date DESC) AS _row_num
-    FROM {{ ref('sat_political_party') }}
-)
-
+-- 政党メインビュー: sourceスキーマと一致するビジネスビュー
 SELECT
-    h.id,
-    s.name,
-    s.members_list_url
-FROM {{ ref('hub_political_party') }} h
-INNER JOIN latest_sat s
-    ON h.POLITICAL_PARTIES_HK = s.POLITICAL_PARTIES_HK
-    AND s._row_num = 1
+    id,
+    name,
+    members_list_url,
+    created_at,
+    updated_at
+FROM {{ ref('stg_political_parties') }}
