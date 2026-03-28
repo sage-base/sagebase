@@ -75,6 +75,11 @@ theme = 'PaperMod'
   weight = 36
 
 [[menu.main]]
+  name = '使い方'
+  url = '/howto/'
+  weight = 37
+
+[[menu.main]]
   name = '定款'
   url = '/corporate/teikan/'
   weight = 40
