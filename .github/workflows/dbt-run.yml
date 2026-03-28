@@ -1,0 +1,72 @@
+name: dbt Run - Vault & Main Layer更新
+
+on:
+  # export-to-bq完了後に手動トリガー、または定期実行
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "dbtターゲット（ci / prod）"
+        required: false
+        default: "ci"
+        type: choice
+        options:
+          - ci
+          - prod
+      full_refresh:
+        description: "フルリフレッシュ実行"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  DBT_PROFILES_DIR: ./dbt
+
+jobs:
+  dbt-run:
+    name: dbt deps → run → test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install dbt-bigquery
+        run: |
+          uv pip install --system dbt-bigquery>=1.9.0
+
+      # GCP認証（Service Account Key）
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Install dbt packages
+        working-directory: dbt
+        run: |
+          dbt deps --target ${{ inputs.target || 'ci' }}
+
+      - name: dbt run
+        working-directory: dbt
+        run: |
+          dbt run \
+            --target ${{ inputs.target || 'ci' }} \
+            ${{ inputs.full_refresh == true && '--full-refresh' || '' }}
+
+      - name: dbt test
+        working-directory: dbt
+        run: |
+          dbt test --target ${{ inputs.target || 'ci' }}

@@ -41,8 +41,6 @@ class TestSetupAnalyticsHubCommand:
         # dry_runモードではAPIを呼ばないことを確認
         cmd.execute(
             exchange_id="test_exchange",
-            listing_id="test_listing",
-            dataset="sagebase_source",
             primary_contact="",
             dry_run=True,
         )
@@ -61,8 +59,6 @@ class TestSetupAnalyticsHubCommand:
         with pytest.raises(SystemExit) as exc_info:
             cmd.execute(
                 exchange_id="test_exchange",
-                listing_id="test_listing",
-                dataset="sagebase_source",
                 primary_contact="",
                 dry_run=False,
             )
@@ -75,12 +71,13 @@ class TestSetupAnalyticsHubCommand:
     @patch(
         "src.interfaces.cli.commands.bigquery.setup_analytics_hub.AnalyticsHubClient"
     )
-    def test_execute_creates_exchange_and_listing(
+    def test_execute_creates_exchange_and_listings(
         self,
         mock_client_cls: MagicMock,
         mock_exchange_info: ExchangeInfo,
         mock_listing_info: ListingInfo,
     ) -> None:
+        from src.infrastructure.bigquery.analytics_hub_config import LISTING_CONFIGS
         from src.interfaces.cli.commands.bigquery.setup_analytics_hub import (
             SetupAnalyticsHubCommand,
         )
@@ -93,25 +90,26 @@ class TestSetupAnalyticsHubCommand:
         cmd = SetupAnalyticsHubCommand()
         cmd.execute(
             exchange_id="sagebase_exchange",
-            listing_id="sagebase_source_listing",
-            dataset="sagebase_source",
             primary_contact="test@example.com",
             dry_run=False,
         )
 
         mock_client.create_exchange.assert_called_once()
-        mock_client.create_listing.assert_called_once()
+        # 3つのListingが作成される
+        assert mock_client.create_listing.call_count == len(LISTING_CONFIGS)
 
         # Exchange作成の引数を検証
         exchange_call = mock_client.create_exchange.call_args
         assert exchange_call.kwargs["exchange_id"] == "sagebase_exchange"
         assert exchange_call.kwargs["public"] is True
 
-        # Listing作成の引数を検証
-        listing_call = mock_client.create_listing.call_args
-        assert listing_call.kwargs["exchange_id"] == "sagebase_exchange"
-        assert listing_call.kwargs["listing_id"] == "sagebase_source_listing"
-        assert listing_call.kwargs["dataset_id"] == "sagebase_source"
+        # 各Listing作成の引数を検証
+        listing_calls = mock_client.create_listing.call_args_list
+        for i, config in enumerate(LISTING_CONFIGS):
+            call = listing_calls[i]
+            assert call.kwargs["exchange_id"] == "sagebase_exchange"
+            assert call.kwargs["listing_id"] == config.listing_id
+            assert call.kwargs["dataset_id"] == config.dataset_id
 
     @patch.dict(
         "os.environ",
@@ -126,6 +124,7 @@ class TestSetupAnalyticsHubCommand:
         mock_exchange_info: ExchangeInfo,
         mock_listing_info: ListingInfo,
     ) -> None:
+        from src.infrastructure.bigquery.analytics_hub_config import LISTING_CONFIGS
         from src.interfaces.cli.commands.bigquery.setup_analytics_hub import (
             SetupAnalyticsHubCommand,
         )
@@ -139,8 +138,6 @@ class TestSetupAnalyticsHubCommand:
         # None値を渡すとデフォルト値が使われる
         cmd.execute(
             exchange_id=None,
-            listing_id=None,
-            dataset=None,
             primary_contact=None,
             dry_run=False,
         )
@@ -148,9 +145,12 @@ class TestSetupAnalyticsHubCommand:
         exchange_call = mock_client.create_exchange.call_args
         assert exchange_call.kwargs["exchange_id"] == "sagebase_exchange"
 
-        listing_call = mock_client.create_listing.call_args
-        assert listing_call.kwargs["listing_id"] == "sagebase_source_listing"
-        assert listing_call.kwargs["dataset_id"] == "sagebase_source"
+        # 3つのListingが作成される（LISTING_CONFIGSのデフォルト値を使用）
+        assert mock_client.create_listing.call_count == len(LISTING_CONFIGS)
+        # 最初のListingはsagebase_source
+        first_listing_call = mock_client.create_listing.call_args_list[0]
+        assert first_listing_call.kwargs["listing_id"] == "sagebase_source_listing"
+        assert first_listing_call.kwargs["dataset_id"] == "sagebase_source"
 
 
 class TestSetupAnalyticsHubClickCommand:
@@ -190,10 +190,6 @@ class TestSetupAnalyticsHubClickCommand:
             [
                 "--exchange-id",
                 "custom_exchange",
-                "--listing-id",
-                "custom_listing",
-                "--dataset",
-                "custom_dataset",
                 "--primary-contact",
                 "test@example.com",
             ],

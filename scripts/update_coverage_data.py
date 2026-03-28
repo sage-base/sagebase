@@ -301,8 +301,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--dataset",
-        default="sagebase_source",
-        help="BigQueryデータセット名（デフォルト: sagebase_source）",
+        default="sagebase",
+        help="BigQueryデータセット名（デフォルト: sagebase）",
     )
     args = parser.parse_args()
 

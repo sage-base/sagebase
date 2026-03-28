@@ -1,7 +1,7 @@
 """Analytics Hub セットアップスクリプト.
 
 BigQuery Analytics Hub に Exchange と Listing を作成し、
-sagebase_source データセットを公開する。
+sagebase_source / sagebase_vault / sagebase の3データセットを公開する。
 
 使用方法:
     # ドライラン（設定内容の確認のみ、API アクセス不要）
@@ -28,10 +28,7 @@ from src.infrastructure.bigquery.analytics_hub_config import (
     DEFAULT_EXCHANGE_DESCRIPTION,
     DEFAULT_EXCHANGE_DISPLAY_NAME,
     DEFAULT_EXCHANGE_ID,
-    DEFAULT_LISTING_DESCRIPTION,
-    DEFAULT_LISTING_DISPLAY_NAME,
-    DEFAULT_LISTING_DOCUMENTATION,
-    DEFAULT_LISTING_ID,
+    LISTING_CONFIGS,
 )
 
 
@@ -53,16 +50,6 @@ def main() -> None:
         "--exchange-id",
         default=os.environ.get("AH_EXCHANGE_ID", DEFAULT_EXCHANGE_ID),
         help=f"Exchange ID（デフォルト: {DEFAULT_EXCHANGE_ID}）",
-    )
-    parser.add_argument(
-        "--listing-id",
-        default=os.environ.get("AH_LISTING_ID", DEFAULT_LISTING_ID),
-        help=f"Listing ID（デフォルト: {DEFAULT_LISTING_ID}）",
-    )
-    parser.add_argument(
-        "--dataset-id",
-        default=os.environ.get("BQ_DATASET_ID", "sagebase_source"),
-        help="BigQueryデータセットID（デフォルト: sagebase_source）",
     )
     parser.add_argument(
         "--primary-contact",
@@ -88,12 +75,12 @@ def main() -> None:
         print("  公開設定: PUBLIC")
         print(f"  連絡先: {args.primary_contact or '(未設定)'}")
         print()
-        print("--- Listing ---")
-        print(f"  ID: {args.listing_id}")
-        print(f"  表示名: {DEFAULT_LISTING_DISPLAY_NAME}")
-        print(f"  データセット: {args.dataset_id}")
-        print(f"  説明: {DEFAULT_LISTING_DESCRIPTION[:80]}...")
-        print()
+        for config in LISTING_CONFIGS:
+            print(f"--- Listing: {config.listing_id} ---")
+            print(f"  データセット: {config.dataset_id}")
+            print(f"  表示名: {config.display_name}")
+            print(f"  説明: {config.description[:80]}...")
+            print()
         print("ドライランモード: リソースは作成されませんでした")
         return
 
@@ -125,27 +112,28 @@ def main() -> None:
         primary_contact=args.primary_contact,
         public=True,
     )
-    print(f"  ✓ Exchange: {exchange.name}")
+    print(f"  Exchange: {exchange.name}")
     print(f"    表示名: {exchange.display_name}")
 
-    # Listing作成
-    print(f"\nListing作成中: {args.listing_id}...")
-    listing = client.create_listing(
-        exchange_id=args.exchange_id,
-        listing_id=args.listing_id,
-        dataset_id=args.dataset_id,
-        display_name=DEFAULT_LISTING_DISPLAY_NAME,
-        description=DEFAULT_LISTING_DESCRIPTION,
-        primary_contact=args.primary_contact,
-        documentation=DEFAULT_LISTING_DOCUMENTATION,
-        provider_name="Sagebase",
-        publisher_name="Sagebase Project",
-    )
-    print(f"  ✓ Listing: {listing.name}")
-    print(f"    表示名: {listing.display_name}")
-    print(f"    状態: {listing.state}")
+    # 各データセットのListing作成
+    for config in LISTING_CONFIGS:
+        print(f"\nListing作成中: {config.listing_id}...")
+        listing = client.create_listing(
+            exchange_id=args.exchange_id,
+            listing_id=config.listing_id,
+            dataset_id=config.dataset_id,
+            display_name=config.display_name,
+            description=config.description,
+            primary_contact=args.primary_contact,
+            documentation=config.documentation,
+            provider_name="Sagebase",
+            publisher_name="Sagebase Project",
+        )
+        print(f"  Listing: {listing.name}")
+        print(f"    表示名: {listing.display_name}")
+        print(f"    状態: {listing.state}")
 
-    print("\nセットアップが完了しました")
+    print(f"\nセットアップが完了しました（{len(LISTING_CONFIGS)}件のListing作成）")
 
 
 if __name__ == "__main__":
