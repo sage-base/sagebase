@@ -11,11 +11,11 @@ Sagebaseに関するご質問、ご意見、ご提案がございましたら、
 
 バグ報告や機能リクエストは、GitHubのIssueページからお願いします。
 
-- [GitHub Issues](https://github.com/sagebase-project/sagebase/issues)（準備中）
+- [GitHub Issues](https://github.com/sage-base/sagebase/issues)
 
 ## プロジェクト情報
 
-- **GitHubリポジトリ**: [sagebase-project/sagebase](https://github.com/sagebase-project/sagebase)（準備中）
+- **GitHubリポジトリ**: [sage-base/sagebase](https://github.com/sage-base/sagebase)
 - **ライセンス**: [ライセンス情報]
 
 ## 開発チーム
