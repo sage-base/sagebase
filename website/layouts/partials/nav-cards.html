@@ -1,0 +1,30 @@
+{{- /* 全ページ共通のナビゲーションカード */ -}}
+<nav class="nav-cards" aria-label="ページナビゲーション">
+  <div class="nav-cards-grid">
+    <a href="/features/" class="nav-card {{ if eq .RelPermalink "/features/" }}nav-card-active{{ end }} animate-on-scroll">
+      <span class="nav-card-number">01</span>
+      <h3 class="nav-card-title">提供データ</h3>
+      <p class="nav-card-desc">議会議論・議案賛否の提供データ詳細</p>
+    </a>
+    <a href="/data-structure/" class="nav-card {{ if eq .RelPermalink "/data-structure/" }}nav-card-active{{ end }} animate-on-scroll">
+      <span class="nav-card-number">02</span>
+      <h3 class="nav-card-title">データ構造</h3>
+      <p class="nav-card-desc">ER図とテーブル定義で構造を把握</p>
+    </a>
+    <a href="/coverage/" class="nav-card {{ if eq .RelPermalink "/coverage/" }}nav-card-active{{ end }} animate-on-scroll">
+      <span class="nav-card-number">03</span>
+      <h3 class="nav-card-title">カバレッジ</h3>
+      <p class="nav-card-desc">データ収録状況をリアルタイムに確認</p>
+    </a>
+    <a href="/howto/" class="nav-card {{ if eq .RelPermalink "/howto/" }}nav-card-active{{ end }} animate-on-scroll">
+      <span class="nav-card-number">04</span>
+      <h3 class="nav-card-title">使い方</h3>
+      <p class="nav-card-desc">BigQuery Analytics Hubでのアクセス手順</p>
+    </a>
+    <a href="/about/" class="nav-card {{ if eq .RelPermalink "/about/" }}nav-card-active{{ end }} animate-on-scroll">
+      <span class="nav-card-number">05</span>
+      <h3 class="nav-card-title">私たちについて</h3>
+      <p class="nav-card-desc">一般社団法人政治ベースの理念と運営</p>
+    </a>
+  </div>
+</nav>
