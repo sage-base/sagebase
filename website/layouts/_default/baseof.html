@@ -74,9 +74,6 @@
 
   {{- /* メインコンテンツ */ -}}
   <main id="main-content">
-    {{- if not .IsHome -}}
-    {{ partial "nav-cards.html" . }}
-    {{- end -}}
     {{ block "main" . }}{{ end }}
   </main>
 

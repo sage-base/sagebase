@@ -7,6 +7,26 @@ ShowBreadCrumbs: false
 
 Sagebase（政治ベース）は、日本の政治議論を構造化データとして提供するオープンデータプラットフォームです。本ページでは、提供しているデータの詳細をご紹介します。
 
+<nav class="nav-cards" aria-label="セクションナビゲーション">
+  <div class="nav-cards-grid">
+    <a href="#議会議論データ" class="nav-card">
+      <span class="nav-card-number">01</span>
+      <h3 class="nav-card-title">議会議論データ</h3>
+      <p class="nav-card-desc">誰が、いつ、何を発言したかの構造化データ</p>
+    </a>
+    <a href="#議案賛否データ準備中" class="nav-card">
+      <span class="nav-card-number">02</span>
+      <h3 class="nav-card-title">議案賛否データ</h3>
+      <p class="nav-card-desc">議案への賛成・反対の記録（準備中）</p>
+    </a>
+    <a href="#データ品質へのコミットメント" class="nav-card">
+      <span class="nav-card-number">03</span>
+      <h3 class="nav-card-title">データ品質</h3>
+      <p class="nav-card-desc">品質改善への取り組みとフィードバック</p>
+    </a>
+  </div>
+</nav>
+
 ---
 
 ## 提供データ一覧

@@ -8,6 +8,36 @@ description: "BigQuery Analytics Hubを通じてSagebaseのデータにアクセ
 
 Sagebase（政治ベース）のデータは、Google CloudのBigQuery Analytics Hubを通じて公開データセットとして提供しています。本ページでは、ご自身のBigQuery環境からデータを参照できるようにするまでの手順をご案内します。
 
+<nav class="nav-cards" aria-label="セクションナビゲーション">
+  <div class="nav-cards-grid">
+    <a href="#前提条件" class="nav-card">
+      <span class="nav-card-number">00</span>
+      <h3 class="nav-card-title">前提条件</h3>
+      <p class="nav-card-desc">必要なアカウントとプロジェクト</p>
+    </a>
+    <a href="#ステップ1analytics-hubでリスティングを検索" class="nav-card">
+      <span class="nav-card-number">01</span>
+      <h3 class="nav-card-title">リスティング検索</h3>
+      <p class="nav-card-desc">Analytics Hubでデータを見つける</p>
+    </a>
+    <a href="#ステップ2データセットをサブスクライブ" class="nav-card">
+      <span class="nav-card-number">02</span>
+      <h3 class="nav-card-title">サブスクライブ</h3>
+      <p class="nav-card-desc">自分のプロジェクトにデータを追加</p>
+    </a>
+    <a href="#ステップ3bigqueryでデータを参照" class="nav-card">
+      <span class="nav-card-number">03</span>
+      <h3 class="nav-card-title">データ参照</h3>
+      <p class="nav-card-desc">SQLでデータを分析</p>
+    </a>
+    <a href="#料金について" class="nav-card">
+      <span class="nav-card-number">04</span>
+      <h3 class="nav-card-title">料金</h3>
+      <p class="nav-card-desc">無料枠と課金の仕組み</p>
+    </a>
+  </div>
+</nav>
+
 ---
 
 ## 前提条件

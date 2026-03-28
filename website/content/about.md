@@ -7,6 +7,26 @@ ShowBreadCrumbs: false
 
 Sagebase（政治ベース）は、**一般社団法人政治ベース**が運営する、日本の政治議論を構造化データとして提供するオープンデータプラットフォームです。
 
+<nav class="nav-cards" aria-label="セクションナビゲーション">
+  <div class="nav-cards-grid">
+    <a href="#なぜ非営利一般社団法人なのか" class="nav-card">
+      <span class="nav-card-number">01</span>
+      <h3 class="nav-card-title">なぜ非営利なのか</h3>
+      <p class="nav-card-desc">一般社団法人を選んだ理由</p>
+    </a>
+    <a href="#運営方針" class="nav-card">
+      <span class="nav-card-number">02</span>
+      <h3 class="nav-card-title">運営方針</h3>
+      <p class="nav-card-desc">データ提供の原則と収益モデル</p>
+    </a>
+    <a href="#オープンソース" class="nav-card">
+      <span class="nav-card-number">03</span>
+      <h3 class="nav-card-title">オープンソース</h3>
+      <p class="nav-card-desc">GitHubでの開発と技術的貢献</p>
+    </a>
+  </div>
+</nav>
+
 ---
 
 ## なぜ非営利一般社団法人なのか
