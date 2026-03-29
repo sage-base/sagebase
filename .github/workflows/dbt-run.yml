@@ -17,6 +17,10 @@ on:
         required: false
         default: false
         type: boolean
+  # 動作確認用（確認後に削除する）
+  push:
+    branches:
+      - worktree-dbt-ci-fix
 
 permissions:
   contents: read
@@ -34,19 +38,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      # dbt Fusion 2.0はpreview段階でBQ Storage Read APIを必須使用し、
-      # ADBC経由のためREST APIへのフォールバック設定が存在しない（dbt-fusion#236）。
-      # roles/bigquery.readSessionUser付与済みでもCI環境で"Storage API is not available
-      # for query"エラーが解消しないため、安定版のdbt-core 1.x系を使用する。
-      # ローカル開発ではdbt Fusion 2.0を使用可能。
-      - name: Install dbt-bigquery
+      # dbt Fusion 2.0（ADBC経由でBQ Storage Read APIを使用）
+      # 必要権限: roles/bigquery.readSessionUser（dbt-fusion#236）
+      - name: Install dbt Fusion
         run: |
-          pip install dbt-bigquery~=1.11.0
+          curl -fsSL https://raw.githubusercontent.com/dbt-labs/dbt-cli/main/install.sh | bash
 
       - name: Verify dbt version
         run: |
