@@ -42,7 +42,8 @@ jobs:
       # 必要権限: roles/bigquery.readSessionUser（dbt-fusion#236）
       - name: Install dbt Fusion
         run: |
-          curl -fsSL https://raw.githubusercontent.com/dbt-labs/dbt-cli/main/install.sh | bash
+          curl -fsSL https://public.cdn.getdbt.com/fs/install/install.sh | sh -s -- --update
+          echo "$HOME/.dbt/bin" >> $GITHUB_PATH
 
       - name: Verify dbt version
         run: |
