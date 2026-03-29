@@ -59,7 +59,7 @@ model_column_check AS (
     {# Main VIEWからsourceの全カラムをSELECT — 欠落カラムがあればSQLエラーになる #}
     SELECT
         {% for col_name in expected_columns %}
-        {{ col_name }}{% if not loop.last %},{% endif %}
+        `{{ col_name }}`{% if not loop.last %},{% endif %}
         {% endfor %}
     FROM {{ model }}
     WHERE FALSE
