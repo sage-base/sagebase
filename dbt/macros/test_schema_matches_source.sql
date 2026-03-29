@@ -70,7 +70,7 @@ model_actual_columns AS (
     SELECT
         column_name,
         ordinal_position
-    FROM {{ model.database }}.{{ model.schema }}.INFORMATION_SCHEMA.COLUMNS
+    FROM `{{ model.database }}`.`{{ model.schema }}`.INFORMATION_SCHEMA.COLUMNS
     WHERE table_name = '{{ model.identifier }}'
 ),
 
