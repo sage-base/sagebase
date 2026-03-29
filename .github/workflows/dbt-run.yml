@@ -37,10 +37,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install dbt Fusion
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # dbt Fusion 2.0はpreview段階でBQ Storage Read APIの問題があるため、
+      # CIではdbt-core 1.x + dbt-bigquery 1.xを使用する。
+      # ローカルではdbt Fusion 2.0を使用（dbt_project.ymlは >=1.7.0 で両対応）。
+      - name: Install dbt-bigquery
         run: |
-          curl -fsSL https://public.cdn.getdbt.com/fs/install/install.sh | sh -s -- --update
-          echo "$HOME/.dbt/bin" >> $GITHUB_PATH
+          pip install dbt-bigquery~=1.9.0
 
       - name: Verify dbt version
         run: |
