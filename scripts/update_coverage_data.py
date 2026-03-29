@@ -1,6 +1,6 @@
 """カバレッジページのデータをBQから取得して更新するスクリプト.
 
-BQの sagebase_source データセットからカバレッジ指標を集計し、
+BQの sagebase データセット（Main VIEW）からカバレッジ指標を集計し、
 website/data/coverage.json に書き出す。
 Hugo テンプレート (coverage.html) がこの JSON を参照してページを生成する。
 
@@ -15,7 +15,7 @@ Usage (Docker経由で実行):
 前提条件:
     - GCP認証済み（gcloud auth application-default login）
     - GOOGLE_CLOUD_PROJECT 環境変数が設定されている
-    - BigQuery の sagebase_source データセットにデータが存在する
+    - BigQuery の sagebase データセットにデータが存在する
 """
 
 import argparse

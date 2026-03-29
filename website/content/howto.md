@@ -8,6 +8,18 @@ description: "BigQuery Analytics Hubを通じてSagebaseのデータにアクセ
 
 Sagebase（政治ベース）のデータは、Google CloudのBigQuery Analytics Hubを通じて公開データセットとして提供しています。本ページでは、ご自身のBigQuery環境からデータを参照できるようにするまでの手順をご案内します。
 
+### 公開データセット
+
+用途に応じて3つのデータセットを提供しています。
+
+| データセット | 内容 | 用途 |
+|---|---|---|
+| **sagebase** | ユーザー向け最新状態VIEW | 通常のデータ分析・アプリケーション開発にはこちらを利用 |
+| **sagebase_vault** | 変更履歴（Data Vault形式） | データの変更履歴を追跡したい場合 |
+| **sagebase_source** | 生データ（PostgreSQLミラー） | 内部構造を直接参照したい場合 |
+
+通常の利用では **sagebase** データセットのみで十分です。
+
 <nav class="nav-cards" aria-label="セクションナビゲーション">
   <div class="nav-cards-grid">
     <a href="#前提条件" class="nav-card">
@@ -58,6 +70,10 @@ Sagebase（政治ベース）のデータは、Google CloudのBigQuery Analytics
 
 ## ステップ2：データセットをサブスクライブ
 
+Sagebaseでは3つのリスティング（sagebase、sagebase_vault、sagebase_source）を公開しています。通常の利用では **sagebase** のみサブスクライブすれば十分です。
+
+各リスティングについて以下の手順でサブスクライブします：
+
 1. リスティングの詳細ページで **「データセットに追加」** ボタンをクリック
 2. データを追加するGoogle Cloudプロジェクトを選択
 3. 必要に応じて、リンクされたデータセットの名前を変更（デフォルトのままでもOK）
@@ -78,13 +94,17 @@ Sagebase（政治ベース）のデータは、Google CloudのBigQuery Analytics
 ```sql
 -- 特定の政治家の発言を検索
 SELECT
-  speaker_name,
-  speech_content,
-  meeting_date,
-  conference_name
-FROM `your-project.sagebase.speeches`
-WHERE speaker_name LIKE '%山田%'
-ORDER BY meeting_date DESC
+  s.name AS speaker_name,
+  c.content AS speech_content,
+  m.date AS meeting_date,
+  conf.name AS conference_name
+FROM `your-project.sagebase.conversations` c
+JOIN `your-project.sagebase.speakers` s ON c.speaker_id = s.id
+JOIN `your-project.sagebase.minutes` mi ON c.minutes_id = mi.id
+JOIN `your-project.sagebase.meetings` m ON mi.meeting_id = m.id
+JOIN `your-project.sagebase.conferences` conf ON m.conference_id = conf.id
+WHERE s.name LIKE '%山田%'
+ORDER BY m.date DESC
 LIMIT 100;
 ```
 
