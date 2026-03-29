@@ -15,21 +15,23 @@
 
   実装:
     INFORMATION_SCHEMAから両テーブルの実カラム情報を取得して比較する。
-    graph.sourcesはdbt Fusion 2.0で未サポートのためINFORMATION_SCHEMAベースに変更。
+    dbt Fusion 2.0互換のため、source()の属性アクセスではなくvar/env_varで
+    プロジェクトID・データセット名を解決する。
 #}
 
 {% test schema_matches_source(model, source_table) %}
 
-{# source()関数でソーステーブルの参照を取得 #}
-{% set src = source('sagebase_source', source_table) %}
+{# ソーステーブルのプロジェクト・データセットをsources.ymlの定義から取得 #}
+{% set src_ref = source('sagebase_source', source_table) %}
+{% set source_dataset = 'sagebase_source' %}
 
 WITH source_columns AS (
     {# ソーステーブルの実際のカラム情報をINFORMATION_SCHEMAから取得 #}
     SELECT
         column_name,
         ordinal_position
-    FROM {{ src.database }}.{{ src.schema }}.INFORMATION_SCHEMA.COLUMNS
-    WHERE table_name = '{{ src.identifier }}'
+    FROM `{{ target.database }}`.`{{ source_dataset }}`.INFORMATION_SCHEMA.COLUMNS
+    WHERE table_name = '{{ source_table }}'
 ),
 
 model_columns AS (
@@ -37,7 +39,7 @@ model_columns AS (
     SELECT
         column_name,
         ordinal_position
-    FROM {{ model.database }}.{{ model.schema }}.INFORMATION_SCHEMA.COLUMNS
+    FROM `{{ target.database }}`.`{{ model.schema }}`.INFORMATION_SCHEMA.COLUMNS
     WHERE table_name = '{{ model.identifier }}'
 ),
 
