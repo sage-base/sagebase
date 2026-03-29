@@ -24,15 +24,15 @@
       <div class="split-hero-status status-complete">全量収録</div>
       <h2 class="split-hero-headline">国会</h2>
       <div class="split-metrics">
-        <div class="split-metric bq-queryable" data-bq-query="SELECT COUNT(DISTINCT conv.id) AS national_conversation_count&#10;FROM `sagebase_source.conversations` conv&#10;JOIN `sagebase_source.minutes` mi ON conv.minutes_id = mi.id&#10;JOIN `sagebase_source.meetings` m ON mi.meeting_id = m.id&#10;JOIN `sagebase_source.conferences` c ON m.conference_id = c.id&#10;JOIN `sagebase_source.governing_bodies` gb ON c.governing_body_id = gb.id&#10;WHERE gb.organization_type = '国'">
+        <div class="split-metric bq-queryable" data-bq-query="SELECT COUNT(DISTINCT conv.id) AS national_conversation_count&#10;FROM `sagebase.conversations` conv&#10;JOIN `sagebase.minutes` mi ON conv.minutes_id = mi.id&#10;JOIN `sagebase.meetings` m ON mi.meeting_id = m.id&#10;JOIN `sagebase.conferences` c ON m.conference_id = c.id&#10;JOIN `sagebase.governing_bodies` gb ON c.governing_body_id = gb.id&#10;WHERE gb.organization_type = '国'">
           <span class="split-metric-number">{{ $d.hero.national.conversation_count_display }}</span>
           <span class="split-metric-label">発言数</span>
         </div>
-        <div class="split-metric bq-queryable" data-bq-query="SELECT COUNT(DISTINCT m.id) AS national_meeting_count&#10;FROM `sagebase_source.meetings` m&#10;JOIN `sagebase_source.conferences` c ON m.conference_id = c.id&#10;JOIN `sagebase_source.governing_bodies` gb ON c.governing_body_id = gb.id&#10;WHERE gb.organization_type = '国'">
+        <div class="split-metric bq-queryable" data-bq-query="SELECT COUNT(DISTINCT m.id) AS national_meeting_count&#10;FROM `sagebase.meetings` m&#10;JOIN `sagebase.conferences` c ON m.conference_id = c.id&#10;JOIN `sagebase.governing_bodies` gb ON c.governing_body_id = gb.id&#10;WHERE gb.organization_type = '国'">
           <span class="split-metric-number">{{ $d.hero.national.meeting_count_display }}</span>
           <span class="split-metric-label">会議数</span>
         </div>
-        <div class="split-metric bq-queryable" data-bq-query="SELECT COUNT(DISTINCT cm.politician_id) AS national_politician_count&#10;FROM `sagebase_source.conference_members` cm&#10;JOIN `sagebase_source.conferences` c ON cm.conference_id = c.id&#10;JOIN `sagebase_source.governing_bodies` gb ON c.governing_body_id = gb.id&#10;WHERE gb.organization_type = '国'">
+        <div class="split-metric bq-queryable" data-bq-query="SELECT COUNT(DISTINCT cm.politician_id) AS national_politician_count&#10;FROM `sagebase.conference_members` cm&#10;JOIN `sagebase.conferences` c ON cm.conference_id = c.id&#10;JOIN `sagebase.governing_bodies` gb ON c.governing_body_id = gb.id&#10;WHERE gb.organization_type = '国'">
           <span class="split-metric-number">{{ $d.hero.national.politician_count_display }}<span class="split-metric-unit">人+</span></span>
           <span class="split-metric-label">国会議員</span>
         </div>
@@ -40,7 +40,7 @@
           <span class="split-metric-number">{{ $d.hero.national.year_span }}<span class="split-metric-unit">年分</span></span>
           <span class="split-metric-label">{{ $d.hero.national.earliest_year }}年〜現在</span>
         </div>
-        <div class="split-metric bq-queryable" data-bq-query="SELECT COUNT(*) AS national_proposal_count&#10;FROM `sagebase_source.proposals` p&#10;JOIN `sagebase_source.governing_bodies` gb ON p.governing_body_id = gb.id&#10;WHERE gb.organization_type = '国'">
+        <div class="split-metric bq-queryable" data-bq-query="SELECT COUNT(*) AS national_proposal_count&#10;FROM `sagebase.proposals` p&#10;JOIN `sagebase.governing_bodies` gb ON p.governing_body_id = gb.id&#10;WHERE gb.organization_type = '国'">
           <span class="split-metric-number">{{ $d.hero.national.proposal_count_display }}</span>
           <span class="split-metric-label">議案</span>
         </div>
@@ -55,15 +55,15 @@
       <div class="split-hero-status status-expanding">拡充中</div>
       <h2 class="split-hero-headline">地方議会</h2>
       <div class="split-metrics">
-        <div class="split-metric bq-queryable" data-bq-query="SELECT COUNT(DISTINCT conv.id) AS local_conversation_count&#10;FROM `sagebase_source.conversations` conv&#10;JOIN `sagebase_source.minutes` mi ON conv.minutes_id = mi.id&#10;JOIN `sagebase_source.meetings` m ON mi.meeting_id = m.id&#10;JOIN `sagebase_source.conferences` c ON m.conference_id = c.id&#10;JOIN `sagebase_source.governing_bodies` gb ON c.governing_body_id = gb.id&#10;WHERE gb.organization_type != '国'">
+        <div class="split-metric bq-queryable" data-bq-query="SELECT COUNT(DISTINCT conv.id) AS local_conversation_count&#10;FROM `sagebase.conversations` conv&#10;JOIN `sagebase.minutes` mi ON conv.minutes_id = mi.id&#10;JOIN `sagebase.meetings` m ON mi.meeting_id = m.id&#10;JOIN `sagebase.conferences` c ON m.conference_id = c.id&#10;JOIN `sagebase.governing_bodies` gb ON c.governing_body_id = gb.id&#10;WHERE gb.organization_type != '国'">
           <span class="split-metric-number">{{ $d.hero.local.conversation_count_display }}</span>
           <span class="split-metric-label">発言数</span>
         </div>
-        <div class="split-metric bq-queryable" data-bq-query="SELECT COUNT(DISTINCT m.id) AS local_meeting_count&#10;FROM `sagebase_source.meetings` m&#10;JOIN `sagebase_source.conferences` c ON m.conference_id = c.id&#10;JOIN `sagebase_source.governing_bodies` gb ON c.governing_body_id = gb.id&#10;WHERE gb.organization_type != '国'">
+        <div class="split-metric bq-queryable" data-bq-query="SELECT COUNT(DISTINCT m.id) AS local_meeting_count&#10;FROM `sagebase.meetings` m&#10;JOIN `sagebase.conferences` c ON m.conference_id = c.id&#10;JOIN `sagebase.governing_bodies` gb ON c.governing_body_id = gb.id&#10;WHERE gb.organization_type != '国'">
           <span class="split-metric-number">{{ $d.hero.local.meeting_count_display }}</span>
           <span class="split-metric-label">会議数</span>
         </div>
-        <div class="split-metric bq-queryable" data-bq-query="SELECT COUNT(DISTINCT cm.politician_id) AS local_politician_count&#10;FROM `sagebase_source.conference_members` cm&#10;JOIN `sagebase_source.conferences` c ON cm.conference_id = c.id&#10;JOIN `sagebase_source.governing_bodies` gb ON c.governing_body_id = gb.id&#10;WHERE gb.organization_type != '国'">
+        <div class="split-metric bq-queryable" data-bq-query="SELECT COUNT(DISTINCT cm.politician_id) AS local_politician_count&#10;FROM `sagebase.conference_members` cm&#10;JOIN `sagebase.conferences` c ON cm.conference_id = c.id&#10;JOIN `sagebase.governing_bodies` gb ON c.governing_body_id = gb.id&#10;WHERE gb.organization_type != '国'">
           <span class="split-metric-number">{{ $d.hero.local.politician_count_display }}<span class="split-metric-unit">人+</span></span>
           <span class="split-metric-label">地方議員</span>
         </div>
@@ -168,19 +168,19 @@
     </div>
 
     <div class="bottom-stats animate-on-scroll">
-      <div class="bottom-stat bq-queryable" data-bq-query="SELECT COUNT(DISTINCT id) AS total_conversation_count&#10;FROM `sagebase_source.conversations`">
+      <div class="bottom-stat bq-queryable" data-bq-query="SELECT COUNT(DISTINCT id) AS total_conversation_count&#10;FROM `sagebase.conversations`">
         <span class="bottom-stat-number">{{ $d.totals.conversation_count_display }}</span>
         <span class="bottom-stat-label">総発言数（国会 + 地方）</span>
       </div>
-      <div class="bottom-stat bq-queryable" data-bq-query="SELECT COUNT(DISTINCT id) AS total_meeting_count&#10;FROM `sagebase_source.meetings`">
+      <div class="bottom-stat bq-queryable" data-bq-query="SELECT COUNT(DISTINCT id) AS total_meeting_count&#10;FROM `sagebase.meetings`">
         <span class="bottom-stat-number">{{ $d.totals.meeting_count_display }}</span>
         <span class="bottom-stat-label">総会議数</span>
       </div>
-      <div class="bottom-stat bq-queryable" data-bq-query="SELECT COUNT(DISTINCT cm.politician_id) AS total_politician_count&#10;FROM `sagebase_source.conference_members` cm">
+      <div class="bottom-stat bq-queryable" data-bq-query="SELECT COUNT(DISTINCT cm.politician_id) AS total_politician_count&#10;FROM `sagebase.conference_members` cm">
         <span class="bottom-stat-number">{{ $d.totals.politician_count_display }}</span>
         <span class="bottom-stat-label">総政治家数</span>
       </div>
-      <div class="bottom-stat bq-queryable" data-bq-query="SELECT COUNT(*) AS party_count&#10;FROM `sagebase_source.political_parties`">
+      <div class="bottom-stat bq-queryable" data-bq-query="SELECT COUNT(*) AS party_count&#10;FROM `sagebase.political_parties`">
         <span class="bottom-stat-number">{{ $d.totals.party_count }}</span>
         <span class="bottom-stat-label">登録政党数</span>
       </div>
@@ -279,7 +279,7 @@
     </div>
 
     <div class="quality-cards animate-on-scroll">
-      <div class="quality-card bq-queryable" data-bq-query="SELECT&#10;  COUNT(*) AS total_speakers,&#10;  COUNTIF(politician_id IS NOT NULL) AS matched_speakers,&#10;  ROUND(COUNTIF(politician_id IS NOT NULL) / COUNT(*) * 100, 1)&#10;    AS linkage_rate_pct&#10;FROM `sagebase_source.speakers`">
+      <div class="quality-card bq-queryable" data-bq-query="SELECT&#10;  COUNT(*) AS total_speakers,&#10;  COUNTIF(politician_id IS NOT NULL) AS matched_speakers,&#10;  ROUND(COUNTIF(politician_id IS NOT NULL) / COUNT(*) * 100, 1)&#10;    AS linkage_rate_pct&#10;FROM `sagebase.speakers`">
         <div class="quality-card-header">
           <span class="quality-card-title">発言者 → 政治家 紐付け率</span>
           <span class="quality-card-value">{{ $d.quality.speaker_linkage.rate }}%</span>
@@ -308,7 +308,7 @@
         </ul>
       </div>
 
-      <div class="quality-card bq-queryable" data-bq-query="SELECT&#10;  COUNT(DISTINCT pg.id) AS total_groups,&#10;  COUNT(DISTINCT pgp.parliamentary_group_id) AS mapped_groups,&#10;  ROUND(COUNT(DISTINCT pgp.parliamentary_group_id)&#10;    / COUNT(DISTINCT pg.id) * 100, 1) AS mapping_rate_pct&#10;FROM `sagebase_source.parliamentary_groups` pg&#10;LEFT JOIN `sagebase_source.parliamentary_group_parties` pgp&#10;  ON pg.id = pgp.parliamentary_group_id">
+      <div class="quality-card bq-queryable" data-bq-query="SELECT&#10;  COUNT(DISTINCT pg.id) AS total_groups,&#10;  COUNT(DISTINCT pgp.parliamentary_group_id) AS mapped_groups,&#10;  ROUND(COUNT(DISTINCT pgp.parliamentary_group_id)&#10;    / COUNT(DISTINCT pg.id) * 100, 1) AS mapping_rate_pct&#10;FROM `sagebase.parliamentary_groups` pg&#10;LEFT JOIN `sagebase.parliamentary_group_parties` pgp&#10;  ON pg.id = pgp.parliamentary_group_id">
         <div class="quality-card-header">
           <span class="quality-card-title">会派マッピング率</span>
           <span class="quality-card-value">{{ $d.quality.parliamentary_group_mapping.rate }}%</span>
