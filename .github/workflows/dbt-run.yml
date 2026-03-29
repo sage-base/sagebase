@@ -1,9 +1,6 @@
 name: dbt Run - Vault & Main Layer更新
 
 on:
-  push:
-    branches:
-      - worktree-goal0018-pbi5
   # export-to-bq完了後に手動トリガー、または定期実行
   workflow_dispatch:
     inputs:
