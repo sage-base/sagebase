@@ -17,6 +17,11 @@
 
 {% test schema_matches_source(model, source_table) %}
 
+{# graph.sourcesはexecuteフェーズでのみ確実に利用可能。
+   dbt Fusion 2.0ではdbt run時にもテストSQLをコンパイルするため、
+   executeガードでコンパイルフェーズをスキップする。 #}
+{% if execute %}
+
 {# sources.ymlからソーステーブルのカラム定義を取得 #}
 {% set source_node_id = 'source.sagebase_dbt.sagebase_source.' ~ source_table %}
 {% set src_node = graph.sources.get(source_node_id) %}
@@ -54,7 +59,7 @@ model_column_check AS (
     {# Main VIEWからsourceの全カラムをSELECT — 欠落カラムがあればSQLエラーになる #}
     SELECT
         {% for col_name in expected_columns %}
-        {{ col_name }}{% if not loop.last %},{% endif %}
+        `{{ col_name }}`{% if not loop.last %},{% endif %}
         {% endfor %}
     FROM {{ model }}
     WHERE FALSE
@@ -65,7 +70,7 @@ model_actual_columns AS (
     SELECT
         column_name,
         ordinal_position
-    FROM {{ model.database }}.{{ model.schema }}.INFORMATION_SCHEMA.COLUMNS
+    FROM `{{ model.database }}`.`{{ model.schema }}`.INFORMATION_SCHEMA.COLUMNS
     WHERE table_name = '{{ model.identifier }}'
 ),
 
@@ -99,5 +104,13 @@ extra_columns_in_model AS (
 SELECT * FROM column_order_diff
 UNION ALL
 SELECT * FROM extra_columns_in_model
+
+{% else %}
+
+{# コンパイルフェーズ（dbt run等）ではダミークエリを返す #}
+SELECT CAST(NULL AS STRING) AS column_name, 0 AS expected_position, 0 AS actual_position, '' AS error_type
+WHERE FALSE
+
+{% endif %}
 
 {% endtest %}
