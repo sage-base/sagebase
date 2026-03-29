@@ -1,6 +1,6 @@
 """BQカバレッジ集計リポジトリ実装.
 
-sagebase_gold データセットから、カバレッジページに必要な全指標を集計する。
+sagebase（Main Layer）データセットから、カバレッジページに必要な全指標を集計する。
 国会と地方議会を分離し、都道府県別の内訳も提供する。
 """
 
@@ -50,7 +50,7 @@ class BQDataCoverageRepositoryImpl(IBQDataCoverageRepository):
     def __init__(
         self,
         project_id: str,
-        dataset_id: str = "sagebase_gold",
+        dataset_id: str = "sagebase",
     ) -> None:
         if not HAS_BIGQUERY:
             raise StorageError(
