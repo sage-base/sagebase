@@ -17,6 +17,11 @@ on:
         required: false
         default: false
         type: boolean
+  push:
+    branches: [main]
+    paths:
+      - "dbt/**"
+      - ".github/workflows/dbt-run.yml"
 
 permissions:
   contents: read
