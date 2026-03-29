@@ -5,8 +5,7 @@
     schema.ymlで以下のように指定:
       tests:
         - schema_matches_source:
-            arguments:
-              source_table: politicians
+            source_table: politicians
 
   検証内容:
     1. sourceテーブルの全カラムがMain VIEWに存在すること（欠落カラムがあればSQLエラー）

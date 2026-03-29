@@ -5,117 +5,100 @@ models:
     description: "政治家メインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: politicians
+          source_table: politicians
 
   - name: political_parties
     description: "政党メインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: political_parties
+          source_table: political_parties
 
   - name: elections
     description: "選挙メインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: elections
+          source_table: elections
 
   - name: election_members
     description: "選挙結果メンバーメインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: election_members
+          source_table: election_members
 
   - name: governing_bodies
     description: "開催主体メインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: governing_bodies
+          source_table: governing_bodies
 
   - name: conferences
     description: "会議体メインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: conferences
+          source_table: conferences
 
   - name: conference_members
     description: "会議体メンバーメインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: conference_members
+          source_table: conference_members
 
   - name: parliamentary_groups
     description: "議員団（会派）メインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: parliamentary_groups
+          source_table: parliamentary_groups
 
   - name: parliamentary_group_memberships
     description: "議員団所属履歴メインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: parliamentary_group_memberships
+          source_table: parliamentary_group_memberships
 
   - name: meetings
     description: "会議メインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: meetings
+          source_table: meetings
 
   - name: minutes
     description: "議事録メインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: minutes
+          source_table: minutes
 
   - name: conversations
     description: "発言メインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: conversations
+          source_table: conversations
 
   - name: speakers
     description: "発言者メインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: speakers
+          source_table: speakers
 
   - name: government_officials
     description: "政府関係者マスタメインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: government_officials
+          source_table: government_officials
 
   - name: proposals
     description: "議案メインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: proposals
+          source_table: proposals
 
   - name: proposal_submitters
     description: "議案提出者メインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: proposal_submitters
+          source_table: proposal_submitters
 
   - name: proposal_judges
     description: "議案賛否（個人）メインビュー"
     tests:
       - schema_matches_source:
-          arguments:
-            source_table: proposal_judges
+          source_table: proposal_judges
